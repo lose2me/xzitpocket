@@ -21,13 +21,14 @@ class CourseAdapter extends TypeAdapter<Course> {
       campus: fields[5] as String,
       place: fields[6] as String,
       colorIndex: fields[7] as int,
+      courseId: (fields[8] as String?) ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, Course obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
@@ -43,7 +44,9 @@ class CourseAdapter extends TypeAdapter<Course> {
       ..writeByte(6)
       ..write(obj.place)
       ..writeByte(7)
-      ..write(obj.colorIndex);
+      ..write(obj.colorIndex)
+      ..writeByte(8)
+      ..write(obj.courseId);
   }
 
   @override

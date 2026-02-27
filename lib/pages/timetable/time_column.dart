@@ -40,6 +40,13 @@ class TimeColumn extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
                   ),
                 ),
+                Text(
+                  slot.end,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 8,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
+                  ),
+                ),
               ],
             ),
           );

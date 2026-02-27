@@ -9,6 +9,7 @@ class Course {
   final String campus;
   final String place;
   final int colorIndex;
+  final String courseId;
 
   Course({
     required this.title,
@@ -19,6 +20,7 @@ class Course {
     required this.campus,
     required this.place,
     required this.colorIndex,
+    this.courseId = '',
   });
 
   int get startSession => sessions.isEmpty ? 1 : sessions.reduce((a, b) => a < b ? a : b);
@@ -36,6 +38,7 @@ class Course {
     String? campus,
     String? place,
     int? colorIndex,
+    String? courseId,
   }) {
     return Course(
       title: title ?? this.title,
@@ -46,6 +49,7 @@ class Course {
       campus: campus ?? this.campus,
       place: place ?? this.place,
       colorIndex: colorIndex ?? this.colorIndex,
+      courseId: courseId ?? this.courseId,
     );
   }
 
@@ -76,5 +80,10 @@ class Course {
     Color(0xFFF6EAD9),
   ];
 
-  Color get color => colors[colorIndex % colors.length];
+  Color get color {
+    if (colorIndex >= 0 && colorIndex < colors.length) {
+      return colors[colorIndex];
+    }
+    return Color(colorIndex);
+  }
 }

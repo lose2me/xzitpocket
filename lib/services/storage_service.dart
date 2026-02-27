@@ -40,6 +40,31 @@ class StorageService {
     await _courseBox.deleteAt(index);
   }
 
+  Future<void> updateCoursesByCourseId(
+    String courseId, {
+    required int excludeIndex,
+    String? title,
+    String? teacher,
+    String? place,
+    List<int>? weeks,
+  }) async {
+    for (int i = 0; i < _courseBox.length; i++) {
+      if (i == excludeIndex) continue;
+      final c = _courseBox.getAt(i);
+      if (c != null && c.courseId == courseId) {
+        await _courseBox.putAt(
+          i,
+          c.copyWith(
+            title: title,
+            teacher: teacher,
+            place: place,
+            weeks: weeks,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> clearCourses() async {
     await _courseBox.clear();
   }

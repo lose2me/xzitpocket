@@ -40,8 +40,10 @@ class AuthService {
     return dio;
   }
 
-  /// 登录并获取课表，HTTP/HTTPS 自动回退。
-  /// 业务异常（密码错误、验证码）直接抛出不重试。
+  /// 登录并获取课表。
+  /// - 依次尝试每个 baseUrl：登录 + 获取课表。
+  /// - 业务异常（密码错误、验证码）直接抛出不重试。
+  /// - 登录或获取课表失败则切换到下一个 baseUrl 重新登录。
   Future<LoginResult> loginAndFetch(String studentId, String password) async {
     Object? lastError;
 
@@ -50,20 +52,28 @@ class AuthService {
       final dio = _createDio(baseUrl, jar);
 
       try {
-        return await _tryLoginAndFetch(dio, baseUrl, studentId, password);
+        await _login(dio, baseUrl, studentId, password);
       } on AuthException {
         rethrow;
+      } catch (e) {
+        lastError = e;
+        continue;
+      }
+
+      try {
+        return await _fetchSchedule(dio);
       } catch (e) {
         lastError = e;
       }
     }
 
-    throw AuthException('连接失败，请检查网络: $lastError');
+    throw AuthException('登录或获取课表失败: $lastError');
   }
 
-  Future<LoginResult> _tryLoginAndFetch(
+  // ── 登录 ──
+
+  Future<void> _login(
       Dio dio, String baseUrl, String studentId, String password) async {
-    // ── 登录 ──
     const loginPath = '/xtgl/login_slogin.html';
     const keyPath = '/xtgl/login_getPublicKey.html';
 
@@ -112,8 +122,11 @@ class AuthService {
     if (tips.isNotEmpty) {
       throw AuthException(tips);
     }
+  }
 
-    // ── 获取课表 ──
+  // ── 获取课表 ──
+
+  Future<LoginResult> _fetchSchedule(Dio dio) async {
     final (year, term) = getCurrentSchoolTerm();
     final xqm = term * term * 3;
 
@@ -155,6 +168,7 @@ class AuthService {
         campus: (c['xqmc'] ?? '') as String,
         place: (c['cdmc'] ?? '') as String,
         colorIndex: colorMap[title]!,
+        courseId: (c['kch_id'] ?? '') as String,
       ));
     }
 

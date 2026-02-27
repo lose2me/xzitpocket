@@ -7,16 +7,18 @@ import '../services/storage_service.dart';
 final semesterStartDate = DateTime(2026, 3, 2);
 
 /// 学期总周数
-const semesterTotalWeeks = 25;
+const semesterTotalWeeks = 16;
 
 /// 教务系统地址（按优先级排列）
 const baseUrls = [
-  'https://jwglxt.xzit.edu.cn/jwglxt',
   'http://jwglxt.xzit.edu.cn/jwglxt',
+  'https://jwglxt.xzit.edu.cn/jwglxt',
 ];
 
 /// 请求超时时间
-const requestTimeout = Duration(seconds: 5);
+const requestTimeout = Duration(seconds: 6);
+
+const maxRetries = 2;
 
 final storageServiceProvider = Provider<StorageService>((ref) {
   throw UnimplementedError('Must be overridden in main');

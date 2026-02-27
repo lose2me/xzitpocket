@@ -18,7 +18,10 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
+    return MediaQuery.withClampedTextScaling(
+      minScaleFactor: 1.0,
+      maxScaleFactor: 1.0,
+      child: MaterialApp.router(
       title: '掌上徐工',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -33,6 +36,7 @@ class App extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       routerConfig: _router,
+      ),
     );
   }
 }

@@ -43,16 +43,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on AuthException catch (e) {
       state = AuthState(status: AuthStatus.error, errorMessage: e.message);
       return null;
-    } on DioException catch (e) {
-      String msg;
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout) {
-        msg = '连接超时，请检查网络';
-      } else {
-        msg = '网络错误: ${e.message}';
-      }
-      state = AuthState(status: AuthStatus.error, errorMessage: msg);
-      return null;
     } catch (e) {
       state = AuthState(status: AuthStatus.error, errorMessage: '登录失败: $e');
       return null;

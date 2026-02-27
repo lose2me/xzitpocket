@@ -53,6 +53,25 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     state = AsyncValue.data(_storage.getCourses());
   }
 
+  void syncCourseFields(
+    String courseId,
+    int excludeIndex, {
+    String? title,
+    String? teacher,
+    String? place,
+    List<int>? weeks,
+  }) {
+    _storage.updateCoursesByCourseId(
+      courseId,
+      excludeIndex: excludeIndex,
+      title: title,
+      teacher: teacher,
+      place: place,
+      weeks: weeks,
+    );
+    state = AsyncValue.data(_storage.getCourses());
+  }
+
   void clearAll() {
     _storage.clearCourses();
     state = const AsyncValue.data([]);

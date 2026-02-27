@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/course.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../utils/week_calculator.dart';
@@ -17,7 +18,7 @@ class TimetablePage extends ConsumerStatefulWidget {
 
 class _TimetablePageState extends ConsumerState<TimetablePage> {
   late final PageController _pageController;
-  bool _isPageAnimating = false;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -37,16 +38,45 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     super.dispose();
   }
 
-  void _onWeekChanged(int week) {
-    ref.read(selectedWeekProvider.notifier).state = week;
-    final target = week - 1;
-    if (_pageController.hasClients && _pageController.page?.round() != target) {
-      _isPageAnimating = true;
-      _pageController
-          .animateToPage(target,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut)
-          .then((_) => _isPageAnimating = false);
+  Future<void> _onSync() async {
+    if (_isSyncing) return;
+    setState(() => _isSyncing = true);
+
+    try {
+      final storage = ref.read(storageServiceProvider);
+      final sid = storage.getStudentId();
+      final pwd = storage.getSavedPassword();
+      if (sid == null || pwd == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('请先在"我的"页面登录')),
+          );
+        }
+        return;
+      }
+
+      final result = await ref.read(authProvider.notifier).login(sid, pwd);
+      if (result != null) {
+        await ref.read(scheduleProvider.notifier).updateFromLoginResult(
+              courses: result.courses,
+              studentId: result.studentId ?? sid,
+              studentName: result.studentName ?? '',
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('同步成功')),
+          );
+        }
+      } else {
+        final authState = ref.read(authProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(authState.errorMessage ?? '同步失败')),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
     }
   }
 
@@ -54,6 +84,10 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(scheduleProvider);
     final selectedWeek = ref.watch(selectedWeekProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final courseBorderColor = isDark ? Colors.white : Colors.black;
+    final courseOpacity = isDark ? 0.95 : 0.85;
+    final courseBorderOpacity = isDark ? 1.0 : 0.85;
 
     return Scaffold(
       body: SafeArea(
@@ -63,7 +97,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
             semesterStart: semesterStartDate,
             selectedWeek: selectedWeek,
             totalWeeks: semesterTotalWeeks,
-            onWeekChanged: _onWeekChanged,
+            onSync: _isSyncing ? null : _onSync,
           ),
           Expanded(
             child: coursesAsync.when(
@@ -87,17 +121,21 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                 }
                 return PageView.builder(
                   controller: _pageController,
+                  physics: const _LessSensitivePagePhysics(),
                   itemCount: semesterTotalWeeks,
                   onPageChanged: (page) {
-                    if (!_isPageAnimating) {
-                      ref.read(selectedWeekProvider.notifier).state = page + 1;
-                    }
+                    ref.read(selectedWeekProvider.notifier).state = page + 1;
                   },
                   itemBuilder: (context, index) {
                     final week = index + 1;
                     return TimetableGrid(
                       courses: courses,
                       week: week,
+                      semesterStart: semesterStartDate,
+                      borderColor: courseBorderColor,
+                      borderWidth: 0.5,
+                      courseOpacity: courseOpacity,
+                      courseBorderOpacity: courseBorderOpacity,
                       onCourseTap: (course, idx) =>
                           _showCourseDetail(context, course, idx),
                       onEmptyTap: (weekday, session) =>
@@ -160,12 +198,13 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                 ),
                 const SizedBox(height: 16),
                 _detailRow(Icons.person_outline, '教师', course.teacher),
-                _detailRow(Icons.location_on_outlined, '教室', course.place),
+                _detailRow(Icons.location_on_outlined, '地点', course.place),
                 _detailRow(Icons.domain_outlined, '校区', course.campus),
                 _detailRow(Icons.access_time, '节次',
                     '第${course.startSession}-${course.endSession}节'),
                 _detailRow(Icons.date_range, '周次',
                     _formatWeeks(course.weeks)),
+                _detailRow(Icons.tag, '编号', course.courseId),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -257,10 +296,24 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   void _onEmptySlotTap(BuildContext context, int weekday, int session) {
+    final courses = ref.read(scheduleProvider).valueOrNull ?? [];
+    final usedIndices = <int>{};
+    for (final c in courses) {
+      if (c.colorIndex >= 0 && c.colorIndex < Course.colors.length) {
+        usedIndices.add(c.colorIndex);
+      }
+    }
+    int nextIndex = 0;
+    while (nextIndex < Course.colors.length && usedIndices.contains(nextIndex)) {
+      nextIndex++;
+    }
+    final defaultColor = Course.colors[nextIndex % Course.colors.length];
+
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => _CourseFormPage(
         weekday: weekday,
         session: session,
+        defaultColor: defaultColor,
         onSave: (course) {
           ref.read(scheduleProvider.notifier).addCourse(course);
         },
@@ -276,22 +329,36 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         existingCourse: course,
         onSave: (updated) {
           ref.read(scheduleProvider.notifier).updateCourse(index, updated);
+          if (updated.courseId.isNotEmpty) {
+            ref.read(scheduleProvider.notifier).syncCourseFields(
+                  updated.courseId,
+                  index,
+                  title: updated.title,
+                  teacher: updated.teacher,
+                  place: updated.place,
+                  weeks: updated.weeks,
+                );
+          }
         },
       ),
     ));
   }
 }
 
+// ── Course Form Page (unchanged) ──
+
 class _CourseFormPage extends StatefulWidget {
   final int weekday;
   final int session;
   final Course? existingCourse;
+  final Color? defaultColor;
   final ValueChanged<Course> onSave;
 
   const _CourseFormPage({
     required this.weekday,
     required this.session,
     this.existingCourse,
+    this.defaultColor,
     required this.onSave,
   });
 
@@ -307,10 +374,11 @@ class _CourseFormPageState extends State<_CourseFormPage> {
   final _teacherCtrl = TextEditingController();
   final _placeCtrl = TextEditingController();
   final _weeksCtrl = TextEditingController(text: '1-16');
+  final _colorCtrl = TextEditingController();
   late int _weekday;
   late int _startSession;
   late int _endSession;
-  int _colorIndex = 0;
+  Color _currentColor = Course.colors[0];
 
   static const _weekdayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
@@ -326,11 +394,19 @@ class _CourseFormPageState extends State<_CourseFormPage> {
       _weeksCtrl.text = _formatWeeksForEdit(c.weeks);
       _startSession = c.startSession;
       _endSession = c.endSession;
-      _colorIndex = c.colorIndex;
+      _currentColor = c.color;
     } else {
       _startSession = widget.session;
       _endSession = (widget.session + 1).clamp(1, 14);
+      if (widget.defaultColor != null) {
+        _currentColor = widget.defaultColor!;
+      }
     }
+    _colorCtrl.text = _colorToHex(_currentColor);
+  }
+
+  String _colorToHex(Color color) {
+    return color.toARGB32().toRadixString(16).substring(2).toUpperCase();
   }
 
   String _formatWeeksForEdit(List<int> weeks) {
@@ -358,6 +434,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
     _teacherCtrl.dispose();
     _placeCtrl.dispose();
     _weeksCtrl.dispose();
+    _colorCtrl.dispose();
     super.dispose();
   }
 
@@ -378,6 +455,17 @@ class _CourseFormPageState extends State<_CourseFormPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (widget.existingCourse?.courseId.isNotEmpty == true)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '编号: ${widget.existingCourse!.courseId}',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             TextFormField(
               controller: _titleCtrl,
               decoration: const InputDecoration(
@@ -398,7 +486,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
             TextFormField(
               controller: _placeCtrl,
               decoration: const InputDecoration(
-                labelText: '教室',
+                labelText: '地点',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -411,78 +499,122 @@ class _CourseFormPageState extends State<_CourseFormPage> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<int>(
-              initialValue: _weekday,
-              decoration: const InputDecoration(
-                labelText: '星期',
-                border: OutlineInputBorder(),
-              ),
-              items: List.generate(
+            DropdownMenu<int>(
+              initialSelection: _weekday,
+              expandedInsets: EdgeInsets.zero,
+              label: const Text('星期'),
+              dropdownMenuEntries: List.generate(
                   7,
-                  (i) => DropdownMenuItem(
-                      value: i + 1, child: Text(_weekdayLabels[i]))),
-              onChanged: (v) => setState(() => _weekday = v ?? 1),
+                  (i) => DropdownMenuEntry(
+                      value: i + 1, label: _weekdayLabels[i])),
+              onSelected: (v) => setState(() => _weekday = v ?? 1),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _startSession,
-                    decoration: const InputDecoration(
-                      labelText: '开始节次',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: List.generate(
+                  child: DropdownMenu<int>(
+                    initialSelection: _startSession,
+                    expandedInsets: EdgeInsets.zero,
+                    label: const Text('开始节次'),
+                    dropdownMenuEntries: List.generate(
                         14,
-                        (i) => DropdownMenuItem(
-                            value: i + 1, child: Text('第${i + 1}节'))),
-                    onChanged: (v) => setState(() => _startSession = v ?? 1),
+                        (i) => DropdownMenuEntry(
+                            value: i + 1, label: '第${i + 1}节')),
+                    onSelected: (v) => setState(() => _startSession = v ?? 1),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    initialValue: _endSession,
-                    decoration: const InputDecoration(
-                      labelText: '结束节次',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: List.generate(
+                  child: DropdownMenu<int>(
+                    initialSelection: _endSession,
+                    expandedInsets: EdgeInsets.zero,
+                    label: const Text('结束节次'),
+                    dropdownMenuEntries: List.generate(
                         14,
-                        (i) => DropdownMenuItem(
-                            value: i + 1, child: Text('第${i + 1}节'))),
-                    onChanged: (v) => setState(() => _endSession = v ?? 1),
+                        (i) => DropdownMenuEntry(
+                            value: i + 1, label: '第${i + 1}节')),
+                    onSelected: (v) => setState(() => _endSession = v ?? 1),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            const Text('颜色'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: List.generate(Course.colors.length, (i) {
-                return GestureDetector(
-                  onTap: () => setState(() => _colorIndex = i),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _colorCtrl,
+                    decoration: const InputDecoration(
+                      labelText: '颜色 (HEX)',
+                      hintText: 'FF8800',
+                      prefixText: '#',
+                      border: OutlineInputBorder(),
+                    ),
+                    textCapitalization: TextCapitalization.characters,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return '请输入颜色值';
+                      final hex = v.replaceAll('#', '').trim();
+                      if (!RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(hex)) {
+                        return '请输入6位HEX颜色值';
+                      }
+                      return null;
+                    },
+                    onChanged: (v) {
+                      final hex = v.replaceAll('#', '').trim();
+                      if (RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(hex)) {
+                        setState(() {
+                          _currentColor = Color(int.parse('FF$hex', radix: 16));
+                        });
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: _openColorPicker,
                   child: Container(
-                    width: 32,
-                    height: 32,
+                    width: 48,
+                    height: 48,
                     decoration: BoxDecoration(
-                      color: Course.colors[i],
+                      color: _currentColor,
                       borderRadius: BorderRadius.circular(8),
-                      border: _colorIndex == i
-                          ? Border.all(color: Colors.black, width: 2)
-                          : null,
+                      border: Border.all(color: Colors.grey),
                     ),
                   ),
-                );
-              }),
+                ),
+              ],
             ),
           ],
         ),
       ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+          ),
+        ),
+      ),
     );
+  }
+
+  void _openColorPicker() async {
+    final picked = await showModalBottomSheet<Color>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _ColorPickerSheet(initialColor: _currentColor),
+    );
+    if (picked != null) {
+      setState(() {
+        _currentColor = picked;
+        _colorCtrl.text = _colorToHex(picked);
+      });
+    }
   }
 
   void _save() {
@@ -500,7 +632,8 @@ class _CourseFormPageState extends State<_CourseFormPage> {
       weeks: weeks,
       campus: existing?.campus ?? '',
       place: _placeCtrl.text,
-      colorIndex: _colorIndex,
+      colorIndex: _currentColor.toARGB32(),
+      courseId: existing?.courseId ?? '',
     ));
     Navigator.pop(context);
   }
@@ -521,4 +654,111 @@ class _CourseFormPageState extends State<_CourseFormPage> {
     }
     return result;
   }
+}
+
+class _ColorPickerSheet extends StatefulWidget {
+  final Color initialColor;
+  const _ColorPickerSheet({required this.initialColor});
+
+  @override
+  State<_ColorPickerSheet> createState() => _ColorPickerSheetState();
+}
+
+class _ColorPickerSheetState extends State<_ColorPickerSheet> {
+  late HSVColor _hsv;
+
+  @override
+  void initState() {
+    super.initState();
+    _hsv = HSVColor.fromColor(widget.initialColor);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _hsv.toColor();
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade400),
+              ),
+            ),
+            const SizedBox(height: 20),
+            _buildSlider(
+              label: '色相',
+              value: _hsv.hue,
+              max: 360,
+              activeColor: color,
+              onChanged: (v) => setState(() => _hsv = _hsv.withHue(v)),
+            ),
+            _buildSlider(
+              label: '饱和度',
+              value: _hsv.saturation,
+              max: 1,
+              activeColor: color,
+              onChanged: (v) => setState(() => _hsv = _hsv.withSaturation(v)),
+            ),
+            _buildSlider(
+              label: '亮度',
+              value: _hsv.value,
+              max: 1,
+              activeColor: color,
+              onChanged: (v) => setState(() => _hsv = _hsv.withValue(v)),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () => Navigator.pop(context, color),
+                child: const Text('确定'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSlider({
+    required String label,
+    required double value,
+    required double max,
+    required Color activeColor,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Row(
+      children: [
+        SizedBox(width: 48, child: Text(label)),
+        Expanded(
+          child: Slider(
+            value: value,
+            min: 0,
+            max: max,
+            activeColor: activeColor,
+            onChanged: onChanged,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LessSensitivePagePhysics extends PageScrollPhysics {
+  const _LessSensitivePagePhysics({super.parent});
+
+  @override
+  _LessSensitivePagePhysics applyTo(ScrollPhysics? ancestor) {
+    return _LessSensitivePagePhysics(parent: buildParent(ancestor));
+  }
+
+  @override
+  double get dragStartDistanceMotionThreshold => 24.0;
 }
