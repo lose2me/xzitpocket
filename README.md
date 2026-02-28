@@ -7,8 +7,6 @@
 </div>
 
 [掌上徐工](https://github.com/lose2me/xzitpocket) 是跨平台，高性能，以 Material 3 风格为主的便捷校园助手（非官方）。  
-<img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="210px">
-
 
 ## 项目规划
 当前 ``1.x.x`` 版本
@@ -44,3 +42,6 @@ Android
 ```
 flutter build apk --split-per-abi --split-debug-info=./symbols --obfuscate
 ```
+
+## 软件截图
+<img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="210px">
