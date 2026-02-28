@@ -7,6 +7,8 @@
 </div>
 
 [掌上徐工](https://github.com/lose2me/xzitpocket) 是跨平台，高性能，以 Material 3 风格为主的便捷校园助手（非官方）。
+<img src="" width="210px">
+
 
 ## 项目规划
 当前 ``1.x.x`` 版本
