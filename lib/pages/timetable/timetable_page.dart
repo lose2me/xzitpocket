@@ -23,7 +23,9 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   @override
   void initState() {
     super.initState();
-    final initialWeek = currentWeek(semesterStartDate).clamp(1, semesterTotalWeeks);
+    final initialWeek = currentWeek(
+      semesterStartDate,
+    ).clamp(1, semesterTotalWeeks);
     _pageController = PageController(initialPage: initialWeek - 1);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0 && initialWeek <= semesterTotalWeeks) {
@@ -48,24 +50,26 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       final pwd = storage.getSavedPassword();
       if (sid == null || pwd == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('请先在"我的"页面登录')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('请先在"我的"页面登录')));
         }
         return;
       }
 
       final result = await ref.read(authProvider.notifier).login(sid, pwd);
       if (result != null) {
-        await ref.read(scheduleProvider.notifier).updateFromLoginResult(
+        await ref
+            .read(scheduleProvider.notifier)
+            .updateFromLoginResult(
               courses: result.courses,
               studentId: result.studentId ?? sid,
               studentName: result.studentName ?? '',
             );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('同步成功')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('同步成功')));
         }
       } else {
         final authState = ref.read(authProvider);
@@ -92,75 +96,84 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
     return Scaffold(
       body: SafeArea(
         child: Column(
-        children: [
-          WeekHeader(
-            semesterStart: semesterStartDate,
-            selectedWeek: selectedWeek,
-            totalWeeks: semesterTotalWeeks,
-            onSync: _isSyncing ? null : _onSync,
-          ),
-          Expanded(
-            child: coursesAsync.when(
-              data: (courses) {
-                if (courses.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.calendar_today_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text('暂无课程', style: TextStyle(color: Colors.grey)),
-                        SizedBox(height: 8),
-                        Text('请在"我的"页面登录后同步课表',
-                            style:
-                                TextStyle(color: Colors.grey, fontSize: 12)),
-                      ],
-                    ),
-                  );
-                }
-                return PageView.builder(
-                  controller: _pageController,
-                  physics: const _LessSensitivePagePhysics(),
-                  itemCount: semesterTotalWeeks,
-                  onPageChanged: (page) {
-                    ref.read(selectedWeekProvider.notifier).state = page + 1;
-                  },
-                  itemBuilder: (context, index) {
-                    final week = index + 1;
-                    return TimetableGrid(
-                      courses: courses,
-                      week: week,
-                      semesterStart: semesterStartDate,
-                      borderColor: courseBorderColor,
-                      borderWidth: 0.5,
-                      courseOpacity: courseOpacity,
-                      courseBorderOpacity: courseBorderOpacity,
-                      onCourseTap: (course, idx) =>
-                          _showCourseDetail(context, course, idx),
-                      onEmptyTap: (weekday, session) =>
-                          _onEmptySlotTap(context, weekday, session),
+          children: [
+            WeekHeader(
+              semesterStart: semesterStartDate,
+              selectedWeek: selectedWeek,
+              totalWeeks: semesterTotalWeeks,
+              onSync: _isSyncing ? null : _onSync,
+            ),
+            Expanded(
+              child: coursesAsync.when(
+                data: (courses) {
+                  if (courses.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.calendar_today_outlined,
+                            size: 64,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 16),
+                          Text('暂无课程', style: TextStyle(color: Colors.grey)),
+                          SizedBox(height: 8),
+                          Text(
+                            '请在"我的"页面登录后同步课表',
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
+                        ],
+                      ),
                     );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: Colors.red),
-                    const SizedBox(height: 8),
-                    Text('加载失败: $e',
-                        style: const TextStyle(color: Colors.red)),
-                  ],
+                  }
+                  return PageView.builder(
+                    controller: _pageController,
+                    physics: const _LessSensitivePagePhysics(),
+                    itemCount: semesterTotalWeeks,
+                    onPageChanged: (page) {
+                      ref.read(selectedWeekProvider.notifier).state = page + 1;
+                    },
+                    itemBuilder: (context, index) {
+                      final week = index + 1;
+                      return TimetableGrid(
+                        courses: courses,
+                        week: week,
+                        semesterStart: semesterStartDate,
+                        borderColor: courseBorderColor,
+                        borderWidth: 0.5,
+                        courseOpacity: courseOpacity,
+                        courseBorderOpacity: courseBorderOpacity,
+                        onCourseTap: (course, idx) =>
+                            _showCourseDetail(context, course, idx),
+                        onEmptyTap: (weekday, session) =>
+                            _onEmptySlotTap(context, weekday, session),
+                      );
+                    },
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '加载失败: $e',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -200,10 +213,12 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
                 _detailRow(Icons.person_outline, '教师', course.teacher),
                 _detailRow(Icons.location_on_outlined, '地点', course.place),
                 _detailRow(Icons.domain_outlined, '校区', course.campus),
-                _detailRow(Icons.access_time, '节次',
-                    '第${course.startSession}-${course.endSession}节'),
-                _detailRow(Icons.date_range, '周次',
-                    _formatWeeks(course.weeks)),
+                _detailRow(
+                  Icons.access_time,
+                  '节次',
+                  '第${course.startSession}-${course.endSession}节',
+                ),
+                _detailRow(Icons.date_range, '周次', _formatWeeks(course.weeks)),
                 _detailRow(Icons.tag, '编号', course.courseId),
                 const SizedBox(height: 16),
                 Row(
@@ -304,48 +319,55 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
       }
     }
     int nextIndex = 0;
-    while (nextIndex < Course.colors.length && usedIndices.contains(nextIndex)) {
+    while (nextIndex < Course.colors.length &&
+        usedIndices.contains(nextIndex)) {
       nextIndex++;
     }
     final defaultColor = Course.colors[nextIndex % Course.colors.length];
 
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _CourseFormPage(
-        weekday: weekday,
-        session: session,
-        defaultColor: defaultColor,
-        allCourses: courses,
-        onSave: (course) {
-          ref.read(scheduleProvider.notifier).addCourse(course);
-        },
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CourseFormPage(
+          weekday: weekday,
+          session: session,
+          defaultColor: defaultColor,
+          allCourses: courses,
+          onSave: (course) {
+            ref.read(scheduleProvider.notifier).addCourse(course);
+          },
+        ),
       ),
-    ));
+    );
   }
 
   void _editCourse(BuildContext context, Course course, int index) {
     final courses = ref.read(scheduleProvider).valueOrNull ?? [];
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _CourseFormPage(
-        weekday: course.weekday,
-        session: course.startSession,
-        existingCourse: course,
-        editIndex: index,
-        allCourses: courses,
-        onSave: (updated) {
-          ref.read(scheduleProvider.notifier).updateCourse(index, updated);
-          if (updated.courseId.isNotEmpty) {
-            ref.read(scheduleProvider.notifier).syncCourseFields(
-                  updated.courseId,
-                  index,
-                  title: updated.title,
-                  teacher: updated.teacher,
-                  place: updated.place,
-                  weeks: updated.weeks,
-                );
-          }
-        },
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CourseFormPage(
+          weekday: course.weekday,
+          session: course.startSession,
+          existingCourse: course,
+          editIndex: index,
+          allCourses: courses,
+          onSave: (updated) {
+            ref.read(scheduleProvider.notifier).updateCourse(index, updated);
+            if (updated.courseId.isNotEmpty) {
+              ref
+                  .read(scheduleProvider.notifier)
+                  .syncCourseFields(
+                    updated.courseId,
+                    index,
+                    title: updated.title,
+                    teacher: updated.teacher,
+                    place: updated.place,
+                    weeks: updated.weeks,
+                  );
+            }
+          },
+        ),
       ),
-    ));
+    );
   }
 }
 
@@ -381,6 +403,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
   final _titleCtrl = TextEditingController();
   final _teacherCtrl = TextEditingController();
   final _placeCtrl = TextEditingController();
+  final _campusCtrl = TextEditingController();
   final _weeksCtrl = TextEditingController(text: '1-16');
   final _colorCtrl = TextEditingController();
   final _weekdayCtrl = TextEditingController();
@@ -396,6 +419,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
       _titleCtrl.text = c.title;
       _teacherCtrl.text = c.teacher;
       _placeCtrl.text = c.place;
+      _campusCtrl.text = c.campus;
       _weeksCtrl.text = _formatWeeksForEdit(c.weeks);
       _weekdayCtrl.text = c.weekday.toString();
       _startCtrl.text = c.startSession.toString();
@@ -440,6 +464,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
     _titleCtrl.dispose();
     _teacherCtrl.dispose();
     _placeCtrl.dispose();
+    _campusCtrl.dispose();
     _weeksCtrl.dispose();
     _colorCtrl.dispose();
     _weekdayCtrl.dispose();
@@ -469,7 +494,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  '编号: ${widget.existingCourse!.courseId}',
+                  '同步编号: ${widget.existingCourse!.courseId}',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
@@ -497,6 +522,14 @@ class _CourseFormPageState extends State<_CourseFormPage> {
               controller: _placeCtrl,
               decoration: const InputDecoration(
                 labelText: '地点',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _campusCtrl,
+              decoration: const InputDecoration(
+                labelText: '校区',
                 border: OutlineInputBorder(),
               ),
             ),
@@ -612,10 +645,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: SizedBox(
             width: double.infinity,
-            child: FilledButton(
-              onPressed: _save,
-              child: const Text('保存'),
-            ),
+            child: FilledButton(onPressed: _save, child: const Text('保存')),
           ),
         ),
       ),
@@ -641,8 +671,10 @@ class _CourseFormPageState extends State<_CourseFormPage> {
     final weekday = int.parse(_weekdayCtrl.text);
     final startSession = int.parse(_startCtrl.text);
     final endSession = int.parse(_endCtrl.text);
-    final sessions =
-        List.generate(endSession - startSession + 1, (i) => startSession + i);
+    final sessions = List.generate(
+      endSession - startSession + 1,
+      (i) => startSession + i,
+    );
     final weeks = _parseWeeks(_weeksCtrl.text);
     final existing = widget.existingCourse;
 
@@ -653,28 +685,32 @@ class _CourseFormPageState extends State<_CourseFormPage> {
       if (i == widget.editIndex) continue;
       final other = widget.allCourses[i];
       if (other.weekday != weekday) continue;
-      final hasSessionOverlap = other.sessions.any((s) => sessionsSet.contains(s));
+      final hasSessionOverlap = other.sessions.any(
+        (s) => sessionsSet.contains(s),
+      );
       if (!hasSessionOverlap) continue;
       final hasWeekOverlap = other.weeks.any((w) => weeksSet.contains(w));
       if (hasWeekOverlap) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('与「${other.title}」时间冲突')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('与「${other.title}」时间冲突')));
         return;
       }
     }
 
-    widget.onSave(Course(
-      title: _titleCtrl.text,
-      teacher: _teacherCtrl.text,
-      weekday: weekday,
-      sessions: sessions,
-      weeks: weeks,
-      campus: existing?.campus ?? '',
-      place: _placeCtrl.text,
-      colorIndex: _currentColor.toARGB32(),
-      courseId: existing?.courseId ?? '',
-    ));
+    widget.onSave(
+      Course(
+        title: _titleCtrl.text,
+        teacher: _teacherCtrl.text,
+        weekday: weekday,
+        sessions: sessions,
+        weeks: weeks,
+        campus: _campusCtrl.text,
+        place: _placeCtrl.text,
+        colorIndex: _currentColor.toARGB32(),
+        courseId: existing?.courseId ?? '',
+      ),
+    );
     Navigator.pop(context);
   }
 

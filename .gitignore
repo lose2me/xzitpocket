@@ -121,4 +121,3 @@ app.*.symbols
 # Claude related
 .claude/
 CLAUDE.md
-.fmd/

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
@@ -28,15 +29,16 @@ class _MePageState extends ConsumerState<MePage> {
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(configProvider);
-    final isLoggedIn =
-        config.studentId != null && config.studentId!.isNotEmpty;
+    final isLoggedIn = config.studentId != null && config.studentId!.isNotEmpty;
 
     return Scaffold(
       appBar: isLoggedIn
           ? AppBar(title: const Text('掌上徐工'), centerTitle: true)
           : null,
       body: SafeArea(
-        child: isLoggedIn ? _buildLoggedIn(context, config) : _buildLoginForm(context),
+        child: isLoggedIn
+            ? _buildLoggedIn(context, config)
+            : _buildLoginForm(context),
       ),
     );
   }
@@ -55,10 +57,7 @@ class _MePageState extends ConsumerState<MePage> {
             children: [
               _buildOpenSourceInfo(Theme.of(context)),
               const SizedBox(height: 24),
-              Text(
-                '登录教务系统',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
+              Text('登录教务系统', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _sidCtrl,
@@ -70,8 +69,7 @@ class _MePageState extends ConsumerState<MePage> {
                   prefixIcon: Icon(Icons.person_outline),
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? '请输入学号' : null,
+                validator: (v) => v == null || v.isEmpty ? '请输入学号' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -87,34 +85,38 @@ class _MePageState extends ConsumerState<MePage> {
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscurePassword
-                        ? Icons.visibility_off_outlined
-                        : Icons.visibility_outlined),
-                    onPressed: () => setState(
-                        () => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
                   ),
                 ),
-                validator: (v) =>
-                    v == null || v.isEmpty ? '请输入密码' : null,
+                validator: (v) => v == null || v.isEmpty ? '请输入密码' : null,
               ),
               if (authState.status == AuthStatus.error) ...[
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 10),
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .errorContainer
-                        .withAlpha(120),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.errorContainer.withAlpha(120),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.error_outline,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.error),
+                      Icon(
+                        Icons.error_outline,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -164,12 +166,18 @@ class _MePageState extends ConsumerState<MePage> {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          'License: GPL-3.0',
-          style: TextStyle(
-            fontSize: 11,
-            color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
-          ),
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snapshot) {
+            final version = snapshot.data?.version ?? '';
+            return Text(
+              'Ver: $version License: GPL-3.0',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -190,8 +198,7 @@ class _MePageState extends ConsumerState<MePage> {
             child: OutlinedButton.icon(
               onPressed: () => _logout(context),
               icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text('退出登录',
-                  style: TextStyle(color: Colors.red)),
+              label: const Text('退出登录', style: TextStyle(color: Colors.red)),
             ),
           ),
         ),
@@ -212,16 +219,16 @@ class _MePageState extends ConsumerState<MePage> {
       await storage.setStudentId(sid);
       await storage.setSavedPassword(pwd);
 
-      await ref.read(scheduleProvider.notifier).updateFromLoginResult(
+      await ref
+          .read(scheduleProvider.notifier)
+          .updateFromLoginResult(
             courses: result.courses,
             studentId: result.studentId ?? sid,
             studentName: result.studentName ?? '',
           );
 
       if (mounted) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('登录成功，课表已同步')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('登录成功，课表已同步')));
       }
     }
   }
@@ -244,8 +251,7 @@ class _MePageState extends ConsumerState<MePage> {
               ref.read(authProvider.notifier).reset();
               Navigator.pop(ctx);
             },
-            child:
-                const Text('退出', style: TextStyle(color: Colors.red)),
+            child: const Text('退出', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
