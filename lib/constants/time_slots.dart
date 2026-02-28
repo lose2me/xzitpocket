@@ -4,8 +4,6 @@ class TimeSlot {
   final String end;
 
   const TimeSlot({required this.index, required this.start, required this.end});
-
-  String get label => '$start\n$end';
 }
 
 const List<TimeSlot> kTimeSlots = [

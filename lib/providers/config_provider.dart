@@ -18,8 +18,6 @@ const baseUrls = [
 /// 请求超时时间
 const requestTimeout = Duration(seconds: 6);
 
-const maxRetries = 2;
-
 final storageServiceProvider = Provider<StorageService>((ref) {
   throw UnimplementedError('Must be overridden in main');
 });

@@ -52,7 +52,7 @@ class CourseCard extends StatelessWidget {
               Text(
                 course.title,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: textColor,
                   height: 1.2,
@@ -63,7 +63,7 @@ class CourseCard extends StatelessWidget {
                 Text(
                   '@${course.place}',
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: textColor.withAlpha(200),
                     height: 1.2,
                   ),
@@ -72,7 +72,7 @@ class CourseCard extends StatelessWidget {
                 Text(
                   course.campus,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     color: textColor.withAlpha(200),
                     height: 1.2,
                   ),

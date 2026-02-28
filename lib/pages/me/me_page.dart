@@ -47,12 +47,14 @@ class _MePageState extends ConsumerState<MePage> {
 
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
         child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              _buildOpenSourceInfo(Theme.of(context)),
+              const SizedBox(height: 24),
               Text(
                 '登录教务系统',
                 style: Theme.of(context).textTheme.titleLarge,
@@ -149,9 +151,36 @@ class _MePageState extends ConsumerState<MePage> {
     );
   }
 
-  Widget _buildLoggedIn(BuildContext context, dynamic config) {
+  Widget _buildOpenSourceInfo(ThemeData theme) {
     return Column(
       children: [
+        Icon(Icons.code, size: 28, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(height: 4),
+        Text(
+          'github.com/lose2me/xzitpocket',
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'License: GPL-3.0',
+          style: TextStyle(
+            fontSize: 11,
+            color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoggedIn(BuildContext context, dynamic config) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        _buildOpenSourceInfo(theme),
         const Spacer(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),

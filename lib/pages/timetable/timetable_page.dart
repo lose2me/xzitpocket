@@ -314,6 +314,7 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
         weekday: weekday,
         session: session,
         defaultColor: defaultColor,
+        allCourses: courses,
         onSave: (course) {
           ref.read(scheduleProvider.notifier).addCourse(course);
         },
@@ -322,11 +323,14 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   }
 
   void _editCourse(BuildContext context, Course course, int index) {
+    final courses = ref.read(scheduleProvider).valueOrNull ?? [];
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => _CourseFormPage(
         weekday: course.weekday,
         session: course.startSession,
         existingCourse: course,
+        editIndex: index,
+        allCourses: courses,
         onSave: (updated) {
           ref.read(scheduleProvider.notifier).updateCourse(index, updated);
           if (updated.courseId.isNotEmpty) {
@@ -351,6 +355,8 @@ class _CourseFormPage extends StatefulWidget {
   final int weekday;
   final int session;
   final Course? existingCourse;
+  final int? editIndex;
+  final List<Course> allCourses;
   final Color? defaultColor;
   final ValueChanged<Course> onSave;
 
@@ -358,6 +364,8 @@ class _CourseFormPage extends StatefulWidget {
     required this.weekday,
     required this.session,
     this.existingCourse,
+    this.editIndex,
+    this.allCourses = const [],
     this.defaultColor,
     required this.onSave,
   });
@@ -375,29 +383,28 @@ class _CourseFormPageState extends State<_CourseFormPage> {
   final _placeCtrl = TextEditingController();
   final _weeksCtrl = TextEditingController(text: '1-16');
   final _colorCtrl = TextEditingController();
-  late int _weekday;
-  late int _startSession;
-  late int _endSession;
+  final _weekdayCtrl = TextEditingController();
+  final _startCtrl = TextEditingController();
+  final _endCtrl = TextEditingController();
   Color _currentColor = Course.colors[0];
-
-  static const _weekdayLabels = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 
   @override
   void initState() {
     super.initState();
-    _weekday = widget.weekday;
     final c = widget.existingCourse;
     if (c != null) {
       _titleCtrl.text = c.title;
       _teacherCtrl.text = c.teacher;
       _placeCtrl.text = c.place;
       _weeksCtrl.text = _formatWeeksForEdit(c.weeks);
-      _startSession = c.startSession;
-      _endSession = c.endSession;
+      _weekdayCtrl.text = c.weekday.toString();
+      _startCtrl.text = c.startSession.toString();
+      _endCtrl.text = c.endSession.toString();
       _currentColor = c.color;
     } else {
-      _startSession = widget.session;
-      _endSession = (widget.session + 1).clamp(1, 14);
+      _weekdayCtrl.text = widget.weekday.toString();
+      _startCtrl.text = widget.session.toString();
+      _endCtrl.text = (widget.session + 1).clamp(1, 14).toString();
       if (widget.defaultColor != null) {
         _currentColor = widget.defaultColor!;
       }
@@ -435,6 +442,9 @@ class _CourseFormPageState extends State<_CourseFormPage> {
     _placeCtrl.dispose();
     _weeksCtrl.dispose();
     _colorCtrl.dispose();
+    _weekdayCtrl.dispose();
+    _startCtrl.dispose();
+    _endCtrl.dispose();
     super.dispose();
   }
 
@@ -445,8 +455,8 @@ class _CourseFormPageState extends State<_CourseFormPage> {
         title: Text(widget.isEditing ? '编辑课程' : '添加课程'),
         actions: [
           TextButton(
-            onPressed: _save,
-            child: const Text('保存'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
           ),
         ],
       ),
@@ -499,42 +509,51 @@ class _CourseFormPageState extends State<_CourseFormPage> {
               ),
             ),
             const SizedBox(height: 12),
-            DropdownMenu<int>(
-              initialSelection: _weekday,
-              expandedInsets: EdgeInsets.zero,
-              label: const Text('星期'),
-              dropdownMenuEntries: List.generate(
-                  7,
-                  (i) => DropdownMenuEntry(
-                      value: i + 1, label: _weekdayLabels[i])),
-              onSelected: (v) => setState(() => _weekday = v ?? 1),
+            TextFormField(
+              controller: _weekdayCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: '星期 (1-7)',
+                border: OutlineInputBorder(),
+              ),
+              validator: (v) {
+                final n = int.tryParse(v ?? '');
+                if (n == null || n < 1 || n > 7) return '请输入1-7';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
-                  child: DropdownMenu<int>(
-                    initialSelection: _startSession,
-                    expandedInsets: EdgeInsets.zero,
-                    label: const Text('开始节次'),
-                    dropdownMenuEntries: List.generate(
-                        14,
-                        (i) => DropdownMenuEntry(
-                            value: i + 1, label: '第${i + 1}节')),
-                    onSelected: (v) => setState(() => _startSession = v ?? 1),
+                  child: TextFormField(
+                    controller: _startCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '开始节次 (1-14)',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n < 1 || n > 14) return '请输入1-14';
+                      return null;
+                    },
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownMenu<int>(
-                    initialSelection: _endSession,
-                    expandedInsets: EdgeInsets.zero,
-                    label: const Text('结束节次'),
-                    dropdownMenuEntries: List.generate(
-                        14,
-                        (i) => DropdownMenuEntry(
-                            value: i + 1, label: '第${i + 1}节')),
-                    onSelected: (v) => setState(() => _endSession = v ?? 1),
+                  child: TextFormField(
+                    controller: _endCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '结束节次 (1-14)',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) {
+                      final n = int.tryParse(v ?? '');
+                      if (n == null || n < 1 || n > 14) return '请输入1-14';
+                      return null;
+                    },
                   ),
                 ),
               ],
@@ -593,9 +612,9 @@ class _CourseFormPageState extends State<_CourseFormPage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: SizedBox(
             width: double.infinity,
-            child: OutlinedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
+            child: FilledButton(
+              onPressed: _save,
+              child: const Text('保存'),
             ),
           ),
         ),
@@ -619,15 +638,36 @@ class _CourseFormPageState extends State<_CourseFormPage> {
 
   void _save() {
     if (!_formKey.currentState!.validate()) return;
+    final weekday = int.parse(_weekdayCtrl.text);
+    final startSession = int.parse(_startCtrl.text);
+    final endSession = int.parse(_endCtrl.text);
     final sessions =
-        List.generate(_endSession - _startSession + 1, (i) => _startSession + i);
+        List.generate(endSession - startSession + 1, (i) => startSession + i);
     final weeks = _parseWeeks(_weeksCtrl.text);
     final existing = widget.existingCourse;
+
+    // 冲突检查
+    final sessionsSet = sessions.toSet();
+    final weeksSet = weeks.toSet();
+    for (int i = 0; i < widget.allCourses.length; i++) {
+      if (i == widget.editIndex) continue;
+      final other = widget.allCourses[i];
+      if (other.weekday != weekday) continue;
+      final hasSessionOverlap = other.sessions.any((s) => sessionsSet.contains(s));
+      if (!hasSessionOverlap) continue;
+      final hasWeekOverlap = other.weeks.any((w) => weeksSet.contains(w));
+      if (hasWeekOverlap) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('与「${other.title}」时间冲突')),
+        );
+        return;
+      }
+    }
 
     widget.onSave(Course(
       title: _titleCtrl.text,
       teacher: _teacherCtrl.text,
-      weekday: _weekday,
+      weekday: weekday,
       sessions: sessions,
       weeks: weeks,
       campus: existing?.campus ?? '',
