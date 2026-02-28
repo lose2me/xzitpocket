@@ -494,7 +494,7 @@ class _CourseFormPageState extends State<_CourseFormPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  '同步编号: ${widget.existingCourse!.courseId}',
+                  '编号: ${widget.existingCourse!.courseId}',
                   style: TextStyle(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
