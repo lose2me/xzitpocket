@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/course.dart';
 import '../services/storage_service.dart';
+import '../services/widget_service.dart';
 import 'config_provider.dart';
 
 final scheduleProvider =
@@ -24,6 +25,13 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     state = AsyncValue.data(cached);
   }
 
+  void _notifyWidget(List<Course> courses) {
+    WidgetService.updateWidget(
+      courses: courses,
+      semesterStart: semesterStartDate,
+    );
+  }
+
   /// 用登录结果直接更新课表
   Future<void> updateFromLoginResult({
     required List<Course> courses,
@@ -36,21 +44,28 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
           studentName: studentName,
         );
     state = AsyncValue.data(courses);
+    _notifyWidget(courses);
   }
 
   void addCourse(Course course) {
     _storage.addCourse(course);
-    state = AsyncValue.data(_storage.getCourses());
+    final courses = _storage.getCourses();
+    state = AsyncValue.data(courses);
+    _notifyWidget(courses);
   }
 
   void updateCourse(int index, Course course) {
     _storage.updateCourseAt(index, course);
-    state = AsyncValue.data(_storage.getCourses());
+    final courses = _storage.getCourses();
+    state = AsyncValue.data(courses);
+    _notifyWidget(courses);
   }
 
   void deleteCourse(int index) {
     _storage.deleteCourseAt(index);
-    state = AsyncValue.data(_storage.getCourses());
+    final courses = _storage.getCourses();
+    state = AsyncValue.data(courses);
+    _notifyWidget(courses);
   }
 
   void syncCourseFields(
@@ -69,12 +84,15 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
       place: place,
       weeks: weeks,
     );
-    state = AsyncValue.data(_storage.getCourses());
+    final courses = _storage.getCourses();
+    state = AsyncValue.data(courses);
+    _notifyWidget(courses);
   }
 
   void clearAll() {
     _storage.clearCourses();
     state = const AsyncValue.data([]);
+    _notifyWidget([]);
   }
 }
 

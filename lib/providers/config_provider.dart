@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_config.dart';
 import '../services/storage_service.dart';
+import '../services/widget_service.dart';
 
 /// 学期起始日期（固定值）
 final semesterStartDate = DateTime(2026, 3, 2);
@@ -52,5 +53,9 @@ class ConfigNotifier extends StateNotifier<UserConfig> {
     await _storage.clearCredentials();
     await _storage.clearCourses();
     state = UserConfig(semesterStartDate: semesterStartDate);
+    WidgetService.updateWidget(
+      courses: [],
+      semesterStart: semesterStartDate,
+    );
   }
 }

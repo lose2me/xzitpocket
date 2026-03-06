@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_description">显示下节课堂信息</string>
+    <string name="widget_name">课程表</string>
+</resources>

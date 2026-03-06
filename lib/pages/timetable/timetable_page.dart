@@ -14,11 +14,13 @@ import 'timetable_grid.dart';
 class TimetablePage extends ConsumerStatefulWidget {
   const TimetablePage({super.key});
 
+  static final globalKey = GlobalKey<TimetablePageState>();
+
   @override
-  ConsumerState<TimetablePage> createState() => _TimetablePageState();
+  ConsumerState<TimetablePage> createState() => TimetablePageState();
 }
 
-class _TimetablePageState extends ConsumerState<TimetablePage> {
+class TimetablePageState extends ConsumerState<TimetablePage> {
   late final PageController _pageController;
   bool _isSyncing = false;
 
@@ -40,6 +42,14 @@ class _TimetablePageState extends ConsumerState<TimetablePage> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  void jumpToCurrentWeek() {
+    final week = currentWeek(semesterStartDate).clamp(1, semesterTotalWeeks);
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(week - 1);
+    }
+    ref.read(selectedWeekProvider.notifier).state = week;
   }
 
   Future<void> _onSync() async {

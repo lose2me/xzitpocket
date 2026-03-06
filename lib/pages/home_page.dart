@@ -6,17 +6,27 @@ import 'me/me_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
+  /// Global key to access state from widget click handler.
+  static final globalKey = GlobalKey<HomePageState>();
+
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
-  static const _pages = <Widget>[
-    TimetablePage(),
-    MePage(),
+  final List<Widget> _pages = [
+    TimetablePage(key: TimetablePage.globalKey),
+    const MePage(),
   ];
+
+  void switchToTimetable() {
+    if (_currentIndex != 0) {
+      setState(() => _currentIndex = 0);
+    }
+    TimetablePage.globalKey.currentState?.jumpToCurrentWeek();
+  }
 
   @override
   Widget build(BuildContext context) {
