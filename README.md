@@ -23,6 +23,7 @@
 - [x] 桌面小组件支持
 - [ ] 设计软件图标
 - [ ] 苹果端适配
+- [ ] 更多小组件类型支持
 - [ ] 鸿蒙端适配
 - [ ] 界面优化
 - [ ] 更多个性化设置
@@ -54,3 +55,4 @@ flutter build apk --split-per-abi --split-debug-info=./symbols --obfuscate
 
 ## 软件截图
 <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="210px">
+<img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/2.jpg" width="210px">
