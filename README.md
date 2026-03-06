@@ -6,9 +6,9 @@
 
 </div>
 
-> 当 ``WakeUp课程表`` 开始变更开发者，植入开屏广告，我就知道我该做些什么了。
-
 [掌上徐工](https://github.com/lose2me/xzitpocket) 是跨平台，高性能，开源，以 Material 3 风格为主的便捷校园助手（非官方）。  
+
+> 当 ``WakeUp课程表`` 开始变更开发者，植入开屏广告，我就知道我该做些什么了。
 
 <div align="center">
 
