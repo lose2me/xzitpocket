@@ -156,8 +156,10 @@ class AuthService {
 
     for (final c in kbList) {
       final title = (c['kcmc'] ?? '') as String;
-      if (!colorMap.containsKey(title)) {
-        colorMap[title] = colorIdx++;
+      final courseId = (c['kch_id'] ?? '') as String;
+      final colorKey = courseId.isNotEmpty ? courseId : title;
+      if (!colorMap.containsKey(colorKey)) {
+        colorMap[colorKey] = colorIdx++;
       }
       courses.add(Course(
         title: title,
@@ -167,8 +169,8 @@ class AuthService {
         weeks: _parseNumberRanges(c['zcd']?.toString() ?? ''),
         campus: (c['xqmc'] ?? '') as String,
         place: (c['cdmc'] ?? '') as String,
-        colorIndex: colorMap[title]!,
-        courseId: (c['kch_id'] ?? '') as String,
+        colorIndex: colorMap[colorKey]!,
+        courseId: courseId,
       ));
     }
 
