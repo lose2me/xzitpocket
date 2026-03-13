@@ -53,8 +53,6 @@ class StorageService {
     required int excludeKey,
     String? title,
     String? teacher,
-    String? place,
-    List<int>? weeks,
   }) async {
     final map = _courseBox.toMap();
     for (final entry in map.entries) {
@@ -67,8 +65,6 @@ class StorageService {
           c.copyWith(
             title: title,
             teacher: teacher,
-            place: place,
-            weeks: weeks,
           ),
         );
       }

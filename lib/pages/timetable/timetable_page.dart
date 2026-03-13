@@ -370,18 +370,16 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
           weekday: course.weekday,
           session: course.startSession,
           existingCourse: course,
-          onSave: (updated) {
-            ref.read(scheduleProvider.notifier).updateCourse(key, updated);
+          onSave: (updated) async {
+            await ref.read(scheduleProvider.notifier).updateCourse(key, updated);
             if (updated.courseId.isNotEmpty) {
-              ref
+              await ref
                   .read(scheduleProvider.notifier)
                   .syncCourseFields(
                     updated.courseId,
                     excludeKey: key,
                     title: updated.title,
                     teacher: updated.teacher,
-                    place: updated.place,
-                    weeks: updated.weeks,
                   );
             }
           },

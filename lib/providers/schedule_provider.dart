@@ -58,36 +58,32 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     _reload();
   }
 
-  void addCourse(Course course) {
-    _storage.addCourse(course);
+  Future<void> addCourse(Course course) async {
+    await _storage.addCourse(course);
     _reload();
   }
 
-  void updateCourse(int key, Course course) {
-    _storage.updateCourse(key, course);
+  Future<void> updateCourse(int key, Course course) async {
+    await _storage.updateCourse(key, course);
     _reload();
   }
 
-  void deleteCourse(int key) {
-    _storage.deleteCourse(key);
+  Future<void> deleteCourse(int key) async {
+    await _storage.deleteCourse(key);
     _reload();
   }
 
-  void syncCourseFields(
+  Future<void> syncCourseFields(
     String courseId, {
     required int excludeKey,
     String? title,
     String? teacher,
-    String? place,
-    List<int>? weeks,
-  }) {
-    _storage.updateCoursesByCourseId(
+  }) async {
+    await _storage.updateCoursesByCourseId(
       courseId,
       excludeKey: excludeKey,
       title: title,
       teacher: teacher,
-      place: place,
-      weeks: weeks,
     );
     _reload();
   }
