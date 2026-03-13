@@ -21,6 +21,16 @@ class WidgetService {
     await HomeWidget.updateWidget(androidName: _androidWidgetName);
   }
 
+  /// Clear all widget data (used on logout).
+  static Future<void> clearWidget() async {
+    await HomeWidget.saveWidgetData('schedule_data', null);
+    await HomeWidget.saveWidgetData('has_timetable', 'false');
+    await HomeWidget.saveWidgetData('capsule1', '');
+    await HomeWidget.saveWidgetData('capsule2', '');
+    await HomeWidget.saveWidgetData('is_in_class', 'false');
+    await HomeWidget.updateWidget(androidName: _androidWidgetName);
+  }
+
   static Future<void> updateWidget({
     required List<Course> courses,
     required DateTime semesterStart,

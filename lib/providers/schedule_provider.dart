@@ -92,7 +92,7 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     _storage.clearCourses();
     _hiveKeys = [];
     state = const AsyncValue.data([]);
-    _notifyWidget([]);
+    WidgetService.clearWidget();
   }
 }
 
