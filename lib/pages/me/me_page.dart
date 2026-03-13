@@ -37,7 +37,7 @@ class _MePageState extends ConsumerState<MePage> {
           : null,
       body: SafeArea(
         child: isLoggedIn
-            ? _buildLoggedIn(context, config)
+            ? _buildLoggedIn(context)
             : _buildLoginForm(context),
       ),
     );
@@ -183,7 +183,7 @@ class _MePageState extends ConsumerState<MePage> {
     );
   }
 
-  Widget _buildLoggedIn(BuildContext context, dynamic config) {
+  Widget _buildLoggedIn(BuildContext context) {
     final theme = Theme.of(context);
     return Column(
       children: [

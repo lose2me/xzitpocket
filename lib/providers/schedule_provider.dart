@@ -14,15 +14,27 @@ final scheduleProvider =
 class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
   final StorageService _storage;
   final Ref _ref;
+  List<int> _hiveKeys = [];
 
   ScheduleNotifier(this._storage, this._ref)
       : super(const AsyncValue.loading()) {
     _loadFromCache();
   }
 
+  /// Convert a positional index (from the UI list) to the stable Hive key.
+  int keyAt(int index) => _hiveKeys[index];
+
   void _loadFromCache() {
-    final cached = _storage.getCourses();
-    state = AsyncValue.data(cached);
+    final (keys, courses) = _storage.getCoursesWithKeys();
+    _hiveKeys = keys;
+    state = AsyncValue.data(courses);
+  }
+
+  void _reload() {
+    final (keys, courses) = _storage.getCoursesWithKeys();
+    _hiveKeys = keys;
+    state = AsyncValue.data(courses);
+    _notifyWidget(courses);
   }
 
   void _notifyWidget(List<Course> courses) {
@@ -43,34 +55,27 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
           studentId: studentId,
           studentName: studentName,
         );
-    state = AsyncValue.data(courses);
-    _notifyWidget(courses);
+    _reload();
   }
 
   void addCourse(Course course) {
     _storage.addCourse(course);
-    final courses = _storage.getCourses();
-    state = AsyncValue.data(courses);
-    _notifyWidget(courses);
+    _reload();
   }
 
-  void updateCourse(int index, Course course) {
-    _storage.updateCourseAt(index, course);
-    final courses = _storage.getCourses();
-    state = AsyncValue.data(courses);
-    _notifyWidget(courses);
+  void updateCourse(int key, Course course) {
+    _storage.updateCourse(key, course);
+    _reload();
   }
 
-  void deleteCourse(int index) {
-    _storage.deleteCourseAt(index);
-    final courses = _storage.getCourses();
-    state = AsyncValue.data(courses);
-    _notifyWidget(courses);
+  void deleteCourse(int key) {
+    _storage.deleteCourse(key);
+    _reload();
   }
 
   void syncCourseFields(
-    String courseId,
-    int excludeIndex, {
+    String courseId, {
+    required int excludeKey,
     String? title,
     String? teacher,
     String? place,
@@ -78,19 +83,18 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
   }) {
     _storage.updateCoursesByCourseId(
       courseId,
-      excludeIndex: excludeIndex,
+      excludeKey: excludeKey,
       title: title,
       teacher: teacher,
       place: place,
       weeks: weeks,
     );
-    final courses = _storage.getCourses();
-    state = AsyncValue.data(courses);
-    _notifyWidget(courses);
+    _reload();
   }
 
   void clearAll() {
     _storage.clearCourses();
+    _hiveKeys = [];
     state = const AsyncValue.data([]);
     _notifyWidget([]);
   }

@@ -21,6 +21,14 @@ class StorageService {
 
   List<Course> getCourses() => _courseBox.values.toList();
 
+  /// Returns parallel lists of Hive keys and courses.
+  (List<int> keys, List<Course> courses) getCoursesWithKeys() {
+    final map = _courseBox.toMap();
+    final keys = map.keys.cast<int>().toList();
+    final courses = map.values.toList();
+    return (keys, courses);
+  }
+
   Future<void> saveCourses(List<Course> courses) async {
     await _courseBox.clear();
     for (final c in courses) {
@@ -32,28 +40,30 @@ class StorageService {
     await _courseBox.add(course);
   }
 
-  Future<void> updateCourseAt(int index, Course course) async {
-    await _courseBox.putAt(index, course);
+  Future<void> updateCourse(int key, Course course) async {
+    await _courseBox.put(key, course);
   }
 
-  Future<void> deleteCourseAt(int index) async {
-    await _courseBox.deleteAt(index);
+  Future<void> deleteCourse(int key) async {
+    await _courseBox.delete(key);
   }
 
   Future<void> updateCoursesByCourseId(
     String courseId, {
-    required int excludeIndex,
+    required int excludeKey,
     String? title,
     String? teacher,
     String? place,
     List<int>? weeks,
   }) async {
-    for (int i = 0; i < _courseBox.length; i++) {
-      if (i == excludeIndex) continue;
-      final c = _courseBox.getAt(i);
-      if (c != null && c.courseId == courseId) {
-        await _courseBox.putAt(
-          i,
+    final map = _courseBox.toMap();
+    for (final entry in map.entries) {
+      final key = entry.key as int;
+      if (key == excludeKey) continue;
+      final c = entry.value;
+      if (c.courseId == courseId) {
+        await _courseBox.put(
+          key,
           c.copyWith(
             title: title,
             teacher: teacher,

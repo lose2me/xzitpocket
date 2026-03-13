@@ -95,6 +95,26 @@ class WidgetService {
     await HomeWidget.saveWidgetData(
         'capsule2', capsule2 != null ? jsonEncode(capsule2) : '');
 
+    // Save full schedule data for native-side computation
+    final scheduleJson = jsonEncode({
+      'semesterStart':
+          '${semesterStart.year}-${semesterStart.month.toString().padLeft(2, '0')}-${semesterStart.day.toString().padLeft(2, '0')}',
+      'totalWeeks': 16,
+      'courses': courses
+          .map((c) => {
+                'title': c.title,
+                'weekday': c.weekday,
+                'startSession': c.startSession,
+                'endSession': c.endSession,
+                'weeks': c.weeks,
+                'place': c.place,
+                'campus': c.campus,
+                'colorIndex': c.colorIndex,
+              })
+          .toList(),
+    });
+    await HomeWidget.saveWidgetData('schedule_data', scheduleJson);
+
     await HomeWidget.updateWidget(androidName: _androidWidgetName);
   }
   static Map<String, dynamic> _courseToMap(

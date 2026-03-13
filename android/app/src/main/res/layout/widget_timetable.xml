@@ -24,7 +24,7 @@
                 android:layout_alignParentStart="true"
                 android:textSize="12sp"
                 android:maxLines="1"
-                android:textColor="#99000000" />
+                android:textColor="@color/widget_sub_color" />
 
             <TextView
                 android:id="@+id/tv_weekday"
@@ -32,7 +32,7 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
                 android:textSize="12sp"
-                android:textColor="#99000000" />
+                android:textColor="@color/widget_sub_color" />
 
             <TextView
                 android:id="@+id/tv_date"
@@ -41,7 +41,7 @@
                 android:layout_toStartOf="@id/tv_weekday"
                 android:layout_marginEnd="4dp"
                 android:textSize="12sp"
-                android:textColor="#99000000" />
+                android:textColor="@color/widget_sub_color" />
         </RelativeLayout>
 
         <!-- Empty state (centered in remaining space) -->
@@ -59,7 +59,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="16sp"
-                android:textColor="#99000000" />
+                android:textColor="@color/widget_sub_color" />
 
             <TextView
                 android:id="@+id/tv_empty_text"
@@ -67,7 +67,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:textSize="13sp"
-                android:textColor="#99000000" />
+                android:textColor="@color/widget_sub_color" />
         </LinearLayout>
 
         <!-- Items container (centers items vertically in remaining space) -->
@@ -108,7 +108,7 @@
                         android:textStyle="bold"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#FF1A1A1A" />
+                        android:textColor="@color/widget_title_color" />
 
                     <TextView
                         android:id="@+id/item1_sub"
@@ -118,7 +118,7 @@
                         android:textSize="13sp"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#99000000" />
+                        android:textColor="@color/widget_sub_color" />
                 </LinearLayout>
             </LinearLayout>
 
@@ -146,23 +146,23 @@
 
                     <TextView
                         android:id="@+id/item2_title"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:textSize="15sp"
                         android:textStyle="bold"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#FF1A1A1A" />
+                        android:textColor="@color/widget_title_color" />
 
                     <TextView
                         android:id="@+id/item2_sub"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:textSize="13sp"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#99000000" />
+                        android:textColor="@color/widget_sub_color" />
                 </LinearLayout>
             </LinearLayout>
 

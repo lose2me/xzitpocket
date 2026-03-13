@@ -7,20 +7,18 @@ class CourseFormPage extends StatefulWidget {
   final int weekday;
   final int session;
   final Course? existingCourse;
-  final int? editIndex;
-  final List<Course> allCourses;
   final Color? defaultColor;
   final ValueChanged<Course> onSave;
+  final VoidCallback? onDelete;
 
   const CourseFormPage({
     super.key,
     required this.weekday,
     required this.session,
     this.existingCourse,
-    this.editIndex,
-    this.allCourses = const [],
     this.defaultColor,
     required this.onSave,
+    this.onDelete,
   });
 
   bool get isEditing => existingCourse != null;
@@ -111,8 +109,8 @@ class _CourseFormPageState extends State<CourseFormPage> {
         title: Text(widget.isEditing ? '编辑课程' : '添加课程'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
+            onPressed: _save,
+            child: const Text('保存'),
           ),
         ],
       ),
@@ -271,15 +269,24 @@ class _CourseFormPageState extends State<CourseFormPage> {
           ],
         ),
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: FilledButton(onPressed: _save, child: const Text('保存')),
-          ),
-        ),
-      ),
+      bottomNavigationBar: widget.onDelete != null
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                      side: const BorderSide(color: Colors.red),
+                    ),
+                    onPressed: _confirmDelete,
+                    child: const Text('删除'),
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 
@@ -317,26 +324,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
     final weeks = _parseWeeks(_weeksCtrl.text);
     final existing = widget.existingCourse;
 
-    // 冲突检查
-    final sessionsSet = sessions.toSet();
-    final weeksSet = weeks.toSet();
-    for (int i = 0; i < widget.allCourses.length; i++) {
-      if (i == widget.editIndex) continue;
-      final other = widget.allCourses[i];
-      if (other.weekday != weekday) continue;
-      final hasSessionOverlap = other.sessions.any(
-        (s) => sessionsSet.contains(s),
-      );
-      if (!hasSessionOverlap) continue;
-      final hasWeekOverlap = other.weeks.any((w) => weeksSet.contains(w));
-      if (hasWeekOverlap) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('与「${other.title}」时间冲突')));
-        return;
-      }
-    }
-
     widget.onSave(
       Course(
         title: _titleCtrl.text,
@@ -351,6 +338,30 @@ class _CourseFormPageState extends State<CourseFormPage> {
       ),
     );
     Navigator.pop(context);
+  }
+
+  void _confirmDelete() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除课程'),
+        content: const Text('确定要删除这门课程吗？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onDelete!();
+              Navigator.pop(context);
+            },
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   List<int> _parseWeeks(String text) {

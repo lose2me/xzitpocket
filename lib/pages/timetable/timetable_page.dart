@@ -166,8 +166,10 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
                         borderWidth: 0.5,
                         courseOpacity: courseOpacity,
                         courseBorderOpacity: courseBorderOpacity,
-                        onCourseTap: (course, idx) =>
-                            _showCourseDetail(context, course, idx),
+                        onCourseTap: (course, idx) {
+                            final key = ref.read(scheduleProvider.notifier).keyAt(idx);
+                            _showCourseDetail(context, course, key);
+                          },
                         onEmptyTap: (weekday, session) =>
                             _onEmptySlotTap(context, weekday, session),
                       );
@@ -200,7 +202,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  void _showCourseDetail(BuildContext context, Course course, int index) {
+  void _showCourseDetail(BuildContext context, Course course, int key) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -253,7 +255,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
                       ),
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _confirmDelete(context, index);
+                        _confirmDelete(context, key);
                       },
                       child: const Text('删除'),
                     ),
@@ -261,7 +263,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
                     FilledButton(
                       onPressed: () {
                         Navigator.pop(ctx);
-                        _editCourse(context, course, index);
+                        _editCourse(context, course, key);
                       },
                       child: const Text('编辑'),
                     ),
@@ -309,7 +311,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
     return '${ranges.join(',')}周';
   }
 
-  void _confirmDelete(BuildContext context, int index) {
+  void _confirmDelete(BuildContext context, int key) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -322,7 +324,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
           ),
           TextButton(
             onPressed: () {
-              ref.read(scheduleProvider.notifier).deleteCourse(index);
+              ref.read(scheduleProvider.notifier).deleteCourse(key);
               Navigator.pop(ctx);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
@@ -353,7 +355,6 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
           weekday: weekday,
           session: session,
           defaultColor: defaultColor,
-          allCourses: courses,
           onSave: (course) {
             ref.read(scheduleProvider.notifier).addCourse(course);
           },
@@ -362,30 +363,30 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
     );
   }
 
-  void _editCourse(BuildContext context, Course course, int index) {
-    final courses = ref.read(scheduleProvider).valueOrNull ?? [];
+  void _editCourse(BuildContext context, Course course, int key) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => CourseFormPage(
           weekday: course.weekday,
           session: course.startSession,
           existingCourse: course,
-          editIndex: index,
-          allCourses: courses,
           onSave: (updated) {
-            ref.read(scheduleProvider.notifier).updateCourse(index, updated);
+            ref.read(scheduleProvider.notifier).updateCourse(key, updated);
             if (updated.courseId.isNotEmpty) {
               ref
                   .read(scheduleProvider.notifier)
                   .syncCourseFields(
                     updated.courseId,
-                    index,
+                    excludeKey: key,
                     title: updated.title,
                     teacher: updated.teacher,
                     place: updated.place,
                     weeks: updated.weeks,
                   );
             }
+          },
+          onDelete: () {
+            ref.read(scheduleProvider.notifier).deleteCourse(key);
           },
         ),
       ),
