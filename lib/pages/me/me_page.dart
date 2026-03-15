@@ -243,11 +243,11 @@ class _MePageState extends ConsumerState<MePage> {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
-              ref.read(configProvider.notifier).logout();
-              ref.read(scheduleProvider.notifier).clearAll();
-              ref.read(authProvider.notifier).reset();
+            onPressed: () async {
               Navigator.pop(ctx);
+              await ref.read(scheduleProvider.notifier).clearAll();
+              await ref.read(configProvider.notifier).logout();
+              ref.read(authProvider.notifier).reset();
             },
             child: const Text('退出', style: TextStyle(color: Colors.red)),
           ),

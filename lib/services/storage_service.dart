@@ -60,13 +60,7 @@ class StorageService {
       if (key == excludeKey) continue;
       final c = entry.value;
       if (c.courseId == courseId) {
-        await _courseBox.put(
-          key,
-          c.copyWith(
-            title: title,
-            teacher: teacher,
-          ),
-        );
+        await _courseBox.put(key, c.copyWith(title: title, teacher: teacher));
       }
     }
   }
@@ -93,6 +87,4 @@ class StorageService {
     await _prefs.remove('student_name');
     await _prefs.remove('saved_password');
   }
-
-  bool get isLoggedIn => getStudentId() != null && getStudentName() != null;
 }

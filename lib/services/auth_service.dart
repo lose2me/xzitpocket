@@ -8,34 +8,30 @@ import '../utils/rsa_encrypt.dart';
 import '../utils/week_calculator.dart';
 
 class LoginResult {
-  final Dio dio;
   final String? studentId;
   final String? studentName;
   final List<Course> courses;
 
-  LoginResult({
-    required this.dio,
-    this.studentId,
-    this.studentName,
-    required this.courses,
-  });
+  LoginResult({this.studentId, this.studentName, required this.courses});
 }
 
 class AuthService {
   Dio _createDio(String baseUrl, CookieJar jar) {
-    final dio = Dio(BaseOptions(
-      baseUrl: baseUrl,
-      connectTimeout: requestTimeout,
-      receiveTimeout: requestTimeout,
-      headers: {
-        'User-Agent':
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-            '(KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36',
-      },
-      followRedirects: true,
-      maxRedirects: 5,
-      validateStatus: (status) => status != null && status < 400,
-    ));
+    final dio = Dio(
+      BaseOptions(
+        baseUrl: baseUrl,
+        connectTimeout: requestTimeout,
+        receiveTimeout: requestTimeout,
+        headers: {
+          'User-Agent':
+              'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
+              '(KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36',
+        },
+        followRedirects: true,
+        maxRedirects: 5,
+        validateStatus: (status) => status != null && status < 400,
+      ),
+    );
     dio.interceptors.add(CookieManager(jar));
     return dio;
   }
@@ -73,7 +69,11 @@ class AuthService {
   // ── 登录 ──
 
   Future<void> _login(
-      Dio dio, String baseUrl, String studentId, String password) async {
+    Dio dio,
+    String baseUrl,
+    String studentId,
+    String password,
+  ) async {
     const loginPath = '/xtgl/login_slogin.html';
     const keyPath = '/xtgl/login_getPublicKey.html';
 
@@ -85,8 +85,14 @@ class AuthService {
     );
     final html = loginPage.data as String;
 
-    if (RegExp(r'id=["' "'" r']yzm["' "'" r']', caseSensitive: false)
-        .hasMatch(html)) {
+    if (RegExp(
+      r'id=["'
+      "'"
+      r']yzm["'
+      "'"
+      r']',
+      caseSensitive: false,
+    ).hasMatch(html)) {
       throw AuthException('需要验证码，请稍后再试');
     }
 
@@ -100,11 +106,7 @@ class AuthService {
     final encryptedPwd = encryptPassword(password, modulus, exponent);
     final loginResp = await dio.post(
       loginPath,
-      data: {
-        'csrftoken': csrfToken,
-        'yhm': studentId,
-        'mm': encryptedPwd,
-      },
+      data: {'csrftoken': csrfToken, 'yhm': studentId, 'mm': encryptedPwd},
       options: Options(
         contentType: Headers.formUrlEncodedContentType,
         responseType: ResponseType.plain,
@@ -132,10 +134,7 @@ class AuthService {
 
     final scheduleResp = await dio.post(
       '/kbcx/xskbcx_cxXsKb.html?gnmkdm=N2151',
-      data: {
-        'xnm': year.toString(),
-        'xqm': xqm.toString(),
-      },
+      data: {'xnm': year.toString(), 'xqm': xqm.toString()},
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
 
@@ -161,23 +160,24 @@ class AuthService {
       if (!colorMap.containsKey(colorKey)) {
         colorMap[colorKey] = colorIdx++;
       }
-      courses.add(Course(
-        title: title,
-        teacher: (c['xm'] ?? '') as String,
-        weekday: _parseInt(c['xqj']) ?? 1,
-        sessions: _parseNumberRanges(c['jc']?.toString() ?? ''),
-        weeks: _parseNumberRanges(c['zcd']?.toString() ?? ''),
-        campus: (c['xqmc'] ?? '') as String,
-        place: (c['cdmc'] ?? '') as String,
-        colorIndex: colorMap[colorKey]!,
-        courseId: courseId,
-      ));
+      courses.add(
+        Course(
+          title: title,
+          teacher: (c['xm'] ?? '') as String,
+          weekday: _parseInt(c['xqj']) ?? 1,
+          sessions: _parseNumberRanges(c['jc']?.toString() ?? ''),
+          weeks: _parseNumberRanges(c['zcd']?.toString() ?? ''),
+          campus: (c['xqmc'] ?? '') as String,
+          place: (c['cdmc'] ?? '') as String,
+          colorIndex: colorMap[colorKey]!,
+          courseId: courseId,
+        ),
+      );
     }
 
     final xsxx = (data['xsxx'] as Map<String, dynamic>?) ?? {};
 
     return LoginResult(
-      dio: dio,
       studentId: xsxx['XH'] as String?,
       studentName: xsxx['XM'] as String?,
       courses: courses,
@@ -218,8 +218,7 @@ class AuthService {
     if (text.isEmpty) return [];
     final result = <int>[];
     final seen = <int>{};
-    for (final match
-        in RegExp(r'(\d+)\s*-\s*(\d+)|(\d+)').allMatches(text)) {
+    for (final match in RegExp(r'(\d+)\s*-\s*(\d+)|(\d+)').allMatches(text)) {
       List<int> values;
       if (match.group(1) != null && match.group(2) != null) {
         var start = int.parse(match.group(1)!);

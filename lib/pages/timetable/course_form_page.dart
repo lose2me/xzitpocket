@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/course.dart';
+import '../../providers/config_provider.dart';
 import '../../utils/snackbar_helper.dart';
 import 'color_picker_sheet.dart';
 
@@ -165,6 +166,11 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 labelText: '周次 (例: 1-16)',
                 border: OutlineInputBorder(),
               ),
+              validator: (v) {
+                return _parseWeeks(v ?? '') == null
+                    ? '请输入1-$semesterTotalWeeks周，例如1-16,18'
+                    : null;
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -316,6 +322,10 @@ class _CourseFormPageState extends State<CourseFormPage> {
       (i) => startSession + i,
     );
     final weeks = _parseWeeks(_weeksCtrl.text);
+    if (weeks == null) {
+      showAppSnackBar(context, '请输入有效周次');
+      return;
+    }
     final existing = widget.existingCourse;
 
     widget.onSave(
@@ -358,20 +368,55 @@ class _CourseFormPageState extends State<CourseFormPage> {
     );
   }
 
-  List<int> _parseWeeks(String text) {
-    if (text.isEmpty) return List.generate(16, (i) => i + 1);
-    final result = <int>[];
-    for (final match in RegExp(r'(\d+)\s*-\s*(\d+)|(\d+)').allMatches(text)) {
-      if (match.group(1) != null && match.group(2) != null) {
-        final start = int.parse(match.group(1)!);
-        final end = int.parse(match.group(2)!);
-        for (int i = start; i <= end; i++) {
-          result.add(i);
-        }
-      } else {
-        result.add(int.parse(match.group(3)!));
-      }
+  List<int>? _parseWeeks(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      return List.generate(semesterTotalWeeks, (i) => i + 1);
     }
-    return result;
+
+    final tokens = trimmed
+        .replaceAll('，', ',')
+        .split(',')
+        .map((token) => token.trim())
+        .where((token) => token.isNotEmpty)
+        .toList();
+    if (tokens.isEmpty) return null;
+
+    final weeks = <int>{};
+    for (final token in tokens) {
+      final singleMatch = RegExp(r'^\d+$').firstMatch(token);
+      final rangeMatch = RegExp(r'^(\d+)\s*-\s*(\d+)$').firstMatch(token);
+
+      if (rangeMatch != null) {
+        var start = int.parse(rangeMatch.group(1)!);
+        var end = int.parse(rangeMatch.group(2)!);
+        if (start > end) {
+          final tmp = start;
+          start = end;
+          end = tmp;
+        }
+        if (start < 1 || end > semesterTotalWeeks) {
+          return null;
+        }
+        for (int week = start; week <= end; week++) {
+          weeks.add(week);
+        }
+        continue;
+      }
+
+      if (singleMatch != null) {
+        final week = int.parse(token);
+        if (week < 1 || week > semesterTotalWeeks) {
+          return null;
+        }
+        weeks.add(week);
+        continue;
+      }
+
+      return null;
+    }
+
+    final sortedWeeks = weeks.toList()..sort();
+    return sortedWeeks;
   }
 }

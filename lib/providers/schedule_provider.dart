@@ -51,7 +51,7 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     required String studentName,
   }) async {
     await _storage.saveCourses(courses);
-    _ref
+    await _ref
         .read(configProvider.notifier)
         .updateFromLogin(studentId: studentId, studentName: studentName);
     _reload();
@@ -87,11 +87,11 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     _reload();
   }
 
-  void clearAll() {
-    _storage.clearCourses();
+  Future<void> clearAll() async {
+    await _storage.clearCourses();
     _hiveKeys = [];
     state = const AsyncValue.data([]);
-    WidgetService.clearWidget();
+    await WidgetService.clearWidget();
   }
 }
 

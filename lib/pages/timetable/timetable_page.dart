@@ -6,6 +6,7 @@ import '../../models/course.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 import '../../widgets/week_header.dart';
 import 'course_form_page.dart';
@@ -20,9 +21,13 @@ class TimetablePage extends ConsumerStatefulWidget {
   ConsumerState<TimetablePage> createState() => TimetablePageState();
 }
 
-class TimetablePageState extends ConsumerState<TimetablePage> {
+class TimetablePageState extends ConsumerState<TimetablePage>
+    with SingleTickerProviderStateMixin {
   late final PageController _pageController;
+  late final AnimationController _conflictCountdownController;
   bool _isSyncing = false;
+  int _conflictRotationTick = 0;
+  double _lastConflictCountdownValue = 0;
 
   @override
   void initState() {
@@ -31,6 +36,18 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
       semesterStartDate,
     ).clamp(1, semesterTotalWeeks);
     _pageController = PageController(initialPage: initialWeek - 1);
+    _conflictCountdownController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _conflictCountdownController.addListener(() {
+      final currentValue = _conflictCountdownController.value;
+      if (currentValue < _lastConflictCountdownValue && mounted) {
+        setState(() => _conflictRotationTick++);
+      }
+      _lastConflictCountdownValue = currentValue;
+    });
+    _conflictCountdownController.repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0 && initialWeek <= semesterTotalWeeks) {
         ref.read(selectedWeekProvider.notifier).state = initialWeek;
@@ -40,6 +57,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
 
   @override
   void dispose() {
+    _conflictCountdownController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -62,9 +80,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
       final pwd = storage.getSavedPassword();
       if (sid == null || pwd == null) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('请先在"我的"页面登录')));
+          showAppSnackBar(context, '请先在"我的"页面登录');
         }
         return;
       }
@@ -72,9 +88,7 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
       final connectivity = await Connectivity().checkConnectivity();
       if (connectivity.contains(ConnectivityResult.none)) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('无网络连接，请检查网络后重试')),
-          );
+          showAppSnackBar(context, '无网络连接，请检查网络后重试');
         }
         return;
       }
@@ -89,16 +103,12 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
               studentName: result.studentName ?? '',
             );
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('同步成功')));
+          showAppSnackBar(context, '同步成功');
         }
       } else {
         final authState = ref.read(authProvider);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(authState.errorMessage ?? '同步失败')),
-          );
+          showAppSnackBar(context, authState.errorMessage ?? '同步失败');
         }
       }
     } finally {
@@ -106,10 +116,21 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
     }
   }
 
+  void _toggleShowNonCurrentWeekCourses(bool currentValue) {
+    final nextValue = !currentValue;
+    ref.read(showNonCurrentWeekCoursesProvider.notifier).state = nextValue;
+
+    if (!mounted) return;
+    showAppSnackBar(context, nextValue ? '显示非本周课程' : '隐藏非本周课程');
+  }
+
   @override
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(scheduleProvider);
     final selectedWeek = ref.watch(selectedWeekProvider);
+    final showNonCurrentWeekCourses = ref.watch(
+      showNonCurrentWeekCoursesProvider,
+    );
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final courseBorderColor = isDark ? Colors.white : Colors.black;
     final courseOpacity = isDark ? 0.95 : 0.85;
@@ -123,6 +144,9 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
               semesterStart: semesterStartDate,
               selectedWeek: selectedWeek,
               totalWeeks: semesterTotalWeeks,
+              showNonCurrentWeekCourses: showNonCurrentWeekCourses,
+              onToggleShowNonCurrentWeekCourses: () =>
+                  _toggleShowNonCurrentWeekCourses(showNonCurrentWeekCourses),
               onSync: _isSyncing ? null : _onSync,
             ),
             Expanded(
@@ -161,15 +185,20 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
                       return TimetableGrid(
                         courses: courses,
                         week: week,
+                        rotationTick: _conflictRotationTick,
+                        countdownAnimation: _conflictCountdownController,
+                        showNonCurrentWeekCourses: showNonCurrentWeekCourses,
                         semesterStart: semesterStartDate,
                         borderColor: courseBorderColor,
                         borderWidth: 0.5,
                         courseOpacity: courseOpacity,
                         courseBorderOpacity: courseBorderOpacity,
                         onCourseTap: (course, idx) {
-                            final key = ref.read(scheduleProvider.notifier).keyAt(idx);
-                            _showCourseDetail(context, course, key);
-                          },
+                          final key = ref
+                              .read(scheduleProvider.notifier)
+                              .keyAt(idx);
+                          _showCourseDetail(context, course, key);
+                        },
                         onEmptyTap: (weekday, session) =>
                             _onEmptySlotTap(context, weekday, session),
                       );
@@ -371,7 +400,9 @@ class TimetablePageState extends ConsumerState<TimetablePage> {
           session: course.startSession,
           existingCourse: course,
           onSave: (updated) async {
-            await ref.read(scheduleProvider.notifier).updateCourse(key, updated);
+            await ref
+                .read(scheduleProvider.notifier)
+                .updateCourse(key, updated);
             if (updated.courseId.isNotEmpty) {
               await ref
                   .read(scheduleProvider.notifier)

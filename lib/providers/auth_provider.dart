@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/course.dart';
@@ -9,7 +8,6 @@ enum AuthStatus { idle, loading, success, error }
 class AuthState {
   final AuthStatus status;
   final String? errorMessage;
-  final Dio? authenticatedDio;
   final List<Course>? courses;
   final String? studentId;
   final String? studentName;
@@ -17,7 +15,6 @@ class AuthState {
   const AuthState({
     this.status = AuthStatus.idle,
     this.errorMessage,
-    this.authenticatedDio,
     this.courses,
     this.studentId,
     this.studentName,
@@ -34,7 +31,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final result = await authService.loginAndFetch(studentId, password);
       state = AuthState(
         status: AuthStatus.success,
-        authenticatedDio: result.dio,
         courses: result.courses,
         studentId: result.studentId,
         studentName: result.studentName,
@@ -54,5 +50,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 }
 
-final authProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) => AuthNotifier());
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>(
+  (ref) => AuthNotifier(),
+);

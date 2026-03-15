@@ -194,8 +194,11 @@ class TimetableWidgetProvider : AppWidgetProvider() {
 
         /** Get color for a course by colorIndex */
         private fun courseColor(colorIndex: Int): Int {
-            return if (colorIndex in COURSE_COLORS.indices) COURSE_COLORS[colorIndex]
-            else DEFAULT_BAR_COLOR
+            return when {
+                colorIndex in COURSE_COLORS.indices -> COURSE_COLORS[colorIndex]
+                colorIndex != 0 -> colorIndex
+                else -> DEFAULT_BAR_COLOR
+            }
         }
 
         // ── JSON parsing ───────────────────────────────────────────────────
@@ -413,8 +416,13 @@ class TimetableWidgetProvider : AppWidgetProvider() {
             if (json1.isEmpty()) {
                 views.setViewVisibility(R.id.items_container, View.GONE)
                 views.setViewVisibility(R.id.empty_state, View.VISIBLE)
-                views.setTextViewText(R.id.tv_empty_emoji, "╰（‵□′）╯")
-                views.setTextViewText(R.id.tv_empty_text, "未登录教务系统")
+                if (hasTimetable) {
+                    views.setTextViewText(R.id.tv_empty_emoji, "(✿◡‿◡)")
+                    views.setTextViewText(R.id.tv_empty_text, "今天没有课啦")
+                } else {
+                    views.setTextViewText(R.id.tv_empty_emoji, "╰（‵□′）╯")
+                    views.setTextViewText(R.id.tv_empty_text, "未登录教务系统")
+                }
             } else {
                 views.setViewVisibility(R.id.empty_state, View.GONE)
                 views.setViewVisibility(R.id.items_container, View.VISIBLE)
