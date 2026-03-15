@@ -6,6 +6,8 @@ class WeekHeader extends StatelessWidget {
   final DateTime semesterStart;
   final int selectedWeek;
   final int totalWeeks;
+  final bool showNonCurrentWeekCourses;
+  final VoidCallback? onToggleShowNonCurrentWeekCourses;
   final VoidCallback? onSync;
 
   const WeekHeader({
@@ -13,6 +15,8 @@ class WeekHeader extends StatelessWidget {
     required this.semesterStart,
     required this.selectedWeek,
     required this.totalWeeks,
+    required this.showNonCurrentWeekCourses,
+    this.onToggleShowNonCurrentWeekCourses,
     this.onSync,
   });
 
@@ -41,9 +45,7 @@ class WeekHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isBeforeStart
-                      ? '第$selectedWeek周 · 未开学'
-                      : '第$selectedWeek周',
+                  isBeforeStart ? '第$selectedWeek周 · 未开学' : '第$selectedWeek周',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -51,7 +53,19 @@ class WeekHeader extends StatelessWidget {
               ],
             ),
           ),
-          // Right: action button
+          IconButton(
+            icon: Icon(
+              showNonCurrentWeekCourses ? Icons.layers : Icons.layers_outlined,
+              size: 22,
+              color: showNonCurrentWeekCourses
+                  ? theme.colorScheme.primary
+                  : null,
+            ),
+            onPressed: onToggleShowNonCurrentWeekCourses,
+            tooltip: showNonCurrentWeekCourses ? '隐藏非本周课表' : '显示非本周课表',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+          ),
           IconButton(
             icon: const Icon(Icons.sync, size: 22),
             onPressed: onSync,

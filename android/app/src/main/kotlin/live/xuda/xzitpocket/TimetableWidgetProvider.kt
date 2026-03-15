@@ -351,6 +351,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 if (cap2Course != null) {
                     views.setViewVisibility(R.id.item2, View.VISIBLE)
                     views.setViewVisibility(R.id.item2_bar, View.VISIBLE)
+                    views.setViewVisibility(R.id.item2_title, View.VISIBLE)
                     val timeRange2 = "${slotTimeString(cap2Course.startSession, true)}-${
                         slotTimeString(cap2Course.endSession, false)
                     }"
@@ -363,11 +364,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 } else {
                     views.setViewVisibility(R.id.item2, View.VISIBLE)
                     views.setViewVisibility(R.id.item2_bar, View.GONE)
-                    views.setTextViewText(R.id.item2_title, "(✿◡‿◡)")
+                    views.setViewVisibility(R.id.item2_title, View.GONE)
+                    views.setTextViewText(R.id.item2_title, "")
                     views.setTextViewText(R.id.item2_sub, "没有更多课啦")
-                    views.setInt(R.id.item2_title, "setGravity", android.view.Gravity.CENTER_HORIZONTAL)
                     views.setInt(R.id.item2_sub, "setGravity", android.view.Gravity.CENTER_HORIZONTAL)
-                    views.setTextColor(R.id.item2_title, context.getColor(R.color.widget_sub_color))
                 }
             }
 
@@ -437,6 +437,7 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 if (json2.isNotEmpty()) {
                     views.setViewVisibility(R.id.item2, View.VISIBLE)
                     views.setViewVisibility(R.id.item2_bar, View.VISIBLE)
+                    views.setViewVisibility(R.id.item2_title, View.VISIBLE)
                     renderItemStandard(
                         views, R.id.item2_bar,
                         R.id.item2_title, R.id.item2_sub,
@@ -448,11 +449,10 @@ class TimetableWidgetProvider : AppWidgetProvider() {
                 } else {
                     views.setViewVisibility(R.id.item2, View.VISIBLE)
                     views.setViewVisibility(R.id.item2_bar, View.GONE)
-                    views.setTextViewText(R.id.item2_title, "(✿◡‿◡)")
+                    views.setViewVisibility(R.id.item2_title, View.GONE)
+                    views.setTextViewText(R.id.item2_title, "")
                     views.setTextViewText(R.id.item2_sub, "没有更多课啦")
-                    views.setInt(R.id.item2_title, "setGravity", android.view.Gravity.CENTER_HORIZONTAL)
                     views.setInt(R.id.item2_sub, "setGravity", android.view.Gravity.CENTER_HORIZONTAL)
-                    views.setTextColor(R.id.item2_title, context.getColor(R.color.widget_sub_color))
                 }
             }
 

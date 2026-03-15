@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../utils/snackbar_helper.dart';
 
 class MePage extends ConsumerStatefulWidget {
   const MePage({super.key});
@@ -36,9 +37,7 @@ class _MePageState extends ConsumerState<MePage> {
           ? AppBar(title: const Text('掌上徐工'), centerTitle: true)
           : null,
       body: SafeArea(
-        child: isLoggedIn
-            ? _buildLoggedIn(context)
-            : _buildLoginForm(context),
+        child: isLoggedIn ? _buildLoggedIn(context) : _buildLoginForm(context),
       ),
     );
   }
@@ -211,7 +210,6 @@ class _MePageState extends ConsumerState<MePage> {
 
     final sid = _sidCtrl.text.trim();
     final pwd = _pwdCtrl.text;
-    final messenger = ScaffoldMessenger.of(context);
 
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
     if (result != null) {
@@ -228,7 +226,7 @@ class _MePageState extends ConsumerState<MePage> {
           );
 
       if (mounted) {
-        messenger.showSnackBar(const SnackBar(content: Text('登录成功，课表已同步')));
+        showAppSnackBar(context, '登录成功，课表已同步');
       }
     }
   }

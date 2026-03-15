@@ -7,9 +7,9 @@ import 'config_provider.dart';
 
 final scheduleProvider =
     StateNotifierProvider<ScheduleNotifier, AsyncValue<List<Course>>>((ref) {
-  final storage = ref.watch(storageServiceProvider);
-  return ScheduleNotifier(storage, ref);
-});
+      final storage = ref.watch(storageServiceProvider);
+      return ScheduleNotifier(storage, ref);
+    });
 
 class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
   final StorageService _storage;
@@ -17,7 +17,7 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
   List<int> _hiveKeys = [];
 
   ScheduleNotifier(this._storage, this._ref)
-      : super(const AsyncValue.loading()) {
+    : super(const AsyncValue.loading()) {
     _loadFromCache();
   }
 
@@ -51,10 +51,9 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     required String studentName,
   }) async {
     await _storage.saveCourses(courses);
-    _ref.read(configProvider.notifier).updateFromLogin(
-          studentId: studentId,
-          studentName: studentName,
-        );
+    _ref
+        .read(configProvider.notifier)
+        .updateFromLogin(studentId: studentId, studentName: studentName);
     _reload();
   }
 
@@ -98,3 +97,6 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
 
 /// Currently selected week for display.
 final selectedWeekProvider = StateProvider<int>((ref) => 1);
+
+/// Whether to show courses that do not belong to the selected week.
+final showNonCurrentWeekCoursesProvider = StateProvider<bool>((ref) => false);

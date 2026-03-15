@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/course.dart';
+import '../../utils/snackbar_helper.dart';
 import 'color_picker_sheet.dart';
 
 class CourseFormPage extends StatefulWidget {
@@ -107,12 +108,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isEditing ? '编辑课程' : '添加课程'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('保存'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _save, child: const Text('保存'))],
       ),
       body: Form(
         key: _formKey,
@@ -311,9 +307,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     final endSession = int.parse(_endCtrl.text);
 
     if (startSession > endSession) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('开始节次不能大于结束节次')),
-      );
+      showAppSnackBar(context, '开始节次不能大于结束节次');
       return;
     }
 
