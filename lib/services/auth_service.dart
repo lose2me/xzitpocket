@@ -166,7 +166,7 @@ class AuthService {
           teacher: (c['xm'] ?? '') as String,
           weekday: _parseInt(c['xqj']) ?? 1,
           sessions: _parseNumberRanges(c['jc']?.toString() ?? ''),
-          weeks: _parseNumberRanges(c['zcd']?.toString() ?? ''),
+          weeks: _parseWeekRanges(c['zcd']?.toString() ?? ''),
           campus: (c['xqmc'] ?? '') as String,
           place: (c['cdmc'] ?? '') as String,
           colorIndex: colorMap[colorKey]!,
@@ -236,6 +236,55 @@ class AuthService {
         if (seen.add(n)) result.add(n);
       }
     }
+    return result;
+  }
+
+  static List<int> _parseWeekRanges(String text) {
+    if (text.isEmpty) return [];
+
+    final normalized = text
+        .replaceAll('（', '(')
+        .replaceAll('）', ')')
+        .replaceAll('，', ',')
+        .replaceAll('周次', '')
+        .replaceAll('周', '');
+
+    final result = <int>[];
+    final seen = <int>{};
+    final pattern = RegExp(r'(\d+\s*-\s*\d+|\d+)\s*(?:\(([^()]*)\))?');
+
+    for (final match in pattern.allMatches(normalized)) {
+      final rawRange = match.group(1);
+      if (rawRange == null) continue;
+
+      final parity = (match.group(2) ?? '').trim();
+      List<int> values;
+
+      if (rawRange.contains('-')) {
+        final parts = rawRange.split(RegExp(r'\s*-\s*'));
+        var start = int.parse(parts[0]);
+        var end = int.parse(parts[1]);
+        if (start > end) {
+          final tmp = start;
+          start = end;
+          end = tmp;
+        }
+        values = List.generate(end - start + 1, (i) => start + i);
+      } else {
+        values = [int.parse(rawRange.trim())];
+      }
+
+      if (parity.contains('单')) {
+        values = values.where((n) => n.isOdd).toList();
+      } else if (parity.contains('双')) {
+        values = values.where((n) => n.isEven).toList();
+      }
+
+      for (final n in values) {
+        if (seen.add(n)) result.add(n);
+      }
+    }
+
     return result;
   }
 }

@@ -62,6 +62,49 @@ def parse_number_ranges(text: str):
     return result
 
 
+def parse_week_ranges(text: str):
+    if not text:
+        return []
+
+    normalized = (
+        str(text)
+        .replace("（", "(")
+        .replace("）", ")")
+        .replace("，", ",")
+        .replace("周次", "")
+        .replace("周", "")
+    )
+
+    result = []
+    seen = set()
+    pattern = re.compile(r"(\d+\s*-\s*\d+|\d+)\s*(?:\(([^()]*)\))?")
+
+    for m in pattern.finditer(normalized):
+        raw_range = m.group(1)
+        parity = (m.group(2) or "").strip()
+
+        if "-" in raw_range:
+            start_text, end_text = re.split(r"\s*-\s*", raw_range, maxsplit=1)
+            start, end = int(start_text), int(end_text)
+            if start > end:
+                start, end = end, start
+            values = list(range(start, end + 1))
+        else:
+            values = [int(raw_range.strip())]
+
+        if "单" in parity:
+            values = [n for n in values if n % 2 == 1]
+        elif "双" in parity:
+            values = [n for n in values if n % 2 == 0]
+
+        for n in values:
+            if n not in seen:
+                seen.add(n)
+                result.append(n)
+
+    return result
+
+
 def get_current_school_term():
     now = datetime.datetime.now()
     current_year = now.year
@@ -155,7 +198,7 @@ def get_schedule(sid: str, password: str):
                         "class_name": c.get("jxbmc"),
                         "weekday": parse_int(c.get("xqj")),
                         "sessions": parse_number_ranges(c.get("jc")),
-                        "weeks": parse_number_ranges(c.get("zcd")),
+                        "weeks": parse_week_ranges(c.get("zcd")),
                         "campus": c.get("xqmc"),
                         "place": c.get("cdmc"),
                     }
