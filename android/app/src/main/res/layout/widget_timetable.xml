@@ -137,33 +137,51 @@
                     android:src="@drawable/bar_indicator"
                     android:scaleType="fitXY" />
 
-                <LinearLayout
+                <FrameLayout
+                    android:id="@+id/item2_content"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:layout_marginStart="8dp">
+                    android:layout_marginStart="8dp"
+                    android:minHeight="40dp">
+
+                    <LinearLayout
+                        android:id="@+id/item2_texts"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:gravity="center_vertical"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/item2_title"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:textSize="15sp"
+                            android:textStyle="bold"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:textColor="@color/widget_title_color" />
+
+                        <TextView
+                            android:id="@+id/item2_sub"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            android:maxLines="1"
+                            android:singleLine="true"
+                            android:textColor="@color/widget_sub_color" />
+                    </LinearLayout>
 
                     <TextView
-                        android:id="@+id/item2_title"
+                        android:id="@+id/item2_empty_text"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textSize="15sp"
-                        android:textStyle="bold"
-                        android:maxLines="1"
-                        android:singleLine="true"
-                        android:textColor="@color/widget_title_color" />
-
-                    <TextView
-                        android:id="@+id/item2_sub"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
                         android:textSize="13sp"
-                        android:maxLines="1"
-                        android:singleLine="true"
-                        android:textColor="@color/widget_sub_color" />
-                </LinearLayout>
+                        android:textColor="@color/widget_sub_color"
+                        android:visibility="gone" />
+                </FrameLayout>
             </LinearLayout>
 
         </LinearLayout>
