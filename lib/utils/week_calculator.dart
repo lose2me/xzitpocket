@@ -1,7 +1,7 @@
 /// Calculates the current week number given [semesterStart].
 /// Returns 0 if the semester hasn't started yet.
-int currentWeek(DateTime semesterStart) {
-  final now = DateTime.now();
+int currentWeek(DateTime semesterStart, {DateTime? reference}) {
+  final now = _normalizeDate(reference ?? DateTime.now());
   final diff = now.difference(DateTime(
     semesterStart.year,
     semesterStart.month,
@@ -32,10 +32,14 @@ List<DateTime> weekDates(DateTime semesterStart, int week) {
 
 /// Auto-detect current school term: (year, termIndex).
 /// Sep-Dec -> (currentYear, 1); Jan-Aug -> (currentYear-1, 2).
-(int, int) getCurrentSchoolTerm() {
-  final now = DateTime.now();
+(int, int) getCurrentSchoolTerm({DateTime? reference}) {
+  final now = reference ?? DateTime.now();
   if (now.month >= 9 && now.month <= 12) {
     return (now.year, 1);
   }
   return (now.year - 1, 2);
+}
+
+DateTime _normalizeDate(DateTime value) {
+  return DateTime(value.year, value.month, value.day);
 }

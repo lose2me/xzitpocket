@@ -2,8 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
+import '../constants/network_config.dart';
 import '../models/course.dart';
-import '../providers/config_provider.dart';
 import '../utils/rsa_encrypt.dart';
 import '../utils/week_calculator.dart';
 

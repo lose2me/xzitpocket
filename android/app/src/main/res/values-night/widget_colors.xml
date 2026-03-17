@@ -2,4 +2,10 @@
 <resources>
     <color name="widget_title_color">#FFE8EAF0</color>
     <color name="widget_sub_color">#99FFFFFF</color>
+    <color name="widget_hint_color">#66FFFFFF</color>
+    <color name="widget_divider_color">#22FFFFFF</color>
+    <color name="widget_badge_bg">#332655FE</color>
+    <color name="widget_conflict_border">#FFE78B92</color>
+    <color name="widget_conflict_band">#FFF8E3E6</color>
+    <color name="widget_conflict_surface">#FFFFFAFB</color>
 </resources>

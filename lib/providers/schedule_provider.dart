@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../constants/semester_config.dart';
 import '../models/course.dart';
 import '../services/storage_service.dart';
 import '../services/widget_service.dart';
@@ -41,6 +42,7 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     WidgetService.updateWidget(
       courses: courses,
       semesterStart: semesterStartDate,
+      semesterTotalWeeks: semesterTotalWeeks,
     );
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
 
 import 'app.dart';
+import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'providers/config_provider.dart';
 import 'services/storage_service.dart';
@@ -15,11 +16,11 @@ void main() async {
   await storage.init();
   await WidgetService.init();
 
-  // Update widget with current data on app launch
   final courses = storage.getCourses();
-  WidgetService.updateWidget(
+  await WidgetService.updateWidget(
     courses: courses,
     semesterStart: semesterStartDate,
+    semesterTotalWeeks: semesterTotalWeeks,
   );
 
   // Listen for widget clicks → switch to timetable tab
@@ -29,10 +30,8 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        storageServiceProvider.overrideWithValue(storage),
-      ],
-      child: const App(),
+      overrides: [storageServiceProvider.overrideWithValue(storage)],
+      child: App(storage: storage),
     ),
   );
 }

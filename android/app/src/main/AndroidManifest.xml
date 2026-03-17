@@ -1,6 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <application
         android:label="掌上徐工"
         android:name="${applicationName}"
@@ -34,19 +33,64 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Timetable home screen widget -->
         <receiver
-            android:name=".TimetableWidgetProvider"
+            android:name=".widget.TinyWidgetProvider"
             android:exported="true"
-            android:label="@string/widget_name">
+            android:label="@string/widget_name_tiny">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="live.xuda.xzitpocket.ACTION_AUTO_UPDATE" />
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/widget_timetable_info" />
+                android:resource="@xml/widget_tiny_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CompactWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name_compact">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_compact_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.ModerateWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name_moderate">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_moderate_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.DoubleDaysWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name_double_days">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_double_days_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.LargeWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_name_large">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large_info" />
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

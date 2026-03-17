@@ -3,21 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user_config.dart';
 import '../services/storage_service.dart';
 
-/// 学期起始日期（固定值）
-final semesterStartDate = DateTime(2026, 3, 2);
-
-/// 学期总周数
-const semesterTotalWeeks = 16;
-
-/// 教务系统地址（按优先级排列）
-const baseUrls = [
-  'http://jwglxt.xzit.edu.cn/jwglxt',
-  'https://jwglxt.xzit.edu.cn/jwglxt',
-];
-
-/// 请求超时时间
-const requestTimeout = Duration(seconds: 6);
-
 final storageServiceProvider = Provider<StorageService>((ref) {
   throw UnimplementedError('Must be overridden in main');
 });
@@ -33,7 +18,6 @@ class ConfigNotifier extends StateNotifier<UserConfig> {
   ConfigNotifier(this._storage)
     : super(
         UserConfig(
-          semesterStartDate: semesterStartDate,
           studentId: _storage.getStudentId(),
           studentName: _storage.getStudentName(),
         ),
@@ -52,6 +36,6 @@ class ConfigNotifier extends StateNotifier<UserConfig> {
 
   Future<void> logout() async {
     await _storage.clearCredentials();
-    state = UserConfig(semesterStartDate: semesterStartDate);
+    state = const UserConfig();
   }
 }

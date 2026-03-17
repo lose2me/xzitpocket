@@ -2,6 +2,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../constants/semester_config.dart';
 import '../../models/course.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
@@ -68,6 +69,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       _pageController.jumpToPage(week - 1);
     }
     ref.read(selectedWeekProvider.notifier).state = week;
+  }
+
+  void refreshForResume() {
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   Future<void> _onSync() async {

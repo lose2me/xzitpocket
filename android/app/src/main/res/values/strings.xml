@@ -1,5 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">显示下节课堂信息</string>
-    <string name="widget_name">课程表</string>
+    <string name="widget_description">显示最近课程信息</string>
+    <string name="widget_name_tiny">超小课表</string>
+    <string name="widget_name_compact">紧凑课表</string>
+    <string name="widget_name_moderate">今日课表</string>
+    <string name="widget_name_double_days">近日课表</string>
+    <string name="widget_name_large">今日大课表</string>
+    <string name="widget_face_happy">(✿◡‿◡)</string>
+    <string name="widget_face_alert">╰（‵□′）╯</string>
+    <string name="widget_face_upcoming">(✘﹏✘ა)</string>
+    <string name="widget_face_finished">*｡٩(ˊωˋ*)و✧*｡</string>
+    <string name="widget_status_not_logged">未登录教务系统</string>
+    <string name="widget_status_not_logged_sub">请先同步课表</string>
+    <string name="widget_status_upcoming">新学期要开始了</string>
+    <string name="widget_status_finished_term">学期结束啦</string>
+    <string name="widget_status_no_courses">今天没有课啦</string>
+    <string name="widget_tomorrow_preview">明日预告</string>
+    <string name="widget_title_today">今天</string>
+    <string name="widget_title_tomorrow">明天</string>
+    <string name="widget_empty_today_friendly">(✿◡‿◡)\n今天没有课啦</string>
+    <string name="widget_empty_tomorrow_friendly">(✿◡‿◡)\n明天没有课啦</string>
 </resources>

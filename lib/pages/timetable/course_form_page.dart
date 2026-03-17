@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/semester_config.dart';
 import '../../models/course.dart';
-import '../../providers/config_provider.dart';
 import '../../utils/snackbar_helper.dart';
 import 'color_picker_sheet.dart';
 

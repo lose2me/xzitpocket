@@ -214,7 +214,6 @@ class _MePageState extends ConsumerState<MePage> {
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
     if (result != null) {
       final storage = ref.read(storageServiceProvider);
-      await storage.setStudentId(sid);
       await storage.setSavedPassword(pwd);
 
       await ref
