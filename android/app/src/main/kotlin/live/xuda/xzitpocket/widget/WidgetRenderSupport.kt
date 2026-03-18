@@ -20,6 +20,25 @@ internal object WidgetRenderSupport {
         views.setInt(viewId, "setTextColor", ContextCompat.getColor(context, colorResId))
     }
 
+    fun setHeaderDateText(
+        context: Context,
+        views: RemoteViews,
+        viewId: Int,
+        text: String,
+    ) {
+        setTextColor(context, views, viewId, R.color.widget_sub_color)
+        views.setTextViewText(viewId, text)
+    }
+
+    fun setTomorrowPreviewText(
+        context: Context,
+        views: RemoteViews,
+        viewId: Int,
+    ) {
+        setTextColor(context, views, viewId, R.color.widget_preview_blue)
+        views.setTextViewText(viewId, context.getString(R.string.widget_tomorrow_preview))
+    }
+
     fun weekLabel(snapshot: RenderSnapshot): String {
         return if (snapshot.hasSchedule && snapshot.currentWeek > 0) {
             "第${snapshot.currentWeek}周"

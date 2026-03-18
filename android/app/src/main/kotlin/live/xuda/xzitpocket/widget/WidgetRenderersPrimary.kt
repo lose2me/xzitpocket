@@ -89,7 +89,12 @@ internal object CompactWidgetRenderer {
         val views = RemoteViews(context.packageName, R.layout.widget_compact)
         WidgetRenderSupport.attachRootClick(context, views)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
-        views.setTextViewText(R.id.tv_header_title, WidgetTimeUtils.todayDisplayDate())
+        WidgetRenderSupport.setHeaderDateText(
+            context,
+            views,
+            R.id.tv_header_title,
+            WidgetTimeUtils.todayDisplayDate(),
+        )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
         when {
@@ -118,59 +123,37 @@ internal object CompactWidgetRenderer {
 
             else -> {
                 val remainingToday = WidgetRenderSupport.todayRemaining(snapshot)
-                val tomorrowCourses = WidgetRenderSupport.tomorrowCourses(snapshot)
-                when {
-                    remainingToday.isNotEmpty() -> {
-                        WidgetRenderSupport.showContent(
-                            views,
-                            R.id.container_content,
-                            R.id.container_status,
-                        )
-                        views.setTextViewText(R.id.tv_header_title, WidgetTimeUtils.todayDisplayDate())
-                        WidgetRenderSupport.fillVerticalContainer(
-                            context,
-                            views,
-                            R.id.container_courses,
-                            remainingToday.take(2),
-                            showExtra = false,
-                            targetSlots = 2,
-                            itemLayoutRes = R.layout.widget_course_item_compact,
-                            dividerLayoutRes = R.layout.widget_divider_horizontal_compact,
-                        )
-                    }
-
-                    tomorrowCourses.isNotEmpty() -> {
-                        WidgetRenderSupport.showContent(
-                            views,
-                            R.id.container_content,
-                            R.id.container_status,
-                        )
-                        views.setTextViewText(
-                            R.id.tv_header_title,
-                            context.getString(R.string.widget_tomorrow_preview),
-                        )
-                        WidgetRenderSupport.fillVerticalContainer(
-                            context,
-                            views,
-                            R.id.container_courses,
-                            tomorrowCourses.take(2),
-                            showExtra = false,
-                            targetSlots = 2,
-                            itemLayoutRes = R.layout.widget_course_item_compact,
-                            dividerLayoutRes = R.layout.widget_divider_horizontal_compact,
-                        )
-                    }
-
-                    else -> {
-                        WidgetRenderSupport.showNoCoursesStatus(
-                            context,
-                            views,
-                            R.id.container_content,
-                            R.id.container_status,
-                            R.id.tv_status_title,
-                            R.id.tv_status_sub,
-                        )
-                    }
+                if (remainingToday.isNotEmpty()) {
+                    WidgetRenderSupport.showContent(
+                        views,
+                        R.id.container_content,
+                        R.id.container_status,
+                    )
+                    WidgetRenderSupport.setHeaderDateText(
+                        context,
+                        views,
+                        R.id.tv_header_title,
+                        WidgetTimeUtils.todayDisplayDate(),
+                    )
+                    WidgetRenderSupport.fillVerticalContainer(
+                        context,
+                        views,
+                        R.id.container_courses,
+                        remainingToday.take(2),
+                        showExtra = true,
+                        targetSlots = 2,
+                        itemLayoutRes = R.layout.widget_course_item_compact,
+                        dividerLayoutRes = R.layout.widget_divider_horizontal_compact,
+                    )
+                } else {
+                    WidgetRenderSupport.showNoCoursesStatus(
+                        context,
+                        views,
+                        R.id.container_content,
+                        R.id.container_status,
+                        R.id.tv_status_title,
+                        R.id.tv_status_sub,
+                    )
                 }
             }
         }
@@ -185,7 +168,12 @@ internal object ModerateWidgetRenderer {
         WidgetRenderSupport.attachRootClick(context, views)
         views.setViewVisibility(R.id.tv_week, View.VISIBLE)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
-        views.setTextViewText(R.id.tv_header_title, WidgetTimeUtils.todayDisplayDate())
+        WidgetRenderSupport.setHeaderDateText(
+            context,
+            views,
+            R.id.tv_header_title,
+            WidgetTimeUtils.todayDisplayDate(),
+        )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
         when {
@@ -222,7 +210,12 @@ internal object ModerateWidgetRenderer {
                             R.id.container_content,
                             R.id.container_status,
                         )
-                        views.setTextViewText(R.id.tv_header_title, WidgetTimeUtils.todayDisplayDate())
+                        WidgetRenderSupport.setHeaderDateText(
+                            context,
+                            views,
+                            R.id.tv_header_title,
+                            WidgetTimeUtils.todayDisplayDate(),
+                        )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
                             views,
@@ -240,9 +233,10 @@ internal object ModerateWidgetRenderer {
                             R.id.container_content,
                             R.id.container_status,
                         )
-                        views.setTextViewText(
+                        WidgetRenderSupport.setTomorrowPreviewText(
+                            context,
+                            views,
                             R.id.tv_header_title,
-                            context.getString(R.string.widget_tomorrow_preview),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,

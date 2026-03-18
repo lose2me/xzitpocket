@@ -5,6 +5,7 @@
     <color name="widget_hint_color">#66FFFFFF</color>
     <color name="widget_divider_color">#22FFFFFF</color>
     <color name="widget_badge_bg">#332655FE</color>
+    <color name="widget_preview_blue">#FFA9D8FF</color>
     <color name="widget_conflict_border">#FFE78B92</color>
     <color name="widget_conflict_band">#FFF8E3E6</color>
     <color name="widget_conflict_surface">#FFFFFAFB</color>

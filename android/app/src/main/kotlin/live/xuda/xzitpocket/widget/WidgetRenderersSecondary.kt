@@ -125,7 +125,12 @@ internal object LargeWidgetRenderer {
         val views = RemoteViews(context.packageName, R.layout.widget_large)
         WidgetRenderSupport.attachRootClick(context, views)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
-        views.setTextViewText(R.id.tv_header_title, WidgetTimeUtils.todayDisplayDate())
+        WidgetRenderSupport.setHeaderDateText(
+            context,
+            views,
+            R.id.tv_header_title,
+            WidgetTimeUtils.todayDisplayDate(),
+        )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
         when {
@@ -162,7 +167,12 @@ internal object LargeWidgetRenderer {
                             R.id.container_content,
                             R.id.container_status,
                         )
-                        views.setTextViewText(R.id.tv_header_title, WidgetTimeUtils.todayDisplayDate())
+                        WidgetRenderSupport.setHeaderDateText(
+                            context,
+                            views,
+                            R.id.tv_header_title,
+                            WidgetTimeUtils.todayDisplayDate(),
+                        )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
                             views,
@@ -181,9 +191,10 @@ internal object LargeWidgetRenderer {
                             R.id.container_content,
                             R.id.container_status,
                         )
-                        views.setTextViewText(
+                        WidgetRenderSupport.setTomorrowPreviewText(
+                            context,
+                            views,
                             R.id.tv_header_title,
-                            context.getString(R.string.widget_tomorrow_preview),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
