@@ -58,12 +58,6 @@ internal object DoubleDaysWidgetRenderer {
                     views.setViewVisibility(R.id.container_today, View.GONE)
                     views.setViewVisibility(R.id.tv_empty_today, View.VISIBLE)
                     views.setViewVisibility(R.id.tv_today_footer, View.GONE)
-                    WidgetRenderSupport.setTextColor(
-                        context,
-                        views,
-                        R.id.tv_empty_today,
-                        R.color.widget_sub_color,
-                    )
                     views.setTextViewText(
                         R.id.tv_empty_today,
                         context.getString(R.string.widget_empty_today_friendly),
@@ -88,12 +82,6 @@ internal object DoubleDaysWidgetRenderer {
                     views.setViewVisibility(R.id.container_tomorrow, View.GONE)
                     views.setViewVisibility(R.id.tv_empty_tomorrow, View.VISIBLE)
                     views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
-                    WidgetRenderSupport.setTextColor(
-                        context,
-                        views,
-                        R.id.tv_empty_tomorrow,
-                        R.color.widget_sub_color,
-                    )
                     views.setTextViewText(
                         R.id.tv_empty_tomorrow,
                         context.getString(R.string.widget_empty_tomorrow_friendly),

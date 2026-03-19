@@ -73,7 +73,7 @@
             android:id="@+id/tv_status_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="@color/widget_title_color"
+            android:textColor="@color/widget_sub_color"
             android:textSize="15sp"
             android:textStyle="bold" />
 

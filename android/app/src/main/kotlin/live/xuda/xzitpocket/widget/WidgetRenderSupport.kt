@@ -82,7 +82,6 @@ internal object WidgetRenderSupport {
     }
 
     fun showStatus(
-        context: Context,
         views: RemoteViews,
         contentId: Int,
         statusId: Int,
@@ -90,13 +89,9 @@ internal object WidgetRenderSupport {
         subtitleId: Int,
         title: String,
         subtitle: String? = null,
-        @ColorRes titleColorRes: Int = R.color.widget_title_color,
-        @ColorRes subtitleColorRes: Int = R.color.widget_sub_color,
     ) {
         views.setViewVisibility(contentId, View.GONE)
         views.setViewVisibility(statusId, View.VISIBLE)
-        setTextColor(context, views, titleId, titleColorRes)
-        setTextColor(context, views, subtitleId, subtitleColorRes)
         views.setTextViewText(titleId, title)
 
         if (subtitle.isNullOrBlank()) {
@@ -124,7 +119,6 @@ internal object WidgetRenderSupport {
         subtitleId: Int,
     ) {
         showStatus(
-            context = context,
             views = views,
             contentId = contentId,
             statusId = statusId,
@@ -132,8 +126,6 @@ internal object WidgetRenderSupport {
             subtitleId = subtitleId,
             title = context.getString(R.string.widget_face_alert),
             subtitle = context.getString(R.string.widget_status_not_logged),
-            titleColorRes = R.color.widget_sub_color,
-            subtitleColorRes = R.color.widget_sub_color,
         )
     }
 
@@ -146,7 +138,6 @@ internal object WidgetRenderSupport {
         subtitleId: Int,
     ) {
         showStatus(
-            context = context,
             views = views,
             contentId = contentId,
             statusId = statusId,
@@ -154,8 +145,6 @@ internal object WidgetRenderSupport {
             subtitleId = subtitleId,
             title = context.getString(R.string.widget_face_happy),
             subtitle = context.getString(R.string.widget_status_no_courses),
-            titleColorRes = R.color.widget_sub_color,
-            subtitleColorRes = R.color.widget_sub_color,
         )
     }
 
@@ -168,7 +157,6 @@ internal object WidgetRenderSupport {
         subtitleId: Int,
     ) {
         showStatus(
-            context = context,
             views = views,
             contentId = contentId,
             statusId = statusId,
@@ -176,8 +164,6 @@ internal object WidgetRenderSupport {
             subtitleId = subtitleId,
             title = context.getString(R.string.widget_face_upcoming),
             subtitle = context.getString(R.string.widget_status_upcoming),
-            titleColorRes = R.color.widget_sub_color,
-            subtitleColorRes = R.color.widget_sub_color,
         )
     }
 
@@ -190,7 +176,6 @@ internal object WidgetRenderSupport {
         subtitleId: Int,
     ) {
         showStatus(
-            context = context,
             views = views,
             contentId = contentId,
             statusId = statusId,
@@ -198,8 +183,6 @@ internal object WidgetRenderSupport {
             subtitleId = subtitleId,
             title = context.getString(R.string.widget_face_finished),
             subtitle = context.getString(R.string.widget_status_finished_term),
-            titleColorRes = R.color.widget_sub_color,
-            subtitleColorRes = R.color.widget_sub_color,
         )
     }
 
