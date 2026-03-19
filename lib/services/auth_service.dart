@@ -3,7 +3,10 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../constants/network_config.dart';
+import '../constants/semester_config.dart';
+import '../constants/time_slots.dart';
 import '../models/course.dart';
+import '../utils/course_text_parser.dart';
 import '../utils/rsa_encrypt.dart';
 import '../utils/week_calculator.dart';
 
@@ -154,19 +157,47 @@ class AuthService {
     final colorMap = <String, int>{};
 
     for (final c in kbList) {
-      final title = (c['kcmc'] ?? '') as String;
+      final title = ((c['kcmc'] ?? '') as String).trim();
+      if (title.isEmpty) {
+        throw AuthException('解析课表失败：存在课程名称为空的数据');
+      }
+
       final courseId = (c['kch_id'] ?? '') as String;
       final colorKey = courseId.isNotEmpty ? courseId : title;
       if (!colorMap.containsKey(colorKey)) {
-        colorMap[colorKey] = colorIdx++;
+        colorMap[colorKey] = colorIdx % Course.colors.length;
+        colorIdx++;
       }
+
+      final weekday = _parseInt(c['xqj']);
+      if (weekday == null || weekday < 1 || weekday > 7) {
+        throw AuthException('解析课程“$title”失败：星期信息无效');
+      }
+
+      final sessions = parseSessionRanges(
+        c['jc']?.toString() ?? '',
+        minSession: 1,
+        maxSession: kTimeSlots.length,
+      );
+      if (sessions == null) {
+        throw AuthException('解析课程“$title”失败：节次信息无效');
+      }
+
+      final weeks = parseWeekRanges(
+        c['zcd']?.toString() ?? '',
+        maxWeek: semesterTotalWeeks,
+      );
+      if (weeks == null) {
+        throw AuthException('解析课程“$title”失败：周次信息无效');
+      }
+
       courses.add(
         Course(
           title: title,
           teacher: (c['xm'] ?? '') as String,
-          weekday: _parseInt(c['xqj']) ?? 1,
-          sessions: _parseNumberRanges(c['jc']?.toString() ?? ''),
-          weeks: _parseWeekRanges(c['zcd']?.toString() ?? ''),
+          weekday: weekday,
+          sessions: sessions,
+          weeks: weeks,
           campus: (c['xqmc'] ?? '') as String,
           place: (c['cdmc'] ?? '') as String,
           colorIndex: colorMap[colorKey]!,
@@ -214,79 +245,6 @@ class AuthService {
     return int.tryParse(value.toString());
   }
 
-  static List<int> _parseNumberRanges(String text) {
-    if (text.isEmpty) return [];
-    final result = <int>[];
-    final seen = <int>{};
-    for (final match in RegExp(r'(\d+)\s*-\s*(\d+)|(\d+)').allMatches(text)) {
-      List<int> values;
-      if (match.group(1) != null && match.group(2) != null) {
-        var start = int.parse(match.group(1)!);
-        var end = int.parse(match.group(2)!);
-        if (start > end) {
-          final tmp = start;
-          start = end;
-          end = tmp;
-        }
-        values = List.generate(end - start + 1, (i) => start + i);
-      } else {
-        values = [int.parse(match.group(3)!)];
-      }
-      for (final n in values) {
-        if (seen.add(n)) result.add(n);
-      }
-    }
-    return result;
-  }
-
-  static List<int> _parseWeekRanges(String text) {
-    if (text.isEmpty) return [];
-
-    final normalized = text
-        .replaceAll('（', '(')
-        .replaceAll('）', ')')
-        .replaceAll('，', ',')
-        .replaceAll('周次', '')
-        .replaceAll('周', '');
-
-    final result = <int>[];
-    final seen = <int>{};
-    final pattern = RegExp(r'(\d+\s*-\s*\d+|\d+)\s*(?:\(([^()]*)\))?');
-
-    for (final match in pattern.allMatches(normalized)) {
-      final rawRange = match.group(1);
-      if (rawRange == null) continue;
-
-      final parity = (match.group(2) ?? '').trim();
-      List<int> values;
-
-      if (rawRange.contains('-')) {
-        final parts = rawRange.split(RegExp(r'\s*-\s*'));
-        var start = int.parse(parts[0]);
-        var end = int.parse(parts[1]);
-        if (start > end) {
-          final tmp = start;
-          start = end;
-          end = tmp;
-        }
-        values = List.generate(end - start + 1, (i) => start + i);
-      } else {
-        values = [int.parse(rawRange.trim())];
-      }
-
-      if (parity.contains('单')) {
-        values = values.where((n) => n.isOdd).toList();
-      } else if (parity.contains('双')) {
-        values = values.where((n) => n.isEven).toList();
-      }
-
-      for (final n in values) {
-        if (seen.add(n)) result.add(n);
-      }
-    }
-
-    return result;
-  }
 }
 
 class AuthException implements Exception {

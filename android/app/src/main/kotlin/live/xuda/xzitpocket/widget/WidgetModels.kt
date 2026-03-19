@@ -167,6 +167,8 @@ internal data class WidgetSnapshot(
     val hasSchedule: Boolean,
     val semesterStart: String?,
     val totalWeeks: Int,
+    val windowStartDate: String?,
+    val windowDays: Int,
     val courses: List<WidgetCourse>,
 ) {
     fun toJson(): String {
@@ -174,6 +176,8 @@ internal data class WidgetSnapshot(
         root.put("hasSchedule", hasSchedule)
         root.put("semesterStart", semesterStart ?: "")
         root.put("totalWeeks", totalWeeks)
+        root.put("windowStartDate", windowStartDate ?: "")
+        root.put("windowDays", windowDays)
 
         val courseArray = JSONArray()
         courses.forEach { course ->
@@ -202,6 +206,8 @@ internal data class WidgetSnapshot(
                 hasSchedule = hasSchedule,
                 semesterStart = null,
                 totalWeeks = 0,
+                windowStartDate = null,
+                windowDays = 0,
                 courses = emptyList(),
             )
         }
@@ -234,6 +240,8 @@ internal data class WidgetSnapshot(
                     hasSchedule = root.optBoolean("hasSchedule", false),
                     semesterStart = root.optString("semesterStart", "").ifBlank { null },
                     totalWeeks = root.optInt("totalWeeks", 0),
+                    windowStartDate = root.optString("windowStartDate", "").ifBlank { null },
+                    windowDays = root.optInt("windowDays", 0),
                     courses = courses,
                 )
             } catch (_: Exception) {

@@ -10,6 +10,7 @@ import android.util.Log
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import live.xuda.xzitpocket.MainActivity
+import live.xuda.xzitpocket.automation.ClassAutomationScheduler
 
 internal object WidgetUpdateHelper {
     private const val TAG = "WidgetUpdateHelper"
@@ -29,6 +30,10 @@ internal object WidgetUpdateHelper {
 
     fun updateAllWidgets(context: Context) {
         try {
+            if (WidgetDataSynchronizer.refreshSnapshotIfNeeded(context)) {
+                ClassAutomationScheduler.enqueueWork(context)
+            }
+
             val storedSnapshot = WidgetPrefsRepository.readSnapshot(context)
             val renderSnapshot = RenderSnapshot(
                 hasSchedule = storedSnapshot.hasSchedule,

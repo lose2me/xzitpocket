@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/widget_service.dart';
+import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 import '../../widgets/week_header.dart';
@@ -287,7 +288,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                   '节次',
                   '第${course.startSession}-${course.endSession}节',
                 ),
-                _detailRow(Icons.date_range, '周次', _formatWeeks(course.weeks)),
+                _detailRow(
+                  Icons.date_range,
+                  '周次',
+                  '${formatWeekRanges(course.weeks)}周',
+                ),
                 _detailRow(Icons.tag, '编号', course.courseId),
                 const SizedBox(height: 16),
                 Row(
@@ -341,25 +346,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         ],
       ),
     );
-  }
-
-  String _formatWeeks(List<int> weeks) {
-    if (weeks.isEmpty) return '';
-    final sorted = [...weeks]..sort();
-    final ranges = <String>[];
-    int start = sorted[0];
-    int end = sorted[0];
-    for (int i = 1; i < sorted.length; i++) {
-      if (sorted[i] == end + 1) {
-        end = sorted[i];
-      } else {
-        ranges.add(start == end ? '$start' : '$start-$end');
-        start = sorted[i];
-        end = sorted[i];
-      }
-    }
-    ranges.add(start == end ? '$start' : '$start-$end');
-    return '${ranges.join(',')}周';
   }
 
   void _confirmDelete(BuildContext context, int key) {

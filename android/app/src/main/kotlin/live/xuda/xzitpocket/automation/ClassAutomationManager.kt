@@ -14,7 +14,9 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import live.xuda.xzitpocket.widget.WidgetCourse
+import live.xuda.xzitpocket.widget.WidgetDataSynchronizer
 import live.xuda.xzitpocket.widget.WidgetPrefsRepository
+import live.xuda.xzitpocket.widget.WidgetUpdateHelper
 import live.xuda.xzitpocket.widget.WorkManagerHelper
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -144,6 +146,10 @@ internal object ClassAutomationController {
 
     fun refreshNow(context: Context) {
         WorkManagerHelper.reconcilePeriodicWork(context)
+        if (WidgetDataSynchronizer.refreshSnapshotIfNeeded(context)) {
+            WidgetUpdateHelper.updateAllWidgets(context)
+        }
+
         val mode = ClassAutomationPrefs.getMode(context)
         if (mode == ClassAutomationMode.OFF) {
             cancelScheduledAlarms(context)
