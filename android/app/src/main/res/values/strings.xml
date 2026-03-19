@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">显示最近课程信息</string>
     <string name="widget_name_tiny">超小课表</string>
     <string name="widget_name_compact">紧凑课表</string>
     <string name="widget_name_moderate">今日课表</string>

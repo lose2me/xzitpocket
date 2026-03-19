@@ -5,6 +5,8 @@ import '../models/course.dart';
 import '../models/course.g.dart';
 
 const _courseBoxName = 'courses';
+const _themePreferenceKey = 'theme_preference';
+const _classAutomationModeKey = 'class_automation_mode';
 
 class StorageService {
   late Box<Course> _courseBox;
@@ -87,4 +89,15 @@ class StorageService {
     await _prefs.remove('student_name');
     await _prefs.remove('saved_password');
   }
+
+  String? getThemePreference() => _prefs.getString(_themePreferenceKey);
+
+  Future<void> setThemePreference(String value) =>
+      _prefs.setString(_themePreferenceKey, value);
+
+  String? getClassAutomationMode() =>
+      _prefs.getString(_classAutomationModeKey);
+
+  Future<void> setClassAutomationMode(String value) =>
+      _prefs.setString(_classAutomationModeKey, value);
 }

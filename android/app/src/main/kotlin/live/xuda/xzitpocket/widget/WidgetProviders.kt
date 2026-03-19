@@ -27,7 +27,7 @@ abstract class BaseScheduleWidgetProvider : AppWidgetProvider() {
 
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
-        WorkManagerHelper.schedulePeriodicWork(context)
+        WorkManagerHelper.reconcilePeriodicWork(context)
         WidgetTaskRunner.run {
             WidgetDataSynchronizer.syncNow(context)
         }
@@ -36,9 +36,7 @@ abstract class BaseScheduleWidgetProvider : AppWidgetProvider() {
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         WidgetTaskRunner.run {
-            if (!WidgetUpdateHelper.hasAnyWidgetInstances(context)) {
-                WorkManagerHelper.cancelAllWork(context)
-            }
+            WorkManagerHelper.reconcilePeriodicWork(context)
         }
     }
 }

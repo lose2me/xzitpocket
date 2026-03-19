@@ -4,7 +4,6 @@ import '../../models/course.dart';
 
 class CourseCard extends StatelessWidget {
   final Course course;
-  final VoidCallback? onTap;
   final Animation<double>? countdownAnimation;
   final bool muted;
   final double courseOpacity;
@@ -15,7 +14,6 @@ class CourseCard extends StatelessWidget {
   const CourseCard({
     super.key,
     required this.course,
-    this.onTap,
     this.countdownAnimation,
     this.muted = false,
     this.courseOpacity = 1.0,
@@ -36,92 +34,89 @@ class CourseCard extends StatelessWidget {
       (255 * courseBorderOpacity).round(),
     );
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.all(1.8),
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: borderRadius,
-          border: courseBorderOpacity > 0
-              ? Border.all(color: effectiveBorderColor, width: borderWidth)
-              : null,
-        ),
-        child: Stack(
-          children: [
-            ClipRRect(
-              borderRadius: borderRadius,
-              child: Stack(
-                children: [
-                  OverflowBox(
-                    alignment: Alignment.topLeft,
-                    maxHeight: double.infinity,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        bottom: countdownAnimation == null ? 0 : 7,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
+    return Container(
+      margin: const EdgeInsets.all(1.8),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: borderRadius,
+        border: courseBorderOpacity > 0
+            ? Border.all(color: effectiveBorderColor, width: borderWidth)
+            : null,
+      ),
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: borderRadius,
+            child: Stack(
+              children: [
+                OverflowBox(
+                  alignment: Alignment.topLeft,
+                  maxHeight: double.infinity,
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: countdownAnimation == null ? 0 : 7,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          course.title,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        if (course.place.isNotEmpty)
                           Text(
-                            course.title,
+                            '@${course.place}',
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: textColor,
+                              fontSize: 11,
+                              color: secondaryTextColor,
                               height: 1.2,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          if (course.place.isNotEmpty)
-                            Text(
-                              '@${course.place}',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: secondaryTextColor,
-                                height: 1.2,
-                              ),
+                        if (course.campus.isNotEmpty)
+                          Text(
+                            course.campus,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: secondaryTextColor,
+                              height: 1.2,
                             ),
-                          if (course.campus.isNotEmpty)
-                            Text(
-                              course.campus,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: secondaryTextColor,
-                                height: 1.2,
-                              ),
-                            ),
-                        ],
-                      ),
+                          ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            if (countdownAnimation != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: 3,
-                child: IgnorePointer(
-                  child: AnimatedBuilder(
-                    animation: countdownAnimation!,
-                    builder: (context, child) {
-                      final remaining = (1 - countdownAnimation!.value)
-                          .clamp(0.0, 1.0)
-                          .toDouble();
-                      return CustomPaint(
-                        painter: _CountdownBarPainter(progress: remaining),
-                      );
-                    },
-                  ),
+          ),
+          if (countdownAnimation != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 3,
+              child: IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: countdownAnimation!,
+                  builder: (context, child) {
+                    final remaining = (1 - countdownAnimation!.value)
+                        .clamp(0.0, 1.0)
+                        .toDouble();
+                    return CustomPaint(
+                      painter: _CountdownBarPainter(progress: remaining),
+                    );
+                  },
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }

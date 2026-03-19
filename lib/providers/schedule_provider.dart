@@ -31,15 +31,15 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     state = AsyncValue.data(courses);
   }
 
-  void _reload() {
+  Future<void> _reload() async {
     final (keys, courses) = _storage.getCoursesWithKeys();
     _hiveKeys = keys;
     state = AsyncValue.data(courses);
-    _notifyWidget(courses);
+    await _notifyWidget(courses);
   }
 
-  void _notifyWidget(List<Course> courses) {
-    WidgetService.updateWidget(
+  Future<void> _notifyWidget(List<Course> courses) {
+    return WidgetService.updateWidget(
       courses: courses,
       semesterStart: semesterStartDate,
       semesterTotalWeeks: semesterTotalWeeks,
@@ -56,22 +56,22 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     await _ref
         .read(configProvider.notifier)
         .updateFromLogin(studentId: studentId, studentName: studentName);
-    _reload();
+    await _reload();
   }
 
   Future<void> addCourse(Course course) async {
     await _storage.addCourse(course);
-    _reload();
+    await _reload();
   }
 
   Future<void> updateCourse(int key, Course course) async {
     await _storage.updateCourse(key, course);
-    _reload();
+    await _reload();
   }
 
   Future<void> deleteCourse(int key) async {
     await _storage.deleteCourse(key);
-    _reload();
+    await _reload();
   }
 
   Future<void> syncCourseFields(
@@ -86,7 +86,7 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
       title: title,
       teacher: teacher,
     );
-    _reload();
+    await _reload();
   }
 
   Future<void> clearAll() async {

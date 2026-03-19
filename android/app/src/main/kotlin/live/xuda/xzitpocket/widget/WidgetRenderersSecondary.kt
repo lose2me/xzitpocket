@@ -8,9 +8,24 @@ internal object DoubleDaysWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_double_days)
         WidgetRenderSupport.attachRootClick(context, views)
+        WidgetRenderSupport.applyPanelBackgrounds(
+            context,
+            views,
+            R.id.container_content,
+            R.id.container_status,
+        )
         views.setViewVisibility(R.id.tv_week, View.GONE)
         views.setViewVisibility(R.id.tv_today_footer, View.GONE)
         views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
+        views.setInt(
+            R.id.widget_divider,
+            "setBackgroundColor",
+            WidgetThemeSupport.color(context, R.color.widget_divider_color),
+        )
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_today_title, R.color.widget_sub_color)
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_tomorrow_title, R.color.widget_sub_color)
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_today, R.color.widget_sub_color)
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_tomorrow, R.color.widget_sub_color)
         views.setTextViewText(
             R.id.tv_today_title,
             "${context.getString(R.string.widget_title_today)} ${WidgetTimeUtils.todayDisplayDate()}",
@@ -112,6 +127,13 @@ internal object LargeWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_large)
         WidgetRenderSupport.attachRootClick(context, views)
+        WidgetRenderSupport.applyPanelBackgrounds(
+            context,
+            views,
+            R.id.container_content,
+            R.id.container_status,
+        )
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
         WidgetRenderSupport.setHeaderDateText(
             context,

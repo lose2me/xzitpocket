@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
 
 class MePage extends ConsumerStatefulWidget {
@@ -216,13 +217,20 @@ class _MePageState extends ConsumerState<MePage> {
       final storage = ref.read(storageServiceProvider);
       await storage.setSavedPassword(pwd);
 
-      await ref
-          .read(scheduleProvider.notifier)
-          .updateFromLoginResult(
-            courses: result.courses,
-            studentId: result.studentId ?? sid,
-            studentName: result.studentName ?? '',
-          );
+      try {
+        await ref
+            .read(scheduleProvider.notifier)
+            .updateFromLoginResult(
+              courses: result.courses,
+              studentId: result.studentId ?? sid,
+              studentName: result.studentName ?? '',
+            );
+      } on WidgetSyncException catch (e) {
+        if (mounted) {
+          showAppSnackBar(context, '登录成功，但$e');
+        }
+        return;
+      }
 
       if (mounted) {
         showAppSnackBar(context, '登录成功，课表已同步');
@@ -244,7 +252,12 @@ class _MePageState extends ConsumerState<MePage> {
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
-              await ref.read(scheduleProvider.notifier).clearAll();
+              try {
+                await ref.read(scheduleProvider.notifier).clearAll();
+              } on WidgetSyncException catch (e) {
+                if (!mounted) return;
+                showAppSnackBar(this.context, '已退出登录，但$e');
+              }
               await ref.read(configProvider.notifier).logout();
               ref.read(authProvider.notifier).reset();
             },

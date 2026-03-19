@@ -5,7 +5,6 @@ import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.ColorRes
 import androidx.annotation.LayoutRes
-import androidx.core.content.ContextCompat
 import live.xuda.xzitpocket.R
 
 internal object WidgetRenderSupport {
@@ -17,7 +16,7 @@ internal object WidgetRenderSupport {
         viewId: Int,
         @ColorRes colorResId: Int,
     ) {
-        views.setInt(viewId, "setTextColor", ContextCompat.getColor(context, colorResId))
+        views.setInt(viewId, "setTextColor", WidgetThemeSupport.color(context, colorResId))
     }
 
     fun setHeaderDateText(
@@ -68,10 +67,6 @@ internal object WidgetRenderSupport {
             .sortedBy { it.sortOrder }
     }
 
-    fun hasCoursesToday(snapshot: RenderSnapshot): Boolean {
-        return snapshot.courses.any { it.date == WidgetTimeUtils.todayIsoDate() }
-    }
-
     fun showContent(
         views: RemoteViews,
         contentId: Int,
@@ -82,6 +77,7 @@ internal object WidgetRenderSupport {
     }
 
     fun showStatus(
+        context: Context,
         views: RemoteViews,
         contentId: Int,
         statusId: Int,
@@ -92,12 +88,14 @@ internal object WidgetRenderSupport {
     ) {
         views.setViewVisibility(contentId, View.GONE)
         views.setViewVisibility(statusId, View.VISIBLE)
+        setTextColor(context, views, titleId, R.color.widget_sub_color)
         views.setTextViewText(titleId, title)
 
         if (subtitle.isNullOrBlank()) {
             views.setViewVisibility(subtitleId, View.GONE)
         } else {
             views.setViewVisibility(subtitleId, View.VISIBLE)
+            setTextColor(context, views, subtitleId, R.color.widget_sub_color)
             views.setTextViewText(subtitleId, subtitle)
         }
     }
@@ -120,6 +118,7 @@ internal object WidgetRenderSupport {
     ) {
         showStatus(
             views = views,
+            context = context,
             contentId = contentId,
             statusId = statusId,
             titleId = titleId,
@@ -139,6 +138,7 @@ internal object WidgetRenderSupport {
     ) {
         showStatus(
             views = views,
+            context = context,
             contentId = contentId,
             statusId = statusId,
             titleId = titleId,
@@ -158,6 +158,7 @@ internal object WidgetRenderSupport {
     ) {
         showStatus(
             views = views,
+            context = context,
             contentId = contentId,
             statusId = statusId,
             titleId = titleId,
@@ -177,6 +178,7 @@ internal object WidgetRenderSupport {
     ) {
         showStatus(
             views = views,
+            context = context,
             contentId = contentId,
             statusId = statusId,
             titleId = titleId,
@@ -226,11 +228,10 @@ internal object WidgetRenderSupport {
         setBackgroundResource(
             item,
             R.id.course_item_root,
-            if (course.isConflict) {
-                R.drawable.widget_course_item_conflict_background
-            } else {
-                R.drawable.widget_course_item_background
-            },
+            WidgetThemeSupport.courseItemBackgroundDrawableRes(
+                context,
+                conflict = course.isConflict,
+            ),
         )
         if (course.isConflict) {
             item.setViewVisibility(R.id.course_indicator, View.GONE)
@@ -238,6 +239,9 @@ internal object WidgetRenderSupport {
             item.setViewVisibility(R.id.course_indicator, View.VISIBLE)
             item.setInt(R.id.course_indicator, "setBackgroundColor", course.color)
         }
+        setTextColor(context, item, R.id.tv_course_title, R.color.widget_title_color)
+        setTextColor(context, item, R.id.tv_course_meta, R.color.widget_sub_color)
+        setTextColor(context, item, R.id.tv_course_extra, R.color.widget_hint_color)
         item.setTextViewText(R.id.tv_course_title, course.title)
         item.setTextViewText(
             R.id.tv_course_meta,
@@ -268,6 +272,9 @@ internal object WidgetRenderSupport {
             R.drawable.widget_course_item_background,
         )
         item.setViewVisibility(R.id.course_indicator, View.INVISIBLE)
+        setTextColor(context, item, R.id.tv_course_title, R.color.widget_title_color)
+        setTextColor(context, item, R.id.tv_course_meta, R.color.widget_sub_color)
+        setTextColor(context, item, R.id.tv_course_extra, R.color.widget_hint_color)
         item.setTextViewText(R.id.tv_course_title, PLACEHOLDER_TEXT)
         item.setTextViewText(R.id.tv_course_meta, PLACEHOLDER_TEXT)
 
@@ -302,9 +309,15 @@ internal object WidgetRenderSupport {
         items.forEachIndexed { index, item ->
             views.addView(containerId, item)
             if (index != items.lastIndex) {
+                val divider = RemoteViews(context.packageName, dividerLayoutRes)
+                divider.setInt(
+                    R.id.divider_root,
+                    "setBackgroundColor",
+                    WidgetThemeSupport.color(context, R.color.widget_divider_color),
+                )
                 views.addView(
                     containerId,
-                    RemoteViews(context.packageName, dividerLayoutRes),
+                    divider,
                 )
             }
         }
@@ -358,5 +371,16 @@ internal object WidgetRenderSupport {
 
     fun attachRootClick(context: Context, views: RemoteViews) {
         views.setOnClickPendingIntent(R.id.widget_root, WidgetUpdateHelper.createLaunchPendingIntent(context))
+    }
+
+    fun applyPanelBackgrounds(
+        context: Context,
+        views: RemoteViews,
+        contentId: Int,
+        statusId: Int,
+    ) {
+        val backgroundResId = WidgetThemeSupport.backgroundDrawableRes(context)
+        setBackgroundResource(views, contentId, backgroundResId)
+        setBackgroundResource(views, statusId, backgroundResId)
     }
 }

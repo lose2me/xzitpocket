@@ -17,11 +17,15 @@ void main() async {
   await WidgetService.init();
 
   final courses = storage.getCourses();
-  await WidgetService.updateWidget(
-    courses: courses,
-    semesterStart: semesterStartDate,
-    semesterTotalWeeks: semesterTotalWeeks,
-  );
+  try {
+    await WidgetService.updateWidget(
+      courses: courses,
+      semesterStart: semesterStartDate,
+      semesterTotalWeeks: semesterTotalWeeks,
+    );
+  } on WidgetSyncException catch (e) {
+    debugPrint('Initial widget sync failed: $e');
+  }
 
   // Listen for widget clicks → switch to timetable tab
   HomeWidget.widgetClicked.listen((_) {

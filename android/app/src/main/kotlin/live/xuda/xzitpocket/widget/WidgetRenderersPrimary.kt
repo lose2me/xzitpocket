@@ -11,7 +11,7 @@ internal object TinyWidgetRenderer {
         WidgetRenderSupport.setBackgroundResource(
             views,
             R.id.widget_root,
-            R.drawable.widget_background,
+            WidgetThemeSupport.backgroundDrawableRes(context),
         )
 
         when {
@@ -59,11 +59,28 @@ internal object TinyWidgetRenderer {
                     WidgetRenderSupport.setBackgroundResource(
                         views,
                         R.id.widget_root,
-                        if (nextCourse.isConflict) {
-                            R.drawable.widget_background_conflict
-                        } else {
-                            R.drawable.widget_background
-                        },
+                        WidgetThemeSupport.backgroundDrawableRes(
+                            context,
+                            conflict = nextCourse.isConflict,
+                        ),
+                    )
+                    WidgetRenderSupport.setTextColor(
+                        context,
+                        views,
+                        R.id.tv_course_title,
+                        R.color.widget_title_color,
+                    )
+                    WidgetRenderSupport.setTextColor(
+                        context,
+                        views,
+                        R.id.tv_course_place,
+                        R.color.widget_hint_color,
+                    )
+                    WidgetRenderSupport.setTextColor(
+                        context,
+                        views,
+                        R.id.tv_course_time,
+                        R.color.widget_sub_color,
                     )
                     views.setTextViewText(R.id.tv_course_title, nextCourse.title)
                     views.setTextViewText(
@@ -88,6 +105,13 @@ internal object CompactWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_compact)
         WidgetRenderSupport.attachRootClick(context, views)
+        WidgetRenderSupport.applyPanelBackgrounds(
+            context,
+            views,
+            R.id.container_content,
+            R.id.container_status,
+        )
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
         WidgetRenderSupport.setHeaderDateText(
             context,
@@ -166,7 +190,14 @@ internal object ModerateWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_moderate)
         WidgetRenderSupport.attachRootClick(context, views)
+        WidgetRenderSupport.applyPanelBackgrounds(
+            context,
+            views,
+            R.id.container_content,
+            R.id.container_status,
+        )
         views.setViewVisibility(R.id.tv_week, View.VISIBLE)
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
         WidgetRenderSupport.setHeaderDateText(
             context,

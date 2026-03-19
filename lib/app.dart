@@ -1,24 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
+import 'providers/app_settings_provider.dart';
 import 'services/storage_service.dart';
 import 'services/widget_service.dart';
 
-class App extends StatefulWidget {
+class App extends ConsumerStatefulWidget {
   final StorageService storage;
 
   const App({super.key, required this.storage});
 
   @override
-  State<App> createState() => _AppState();
+  ConsumerState<App> createState() => _AppState();
 }
 
-class _AppState extends State<App> with WidgetsBindingObserver {
+class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   static final _router = GoRouter(
     initialLocation: '/',
     routes: [
@@ -45,9 +47,13 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   void didChangePlatformBrightness() {
     // Delay to let the system apply the configuration change before
     // the native widget re-reads uiMode.
-    Future.delayed(const Duration(milliseconds: 500), () {
+    Future.delayed(const Duration(milliseconds: 500), () async {
       if (mounted) {
-        unawaited(WidgetService.refreshWidget());
+        try {
+          await WidgetService.refreshWidget();
+        } on WidgetSyncException catch (e) {
+          debugPrint('Widget refresh skipped after theme change: $e');
+        }
       }
     });
   }
@@ -61,15 +67,23 @@ class _AppState extends State<App> with WidgetsBindingObserver {
   }
 
   Future<void> _syncWidgetsFromCache() async {
-    await WidgetService.updateWidget(
-      courses: widget.storage.getCourses(),
-      semesterStart: semesterStartDate,
-      semesterTotalWeeks: semesterTotalWeeks,
-    );
+    try {
+      await WidgetService.updateWidget(
+        courses: widget.storage.getCourses(),
+        semesterStart: semesterStartDate,
+        semesterTotalWeeks: semesterTotalWeeks,
+      );
+    } on WidgetSyncException catch (e) {
+      debugPrint('Widget sync on resume failed: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themePreference = ref.watch(
+      appSettingsProvider.select((state) => state.themePreference),
+    );
+
     return MediaQuery.withClampedTextScaling(
       minScaleFactor: 1.0,
       maxScaleFactor: 1.0,
@@ -90,7 +104,7 @@ class _AppState extends State<App> with WidgetsBindingObserver {
             contentTextStyle: TextStyle(color: Color(0xFFE0E0E0)),
           ),
         ),
-        themeMode: ThemeMode.system,
+        themeMode: themePreference.themeMode,
         routerConfig: _router,
       ),
     );

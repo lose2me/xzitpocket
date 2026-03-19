@@ -16,11 +16,6 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    TimetablePage(key: TimetablePage.globalKey),
-    const MePage(),
-  ];
-
   void switchToTimetable() {
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
@@ -33,7 +28,13 @@ class HomePageState extends State<HomePage> {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _pages,
+        children: [
+          TickerMode(
+            enabled: _currentIndex == 0,
+            child: TimetablePage(key: TimetablePage.globalKey),
+          ),
+          const MePage(),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         height: 64,

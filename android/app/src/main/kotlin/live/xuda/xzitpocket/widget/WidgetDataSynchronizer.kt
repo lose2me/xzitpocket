@@ -1,6 +1,7 @@
 package live.xuda.xzitpocket.widget
 
 import android.content.Context
+import live.xuda.xzitpocket.automation.ClassAutomationScheduler
 import java.util.Calendar
 
 internal object WidgetDataSynchronizer {
@@ -10,6 +11,7 @@ internal object WidgetDataSynchronizer {
         val source = WidgetPrefsRepository.readScheduleSource(context)
         if (source == null || source.semesterStart.isBlank() || source.totalWeeks <= 0) {
             WidgetPrefsRepository.saveSnapshot(context, WidgetSnapshot.empty())
+            ClassAutomationScheduler.enqueueWork(context)
             WidgetUpdateHelper.updateAllWidgets(context)
             return
         }
@@ -17,6 +19,7 @@ internal object WidgetDataSynchronizer {
         val startCalendar = WidgetTimeUtils.parseIsoDate(source.semesterStart)
         if (startCalendar == null) {
             WidgetPrefsRepository.saveSnapshot(context, WidgetSnapshot.empty())
+            ClassAutomationScheduler.enqueueWork(context)
             WidgetUpdateHelper.updateAllWidgets(context)
             return
         }
@@ -79,6 +82,7 @@ internal object WidgetDataSynchronizer {
             ),
         )
 
+        ClassAutomationScheduler.enqueueWork(context)
         WidgetUpdateHelper.updateAllWidgets(context)
     }
 

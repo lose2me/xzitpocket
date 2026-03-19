@@ -7,10 +7,12 @@ import '../../models/course.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 import '../../widgets/week_header.dart';
 import 'course_form_page.dart';
+import 'timetable_settings_page.dart';
 import 'timetable_grid.dart';
 
 class TimetablePage extends ConsumerStatefulWidget {
@@ -102,13 +104,20 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
       final result = await ref.read(authProvider.notifier).login(sid, pwd);
       if (result != null) {
-        await ref
-            .read(scheduleProvider.notifier)
-            .updateFromLoginResult(
-              courses: result.courses,
-              studentId: result.studentId ?? sid,
-              studentName: result.studentName ?? '',
-            );
+        try {
+          await ref
+              .read(scheduleProvider.notifier)
+              .updateFromLoginResult(
+                courses: result.courses,
+                studentId: result.studentId ?? sid,
+                studentName: result.studentName ?? '',
+              );
+        } on WidgetSyncException catch (e) {
+          if (mounted) {
+            showAppSnackBar(context, '同步成功，但$e');
+          }
+          return;
+        }
         if (mounted) {
           showAppSnackBar(context, '同步成功');
         }
@@ -150,11 +159,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
             WeekHeader(
               semesterStart: semesterStartDate,
               selectedWeek: selectedWeek,
-              totalWeeks: semesterTotalWeeks,
               showNonCurrentWeekCourses: showNonCurrentWeekCourses,
               onToggleShowNonCurrentWeekCourses: () =>
                   _toggleShowNonCurrentWeekCourses(showNonCurrentWeekCourses),
               onSync: _isSyncing ? null : _onSync,
+              onOpenSettings: _openSettingsPage,
             ),
             Expanded(
               child: coursesAsync.when(
@@ -313,6 +322,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     );
   }
 
+  void _openSettingsPage() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TimetableSettingsPage()),
+    );
+  }
+
   Widget _detailRow(IconData icon, String label, String value) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -359,8 +374,15 @@ class TimetablePageState extends ConsumerState<TimetablePage>
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
-              ref.read(scheduleProvider.notifier).deleteCourse(key);
+            onPressed: () async {
+              try {
+                await ref.read(scheduleProvider.notifier).deleteCourse(key);
+              } on WidgetSyncException catch (e) {
+                if (mounted) {
+                  showAppSnackBar(this.context, '课程已删除，但$e');
+                }
+              }
+              if (!ctx.mounted) return;
               Navigator.pop(ctx);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
@@ -391,8 +413,13 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           weekday: weekday,
           session: session,
           defaultColor: defaultColor,
-          onSave: (course) {
-            ref.read(scheduleProvider.notifier).addCourse(course);
+          onSave: (course) async {
+            try {
+              await ref.read(scheduleProvider.notifier).addCourse(course);
+            } on WidgetSyncException catch (e) {
+              if (!mounted) return;
+              showAppSnackBar(this.context, '课程已保存，但$e');
+            }
           },
         ),
       ),
@@ -407,22 +434,32 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           session: course.startSession,
           existingCourse: course,
           onSave: (updated) async {
-            await ref
-                .read(scheduleProvider.notifier)
-                .updateCourse(key, updated);
-            if (updated.courseId.isNotEmpty) {
+            try {
               await ref
                   .read(scheduleProvider.notifier)
-                  .syncCourseFields(
-                    updated.courseId,
-                    excludeKey: key,
-                    title: updated.title,
-                    teacher: updated.teacher,
-                  );
+                  .updateCourse(key, updated);
+              if (updated.courseId.isNotEmpty) {
+                await ref
+                    .read(scheduleProvider.notifier)
+                    .syncCourseFields(
+                      updated.courseId,
+                      excludeKey: key,
+                      title: updated.title,
+                      teacher: updated.teacher,
+                    );
+              }
+            } on WidgetSyncException catch (e) {
+              if (!mounted) return;
+              showAppSnackBar(this.context, '课程已保存，但$e');
             }
           },
-          onDelete: () {
-            ref.read(scheduleProvider.notifier).deleteCourse(key);
+          onDelete: () async {
+            try {
+              await ref.read(scheduleProvider.notifier).deleteCourse(key);
+            } on WidgetSyncException catch (e) {
+              if (!mounted) return;
+              showAppSnackBar(this.context, '课程已删除，但$e');
+            }
           },
         ),
       ),

@@ -10,8 +10,8 @@ class CourseFormPage extends StatefulWidget {
   final int session;
   final Course? existingCourse;
   final Color? defaultColor;
-  final ValueChanged<Course> onSave;
-  final VoidCallback? onDelete;
+  final Future<void> Function(Course) onSave;
+  final Future<void> Function()? onDelete;
 
   const CourseFormPage({
     super.key,
@@ -306,7 +306,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final weekday = int.parse(_weekdayCtrl.text);
     final startSession = int.parse(_startCtrl.text);
@@ -328,7 +328,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     }
     final existing = widget.existingCourse;
 
-    widget.onSave(
+    await widget.onSave(
       Course(
         title: _titleCtrl.text,
         teacher: _teacherCtrl.text,
@@ -341,6 +341,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
         courseId: existing?.courseId ?? '',
       ),
     );
+    if (!mounted) return;
     Navigator.pop(context);
   }
 
@@ -356,9 +357,10 @@ class _CourseFormPageState extends State<CourseFormPage> {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(ctx);
-              widget.onDelete!();
+              await widget.onDelete!();
+              if (!mounted) return;
               Navigator.pop(context);
             },
             child: const Text('删除', style: TextStyle(color: Colors.red)),
