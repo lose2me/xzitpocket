@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/schedule_provider.dart';
 import '../../services/native_automation_service.dart';
 import '../../utils/snackbar_helper.dart';
 
@@ -83,9 +84,14 @@ class _TimetableSettingsPageState
     }
   }
 
+  void _updateShowNonCurrentWeekCourses(bool value) {
+    ref.read(showNonCurrentWeekCoursesProvider.notifier).state = value;
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
+    final showNonCurrentWeekCourses = ref.watch(showNonCurrentWeekCoursesProvider);
     final permissionStatus = _permissionStatus;
     final isAutomationEnabled =
         settings.classAutomationMode != ClassAutomationMode.off;
@@ -151,6 +157,12 @@ class _TimetableSettingsPageState
                 ),
               ),
             ),
+          ),
+          const SizedBox(height: 20),
+          _SectionSwitchHeader(
+            title: '显示非本周课程',
+            value: showNonCurrentWeekCourses,
+            onChanged: _updateShowNonCurrentWeekCourses,
           ),
           const SizedBox(height: 20),
           const _SectionHeader(

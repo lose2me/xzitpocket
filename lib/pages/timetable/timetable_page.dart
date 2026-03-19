@@ -133,14 +133,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     }
   }
 
-  void _toggleShowNonCurrentWeekCourses(bool currentValue) {
-    final nextValue = !currentValue;
-    ref.read(showNonCurrentWeekCoursesProvider.notifier).state = nextValue;
-
-    if (!mounted) return;
-    showAppSnackBar(context, nextValue ? '显示非本周课程' : '隐藏非本周课程');
-  }
-
   @override
   Widget build(BuildContext context) {
     final coursesAsync = ref.watch(scheduleProvider);
@@ -160,9 +152,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
             WeekHeader(
               semesterStart: semesterStartDate,
               selectedWeek: selectedWeek,
-              showNonCurrentWeekCourses: showNonCurrentWeekCourses,
-              onToggleShowNonCurrentWeekCourses: () =>
-                  _toggleShowNonCurrentWeekCourses(showNonCurrentWeekCourses),
               onSync: _isSyncing ? null : _onSync,
               onOpenSettings: _openSettingsPage,
             ),

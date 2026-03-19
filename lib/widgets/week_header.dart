@@ -5,8 +5,6 @@ import '../utils/week_calculator.dart';
 class WeekHeader extends StatelessWidget {
   final DateTime semesterStart;
   final int selectedWeek;
-  final bool showNonCurrentWeekCourses;
-  final VoidCallback? onToggleShowNonCurrentWeekCourses;
   final VoidCallback? onSync;
   final VoidCallback? onOpenSettings;
 
@@ -14,8 +12,6 @@ class WeekHeader extends StatelessWidget {
     super.key,
     required this.semesterStart,
     required this.selectedWeek,
-    required this.showNonCurrentWeekCourses,
-    this.onToggleShowNonCurrentWeekCourses,
     this.onSync,
     this.onOpenSettings,
   });
@@ -52,19 +48,6 @@ class WeekHeader extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            icon: Icon(
-              showNonCurrentWeekCourses ? Icons.layers : Icons.layers_outlined,
-              size: 22,
-              color: showNonCurrentWeekCourses
-                  ? theme.colorScheme.primary
-                  : null,
-            ),
-            onPressed: onToggleShowNonCurrentWeekCourses,
-            tooltip: showNonCurrentWeekCourses ? '隐藏非本周课表' : '显示非本周课表',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
           IconButton(
             icon: const Icon(Icons.sync, size: 22),
