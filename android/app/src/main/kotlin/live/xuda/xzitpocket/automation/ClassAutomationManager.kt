@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.media.AudioManager
 import android.os.Build
 import androidx.core.content.getSystemService
 import androidx.work.ExistingWorkPolicy
@@ -25,12 +24,10 @@ internal enum class ClassAutomationMode(val value: String) {
     OFF("off"),
     DND("dnd"),
     DND_KEEP("dnd_keep"),
-    SILENT("silent"),
-    SILENT_KEEP("silent_keep"),
     ;
 
     val isSticky: Boolean
-        get() = this == DND_KEEP || this == SILENT_KEEP
+        get() = this == DND_KEEP
 
     companion object {
         fun fromValue(value: String?): ClassAutomationMode {
@@ -47,7 +44,6 @@ internal object ClassAutomationPrefs {
     private const val KEY_IS_ACTIVE = "is_active"
     private const val KEY_ACTIVE_MODE = "active_mode"
     private const val KEY_PREVIOUS_INTERRUPTION_FILTER = "previous_interruption_filter"
-    private const val KEY_PREVIOUS_RINGER_MODE = "previous_ringer_mode"
 
     fun getMode(context: Context): ClassAutomationMode {
         val value = context
@@ -63,20 +59,18 @@ internal object ClassAutomationPrefs {
     fun getActiveMode(context: Context): ClassAutomationMode? {
         if (!isActive(context)) return null
         val value = prefs(context).getString(KEY_ACTIVE_MODE, null) ?: return null
-        return ClassAutomationMode.fromValue(value)
+        return ClassAutomationMode.entries.firstOrNull { it.value == value }
     }
 
     fun setActive(
         context: Context,
         mode: ClassAutomationMode,
         previousInterruptionFilter: Int,
-        previousRingerMode: Int,
     ) {
         prefs(context).edit()
             .putBoolean(KEY_IS_ACTIVE, true)
             .putString(KEY_ACTIVE_MODE, mode.value)
             .putInt(KEY_PREVIOUS_INTERRUPTION_FILTER, previousInterruptionFilter)
-            .putInt(KEY_PREVIOUS_RINGER_MODE, previousRingerMode)
             .apply()
     }
 
@@ -85,7 +79,6 @@ internal object ClassAutomationPrefs {
             .putBoolean(KEY_IS_ACTIVE, false)
             .remove(KEY_ACTIVE_MODE)
             .remove(KEY_PREVIOUS_INTERRUPTION_FILTER)
-            .remove(KEY_PREVIOUS_RINGER_MODE)
             .apply()
     }
 
@@ -93,13 +86,6 @@ internal object ClassAutomationPrefs {
         return prefs(context).getInt(
             KEY_PREVIOUS_INTERRUPTION_FILTER,
             NotificationManager.INTERRUPTION_FILTER_ALL,
-        )
-    }
-
-    fun previousRingerMode(context: Context): Int {
-        return prefs(context).getInt(
-            KEY_PREVIOUS_RINGER_MODE,
-            AudioManager.RINGER_MODE_NORMAL,
         )
     }
 
@@ -182,18 +168,9 @@ internal object ClassAutomationController {
         context: Context,
         boundaryAction: String?,
     ) {
-        when (boundaryAction) {
-            BOUNDARY_ACTION_START -> {
-                val mode = ClassAutomationPrefs.getMode(context)
-                if (mode != ClassAutomationMode.OFF) {
-                    activateForCurrentMode(context, mode)
-                }
-            }
-
-            BOUNDARY_ACTION_END -> deactivateIfNeeded(context)
+        if (boundaryAction == BOUNDARY_ACTION_START || boundaryAction == BOUNDARY_ACTION_END) {
+            refreshNow(context)
         }
-
-        ClassAutomationScheduler.enqueueWork(context)
     }
 
     fun hasDndPermission(context: Context): Boolean {
@@ -223,27 +200,40 @@ internal object ClassAutomationController {
         }
 
         val notificationManager = context.getSystemService<NotificationManager>() ?: return
-        val audioManager = context.getSystemService<AudioManager>() ?: return
         val previousInterruptionFilter = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             notificationManager.currentInterruptionFilter
         } else {
             NotificationManager.INTERRUPTION_FILTER_ALL
         }
-        val previousRingerMode = audioManager.ringerMode
         if (!applyMode(context, true, mode)) return
 
         ClassAutomationPrefs.setActive(
             context,
             mode,
             previousInterruptionFilter = previousInterruptionFilter,
-            previousRingerMode = previousRingerMode,
         )
     }
 
     private fun deactivateIfNeeded(context: Context) {
-        val activeMode = ClassAutomationPrefs.getActiveMode(context) ?: return
+        val activeMode = ClassAutomationPrefs.getActiveMode(context)
+        if (activeMode == null) {
+            if (ClassAutomationPrefs.isActive(context)) {
+                restorePreviousInterruptionFilter(context)
+                ClassAutomationPrefs.clearActive(context)
+            }
+            return
+        }
         applyMode(context, false, activeMode)
         ClassAutomationPrefs.clearActive(context)
+    }
+
+    private fun restorePreviousInterruptionFilter(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+        val notificationManager = context.getSystemService<NotificationManager>() ?: return
+        if (!notificationManager.isNotificationPolicyAccessGranted) return
+        notificationManager.setInterruptionFilter(
+            ClassAutomationPrefs.previousInterruptionFilter(context),
+        )
     }
 
     private fun applyMode(
@@ -252,7 +242,6 @@ internal object ClassAutomationController {
         mode: ClassAutomationMode,
     ): Boolean {
         val notificationManager = context.getSystemService<NotificationManager>() ?: return false
-        val audioManager = context.getSystemService<AudioManager>() ?: return false
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
             !notificationManager.isNotificationPolicyAccessGranted
@@ -274,16 +263,6 @@ internal object ClassAutomationController {
                         ClassAutomationPrefs.previousInterruptionFilter(context)
                     },
                 )
-            }
-
-            ClassAutomationMode.SILENT,
-            ClassAutomationMode.SILENT_KEEP,
-            -> {
-                audioManager.ringerMode = if (enable) {
-                    AudioManager.RINGER_MODE_SILENT
-                } else {
-                    ClassAutomationPrefs.previousRingerMode(context)
-                }
             }
         }
 

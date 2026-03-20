@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
@@ -21,16 +20,6 @@ class App extends ConsumerStatefulWidget {
 }
 
 class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
-  static final _router = GoRouter(
-    initialLocation: '/',
-    routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => HomePage(key: HomePage.globalKey),
-      ),
-    ],
-  );
-
   @override
   void initState() {
     super.initState();
@@ -87,7 +76,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     return MediaQuery.withClampedTextScaling(
       minScaleFactor: 1.0,
       maxScaleFactor: 1.0,
-      child: MaterialApp.router(
+      child: MaterialApp(
         title: '掌上徐工',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -105,7 +94,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
           ),
         ),
         themeMode: themePreference.themeMode,
-        routerConfig: _router,
+        home: HomePage(key: HomePage.globalKey),
       ),
     );
   }

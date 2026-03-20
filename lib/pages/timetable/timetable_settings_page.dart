@@ -202,8 +202,6 @@ class _TimetableSettingsPageState
       ClassAutomationMode.off => '关闭',
       ClassAutomationMode.dnd => '上课时开启免打扰，下课恢复',
       ClassAutomationMode.dndKeep => '上课时开启免打扰，下课不恢复',
-      ClassAutomationMode.silent => '上课时开启静音，下课恢复',
-      ClassAutomationMode.silentKeep => '上课时开启静音，下课不恢复',
     };
   }
 
@@ -212,8 +210,6 @@ class _TimetableSettingsPageState
       ClassAutomationMode.off => Icons.remove_circle_outline,
       ClassAutomationMode.dnd => Icons.do_not_disturb_on_outlined,
       ClassAutomationMode.dndKeep => Icons.do_not_disturb_alt_outlined,
-      ClassAutomationMode.silent => Icons.volume_mute_outlined,
-      ClassAutomationMode.silentKeep => Icons.volume_off_outlined,
     };
   }
 

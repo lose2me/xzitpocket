@@ -26,17 +26,13 @@ enum AppThemePreference {
 enum ClassAutomationMode {
   off,
   dnd,
-  dndKeep,
-  silent,
-  silentKeep;
+  dndKeep;
 
   String get storageValue {
     return switch (this) {
       ClassAutomationMode.off => 'off',
       ClassAutomationMode.dnd => 'dnd',
       ClassAutomationMode.dndKeep => 'dnd_keep',
-      ClassAutomationMode.silent => 'silent',
-      ClassAutomationMode.silentKeep => 'silent_keep',
     };
   }
 
