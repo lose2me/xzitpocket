@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'tools/tools_page.dart';
 import 'timetable/timetable_page.dart';
 import 'me/me_page.dart';
 
@@ -33,6 +34,7 @@ class HomePageState extends State<HomePage> {
             enabled: _currentIndex == 0,
             child: TimetablePage(key: TimetablePage.globalKey),
           ),
+          const ToolsPage(),
           const MePage(),
         ],
       ),
@@ -46,6 +48,11 @@ class HomePageState extends State<HomePage> {
             icon: Icon(Icons.calendar_today_outlined),
             selectedIcon: Icon(Icons.calendar_today),
             label: '课表',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.home_repair_service_outlined),
+            selectedIcon: Icon(Icons.home_repair_service),
+            label: '工具',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
