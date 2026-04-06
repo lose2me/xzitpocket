@@ -61,6 +61,7 @@ class PowerService {
       timeout: _requestTimeout,
       password: '888888',
       price: '0.54',
+      shouldDivideByPrice: false,
       loginPath: '/chkuser.fwps',
       consumeHistoryPath: '/consumeHistory.fwps',
     ),
@@ -392,7 +393,11 @@ class PowerService {
     }
 
     final messageMatch = RegExp(r"msg:'([^']+)'").firstMatch(responseText);
-    throw PowerQueryException(messageMatch?.group(1) ?? '登录失败');
+    final message = messageMatch?.group(1) ?? '登录失败';
+    if (_normalizeText(message).contains('密码不正确')) {
+      throw const PowerQueryException('默认密码被篡改，待解决');
+    }
+    throw PowerQueryException(message);
   }
 
   Map<String, Object> _parseLegacyConsumeHistory(String html) {
@@ -540,22 +545,30 @@ class PowerService {
       );
     }
 
-    final available = _divideByPrice(
+    final available = _normalizeLegacyMetric(
       raw['available'] as String? ?? '',
-      endpoint.price,
+      endpoint,
     );
     final dailyUsage =
         (raw['dailyUsage'] as List<PowerDailyUsage>? ?? const []);
     return PowerQueryData(
       price: endpoint.price,
       available: available,
-      monthUsage: _divideByPrice(
+      monthUsage: _normalizeLegacyMetric(
         raw['monthUsage'] as String? ?? '',
-        endpoint.price,
+        endpoint,
       ),
       estDays: _estimateDaysLeft(available, dailyUsage),
       dailyUsage: dailyUsage,
     );
+  }
+
+  String _normalizeLegacyMetric(String value, _EndpointConfig endpoint) {
+    if (endpoint.shouldDivideByPrice) {
+      return _divideByPrice(value, endpoint.price);
+    }
+    final normalized = _normalizeText(value);
+    return normalized.isEmpty ? '-' : normalized;
   }
 
   String _divideByPrice(String value, String price) {
@@ -630,6 +643,7 @@ class _EndpointConfig {
   final Duration timeout;
   final String? password;
   final String price;
+  final bool shouldDivideByPrice;
   final String loginPath;
   final String consumeHistoryPath;
 
@@ -639,6 +653,7 @@ class _EndpointConfig {
     required this.timeout,
     this.password,
     required this.price,
+    this.shouldDivideByPrice = true,
     this.loginPath = '',
     this.consumeHistoryPath = '',
   });
