@@ -1,11 +1,9 @@
 [zx]
 url = "http://211.87.126.94/zx"
-password = "888888"
 price = "0.54"
 
 [cn]
 url = "http://211.87.126.94/cn"
-password = "888888"
 price = "0.54"
 
 [dxq]

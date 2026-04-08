@@ -62,7 +62,6 @@ def load_config(path: Path) -> AppConfig:
                 url=str(zx["url"]).rstrip("/"),
                 mode="legacy",
                 timeout=server_config.request_timeout,
-                password=str(zx["password"]),
                 price=str(zx["price"]),
                 login_path="/chkuser.fwps",
                 consume_history_path="/consumeHistory.fwps",
@@ -71,7 +70,6 @@ def load_config(path: Path) -> AppConfig:
                 url=str(cn["url"]).rstrip("/"),
                 mode="legacy",
                 timeout=server_config.request_timeout,
-                password=str(cn["password"]),
                 price=str(cn["price"]),
                 login_path="/chkuser.fwp",
                 consume_history_path="/consumeHistory.fwp",
@@ -109,7 +107,7 @@ def get_connection() -> sqlite3.Connection:
 def get_room_by_id(custom_id: str) -> RoomRecord:
     with get_connection() as conn:
         row = conn.execute(
-            'SELECT endpoint, roomName, roomID FROM rooms WHERE "ID" = ?',
+            'SELECT endpoint, roomName, roomID, pwd FROM rooms WHERE "ID" = ?',
             (custom_id,),
         ).fetchone()
     if row is None:
@@ -118,6 +116,7 @@ def get_room_by_id(custom_id: str) -> RoomRecord:
         endpoint=str(row["endpoint"]),
         roomName=str(row["roomName"]),
         roomID=str(row["roomID"]),
+        pwd=str(row["pwd"] or ""),
     )
 
 

@@ -38,7 +38,6 @@ class EndpointConfig:
     url: str
     mode: Literal["legacy", "dxq"]
     timeout: float
-    password: str | None = None
     price: str = ""
     login_path: str = ""
     consume_history_path: str = ""
@@ -49,6 +48,7 @@ class RoomRecord:
     endpoint: str
     roomName: str
     roomID: str
+    pwd: str = ""
 
 
 def normalize_text(value: str) -> str:
@@ -194,8 +194,10 @@ class XudaPowerClient:
     def _login_legacy(self, room: RoomRecord) -> None:
         login_page = self._request("GET", "/")
         psw_session_match = re.search(r"g_pswSession\s*=\s*(\d+)", login_page)
-        if psw_session_match is None or self.endpoint.password is None:
+        if psw_session_match is None:
             raise RemoteSystemError("登录页中未找到 g_pswSession")
+        if not room.pwd:
+            raise RemoteSystemError("房间缺少查询密码")
 
         response_text = self._request(
             "POST",
@@ -204,7 +206,7 @@ class XudaPowerClient:
                 "login_type": "accountId",
                 "login_roomName": room.roomName,
                 "login_roomID": room.roomID,
-                "password": md5_hex(md5_hex(self.endpoint.password + psw_session_match.group(1))),
+                "password": md5_hex(md5_hex(room.pwd + psw_session_match.group(1))),
             },
             headers={
                 "Referer": f"{self.endpoint.url}/",

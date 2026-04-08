@@ -59,7 +59,6 @@ class PowerService {
       url: 'http://211.87.126.94/zx',
       mode: _EndpointMode.legacy,
       timeout: _requestTimeout,
-      password: '888888',
       price: '0.54',
       shouldDivideByPrice: false,
       loginPath: '/chkuser.fwps',
@@ -69,7 +68,6 @@ class PowerService {
       url: 'http://211.87.126.94/cn',
       mode: _EndpointMode.legacy,
       timeout: _requestTimeout,
-      password: '888888',
       price: '0.54',
       loginPath: '/chkuser.fwp',
       consumeHistoryPath: '/consumeHistory.fwp',
@@ -112,7 +110,7 @@ class PowerService {
     final db = await _openRoomDatabase();
     final rows = await db.query(
       'rooms',
-      columns: const ['endpoint', 'roomName', 'roomID'],
+      columns: const ['endpoint', 'roomName', 'roomID', 'pwd'],
       where: 'ID = ?',
       whereArgs: [customId],
       limit: 1,
@@ -127,6 +125,7 @@ class PowerService {
       endpoint: row['endpoint'] as String? ?? '',
       roomName: row['roomName'] as String? ?? '',
       roomId: row['roomID'] as String? ?? '',
+      password: row['pwd'] as String? ?? '',
     );
   }
 
@@ -215,11 +214,14 @@ class PowerService {
       r'g_pswSession\s*=\s*(\d+)',
     ).firstMatch(loginPage);
     final session = sessionMatch?.group(1);
-    if (session == null || endpoint.password == null) {
+    if (session == null) {
       throw const PowerQueryException('登录页中未找到 g_pswSession');
     }
+    if (room.password.isEmpty) {
+      throw const PowerQueryException('房间缺少查询密码');
+    }
 
-    final password = _md5Hex(_md5Hex('${endpoint.password}$session'));
+    final password = _md5Hex(_md5Hex('${room.password}$session'));
     final responseText = await _requestText(
       dio,
       'POST',
@@ -629,11 +631,13 @@ class RoomRecord {
   final String endpoint;
   final String roomName;
   final String roomId;
+  final String password;
 
   const RoomRecord({
     required this.endpoint,
     required this.roomName,
     required this.roomId,
+    required this.password,
   });
 }
 
@@ -641,7 +645,6 @@ class _EndpointConfig {
   final String url;
   final _EndpointMode mode;
   final Duration timeout;
-  final String? password;
   final String price;
   final bool shouldDivideByPrice;
   final String loginPath;
@@ -651,7 +654,6 @@ class _EndpointConfig {
     required this.url,
     required this.mode,
     required this.timeout,
-    this.password,
     required this.price,
     this.shouldDivideByPrice = true,
     this.loginPath = '',
