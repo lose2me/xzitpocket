@@ -121,3 +121,6 @@ app.*.symbols
 # Claude related
 .claude/
 CLAUDE.md
+
+# Local app secrets
+tool/upgradelink.local.json

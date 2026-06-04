@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../models/update_info.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
+import '../../services/update_service.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
@@ -20,6 +22,7 @@ class _MePageState extends ConsumerState<MePage> {
   final _sidCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   bool _obscurePassword = true;
+  bool _isCheckingUpdate = false;
 
   @override
   void dispose() {
@@ -56,6 +59,8 @@ class _MePageState extends ConsumerState<MePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildOpenSourceInfo(Theme.of(context)),
+              const SizedBox(height: 24),
+              _buildCheckUpdateButton(),
               const SizedBox(height: 24),
               Text('登录教务系统', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 24),
@@ -189,6 +194,11 @@ class _MePageState extends ConsumerState<MePage> {
       children: [
         const SizedBox(height: 16),
         _buildOpenSourceInfo(theme),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: _buildCheckUpdateButton(fullWidth: true),
+        ),
         const Spacer(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -203,6 +213,30 @@ class _MePageState extends ConsumerState<MePage> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildCheckUpdateButton({bool fullWidth = false}) {
+    final button = OutlinedButton.icon(
+      onPressed: _isCheckingUpdate ? null : _checkForUpdate,
+      icon: _isCheckingUpdate
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.system_update_alt_outlined),
+      label: Text(_isCheckingUpdate ? '检查中...' : '检查更新'),
+    );
+
+    if (!fullWidth) {
+      return button;
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: button,
     );
   }
 
@@ -262,6 +296,80 @@ class _MePageState extends ConsumerState<MePage> {
               ref.read(authProvider.notifier).reset();
             },
             child: const Text('退出', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (_isCheckingUpdate) return;
+
+    setState(() => _isCheckingUpdate = true);
+    try {
+      final result = await UpdateService.checkForUpdate();
+      if (!mounted) return;
+
+      if (!result.hasUpdate || result.updateInfo == null) {
+        showAppSnackBar(context, result.message ?? '当前已是最新版本');
+        return;
+      }
+
+      await _showUpdateDialog(result.updateInfo!);
+    } on UpdateException catch (e) {
+      if (!mounted) return;
+      showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      showAppSnackBar(context, '检查更新失败，请稍后重试');
+    } finally {
+      if (mounted) {
+        setState(() => _isCheckingUpdate = false);
+      }
+    }
+  }
+
+  Future<void> _showUpdateDialog(UpdateInfo updateInfo) {
+    final notes = updateInfo.releaseNotes.trim();
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: !updateInfo.isForced,
+      builder: (ctx) => AlertDialog(
+        title: Text(updateInfo.upgradeLabel),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('发现新版本 ${updateInfo.versionName}'),
+            const SizedBox(height: 8),
+            Text('版本号: ${updateInfo.versionCode}'),
+            if (notes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text('更新说明'),
+              const SizedBox(height: 4),
+              Text(notes),
+            ],
+          ],
+        ),
+        actions: [
+          if (!updateInfo.isForced)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('稍后'),
+            ),
+          FilledButton(
+            onPressed: () async {
+              try {
+                await UpdateService.openUpdateLink(updateInfo.downloadUrl);
+              } on UpdateException catch (e) {
+                if (!mounted) return;
+                showAppSnackBar(context, e.message);
+                return;
+              }
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+            },
+            child: const Text('立即更新'),
           ),
         ],
       ),
