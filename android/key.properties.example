@@ -1,0 +1,9 @@
+# Copy this file to android/key.properties and replace the placeholder values.
+# Prefer using an absolute path for storeFile.
+# On Windows, either escape backslashes (C:\\path\\to\\file.jks)
+# or use forward slashes (C:/path/to/file.jks).
+
+storeFile=C:/secure/xzitpocket-release.jks
+storePassword=replace-with-keystore-password
+keyAlias=xzitpocket
+keyPassword=replace-with-key-password
