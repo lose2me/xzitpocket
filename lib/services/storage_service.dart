@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,16 +9,21 @@ const _courseBoxName = 'courses';
 const _themePreferenceKey = 'theme_preference';
 const _classAutomationModeKey = 'class_automation_mode';
 const _savedPowerRoomIdKey = 'saved_power_room_id';
+const _savedPasswordKey = 'saved_password';
 
 class StorageService {
   late Box<Course> _courseBox;
   late SharedPreferences _prefs;
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(),
+  );
 
   Future<void> init() async {
     await Hive.initFlutter();
     Hive.registerAdapter(CourseAdapter());
     _courseBox = await Hive.openBox<Course>(_courseBoxName);
     _prefs = await SharedPreferences.getInstance();
+    await _migrateLegacyPassword();
   }
 
   // ── Course storage ──
@@ -81,14 +87,16 @@ class StorageService {
   Future<void> setStudentName(String name) =>
       _prefs.setString('student_name', name);
 
-  String? getSavedPassword() => _prefs.getString('saved_password');
+  Future<String?> getSavedPassword() => _secureStorage.read(key: _savedPasswordKey);
+
   Future<void> setSavedPassword(String pwd) =>
-      _prefs.setString('saved_password', pwd);
+      _secureStorage.write(key: _savedPasswordKey, value: pwd);
 
   Future<void> clearCredentials() async {
     await _prefs.remove('student_id');
     await _prefs.remove('student_name');
-    await _prefs.remove('saved_password');
+    await _prefs.remove(_savedPasswordKey);
+    await _secureStorage.delete(key: _savedPasswordKey);
   }
 
   String? getThemePreference() => _prefs.getString(_themePreferenceKey);
@@ -110,5 +118,18 @@ class StorageService {
       return;
     }
     await _prefs.setString(_savedPowerRoomIdKey, value);
+  }
+
+  Future<void> _migrateLegacyPassword() async {
+    final legacyPassword = _prefs.getString(_savedPasswordKey);
+    if (legacyPassword == null) return;
+
+    final securePassword = await _secureStorage.read(key: _savedPasswordKey);
+    if ((securePassword == null || securePassword.isEmpty) &&
+        legacyPassword.isNotEmpty) {
+      await _secureStorage.write(key: _savedPasswordKey, value: legacyPassword);
+    }
+
+    await _prefs.remove(_savedPasswordKey);
   }
 }

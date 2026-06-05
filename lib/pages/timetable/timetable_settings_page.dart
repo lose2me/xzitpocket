@@ -20,16 +20,11 @@ class _TimetableSettingsPageState
     with WidgetsBindingObserver {
   AutomationPermissionStatus? _permissionStatus;
   bool _isLoadingPermissions = true;
-  late ClassAutomationMode _previewAutomationMode;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final initialMode = ref.read(appSettingsProvider).classAutomationMode;
-    _previewAutomationMode = initialMode == ClassAutomationMode.off
-        ? ClassAutomationMode.dnd
-        : initialMode;
     _loadPermissions();
   }
 
@@ -67,11 +62,6 @@ class _TimetableSettingsPageState
   }
 
   Future<void> _updateAutomationMode(ClassAutomationMode mode) async {
-    if (mode != ClassAutomationMode.off) {
-      setState(() {
-        _previewAutomationMode = mode;
-      });
-    }
     await ref.read(appSettingsProvider.notifier).setClassAutomationMode(mode);
     await _loadPermissions();
 
@@ -88,266 +78,458 @@ class _TimetableSettingsPageState
     ref.read(showNonCurrentWeekCoursesProvider.notifier).state = value;
   }
 
+  Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {
+    final selected = await showModalBottomSheet<ClassAutomationMode>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _OptionSheet<ClassAutomationMode>(
+        title: '课堂勿扰',
+        value: currentMode,
+        options: ClassAutomationMode.values
+            .map(
+              (mode) => _SheetOption<ClassAutomationMode>(
+                value: mode,
+                title: _automationTitle(mode),
+                subtitle: _automationSubtitle(mode),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selected != null && selected != currentMode) {
+      await _updateAutomationMode(selected);
+    }
+  }
+
+  Future<void> _openThemeSheet(AppThemePreference currentPreference) async {
+    final selected = await showModalBottomSheet<AppThemePreference>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _OptionSheet<AppThemePreference>(
+        title: '主题模式',
+        value: currentPreference,
+        options: AppThemePreference.values
+            .map(
+              (preference) => _SheetOption<AppThemePreference>(
+                value: preference,
+                title: _themeTitle(preference),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selected != null && selected != currentPreference) {
+      await _updateTheme(selected);
+    }
+  }
+
+  Future<void> _openVisibilitySheet(bool currentValue) async {
+    final selected = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _OptionSheet<bool>(
+        title: '显示非本周课程',
+        value: currentValue,
+        options: const [
+          _SheetOption<bool>(
+            value: true,
+            title: '显示',
+            subtitle: '在课表中淡化展示不属于当前周的课程',
+          ),
+          _SheetOption<bool>(
+            value: false,
+            title: '隐藏',
+            subtitle: '只显示当前周的课程',
+          ),
+        ],
+      ),
+    );
+
+    if (selected != null && selected != currentValue) {
+      _updateShowNonCurrentWeekCourses(selected);
+    }
+  }
+
+  Future<void> _openPermissionSheet(
+    AutomationPermissionStatus permissionStatus,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _PermissionSheet(
+        permissionStatus: permissionStatus,
+        onOpenDndSettings: () async {
+          Navigator.pop(context);
+          await NativeAutomationService.openDndSettings();
+        },
+        onOpenExactAlarmSettings: () async {
+          Navigator.pop(context);
+          await NativeAutomationService.openExactAlarmSettings();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final settings = ref.watch(appSettingsProvider);
     final showNonCurrentWeekCourses = ref.watch(showNonCurrentWeekCoursesProvider);
     final permissionStatus = _permissionStatus;
-    final isAutomationEnabled =
-        settings.classAutomationMode != ClassAutomationMode.off;
-    final selectedAutomationMode = isAutomationEnabled
-        ? settings.classAutomationMode
-        : _previewAutomationMode;
+    final bgColor = theme.brightness == Brightness.dark
+        ? theme.colorScheme.surface
+        : const Color(0xFFF3F4F6);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('课表设置')),
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        title: const Text('设置'),
+        centerTitle: true,
+        backgroundColor: bgColor,
+        surfaceTintColor: Colors.transparent,
+      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
         children: [
           if (_isLoadingPermissions)
             const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8),
+              padding: EdgeInsets.only(bottom: 20),
               child: LinearProgressIndicator(minHeight: 2),
-            )
-          else if (permissionStatus != null)
-            _PermissionCard(
-              permissionStatus: permissionStatus,
-              onOpenDndSettings: NativeAutomationService.openDndSettings,
-              onOpenExactAlarmSettings:
-                  NativeAutomationService.openExactAlarmSettings,
             ),
-          const SizedBox(height: 20),
-          _SectionSwitchHeader(
-            title: '课堂勿扰模式',
-            value: isAutomationEnabled,
-            onChanged: (value) {
-              _updateAutomationMode(
-                value ? _previewAutomationMode : ClassAutomationMode.off,
-              );
-            },
-          ),
-          const SizedBox(height: 10),
-          AnimatedOpacity(
-            duration: const Duration(milliseconds: 180),
-            opacity: isAutomationEnabled ? 1 : 0.52,
-            child: IgnorePointer(
-              ignoring: !isAutomationEnabled,
-              child: RadioGroup<ClassAutomationMode>(
-                groupValue: selectedAutomationMode,
-                onChanged: (value) {
-                  if (value != null) {
-                    _updateAutomationMode(value);
-                  }
-                },
-                child: Column(
-                  children: ClassAutomationMode.values
-                      .where((mode) => mode != ClassAutomationMode.off)
-                      .map(
-                        (mode) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _SelectionCard<ClassAutomationMode>(
-                            value: mode,
-                            title: _automationTitle(mode),
-                            leadingIcon: _automationIcon(mode),
-                            selected: selectedAutomationMode == mode,
-                          ),
-                        ),
-                      )
-                      .toList(),
+          _SectionLabel(title: '课堂'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.do_not_disturb_on_outlined,
+                title: '课堂勿扰',
+                value: _automationLabel(settings.classAutomationMode),
+                onTap: () => _openAutomationSheet(
+                  settings.classAutomationMode,
                 ),
               ),
-            ),
+              _SettingsTile(
+                icon: Icons.verified_user_outlined,
+                title: '课堂勿扰权限',
+                value: permissionStatus == null
+                    ? '检测中'
+                    : _permissionSummary(permissionStatus),
+                valueColor: permissionStatus != null &&
+                        !permissionStatus.isFullyGranted
+                    ? theme.colorScheme.error
+                    : null,
+                onTap: permissionStatus == null
+                    ? null
+                    : () => _openPermissionSheet(permissionStatus),
+              ),
+              _SettingsTile(
+                icon: Icons.visibility_outlined,
+                title: '显示非本周课程',
+                value: showNonCurrentWeekCourses ? '显示' : '隐藏',
+                onTap: () => _openVisibilitySheet(showNonCurrentWeekCourses),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-          _SectionSwitchHeader(
-            title: '显示非本周课程',
-            value: showNonCurrentWeekCourses,
-            onChanged: _updateShowNonCurrentWeekCourses,
-          ),
-          const SizedBox(height: 20),
-          const _SectionHeader(
-            title: '主题模式',
-          ),
-          const SizedBox(height: 10),
-          RadioGroup<AppThemePreference>(
-            groupValue: settings.themePreference,
-            onChanged: (value) {
-              if (value != null) {
-                _updateTheme(value);
-              }
-            },
-            child: Column(
-              children: AppThemePreference.values
-                  .map(
-                    (preference) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _SelectionCard<AppThemePreference>(
-                        value: preference,
-                        title: _themeTitle(preference),
-                        leadingIcon: _themeIcon(preference),
-                        selected: settings.themePreference == preference,
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
+          const SizedBox(height: 22),
+          _SectionLabel(title: '外观'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.palette_outlined,
+                title: '主题模式',
+                value: _themeTitle(settings.themePreference),
+                onTap: () => _openThemeSheet(settings.themePreference),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  String _automationTitle(ClassAutomationMode mode) {
+  String _automationLabel(ClassAutomationMode mode) {
     return switch (mode) {
       ClassAutomationMode.off => '关闭',
-      ClassAutomationMode.dnd => '上课时开启免打扰，下课恢复',
-      ClassAutomationMode.dndKeep => '上课时开启免打扰，下课不恢复',
+      ClassAutomationMode.dnd => '上课时开启',
+      ClassAutomationMode.dndKeep => '下课不恢复',
     };
   }
 
-  IconData _automationIcon(ClassAutomationMode mode) {
+  String _automationTitle(ClassAutomationMode mode) {
     return switch (mode) {
-      ClassAutomationMode.off => Icons.remove_circle_outline,
-      ClassAutomationMode.dnd => Icons.do_not_disturb_on_outlined,
-      ClassAutomationMode.dndKeep => Icons.do_not_disturb_alt_outlined,
+      ClassAutomationMode.off => '关闭课堂勿扰',
+      ClassAutomationMode.dnd => '上课开启，下课恢复',
+      ClassAutomationMode.dndKeep => '上课开启，下课不恢复',
+    };
+  }
+
+  String? _automationSubtitle(ClassAutomationMode mode) {
+    return switch (mode) {
+      ClassAutomationMode.off => '不根据课表自动切换系统免打扰',
+      ClassAutomationMode.dnd => '上课时自动开启免打扰，下课后恢复原状态',
+      ClassAutomationMode.dndKeep => '上课时自动开启免打扰，下课后保持开启',
     };
   }
 
   String _themeTitle(AppThemePreference preference) {
     return switch (preference) {
       AppThemePreference.system => '跟随系统',
-      AppThemePreference.light => '浅色主题',
-      AppThemePreference.dark => '暗黑主题',
+      AppThemePreference.light => '浅色模式',
+      AppThemePreference.dark => '深色模式',
     };
   }
 
-  IconData _themeIcon(AppThemePreference preference) {
-    return switch (preference) {
-      AppThemePreference.system => Icons.brightness_auto,
-      AppThemePreference.light => Icons.light_mode_outlined,
-      AppThemePreference.dark => Icons.dark_mode_outlined,
-    };
+  String _permissionSummary(AutomationPermissionStatus status) {
+    if (status.isFullyGranted) return '已完备';
+
+    var count = 0;
+    if (!status.hasDndPermission) count++;
+    if (!status.hasExactAlarmPermission) count++;
+    return '待开启 $count 项';
   }
 }
 
-class _SectionSwitchHeader extends StatelessWidget {
+class _SectionLabel extends StatelessWidget {
   final String title;
-  final bool value;
-  final ValueChanged<bool> onChanged;
 
-  const _SectionSwitchHeader({
-    required this.title,
-    required this.value,
-    required this.onChanged,
-  });
+  const _SectionLabel({required this.title});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      child: Text(
+        title,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w500,
         ),
-        const SizedBox(width: 12),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-        ),
-      ],
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-
-  const _SectionHeader({
-    required this.title,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _SelectionCard<T> extends StatelessWidget {
-  final T value;
-  final String title;
-  final String? subtitle;
-  final IconData leadingIcon;
-  final bool selected;
-
-  const _SelectionCard({
-    required this.value,
-    required this.title,
-    this.subtitle,
-    required this.leadingIcon,
-    required this.selected,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Material(
-      color: selected
-          ? theme.colorScheme.primaryContainer.withAlpha(150)
-          : theme.colorScheme.surfaceContainerLowest,
-      borderRadius: BorderRadius.circular(20),
-      child: RadioListTile<T>(
-        value: value,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(
-            color: selected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.outlineVariant,
-          ),
-        ),
-        secondary: Icon(
-          leadingIcon,
-          color: selected
-              ? theme.colorScheme.primary
-              : theme.colorScheme.onSurfaceVariant,
-        ),
-        title: Text(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: subtitle == null ? null : Text(subtitle!),
       ),
     );
   }
 }
 
-class _PermissionCard extends StatelessWidget {
+class _SettingsCard extends StatelessWidget {
+  final List<Widget> children;
+
+  const _SettingsCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: List.generate(children.length * 2 - 1, (index) {
+          if (index.isEven) {
+            return children[index ~/ 2];
+          }
+          return Padding(
+            padding: const EdgeInsets.only(left: 62, right: 18),
+            child: Divider(
+              height: 1,
+              color: theme.colorScheme.outlineVariant.withAlpha(120),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? value;
+  final Color? valueColor;
+  final VoidCallback? onTap;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.value,
+    this.valueColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveValueColor =
+        valueColor ?? theme.colorScheme.onSurfaceVariant.withAlpha(200);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        child: Row(
+          children: [
+            Icon(icon, size: 24, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            if (value != null) ...[
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  value!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: effectiveValueColor,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 10),
+            Icon(
+              Icons.chevron_right_rounded,
+              size: 24,
+              color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetOption<T> {
+  final T value;
+  final String title;
+  final String? subtitle;
+
+  const _SheetOption({
+    required this.value,
+    required this.title,
+    this.subtitle,
+  });
+}
+
+class _OptionSheet<T> extends StatelessWidget {
+  final String title;
+  final T value;
+  final List<_SheetOption<T>> options;
+
+  const _OptionSheet({
+    required this.title,
+    required this.value,
+    required this.options,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              ...options.map((option) {
+                final selected = option.value == value;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () => Navigator.pop(context, option.value),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 2,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                option.title,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (option.subtitle != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  option.subtitle!,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          color: selected
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.outline,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PermissionSheet extends StatelessWidget {
   final AutomationPermissionStatus permissionStatus;
   final Future<void> Function() onOpenDndSettings;
   final Future<void> Function() onOpenExactAlarmSettings;
 
-  const _PermissionCard({
+  const _PermissionSheet({
     required this.permissionStatus,
     required this.onOpenDndSettings,
     required this.onOpenExactAlarmSettings,
@@ -356,55 +538,61 @@ class _PermissionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isFullyGranted = permissionStatus.isFullyGranted;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return SafeArea(
+      top: false,
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                isFullyGranted
-                    ? Icons.verified_user_outlined
-                    : Icons.warning_amber_rounded,
-                color: isFullyGranted
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.error,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isFullyGranted ? '课堂勿扰模式权限完备' : '还需要开启以下权限',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
                   ),
                 ),
               ),
+              const SizedBox(height: 18),
+              Text(
+                '课堂勿扰权限',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                permissionStatus.isFullyGranted
+                    ? '权限已完备，课堂勿扰可按课表自动生效。'
+                    : '还需要开启以下权限，课堂勿扰才能稳定工作。',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 18),
+              _PermissionRow(
+                title: '勿扰权限',
+                granted: permissionStatus.hasDndPermission,
+                onPressed: onOpenDndSettings,
+              ),
+              const SizedBox(height: 12),
+              _PermissionRow(
+                title: '精确闹钟',
+                granted: permissionStatus.hasExactAlarmPermission,
+                onPressed: onOpenExactAlarmSettings,
+              ),
             ],
           ),
-          if (!isFullyGranted) ...[
-            const SizedBox(height: 12),
-            _PermissionRow(
-              title: '勿扰权限',
-              granted: permissionStatus.hasDndPermission,
-              onPressed: onOpenDndSettings,
-            ),
-            const SizedBox(height: 10),
-            _PermissionRow(
-              title: '精确闹钟',
-              granted: permissionStatus.hasExactAlarmPermission,
-              onPressed: onOpenExactAlarmSettings,
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -424,21 +612,42 @@ class _PermissionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            '$title: ${granted ? '已开启' : '未开启'}',
-            style: theme.textTheme.bodyMedium,
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  granted ? '已开启' : '未开启',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: granted
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.error,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        FilledButton.tonal(
-          onPressed: () {
-            onPressed();
-          },
-          child: const Text('去设置'),
-        ),
-      ],
+          FilledButton.tonal(
+            onPressed: onPressed,
+            child: const Text('去设置'),
+          ),
+        ],
+      ),
     );
   }
 }

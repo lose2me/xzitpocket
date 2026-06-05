@@ -87,7 +87,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     try {
       final storage = ref.read(storageServiceProvider);
       final sid = storage.getStudentId();
-      final pwd = storage.getSavedPassword();
+      final pwd = await storage.getSavedPassword();
       if (sid == null || pwd == null) {
         if (mounted) {
           showAppSnackBar(context, '请先在"我的"页面登录');

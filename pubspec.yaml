@@ -19,6 +19,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   shared_preferences: ^2.3.4
+  flutter_secure_storage: ^10.3.1
   connectivity_plus: ^6.1.1
   package_info_plus: ^8.3.0
   home_widget: ^0.7.0
