@@ -41,19 +41,19 @@ Patch：表示向后兼容的错误修复或小的改进。
 ## 调试
 Android
 ```
-flutter run -d emulator-5554
+flutter run -d emulator-5554 --target-platform android-arm64
 ```
 
 ## 构建
 Android
 ```
-flutter build apk --split-per-abi --split-debug-info=./symbols --obfuscate
+flutter build apk --target-platform android-arm64 --split-debug-info=./symbols --obfuscate
 ```
 
 ## Release
 Android
 ```
-lutter build apk --release --split-per-abi --dart-define-from-file=tool/upgradelink.local.json
+flutter build apk --release --target-platform android-arm64 --dart-define-from-file=tool/upgradelink.local.json
 ```
 
 ## 软件截图
