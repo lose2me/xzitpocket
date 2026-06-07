@@ -63,33 +63,33 @@ class UpdateService {
       ),
     );
 
-    if (response.code != 0) {
-      throw UpdateException(
-        response.msg.isEmpty ? '获取升级信息失败' : response.msg,
+    final data = response.data;
+    if (data != null) {
+      if (data.versionCode <= versionCode) {
+        return const UpdateCheckResult(hasUpdate: false, message: '当前已是最新版本');
+      }
+
+      return UpdateCheckResult(
+        hasUpdate: true,
+        updateInfo: UpdateInfo(
+          versionName: data.versionName,
+          versionCode: data.versionCode,
+          downloadUrl: data.urlPath,
+          releaseNotes: data.promptUpgradeContent,
+          upgradeType: data.upgradeType,
+        ),
       );
     }
 
-    final data = response.data;
-    if (data == null) {
+    if (response.code == 0) {
       return UpdateCheckResult(
         hasUpdate: false,
         message: response.msg.isEmpty ? '当前已是最新版本' : response.msg,
       );
     }
 
-    if (data.versionCode <= versionCode) {
-      return const UpdateCheckResult(hasUpdate: false, message: '当前已是最新版本');
-    }
-
-    return UpdateCheckResult(
-      hasUpdate: true,
-      updateInfo: UpdateInfo(
-        versionName: data.versionName,
-        versionCode: data.versionCode,
-        downloadUrl: data.urlPath,
-        releaseNotes: data.promptUpgradeContent,
-        upgradeType: data.upgradeType,
-      ),
+    throw UpdateException(
+      response.msg.isEmpty ? '获取升级信息失败' : response.msg,
     );
   }
 

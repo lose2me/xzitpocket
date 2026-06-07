@@ -91,7 +91,6 @@ class _TimetableSettingsPageState
               (mode) => _SheetOption<ClassAutomationMode>(
                 value: mode,
                 title: _automationTitle(mode),
-                subtitle: _automationSubtitle(mode),
               ),
             )
             .toList(),
@@ -137,12 +136,10 @@ class _TimetableSettingsPageState
           _SheetOption<bool>(
             value: true,
             title: '显示',
-            subtitle: '在课表中淡化展示不属于当前周的课程',
           ),
           _SheetOption<bool>(
             value: false,
             title: '隐藏',
-            subtitle: '只显示当前周的课程',
           ),
         ],
       ),
@@ -193,13 +190,33 @@ class _TimetableSettingsPageState
         surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
         children: [
           if (_isLoadingPermissions)
             const Padding(
-              padding: EdgeInsets.only(bottom: 20),
+              padding: EdgeInsets.only(bottom: 12),
               child: LinearProgressIndicator(minHeight: 2),
             ),
+          _SectionLabel(title: '所需权限'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.verified_user_outlined,
+                title: '所需权限',
+                value: permissionStatus == null
+                    ? '检测中'
+                    : _permissionSummary(permissionStatus),
+                valueColor: permissionStatus != null &&
+                        !permissionStatus.isFullyGranted
+                    ? theme.colorScheme.error
+                    : null,
+                onTap: permissionStatus == null
+                    ? null
+                    : () => _openPermissionSheet(permissionStatus),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           _SectionLabel(title: '课堂'),
           _SettingsCard(
             children: [
@@ -212,20 +229,6 @@ class _TimetableSettingsPageState
                 ),
               ),
               _SettingsTile(
-                icon: Icons.verified_user_outlined,
-                title: '课堂勿扰权限',
-                value: permissionStatus == null
-                    ? '检测中'
-                    : _permissionSummary(permissionStatus),
-                valueColor: permissionStatus != null &&
-                        !permissionStatus.isFullyGranted
-                    ? theme.colorScheme.error
-                    : null,
-                onTap: permissionStatus == null
-                    ? null
-                    : () => _openPermissionSheet(permissionStatus),
-              ),
-              _SettingsTile(
                 icon: Icons.visibility_outlined,
                 title: '显示非本周课程',
                 value: showNonCurrentWeekCourses ? '显示' : '隐藏',
@@ -233,7 +236,7 @@ class _TimetableSettingsPageState
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 16),
           _SectionLabel(title: '外观'),
           _SettingsCard(
             children: [
@@ -260,17 +263,9 @@ class _TimetableSettingsPageState
 
   String _automationTitle(ClassAutomationMode mode) {
     return switch (mode) {
-      ClassAutomationMode.off => '关闭课堂勿扰',
+      ClassAutomationMode.off => '关闭',
       ClassAutomationMode.dnd => '上课开启，下课恢复',
       ClassAutomationMode.dndKeep => '上课开启，下课不恢复',
-    };
-  }
-
-  String? _automationSubtitle(ClassAutomationMode mode) {
-    return switch (mode) {
-      ClassAutomationMode.off => '不根据课表自动切换系统免打扰',
-      ClassAutomationMode.dnd => '上课时自动开启免打扰，下课后恢复原状态',
-      ClassAutomationMode.dndKeep => '上课时自动开启免打扰，下课后保持开启',
     };
   }
 
@@ -301,12 +296,12 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
       child: Text(
         title,
         style: theme.textTheme.bodyMedium?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -325,6 +320,13 @@ class _SettingsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 16,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: List.generate(children.length * 2 - 1, (index) {
@@ -369,38 +371,48 @@ class _SettingsTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(24),
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 19),
         child: Row(
           children: [
-            Icon(icon, size: 24, color: theme.colorScheme.onSurface),
+            Icon(icon, size: 23, color: theme.colorScheme.onSurface),
             const SizedBox(width: 16),
             Expanded(
               child: Text(
                 title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
-            if (value != null) ...[
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  value!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.right,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: effectiveValueColor,
-                  ),
-                ),
-              ),
-            ],
             const SizedBox(width: 10),
-            Icon(
-              Icons.chevron_right_rounded,
-              size: 24,
-              color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 138),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (value != null)
+                    Flexible(
+                      child: Text(
+                        value!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: effectiveValueColor,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  if (value != null) const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 24,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -412,12 +424,10 @@ class _SettingsTile extends StatelessWidget {
 class _SheetOption<T> {
   final T value;
   final String title;
-  final String? subtitle;
 
   const _SheetOption({
     required this.value,
     required this.title,
-    this.subtitle,
   });
 }
 
@@ -444,10 +454,10 @@ class _OptionSheet<T> extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 10),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
                 child: Container(
@@ -459,59 +469,55 @@ class _OptionSheet<T> extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+              const SizedBox(height: 14),
+              Center(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 6),
               ...options.map((option) {
                 final selected = option.value == value;
-                return InkWell(
-                  borderRadius: BorderRadius.circular(20),
-                  onTap: () => Navigator.pop(context, option.value),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 2,
-                      vertical: 14,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: selected
+                        ? theme.colorScheme.primaryContainer.withAlpha(72)
+                        : theme.colorScheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(28),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(28),
+                      onTap: () => Navigator.pop(context, option.value),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 15,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
                                 option.title,
                                 style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w400,
                                 ),
                               ),
-                              if (option.subtitle != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  option.subtitle!,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 10),
+                            Icon(
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: selected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outline,
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Icon(
-                          selected
-                              ? Icons.check_circle_rounded
-                              : Icons.radio_button_unchecked_rounded,
-                          color: selected
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.outline,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 );
@@ -547,10 +553,10 @@ class _PermissionSheet extends StatelessWidget {
           borderRadius: BorderRadius.circular(28),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
                 child: Container(
@@ -562,23 +568,16 @@ class _PermissionSheet extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                '课堂勿扰权限',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+              const SizedBox(height: 14),
+              Center(
+                child: Text(
+                  '所需权限',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                permissionStatus.isFullyGranted
-                    ? '权限已完备，课堂勿扰可按课表自动生效。'
-                    : '还需要开启以下权限，课堂勿扰才能稳定工作。',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 18),
               _PermissionRow(
                 title: '勿扰权限',
                 granted: permissionStatus.hasDndPermission,
@@ -613,10 +612,10 @@ class _PermissionRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(28),
       ),
       child: Row(
         children: [
@@ -627,7 +626,7 @@ class _PermissionRow extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 4),
