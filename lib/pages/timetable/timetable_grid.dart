@@ -434,12 +434,15 @@ List<_DisplayCourse> _buildDisplayCourses(
 }
 
 List<List<_IndexedCourse>> _buildConflictVariants(List<_IndexedCourse> group) {
+  const maxVariants = 20;
   final variants = <List<_IndexedCourse>>[];
 
   void backtrack(int startIndex, List<_IndexedCourse> current) {
+    if (variants.length >= maxVariants) return;
     var hasExtension = false;
 
     for (int i = startIndex; i < group.length; i++) {
+      if (variants.length >= maxVariants) return;
       final candidate = group[i];
       final overlapsCurrent = current.any(
         (entry) => _coursesOverlap(entry.course, candidate.course),

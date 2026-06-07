@@ -13,13 +13,13 @@ class UpdateInfo {
     required this.upgradeType,
   });
 
-  bool get isForced => upgradeType == 1;
+  bool get isForced => upgradeType == 3;
 
   String get upgradeLabel {
     return switch (upgradeType) {
-      1 => '强制更新',
+      1 => '推荐更新',
       2 => '推荐更新',
-      3 => '可选更新',
+      3 => '强制更新',
       _ => '发现新版本',
     };
   }

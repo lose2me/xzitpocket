@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Power query endpoints (upstream only supports HTTP) -->
+        <domain includeSubdomains="false">211.87.126.94</domain>
+        <domain includeSubdomains="false">211.87.126.249</domain>
+        <!-- Academic system HTTP fallback -->
+        <domain includeSubdomains="true">jwglxt.xzit.edu.cn</domain>
+    </domain-config>
+</network-security-config>

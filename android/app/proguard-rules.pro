@@ -19,6 +19,12 @@
     public <init>();
 }
 -keep class live.xuda.xzitpocket.widget.** { *; }
+-keep class live.xuda.xzitpocket.automation.** { *; }
 -keep class * extends androidx.work.ListenableWorker {
     public <init>(android.content.Context, androidx.work.WorkerParameters);
+}
+
+# BroadcastReceivers
+-keep public class * extends android.content.BroadcastReceiver {
+    public <init>();
 }

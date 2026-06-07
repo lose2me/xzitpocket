@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
+import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../constants/upgrade_config.dart';
 import '../../models/update_info.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
@@ -60,8 +63,10 @@ class _MePageState extends ConsumerState<MePage> {
             children: [
               _buildOpenSourceInfo(Theme.of(context)),
               const SizedBox(height: 24),
-              _buildCheckUpdateButton(),
-              const SizedBox(height: 24),
+              if (UpgradeConfig.isConfigured) ...[
+                _buildCheckUpdateButton(),
+                const SizedBox(height: 24),
+              ],
               Text('登录教务系统', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 24),
               TextFormField(
@@ -194,11 +199,13 @@ class _MePageState extends ConsumerState<MePage> {
       children: [
         const SizedBox(height: 16),
         _buildOpenSourceInfo(theme),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: _buildCheckUpdateButton(fullWidth: true),
-        ),
+        if (UpgradeConfig.isConfigured) ...[
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: _buildCheckUpdateButton(fullWidth: true),
+          ),
+        ],
         const Spacer(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
@@ -247,6 +254,7 @@ class _MePageState extends ConsumerState<MePage> {
     final pwd = _pwdCtrl.text;
 
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
+    _pwdCtrl.clear();
     if (result != null) {
       final storage = ref.read(storageServiceProvider);
       await storage.setSavedPassword(pwd);
@@ -352,27 +360,213 @@ class _MePageState extends ConsumerState<MePage> {
           ],
         ),
         actions: [
-          if (!updateInfo.isForced)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('稍后'),
-            ),
-          FilledButton(
+          TextButton(
             onPressed: () async {
-              try {
-                await UpdateService.openUpdateLink(updateInfo.downloadUrl);
-              } on UpdateException catch (e) {
-                if (!mounted) return;
-                showAppSnackBar(context, e.message);
+              if (updateInfo.isForced) {
+                await SystemNavigator.pop();
                 return;
               }
+              Navigator.pop(ctx);
+            },
+            child: Text(updateInfo.isForced ? '取消' : '稍后'),
+          ),
+          FilledButton(
+            onPressed: () async {
               if (!ctx.mounted) return;
               Navigator.pop(ctx);
+              if (!mounted) return;
+              await _showDownloadDialog(updateInfo);
             },
             child: const Text('立即更新'),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _showDownloadDialog(UpdateInfo updateInfo) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _UpdateDownloadDialog(updateInfo: updateInfo),
+    );
+  }
+}
+
+class _UpdateDownloadDialog extends StatefulWidget {
+  final UpdateInfo updateInfo;
+
+  const _UpdateDownloadDialog({required this.updateInfo});
+
+  @override
+  State<_UpdateDownloadDialog> createState() => _UpdateDownloadDialogState();
+}
+
+class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
+  UpdateDownloadProgress _progress = const UpdateDownloadProgress(
+    stage: UpdateDownloadStage.preparing,
+    message: '准备下载更新包',
+  );
+  String? _errorMessage;
+  CancelToken? _cancelToken;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDownload();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _startDownload() async {
+    _cancelToken?.cancel();
+    final cancelToken = CancelToken();
+    setState(() {
+      _errorMessage = null;
+      _cancelToken = cancelToken;
+      _progress = const UpdateDownloadProgress(
+        stage: UpdateDownloadStage.preparing,
+        message: '准备下载更新包',
+      );
+    });
+
+    try {
+      await UpdateService.downloadAndInstallUpdate(
+        widget.updateInfo,
+        cancelToken: cancelToken,
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() {
+            _progress = progress;
+          });
+        },
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+    } on UpdateException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = '下载更新失败，请稍后重试';
+      });
+    }
+  }
+
+  void _cancelDownload() {
+    _cancelToken?.cancel();
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final progressValue = _progress.progress;
+    final title = switch (_progress.stage) {
+      UpdateDownloadStage.preparing => '准备更新',
+      UpdateDownloadStage.downloading => '正在下载',
+      UpdateDownloadStage.installing => '准备安装',
+    };
+
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        title: Text(_errorMessage == null ? title : '更新失败'),
+        content: _errorMessage == null
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('发现新版本 ${widget.updateInfo.versionName}'),
+                  const SizedBox(height: 14),
+                  LinearProgressIndicator(value: progressValue),
+                  const SizedBox(height: 12),
+                  Text(
+                    _progress.message ?? '',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _buildProgressLine(),
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  if (_progress.stage == UpdateDownloadStage.downloading) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '速率: ${_formatSpeed(_progress.bytesPerSecond)}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              )
+            : Text(_errorMessage!),
+        actions: [
+          if (_errorMessage == null && !widget.updateInfo.isForced)
+            TextButton(
+              onPressed: _cancelDownload,
+              child: const Text('取消'),
+            ),
+          if (_errorMessage != null)
+            TextButton(
+              onPressed: () async {
+                if (widget.updateInfo.isForced) {
+                  await SystemNavigator.pop();
+                  return;
+                }
+                if (!mounted) return;
+                Navigator.pop(context);
+              },
+              child: Text(widget.updateInfo.isForced ? '退出应用' : '关闭'),
+            ),
+          if (_errorMessage != null)
+            FilledButton(
+              onPressed: _startDownload,
+              child: const Text('重试'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _buildProgressLine() {
+    if (_progress.stage == UpdateDownloadStage.installing) {
+      return '已下载 ${_formatBytes(_progress.receivedBytes)}';
+    }
+
+    final received = _formatBytes(_progress.receivedBytes);
+    if (_progress.totalBytes > 0) {
+      final total = _formatBytes(_progress.totalBytes);
+      final percent = ((_progress.progress ?? 0) * 100).clamp(0.0, 100.0);
+      return '$received / $total  (${percent.toStringAsFixed(1)}%)';
+    }
+    return received;
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    double value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    final fractionDigits = unitIndex == 0 ? 0 : 1;
+    return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+  }
+
+  String _formatSpeed(double bytesPerSecond) {
+    final safeValue = bytesPerSecond.isFinite ? bytesPerSecond : 0;
+    return '${_formatBytes(safeValue.round())}/s';
   }
 }
