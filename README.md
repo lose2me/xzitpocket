@@ -17,15 +17,14 @@
 </div>
 
 ## 项目规划
-当前 ``1.1.7`` 版本
+当前 ``2.0.0`` 版本
 
 **待办 | 较大更新**: 
 - [x] 桌面小组件支持
 - [x] 设计软件图标
 - [ ] 苹果端适配
 - [x] 更多小组件类型支持
-- [ ] 鸿蒙端适配
-- [ ] 界面优化
+- [x] 界面优化
 - [ ] 更多个性化设置
 *以优先级排序*
 
@@ -40,17 +39,21 @@ Minor：表示向后兼容的新功能添加。当软件以向下兼容的方式
 Patch：表示向后兼容的错误修复或小的改进。  
 
 ## 调试
-
 Android
 ```
 flutter run -d emulator-5554
 ```
 
 ## 构建
-
 Android
 ```
 flutter build apk --split-per-abi --split-debug-info=./symbols --obfuscate
+```
+
+## Release
+Android
+```
+lutter build apk --release --split-per-abi --dart-define-from-file=tool/upgradelink.local.json
 ```
 
 ## 软件截图
