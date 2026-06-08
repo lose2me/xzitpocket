@@ -1,0 +1,19 @@
+name: Notify xuda.live
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger xuda.live sync
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.DISPATCH_TOKEN }}" \
+            https://api.github.com/repos/lose2me/xuda.live_autobuild/dispatches \
+            -d '{"event_type":"xzitpocket-updated"}'
