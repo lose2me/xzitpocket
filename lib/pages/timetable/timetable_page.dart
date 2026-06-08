@@ -54,7 +54,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _conflictCountdownController.repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0 && initialWeek <= semesterTotalWeeks) {
-        ref.read(selectedWeekProvider.notifier).state = initialWeek;
+        ref.read(selectedWeekProvider.notifier).set(initialWeek);
       }
     });
   }
@@ -71,7 +71,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     if (_pageController.hasClients) {
       _pageController.jumpToPage(week - 1);
     }
-    ref.read(selectedWeekProvider.notifier).state = week;
+    ref.read(selectedWeekProvider.notifier).set(week);
   }
 
   void refreshForResume() {
@@ -184,7 +184,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     physics: const _LessSensitivePagePhysics(),
                     itemCount: semesterTotalWeeks,
                     onPageChanged: (page) {
-                      ref.read(selectedWeekProvider.notifier).state = page + 1;
+                      ref.read(selectedWeekProvider.notifier).set(page + 1);
                     },
                     itemBuilder: (context, index) {
                       final week = index + 1;

@@ -75,7 +75,7 @@ class _TimetableSettingsPageState
   }
 
   void _updateShowNonCurrentWeekCourses(bool value) {
-    ref.read(showNonCurrentWeekCoursesProvider.notifier).state = value;
+    ref.read(showNonCurrentWeekCoursesProvider.notifier).set(value);
   }
 
   Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {

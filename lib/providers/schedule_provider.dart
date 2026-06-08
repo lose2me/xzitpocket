@@ -96,6 +96,8 @@ class _SimpleNotifier<T> extends Notifier<T> {
 
   @override
   T build() => _initial;
+
+  void set(T value) => state = value;
 }
 
 final selectedWeekProvider = NotifierProvider<_SimpleNotifier<int>, int>(
