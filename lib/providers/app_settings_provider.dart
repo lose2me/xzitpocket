@@ -9,26 +9,23 @@ import '../services/widget_service.dart';
 import 'config_provider.dart';
 
 final appSettingsProvider =
-    StateNotifierProvider<AppSettingsNotifier, AppSettings>((ref) {
-      final storage = ref.watch(storageServiceProvider);
-      return AppSettingsNotifier(storage);
-    });
+    NotifierProvider<AppSettingsNotifier, AppSettings>(AppSettingsNotifier.new);
 
-class AppSettingsNotifier extends StateNotifier<AppSettings> {
-  final StorageService _storage;
+class AppSettingsNotifier extends Notifier<AppSettings> {
+  late StorageService _storage;
 
-  AppSettingsNotifier(this._storage)
-    : super(
-        AppSettings(
-          themePreference: AppThemePreference.fromStorage(
-            _storage.getThemePreference(),
-          ),
-          classAutomationMode: ClassAutomationMode.fromStorage(
-            _storage.getClassAutomationMode(),
-          ),
-        ),
-      ) {
+  @override
+  AppSettings build() {
+    _storage = ref.watch(storageServiceProvider);
     unawaited(NativeAutomationService.refreshClassAutomation());
+    return AppSettings(
+      themePreference: AppThemePreference.fromStorage(
+        _storage.getThemePreference(),
+      ),
+      classAutomationMode: ClassAutomationMode.fromStorage(
+        _storage.getClassAutomationMode(),
+      ),
+    );
   }
 
   Future<void> setThemePreference(AppThemePreference preference) async {

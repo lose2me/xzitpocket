@@ -7,29 +7,23 @@ import '../services/widget_service.dart';
 import 'config_provider.dart';
 
 final scheduleProvider =
-    StateNotifierProvider<ScheduleNotifier, AsyncValue<List<Course>>>((ref) {
-      final storage = ref.watch(storageServiceProvider);
-      return ScheduleNotifier(storage, ref);
-    });
+    NotifierProvider<ScheduleNotifier, AsyncValue<List<Course>>>(
+      ScheduleNotifier.new,
+    );
 
-class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
-  final StorageService _storage;
-  final Ref _ref;
+class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
+  late StorageService _storage;
   List<int> _hiveKeys = [];
 
-  ScheduleNotifier(this._storage, this._ref)
-    : super(const AsyncValue.loading()) {
-    _loadFromCache();
-  }
-
-  /// Convert a positional index (from the UI list) to the stable Hive key.
-  int keyAt(int index) => _hiveKeys[index];
-
-  void _loadFromCache() {
+  @override
+  AsyncValue<List<Course>> build() {
+    _storage = ref.watch(storageServiceProvider);
     final (keys, courses) = _storage.getCoursesWithKeys();
     _hiveKeys = keys;
-    state = AsyncValue.data(courses);
+    return AsyncValue.data(courses);
   }
+
+  int keyAt(int index) => _hiveKeys[index];
 
   Future<void> _reload() async {
     final (keys, courses) = _storage.getCoursesWithKeys();
@@ -46,14 +40,13 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
     );
   }
 
-  /// 用登录结果直接更新课表
   Future<void> updateFromLoginResult({
     required List<Course> courses,
     required String studentId,
     required String studentName,
   }) async {
     await _storage.saveCourses(courses);
-    await _ref
+    await ref
         .read(configProvider.notifier)
         .updateFromLogin(studentId: studentId, studentName: studentName);
     await _reload();
@@ -97,8 +90,19 @@ class ScheduleNotifier extends StateNotifier<AsyncValue<List<Course>>> {
   }
 }
 
-/// Currently selected week for display.
-final selectedWeekProvider = StateProvider<int>((ref) => 1);
+class _SimpleNotifier<T> extends Notifier<T> {
+  final T _initial;
+  _SimpleNotifier(this._initial);
 
-/// Whether to show courses that do not belong to the selected week.
-final showNonCurrentWeekCoursesProvider = StateProvider<bool>((ref) => false);
+  @override
+  T build() => _initial;
+}
+
+final selectedWeekProvider = NotifierProvider<_SimpleNotifier<int>, int>(
+  () => _SimpleNotifier(1),
+);
+
+final showNonCurrentWeekCoursesProvider =
+    NotifierProvider<_SimpleNotifier<bool>, bool>(
+      () => _SimpleNotifier(false),
+    );

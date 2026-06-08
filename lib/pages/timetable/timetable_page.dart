@@ -368,7 +368,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _onEmptySlotTap(BuildContext context, int weekday, int session) {
-    final courses = ref.read(scheduleProvider).valueOrNull ?? [];
+    final courses = ref.read(scheduleProvider).value ?? [];
     final usedIndices = <int>{};
     for (final c in courses) {
       if (c.colorIndex >= 0 && c.colorIndex < Course.colors.length) {

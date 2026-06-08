@@ -7,21 +7,20 @@ final storageServiceProvider = Provider<StorageService>((ref) {
   throw UnimplementedError('Must be overridden in main');
 });
 
-final configProvider = StateNotifierProvider<ConfigNotifier, UserConfig>((ref) {
-  final storage = ref.watch(storageServiceProvider);
-  return ConfigNotifier(storage);
-});
+final configProvider =
+    NotifierProvider<ConfigNotifier, UserConfig>(ConfigNotifier.new);
 
-class ConfigNotifier extends StateNotifier<UserConfig> {
-  final StorageService _storage;
+class ConfigNotifier extends Notifier<UserConfig> {
+  late StorageService _storage;
 
-  ConfigNotifier(this._storage)
-    : super(
-        UserConfig(
-          studentId: _storage.getStudentId(),
-          studentName: _storage.getStudentName(),
-        ),
-      );
+  @override
+  UserConfig build() {
+    _storage = ref.watch(storageServiceProvider);
+    return UserConfig(
+      studentId: _storage.getStudentId(),
+      studentName: _storage.getStudentName(),
+    );
+  }
 
   Future<void> updateFromLogin({
     required String studentId,

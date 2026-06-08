@@ -10,19 +10,19 @@ dependencies:
   flutter:
     sdk: flutter
 
-  flutter_riverpod: ^2.6.1
+  flutter_riverpod: ^3.3.1
   dio: ^5.7.0
   cookie_jar: ^4.0.8
   dio_cookie_manager: ^3.1.1
-  pointycastle: ^3.9.1
+  pointycastle: ^4.0.0
   crypto: ^3.0.6
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   shared_preferences: ^2.3.4
   flutter_secure_storage: ^10.3.1
-  connectivity_plus: ^6.1.1
-  package_info_plus: ^8.3.0
-  home_widget: ^0.7.0
+  connectivity_plus: ^7.1.1
+  package_info_plus: ^9.0.1
+  home_widget: ^0.9.3
   html: ^0.15.6
   path: ^1.9.1
   path_provider: ^2.1.5
