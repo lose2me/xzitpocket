@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_settings.dart';
 import '../services/native_automation_service.dart';
-import '../services/storage_service.dart';
+import '../services/preferences_storage.dart';
 import '../services/widget_service.dart';
 import 'config_provider.dart';
 
@@ -12,11 +12,11 @@ final appSettingsProvider =
     NotifierProvider<AppSettingsNotifier, AppSettings>(AppSettingsNotifier.new);
 
 class AppSettingsNotifier extends Notifier<AppSettings> {
-  late StorageService _storage;
+  late PreferencesStorage _storage;
 
   @override
   AppSettings build() {
-    _storage = ref.watch(storageServiceProvider);
+    _storage = ref.watch(preferencesStorageProvider);
     unawaited(NativeAutomationService.refreshClassAutomation());
     return AppSettings(
       themePreference: AppThemePreference.fromStorage(

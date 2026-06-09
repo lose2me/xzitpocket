@@ -4,13 +4,13 @@ import 'dart:io';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
-import 'package:dio/io.dart';
 import 'package:flutter/services.dart';
 import 'package:html/dom.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
+
+import 'dio_factory.dart';
 
 class PowerQueryException implements Exception {
   final String message;
@@ -49,10 +49,6 @@ class PowerService {
   static const _roomDbFileName = 'power_room_v1.db';
   static const _requestTimeout = Duration(seconds: 10);
   static const _estDaysMin = 5;
-  static const _userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-      'AppleWebKit/537.36 (KHTML, like Gecko) '
-      'Chrome/146.0.0.0 Safari/537.36';
 
   static final Map<String, _EndpointConfig> _endpoints = {
     'zx': _EndpointConfig(
@@ -95,7 +91,13 @@ class PowerService {
     }
 
     final jar = CookieJar();
-    final dio = _createDio(endpoint, jar);
+    final dio = DioFactory.create(
+      baseUrl: endpoint.url,
+      cookieJar: jar,
+      connectTimeout: endpoint.timeout,
+      receiveTimeout: endpoint.timeout,
+      bypassProxy: true,
+    );
     try {
       final raw = endpoint.mode == _EndpointMode.dxq
           ? await _queryDxqRoom(dio, room)
@@ -165,29 +167,6 @@ class PowerService {
     }
 
     await databaseFile.writeAsBytes(assetBytes, flush: true);
-  }
-
-  Dio _createDio(_EndpointConfig endpoint, CookieJar jar) {
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: endpoint.url,
-        connectTimeout: endpoint.timeout,
-        receiveTimeout: endpoint.timeout,
-        headers: const {'User-Agent': _userAgent},
-        followRedirects: true,
-        maxRedirects: 5,
-        validateStatus: (status) => status != null && status < 400,
-      ),
-    );
-    dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient();
-        client.findProxy = (_) => 'DIRECT';
-        return client;
-      },
-    );
-    dio.interceptors.add(CookieManager(jar));
-    return dio;
   }
 
   Future<Map<String, Object>> _queryLegacyRoom(

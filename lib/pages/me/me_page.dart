@@ -8,8 +8,9 @@ import '../../constants/upgrade_config.dart';
 import '../../models/update_info.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
-import '../../services/update_service.dart';
 import '../../providers/schedule_provider.dart';
+import '../../services/credential_storage.dart';
+import '../../services/update_service.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
 
@@ -256,8 +257,7 @@ class _MePageState extends ConsumerState<MePage> {
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
     _pwdCtrl.clear();
     if (result != null) {
-      final storage = ref.read(storageServiceProvider);
-      await storage.setSavedPassword(pwd);
+      await CredentialStorage.setSavedPassword(pwd);
 
       try {
         await ref

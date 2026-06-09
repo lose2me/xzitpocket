@@ -1,6 +1,5 @@
-import 'package:dio/dio.dart';
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:dio/dio.dart';
 
 import '../constants/network_config.dart';
 import '../constants/semester_config.dart';
@@ -9,6 +8,7 @@ import '../models/course.dart';
 import '../utils/course_text_parser.dart';
 import '../utils/rsa_encrypt.dart';
 import '../utils/week_calculator.dart';
+import 'dio_factory.dart';
 
 class LoginResult {
   final String? studentId;
@@ -19,26 +19,6 @@ class LoginResult {
 }
 
 class AuthService {
-  Dio _createDio(String baseUrl, CookieJar jar) {
-    final dio = Dio(
-      BaseOptions(
-        baseUrl: baseUrl,
-        connectTimeout: requestTimeout,
-        receiveTimeout: requestTimeout,
-        headers: {
-          'User-Agent':
-              'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 '
-              '(KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36',
-        },
-        followRedirects: true,
-        maxRedirects: 5,
-        validateStatus: (status) => status != null && status < 400,
-      ),
-    );
-    dio.interceptors.add(CookieManager(jar));
-    return dio;
-  }
-
   /// 登录并获取课表。
   /// - 依次尝试每个 baseUrl：登录 + 获取课表。
   /// - 业务异常（密码错误、验证码）直接抛出不重试。
@@ -48,7 +28,12 @@ class AuthService {
 
     for (final baseUrl in baseUrls) {
       final jar = CookieJar();
-      final dio = _createDio(baseUrl, jar);
+      final dio = DioFactory.create(
+        baseUrl: baseUrl,
+        cookieJar: jar,
+        connectTimeout: requestTimeout,
+        receiveTimeout: requestTimeout,
+      );
 
       try {
         await _login(dio, baseUrl, studentId, password);

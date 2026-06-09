@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/semester_config.dart';
 import '../models/course.dart';
-import '../services/storage_service.dart';
+import '../services/course_storage.dart';
 import '../services/widget_service.dart';
 import 'config_provider.dart';
 
@@ -12,12 +12,12 @@ final scheduleProvider =
     );
 
 class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
-  late StorageService _storage;
+  late CourseStorage _storage;
   List<int> _hiveKeys = [];
 
   @override
   AsyncValue<List<Course>> build() {
-    _storage = ref.watch(storageServiceProvider);
+    _storage = ref.watch(courseStorageProvider);
     final (keys, courses) = _storage.getCoursesWithKeys();
     _hiveKeys = keys;
     return AsyncValue.data(courses);
@@ -89,22 +89,3 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     await WidgetService.clearWidget();
   }
 }
-
-class _SimpleNotifier<T> extends Notifier<T> {
-  final T _initial;
-  _SimpleNotifier(this._initial);
-
-  @override
-  T build() => _initial;
-
-  void set(T value) => state = value;
-}
-
-final selectedWeekProvider = NotifierProvider<_SimpleNotifier<int>, int>(
-  () => _SimpleNotifier(1),
-);
-
-final showNonCurrentWeekCoursesProvider =
-    NotifierProvider<_SimpleNotifier<bool>, bool>(
-      () => _SimpleNotifier(false),
-    );

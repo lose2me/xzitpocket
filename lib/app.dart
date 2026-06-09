@@ -7,13 +7,13 @@ import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
-import 'services/storage_service.dart';
+import 'services/course_storage.dart';
 import 'services/widget_service.dart';
 
 class App extends ConsumerStatefulWidget {
-  final StorageService storage;
+  final CourseStorage courseStorage;
 
-  const App({super.key, required this.storage});
+  const App({super.key, required this.courseStorage});
 
   @override
   ConsumerState<App> createState() => _AppState();
@@ -58,7 +58,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   Future<void> _syncWidgetsFromCache() async {
     try {
       await WidgetService.updateWidget(
-        courses: widget.storage.getCourses(),
+        courses: widget.courseStorage.getCourses(),
         semesterStart: semesterStartDate,
         semesterTotalWeeks: semesterTotalWeeks,
       );

@@ -6,17 +6,20 @@ import 'app.dart';
 import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'providers/config_provider.dart';
-import 'services/storage_service.dart';
+import 'services/course_storage.dart';
+import 'services/preferences_storage.dart';
 import 'services/widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  final storage = StorageService();
-  await storage.init();
+  final courseStorage = CourseStorage();
+  final preferencesStorage = PreferencesStorage();
+  await courseStorage.init();
+  await preferencesStorage.init();
   await WidgetService.init();
 
-  final courses = storage.getCourses();
+  final courses = courseStorage.getCourses();
   try {
     await WidgetService.updateWidget(
       courses: courses,
@@ -34,8 +37,11 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [storageServiceProvider.overrideWithValue(storage)],
-      child: App(storage: storage),
+      overrides: [
+        courseStorageProvider.overrideWithValue(courseStorage),
+        preferencesStorageProvider.overrideWithValue(preferencesStorage),
+      ],
+      child: App(courseStorage: courseStorage),
     ),
   );
 }

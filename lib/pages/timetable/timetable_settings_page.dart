@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
-import '../../providers/schedule_provider.dart';
 import '../../services/native_automation_service.dart';
 import '../../utils/snackbar_helper.dart';
+import 'timetable_providers.dart';
 
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});

@@ -1,9 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_config.dart';
-import '../services/storage_service.dart';
+import '../services/course_storage.dart';
+import '../services/credential_storage.dart';
+import '../services/preferences_storage.dart';
 
-final storageServiceProvider = Provider<StorageService>((ref) {
+final courseStorageProvider = Provider<CourseStorage>((ref) {
+  throw UnimplementedError('Must be overridden in main');
+});
+
+final preferencesStorageProvider = Provider<PreferencesStorage>((ref) {
   throw UnimplementedError('Must be overridden in main');
 });
 
@@ -11,11 +17,11 @@ final configProvider =
     NotifierProvider<ConfigNotifier, UserConfig>(ConfigNotifier.new);
 
 class ConfigNotifier extends Notifier<UserConfig> {
-  late StorageService _storage;
+  late PreferencesStorage _storage;
 
   @override
   UserConfig build() {
-    _storage = ref.watch(storageServiceProvider);
+    _storage = ref.watch(preferencesStorageProvider);
     return UserConfig(
       studentId: _storage.getStudentId(),
       studentName: _storage.getStudentName(),
@@ -34,7 +40,8 @@ class ConfigNotifier extends Notifier<UserConfig> {
   }
 
   Future<void> logout() async {
-    await _storage.clearCredentials();
+    await _storage.clearStudentInfo();
+    await CredentialStorage.clearPassword();
     state = const UserConfig();
   }
 }

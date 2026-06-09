@@ -7,6 +7,8 @@ import '../../models/course.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../services/credential_storage.dart';
+import 'timetable_providers.dart';
 import '../../services/widget_service.dart';
 import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
@@ -85,9 +87,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     setState(() => _isSyncing = true);
 
     try {
-      final storage = ref.read(storageServiceProvider);
-      final sid = storage.getStudentId();
-      final pwd = await storage.getSavedPassword();
+      final prefs = ref.read(preferencesStorageProvider);
+      final sid = prefs.getStudentId();
+      final pwd = await CredentialStorage.getSavedPassword();
       if (sid == null || pwd == null) {
         if (mounted) {
           showAppSnackBar(context, '请先在"我的"页面登录');

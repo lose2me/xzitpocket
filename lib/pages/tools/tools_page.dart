@@ -22,7 +22,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   @override
   void initState() {
     super.initState();
-    final savedRoomId = ref.read(storageServiceProvider).getSavedPowerRoomId();
+    final savedRoomId = ref.read(preferencesStorageProvider).getSavedPowerRoomId();
     if (savedRoomId != null && savedRoomId.isNotEmpty) {
       _roomController.text = savedRoomId;
     }
@@ -140,7 +140,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     try {
       final result = await _powerService.queryRoom(roomId);
       if (!mounted) return;
-      await ref.read(storageServiceProvider).setSavedPowerRoomId(rawRoomId);
+      await ref.read(preferencesStorageProvider).setSavedPowerRoomId(rawRoomId);
       if (!mounted) return;
       await Navigator.of(
         context,
