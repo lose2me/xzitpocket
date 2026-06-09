@@ -36,7 +36,6 @@ class WidgetService {
   static Future<void> clearWidget() async {
     try {
       await HomeWidget.saveWidgetData('schedule_data', null);
-      await HomeWidget.saveWidgetData('widget_snapshot_v2', null);
       await _invokeNative('syncWidgets', errorContext: '清除小组件数据');
     } on WidgetSyncException {
       rethrow;

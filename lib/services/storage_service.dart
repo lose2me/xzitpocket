@@ -23,7 +23,6 @@ class StorageService {
     Hive.registerAdapter(CourseAdapter());
     _courseBox = await Hive.openBox<Course>(_courseBoxName);
     _prefs = await SharedPreferences.getInstance();
-    await _migrateLegacyPassword();
   }
 
   // ── Course storage ──
@@ -95,7 +94,6 @@ class StorageService {
   Future<void> clearCredentials() async {
     await _prefs.remove('student_id');
     await _prefs.remove('student_name');
-    await _prefs.remove(_savedPasswordKey);
     await _secureStorage.delete(key: _savedPasswordKey);
   }
 
@@ -120,16 +118,4 @@ class StorageService {
     await _prefs.setString(_savedPowerRoomIdKey, value);
   }
 
-  Future<void> _migrateLegacyPassword() async {
-    final legacyPassword = _prefs.getString(_savedPasswordKey);
-    if (legacyPassword == null) return;
-
-    final securePassword = await _secureStorage.read(key: _savedPasswordKey);
-    if ((securePassword == null || securePassword.isEmpty) &&
-        legacyPassword.isNotEmpty) {
-      await _secureStorage.write(key: _savedPasswordKey, value: legacyPassword);
-    }
-
-    await _prefs.remove(_savedPasswordKey);
-  }
 }

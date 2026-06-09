@@ -21,7 +21,7 @@ class CourseAdapter extends TypeAdapter<Course> {
       campus: fields[5] as String,
       place: fields[6] as String,
       colorIndex: fields[7] as int,
-      courseId: (fields[8] as String?) ?? '',
+      courseId: fields[8] as String,
     );
   }
 
