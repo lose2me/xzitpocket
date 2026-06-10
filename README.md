@@ -16,9 +16,6 @@
 
 </div>
 
-## 项目规划
-当前 ``2.0.0`` 版本
-
 **待办 | 较大更新**: 
 - [x] 桌面小组件支持
 - [x] 设计软件图标
@@ -28,15 +25,13 @@
 - [ ] 更多个性化设置
 *以优先级排序*
 
-``1.x.x`` 版本，仅支持课表功能，请求完全由客户端发出，无服务器中转数据。  
-``2.x.x`` 版本，若得到校方授权，开始对接学校通知，使用中继服务器对接，电费查询，水卡查询，图书馆等功能。  
+## 软件截图
+<p align="center">
+  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="210px" />
+  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/2.jpg" width="210px" />
+  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/3.jpg" width="210px" />
+</p>
 
-## 版本说明
-> 本项目版本号由三个部分组成：主版本号（Major）、次版本号（Minor）和修订版本号（Patch）。这三个部分通过点（.）分隔，形成一个标准的版本号格式，如 1.2.3。
-
-Major：表示软件的主要版本变更。当进行大规模的、不兼容的变更时，应该增加主版本号。  
-Minor：表示向后兼容的新功能添加。当软件以向下兼容的方式添加新功能时，应该增加次版本号。  
-Patch：表示向后兼容的错误修复或小的改进。  
 
 ## 调试
 Android
@@ -55,10 +50,3 @@ Android
 ```
 flutter build apk --release --target-platform android-arm64 --dart-define-from-file=tool/upgradelink.local.json
 ```
-
-## 软件截图
-<p align="center">
-  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="210px" />
-  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/2.jpg" width="210px" />
-  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/3.jpg" width="210px" />
-</p>
