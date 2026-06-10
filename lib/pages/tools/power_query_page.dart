@@ -1,11 +1,38 @@
 import 'package:flutter/material.dart';
 
+import '../../constants/semester_config.dart';
 import '../../services/power_service.dart';
+import '../../utils/week_calculator.dart';
 
-class PowerQueryPage extends StatelessWidget {
+class PowerQueryPage extends StatefulWidget {
   final PowerQueryData result;
 
   const PowerQueryPage({super.key, required this.result});
+
+  @override
+  State<PowerQueryPage> createState() => _PowerQueryPageState();
+}
+
+class _PowerQueryPageState extends State<PowerQueryPage> {
+  static const _pageSize = 7;
+  int _currentPage = 0;
+
+  late final List<PowerDailyUsage> _reversed =
+      widget.result.dailyUsage.reversed.toList();
+
+  int get _totalPages =>
+      (_reversed.length / _pageSize).ceil().clamp(1, 999);
+
+  List<PowerDailyUsage> get _currentPageItems {
+    final start = _currentPage * _pageSize;
+    final end = (start + _pageSize).clamp(0, _reversed.length);
+    return _reversed.sublist(start, end);
+  }
+
+  int _weekForPage(int page) {
+    final week = currentWeek(semesterStartDate);
+    return week - page;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +43,7 @@ class PowerQueryPage extends StatelessWidget {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [_buildResultCard(theme, result)],
+          children: [_buildResultCard(theme, widget.result)],
         ),
       ),
     );
@@ -59,14 +86,37 @@ class PowerQueryPage extends StatelessWidget {
           ),
           if (result.dailyUsage.isNotEmpty) ...[
             const SizedBox(height: 18),
-            Text(
-              '本月用电',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Text(
+                  '用电明细 - 第${_weekForPage(_currentPage)}周',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  iconSize: 22,
+                  onPressed: _currentPage > 0
+                      ? () => setState(() => _currentPage--)
+                      : null,
+                ),
+                Text(
+                  '${_currentPage + 1}/$_totalPages',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  iconSize: 22,
+                  onPressed: _currentPage < _totalPages - 1
+                      ? () => setState(() => _currentPage++)
+                      : null,
+                ),
+              ],
             ),
             const SizedBox(height: 10),
-            ...result.dailyUsage.map((item) => _buildUsageRow(theme, item)),
+            ..._currentPageItems.map((item) => _buildUsageRow(theme, item)),
           ] else ...[
             const SizedBox(height: 18),
             Text(

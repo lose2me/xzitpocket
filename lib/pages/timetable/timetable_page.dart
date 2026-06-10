@@ -15,7 +15,6 @@ import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 import '../../widgets/week_header.dart';
 import 'course_form_page.dart';
-import 'timetable_settings_page.dart';
 import 'timetable_grid.dart';
 
 class TimetablePage extends ConsumerStatefulWidget {
@@ -142,6 +141,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final showNonCurrentWeekCourses = ref.watch(
       showNonCurrentWeekCoursesProvider,
     );
+    final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final courseBorderColor = isDark ? Colors.white : Colors.black;
     final courseOpacity = isDark ? 0.95 : 0.85;
@@ -155,7 +155,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               semesterStart: semesterStartDate,
               selectedWeek: selectedWeek,
               onSync: _isSyncing ? null : _onSync,
-              onOpenSettings: _openSettingsPage,
             ),
             Expanded(
               child: coursesAsync.when(
@@ -196,6 +195,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         rotationTick: _conflictRotationTick,
                         countdownAnimation: _conflictCountdownController,
                         showNonCurrentWeekCourses: showNonCurrentWeekCourses,
+                        showWeekendColumns: showWeekendColumns,
                         semesterStart: semesterStartDate,
                         borderColor: courseBorderColor,
                         borderWidth: 0.5,
@@ -315,12 +315,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           ),
         );
       },
-    );
-  }
-
-  void _openSettingsPage() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const TimetableSettingsPage()),
     );
   }
 

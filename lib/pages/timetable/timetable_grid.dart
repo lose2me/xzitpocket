@@ -11,6 +11,7 @@ class TimetableGrid extends StatelessWidget {
   final int rotationTick;
   final Animation<double>? countdownAnimation;
   final bool showNonCurrentWeekCourses;
+  final bool showWeekendColumns;
   final DateTime semesterStart;
   final int slotCount;
   final int visibleSlots;
@@ -28,6 +29,7 @@ class TimetableGrid extends StatelessWidget {
     this.rotationTick = 0,
     this.countdownAnimation,
     this.showNonCurrentWeekCourses = false,
+    this.showWeekendColumns = true,
     required this.semesterStart,
     this.slotCount = 14,
     this.visibleSlots = 9,
@@ -66,6 +68,8 @@ class TimetableGrid extends StatelessWidget {
         .clamp(0.14, 0.34)
         .toDouble();
 
+    final dayCount = showWeekendColumns ? 7 : 5;
+
     return Column(
       children: [
         // Weekday headers row
@@ -90,7 +94,7 @@ class TimetableGrid extends StatelessWidget {
                     .toList(),
               ),
             ),
-            ...List.generate(7, (i) {
+            ...List.generate(dayCount, (i) {
               final date = dates[i];
               final isToday =
                   date.year == today.year &&
@@ -153,7 +157,7 @@ class TimetableGrid extends StatelessWidget {
                   child: Row(
                     children: [
                       TimeColumn(cellHeight: cellHeight, slotCount: slotCount),
-                      ...List.generate(7, (dayIndex) {
+                      ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
                         final dayCourses = currentWeekCourses
                             .where((entry) => entry.course.weekday == weekday)

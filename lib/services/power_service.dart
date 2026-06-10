@@ -26,6 +26,11 @@ class PowerDailyUsage {
   final String usage;
 
   const PowerDailyUsage({required this.date, required this.usage});
+
+  Map<String, dynamic> toJson() => {'date': date, 'usage': usage};
+
+  factory PowerDailyUsage.fromJson(Map<String, dynamic> json) =>
+      PowerDailyUsage(date: json['date'] as String, usage: json['usage'] as String);
 }
 
 class PowerQueryData {
@@ -42,6 +47,25 @@ class PowerQueryData {
     this.estDays,
     this.dailyUsage = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+        'price': price,
+        'available': available,
+        if (monthUsage != null) 'monthUsage': monthUsage,
+        if (estDays != null) 'estDays': estDays,
+        'dailyUsage': dailyUsage.map((e) => e.toJson()).toList(),
+      };
+
+  factory PowerQueryData.fromJson(Map<String, dynamic> json) => PowerQueryData(
+        price: json['price'] as String,
+        available: json['available'] as String,
+        monthUsage: json['monthUsage'] as String?,
+        estDays: json['estDays'] as String?,
+        dailyUsage: (json['dailyUsage'] as List<dynamic>?)
+                ?.map((e) => PowerDailyUsage.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
+      );
 }
 
 class PowerService {
@@ -77,6 +101,17 @@ class PowerService {
   };
 
   Database? _database;
+
+  Future<bool> validateRoom(String customId) async {
+    final roomId = _normalizeRoomId(customId);
+    if (roomId.isEmpty) return false;
+    try {
+      await _getRoomByCustomId(roomId);
+      return true;
+    } on PowerQueryException {
+      return false;
+    }
+  }
 
   Future<PowerQueryData> queryRoom(String customId) async {
     final roomId = _normalizeRoomId(customId);

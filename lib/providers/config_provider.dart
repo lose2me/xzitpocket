@@ -13,6 +13,18 @@ final preferencesStorageProvider = Provider<PreferencesStorage>((ref) {
   throw UnimplementedError('Must be overridden in main');
 });
 
+final savedRoomIdProvider =
+    NotifierProvider<SavedRoomIdNotifier, String?>(SavedRoomIdNotifier.new);
+
+class SavedRoomIdNotifier extends Notifier<String?> {
+  @override
+  String? build() {
+    return ref.watch(preferencesStorageProvider).getSavedPowerRoomId();
+  }
+
+  void set(String? value) => state = value;
+}
+
 final configProvider =
     NotifierProvider<ConfigNotifier, UserConfig>(ConfigNotifier.new);
 

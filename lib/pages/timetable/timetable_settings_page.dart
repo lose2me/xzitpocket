@@ -177,17 +177,11 @@ class _TimetableSettingsPageState
     final settings = ref.watch(appSettingsProvider);
     final showNonCurrentWeekCourses = ref.watch(showNonCurrentWeekCoursesProvider);
     final permissionStatus = _permissionStatus;
-    final bgColor = theme.brightness == Brightness.dark
-        ? theme.colorScheme.surface
-        : const Color(0xFFF3F4F6);
 
     return Scaffold(
-      backgroundColor: bgColor,
       appBar: AppBar(
         title: const Text('设置'),
         centerTitle: true,
-        backgroundColor: bgColor,
-        surfaceTintColor: Colors.transparent,
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),

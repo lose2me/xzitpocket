@@ -1,18 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../constants/upgrade_config.dart';
+import '../../models/app_settings.dart';
 import '../../models/update_info.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/credential_storage.dart';
+import '../../services/native_automation_service.dart';
+import '../../services/power_service.dart';
 import '../../services/update_service.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../timetable/timetable_providers.dart';
 
 class MePage extends ConsumerStatefulWidget {
   const MePage({super.key});
@@ -22,11 +27,12 @@ class MePage extends ConsumerStatefulWidget {
 }
 
 class _MePageState extends ConsumerState<MePage> {
+  bool _isCheckingUpdate = false;
+
   final _formKey = GlobalKey<FormState>();
   final _sidCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   bool _obscurePassword = true;
-  bool _isCheckingUpdate = false;
 
   @override
   void dispose() {
@@ -37,20 +43,154 @@ class _MePageState extends ConsumerState<MePage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final config = ref.watch(configProvider);
-    final isLoggedIn = config.studentId != null && config.studentId!.isNotEmpty;
+    final isLoggedIn =
+        config.studentId != null && config.studentId!.isNotEmpty;
+
+    if (!isLoggedIn) {
+      return Scaffold(
+        body: SafeArea(child: _buildLoginForm(theme)),
+      );
+    }
+
+    final settings = ref.watch(appSettingsProvider);
+    final showNonCurrentWeekCourses =
+        ref.watch(showNonCurrentWeekCoursesProvider);
+    final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
+    final savedRoomId = ref.watch(savedRoomIdProvider);
 
     return Scaffold(
-      appBar: isLoggedIn
-          ? AppBar(title: const Text('掌上徐工'), centerTitle: true)
-          : null,
-      body: SafeArea(
-        child: isLoggedIn ? _buildLoggedIn(context) : _buildLoginForm(context),
+      appBar: AppBar(title: const Text('我的'), centerTitle: true),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
+        children: [
+          _buildOpenSourceInfo(theme),
+          if (UpgradeConfig.isConfigured) ...[
+            const SizedBox(height: 16),
+            Center(child: _buildCheckUpdateButton()),
+          ],
+          const SizedBox(height: 20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SectionLabel(title: '补充信息'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SettingsCard(
+              children: [
+                _SettingsTile(
+                  icon: Icons.apartment_outlined,
+                  title: '宿舍号',
+                  value: savedRoomId ?? '未设置',
+                  onTap: () => _openRoomIdDialog(savedRoomId),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SectionLabel(title: '课堂'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SettingsCard(
+              children: [
+                _SettingsTile(
+                  icon: Icons.do_not_disturb_on_outlined,
+                  title: '课堂勿扰',
+                  value: _automationLabel(settings.classAutomationMode),
+                  onTap: () =>
+                      _openAutomationSheet(settings.classAutomationMode),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.visibility_outlined, size: 23, color: theme.colorScheme.onSurface),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          '显示非本周课程',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Checkbox(
+                        value: showNonCurrentWeekCourses,
+                        onChanged: (v) => _updateShowNonCurrentWeekCourses(v ?? false),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.view_week_outlined, size: 23, color: theme.colorScheme.onSurface),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          '显示周末网格',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      Checkbox(
+                        value: showWeekendColumns,
+                        onChanged: (v) => ref.read(showWeekendColumnsProvider.notifier).set(v ?? true),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SectionLabel(title: '外观'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SettingsCard(
+              children: [
+                _SettingsTile(
+                  icon: Icons.palette_outlined,
+                  title: '主题模式',
+                  value: _themeTitle(settings.themePreference),
+                  onTap: () => _openThemeSheet(settings.themePreference),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SizedBox(
+              width: double.infinity,
+              height: 44,
+              child: OutlinedButton.icon(
+                onPressed: () => _logout(context),
+                icon: const Icon(Icons.logout, color: Colors.red),
+                label: const Text(
+                  '退出登录',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildLoginForm(BuildContext context) {
+  // ── Login form ──
+
+  Widget _buildLoginForm(ThemeData theme) {
     final authState = ref.watch(authProvider);
     final isLoading = authState.status == AuthStatus.loading;
 
@@ -62,13 +202,13 @@ class _MePageState extends ConsumerState<MePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildOpenSourceInfo(Theme.of(context)),
+              _buildOpenSourceInfo(theme),
               const SizedBox(height: 24),
               if (UpgradeConfig.isConfigured) ...[
                 _buildCheckUpdateButton(),
                 const SizedBox(height: 24),
               ],
-              Text('登录教务系统', style: Theme.of(context).textTheme.titleLarge),
+              Text('登录教务系统', style: theme.textTheme.titleLarge),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _sidCtrl,
@@ -116,9 +256,7 @@ class _MePageState extends ConsumerState<MePage> {
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.errorContainer.withAlpha(120),
+                    color: theme.colorScheme.errorContainer.withAlpha(120),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -126,14 +264,14 @@ class _MePageState extends ConsumerState<MePage> {
                       Icon(
                         Icons.error_outline,
                         size: 18,
-                        color: Theme.of(context).colorScheme.error,
+                        color: theme.colorScheme.error,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           authState.errorMessage ?? '登录失败',
                           style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                            color: theme.colorScheme.error,
                             fontSize: 13,
                           ),
                         ),
@@ -161,90 +299,6 @@ class _MePageState extends ConsumerState<MePage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildOpenSourceInfo(ThemeData theme) {
-    return Column(
-      children: [
-        Icon(Icons.code, size: 28, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(height: 4),
-        Text(
-          'github.com/lose2me/xzitpocket',
-          style: TextStyle(
-            fontSize: 12,
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: 2),
-        FutureBuilder<PackageInfo>(
-          future: PackageInfo.fromPlatform(),
-          builder: (context, snapshot) {
-            final version = snapshot.data?.version ?? '';
-            return Text(
-              'Ver: $version License: GPL-3.0',
-              style: TextStyle(
-                fontSize: 11,
-                color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoggedIn(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      children: [
-        const SizedBox(height: 16),
-        _buildOpenSourceInfo(theme),
-        if (UpgradeConfig.isConfigured) ...[
-          const SizedBox(height: 20),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: _buildCheckUpdateButton(fullWidth: true),
-          ),
-        ],
-        const Spacer(),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-          child: SizedBox(
-            width: double.infinity,
-            height: 44,
-            child: OutlinedButton.icon(
-              onPressed: () => _logout(context),
-              icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text('退出登录', style: TextStyle(color: Colors.red)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCheckUpdateButton({bool fullWidth = false}) {
-    final button = OutlinedButton.icon(
-      onPressed: _isCheckingUpdate ? null : _checkForUpdate,
-      icon: _isCheckingUpdate
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.system_update_alt_outlined),
-      label: Text(_isCheckingUpdate ? '检查中...' : '检查更新'),
-    );
-
-    if (!fullWidth) {
-      return button;
-    }
-
-    return SizedBox(
-      width: double.infinity,
-      height: 44,
-      child: button,
     );
   }
 
@@ -280,6 +334,221 @@ class _MePageState extends ConsumerState<MePage> {
     }
   }
 
+  // ── Open source & update ──
+
+  Widget _buildOpenSourceInfo(ThemeData theme) {
+    return Column(
+      children: [
+        Icon(Icons.code, size: 28, color: theme.colorScheme.onSurfaceVariant),
+        const SizedBox(height: 4),
+        Text(
+          'github.com/lose2me/xzitpocket',
+          style: TextStyle(
+            fontSize: 12,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        FutureBuilder<PackageInfo>(
+          future: PackageInfo.fromPlatform(),
+          builder: (context, snapshot) {
+            final version = snapshot.data?.version ?? '';
+            return Text(
+              'Ver: $version License: GPL-3.0',
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCheckUpdateButton() {
+    return OutlinedButton.icon(
+      onPressed: _isCheckingUpdate ? null : _checkForUpdate,
+      icon: _isCheckingUpdate
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.system_update_alt_outlined),
+      label: Text(_isCheckingUpdate ? '检查中...' : '检查更新'),
+    );
+  }
+
+  // ── Settings actions ──
+
+  Future<void> _updateTheme(AppThemePreference preference) async {
+    await ref.read(appSettingsProvider.notifier).setThemePreference(preference);
+  }
+
+  Future<void> _updateAutomationMode(ClassAutomationMode mode) async {
+    await ref.read(appSettingsProvider.notifier).setClassAutomationMode(mode);
+
+    if (!mounted || mode == ClassAutomationMode.off) return;
+
+    final status = await NativeAutomationService.getPermissionStatus();
+    if (!mounted) return;
+
+    if (!status.isFullyGranted) {
+      final missing = <String>[];
+      if (!status.hasDndPermission) missing.add('勿扰');
+      if (!status.hasExactAlarmPermission) missing.add('精确闹钟');
+      showAppSnackBar(context, '需要开启${missing.join('和')}权限');
+    }
+  }
+
+  void _updateShowNonCurrentWeekCourses(bool value) {
+    ref.read(showNonCurrentWeekCoursesProvider.notifier).set(value);
+  }
+
+  Future<void> _openRoomIdDialog(String? currentRoomId) async {
+    final controller = TextEditingController(text: currentRoomId ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        var isValidating = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('宿舍号'),
+            content: TextField(
+              controller: controller,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                hintText: '请输入宿舍号',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: isValidating
+                    ? null
+                    : () async {
+                        final input = controller.text.trim();
+                        if (input.isEmpty) {
+                          Navigator.pop(ctx, '');
+                          return;
+                        }
+                        setDialogState(() => isValidating = true);
+                        final valid =
+                            await PowerService().validateRoom(input);
+                        if (!ctx.mounted) return;
+                        if (valid) {
+                          Navigator.pop(ctx, input.toUpperCase());
+                        } else {
+                          setDialogState(() => isValidating = false);
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('无此房间号')),
+                          );
+                        }
+                      },
+                child: isValidating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('保存'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (result == null || !mounted) return;
+    final prefs = ref.read(preferencesStorageProvider);
+    await prefs.setSavedPowerRoomId(result);
+    await prefs.clearPowerCache();
+    ref.read(savedRoomIdProvider.notifier).set(result.isEmpty ? null : result);
+    if (mounted) {
+      showAppSnackBar(context, result.isEmpty ? '已清除宿舍号' : '保存成功');
+    }
+  }
+
+  Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {
+    final selected = await showModalBottomSheet<ClassAutomationMode>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _OptionSheet<ClassAutomationMode>(
+        title: '课堂勿扰',
+        value: currentMode,
+        options: ClassAutomationMode.values
+            .map(
+              (mode) => _SheetOption<ClassAutomationMode>(
+                value: mode,
+                title: _automationTitle(mode),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selected != null && selected != currentMode) {
+      await _updateAutomationMode(selected);
+    }
+  }
+
+  Future<void> _openThemeSheet(AppThemePreference currentPreference) async {
+    final selected = await showModalBottomSheet<AppThemePreference>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _OptionSheet<AppThemePreference>(
+        title: '主题模式',
+        value: currentPreference,
+        options: AppThemePreference.values
+            .map(
+              (preference) => _SheetOption<AppThemePreference>(
+                value: preference,
+                title: _themeTitle(preference),
+              ),
+            )
+            .toList(),
+      ),
+    );
+
+    if (selected != null && selected != currentPreference) {
+      await _updateTheme(selected);
+    }
+  }
+
+  // ── Helpers ──
+
+  String _automationLabel(ClassAutomationMode mode) {
+    return switch (mode) {
+      ClassAutomationMode.off => '关闭',
+      ClassAutomationMode.dnd => '上课时开启',
+      ClassAutomationMode.dndKeep => '下课不恢复',
+    };
+  }
+
+  String _automationTitle(ClassAutomationMode mode) {
+    return switch (mode) {
+      ClassAutomationMode.off => '关闭',
+      ClassAutomationMode.dnd => '上课开启，下课恢复',
+      ClassAutomationMode.dndKeep => '上课开启，下课不恢复',
+    };
+  }
+
+  String _themeTitle(AppThemePreference preference) {
+    return switch (preference) {
+      AppThemePreference.system => '跟随系统',
+      AppThemePreference.light => '浅色模式',
+      AppThemePreference.dark => '深色模式',
+    };
+  }
+
+  // ── Logout ──
+
   void _logout(BuildContext context) {
     showDialog(
       context: context,
@@ -309,6 +578,8 @@ class _MePageState extends ConsumerState<MePage> {
       ),
     );
   }
+
+  // ── Check update ──
 
   Future<void> _checkForUpdate() async {
     if (_isCheckingUpdate) return;
@@ -392,6 +663,252 @@ class _MePageState extends ConsumerState<MePage> {
     );
   }
 }
+
+// ── Settings widgets ──
+
+class _SectionLabel extends StatelessWidget {
+  final String title;
+
+  const _SectionLabel({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+      child: Text(
+        title,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+}
+
+class _SettingsCard extends StatelessWidget {
+  final List<Widget> children;
+
+  const _SettingsCard({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(8),
+            blurRadius: 16,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: List.generate(children.length * 2 - 1, (index) {
+          if (index.isEven) {
+            return children[index ~/ 2];
+          }
+          return Padding(
+            padding: const EdgeInsets.only(left: 62, right: 18),
+            child: Divider(
+              height: 1,
+              color: theme.colorScheme.outlineVariant.withAlpha(120),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _SettingsTile extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String? value;
+  final Color? valueColor;
+  final VoidCallback? onTap;
+
+  const _SettingsTile({
+    required this.icon,
+    required this.title,
+    this.value,
+    this.valueColor,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final effectiveValueColor =
+        valueColor ?? theme.colorScheme.onSurfaceVariant.withAlpha(200);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(24),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+        child: Row(
+          children: [
+            Icon(icon, size: 23, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 138),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (value != null)
+                    Flexible(
+                      child: Text(
+                        value!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: effectiveValueColor,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  if (value != null) const SizedBox(width: 8),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 24,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Bottom sheets ──
+
+class _SheetOption<T> {
+  final T value;
+  final String title;
+
+  const _SheetOption({required this.value, required this.title});
+}
+
+class _OptionSheet<T> extends StatelessWidget {
+  final String title;
+  final T value;
+  final List<_SheetOption<T>> options;
+
+  const _OptionSheet({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.options,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.outlineVariant,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Center(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              ...options.map((option) {
+                final selected = option.value == value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: selected
+                        ? theme.colorScheme.primaryContainer.withAlpha(72)
+                        : theme.colorScheme.surfaceContainerLowest,
+                    borderRadius: BorderRadius.circular(28),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(28),
+                      onTap: () => Navigator.pop(context, option.value),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 15,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                option.title,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Icon(
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.radio_button_unchecked_rounded,
+                              color: selected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.outline,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Update download dialog ──
 
 class _UpdateDownloadDialog extends StatefulWidget {
   final UpdateInfo updateInfo;
@@ -498,7 +1015,8 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
                     _buildProgressLine(),
                     style: theme.textTheme.bodyMedium,
                   ),
-                  if (_progress.stage == UpdateDownloadStage.downloading) ...[
+                  if (_progress.stage ==
+                      UpdateDownloadStage.downloading) ...[
                     const SizedBox(height: 4),
                     Text(
                       '速率: ${_formatSpeed(_progress.bytesPerSecond)}',

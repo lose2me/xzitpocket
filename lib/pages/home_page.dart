@@ -24,6 +24,12 @@ class HomePageState extends State<HomePage> {
     TimetablePage.globalKey.currentState?.jumpToCurrentWeek();
   }
 
+  void switchToMe() {
+    if (_currentIndex != 2) {
+      setState(() => _currentIndex = 2);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -38,28 +44,58 @@ class HomePageState extends State<HomePage> {
           const MePage(),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        height: 64,
-        labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (i) => setState(() => _currentIndex = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
-            label: '课表',
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          navigationBarTheme: NavigationBarThemeData(
+            indicatorColor: Colors.transparent,
+            overlayColor: WidgetStateProperty.all(Colors.transparent),
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return IconThemeData(
+                  color: Theme.of(context).colorScheme.primary,
+                );
+              }
+              return IconThemeData(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              );
+            }),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.primary,
+                );
+              }
+              return TextStyle(
+                fontSize: 12,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              );
+            }),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.home_repair_service_outlined),
-            selectedIcon: Icon(Icons.home_repair_service),
-            label: '工具',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: '我的',
-          ),
-        ],
+        ),
+        child: NavigationBar(
+          height: 64,
+          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (i) => setState(() => _currentIndex = i),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.calendar_today_outlined),
+              selectedIcon: Icon(Icons.calendar_today),
+              label: '课表',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.home_repair_service_outlined),
+              selectedIcon: Icon(Icons.home_repair_service),
+              label: '工具',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline),
+              selectedIcon: Icon(Icons.person),
+              label: '我的',
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -18,3 +18,8 @@ final showNonCurrentWeekCoursesProvider =
     NotifierProvider<_SimpleNotifier<bool>, bool>(
       () => _SimpleNotifier(false),
     );
+
+final showWeekendColumnsProvider =
+    NotifierProvider<_SimpleNotifier<bool>, bool>(
+      () => _SimpleNotifier(true),
+    );
