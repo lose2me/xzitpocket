@@ -34,10 +34,15 @@ class _MePageState extends ConsumerState<MePage> {
   final _pwdCtrl = TextEditingController();
   bool _obscurePassword = true;
 
+  final _roomIdController = TextEditingController();
+  bool _roomIdInitialized = false;
+  bool _isValidatingRoom = false;
+
   @override
   void dispose() {
     _sidCtrl.dispose();
     _pwdCtrl.dispose();
+    _roomIdController.dispose();
     super.dispose();
   }
 
@@ -60,6 +65,11 @@ class _MePageState extends ConsumerState<MePage> {
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final savedRoomId = ref.watch(savedRoomIdProvider);
 
+    if (!_roomIdInitialized) {
+      _roomIdController.text = savedRoomId ?? '';
+      _roomIdInitialized = true;
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text('我的'), centerTitle: true),
       body: ListView(
@@ -79,11 +89,66 @@ class _MePageState extends ConsumerState<MePage> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _SettingsCard(
               children: [
-                _SettingsTile(
-                  icon: Icons.apartment_outlined,
-                  title: '宿舍号',
-                  value: savedRoomId ?? '未设置',
-                  onTap: () => _openRoomIdDialog(savedRoomId),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.apartment_outlined, size: 23, color: theme.colorScheme.onSurface),
+                      const SizedBox(width: 16),
+                      Text(
+                        '宿舍号',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: _roomIdController,
+                          textCapitalization: TextCapitalization.characters,
+                          textAlign: TextAlign.end,
+                          style: theme.textTheme.bodyLarge,
+                          decoration: InputDecoration(
+                            hintText: '未设置',
+                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                            ),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.outlineVariant,
+                              ),
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          onSubmitted: (_) => _submitRoomId(),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (_isValidatingRoom)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        IconButton(
+                          icon: Icon(
+                            Icons.save_outlined,
+                            size: 20,
+                            color: theme.colorScheme.primary,
+                          ),
+                          onPressed: _submitRoomId,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -133,15 +198,15 @@ class _MePageState extends ConsumerState<MePage> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: Text(
-                          '显示周末网格',
+                          '隐藏周末网格',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
                       Checkbox(
-                        value: showWeekendColumns,
-                        onChanged: (v) => ref.read(showWeekendColumnsProvider.notifier).set(v ?? true),
+                        value: !showWeekendColumns,
+                        onChanged: (v) => ref.read(showWeekendColumnsProvider.notifier).set(!(v ?? false)),
                       ),
                     ],
                   ),
@@ -406,71 +471,33 @@ class _MePageState extends ConsumerState<MePage> {
     ref.read(showNonCurrentWeekCoursesProvider.notifier).set(value);
   }
 
-  Future<void> _openRoomIdDialog(String? currentRoomId) async {
-    final controller = TextEditingController(text: currentRoomId ?? '');
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        var isValidating = false;
-        return StatefulBuilder(
-          builder: (ctx, setDialogState) => AlertDialog(
-            title: const Text('宿舍号'),
-            content: TextField(
-              controller: controller,
-              textCapitalization: TextCapitalization.characters,
-              decoration: const InputDecoration(
-                hintText: '请输入宿舍号',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: const Text('取消'),
-              ),
-              FilledButton(
-                onPressed: isValidating
-                    ? null
-                    : () async {
-                        final input = controller.text.trim();
-                        if (input.isEmpty) {
-                          Navigator.pop(ctx, '');
-                          return;
-                        }
-                        setDialogState(() => isValidating = true);
-                        final valid =
-                            await PowerService().validateRoom(input);
-                        if (!ctx.mounted) return;
-                        if (valid) {
-                          Navigator.pop(ctx, input.toUpperCase());
-                        } else {
-                          setDialogState(() => isValidating = false);
-                          ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(content: Text('无此房间号')),
-                          );
-                        }
-                      },
-                child: isValidating
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('保存'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  Future<void> _submitRoomId() async {
+    final input = _roomIdController.text.trim();
+    if (input.isEmpty) {
+      final prefs = ref.read(preferencesStorageProvider);
+      await prefs.setSavedPowerRoomId('');
+      await prefs.clearPowerCache();
+      ref.read(savedRoomIdProvider.notifier).set(null);
+      if (mounted) showAppSnackBar(context, '已清除宿舍号');
+      return;
+    }
 
-    if (result == null || !mounted) return;
-    final prefs = ref.read(preferencesStorageProvider);
-    await prefs.setSavedPowerRoomId(result);
-    await prefs.clearPowerCache();
-    ref.read(savedRoomIdProvider.notifier).set(result.isEmpty ? null : result);
-    if (mounted) {
-      showAppSnackBar(context, result.isEmpty ? '已清除宿舍号' : '保存成功');
+    setState(() => _isValidatingRoom = true);
+    final valid = await PowerService().validateRoom(input);
+    if (!mounted) return;
+    setState(() => _isValidatingRoom = false);
+
+    if (valid) {
+      final upper = input.toUpperCase();
+      _roomIdController.text = upper;
+      final prefs = ref.read(preferencesStorageProvider);
+      await prefs.setSavedPowerRoomId(upper);
+      await prefs.clearPowerCache();
+      ref.read(savedRoomIdProvider.notifier).set(upper);
+      FocusScope.of(context).unfocus();
+      showAppSnackBar(context, '保存成功');
+    } else {
+      showAppSnackBar(context, '无此房间号');
     }
   }
 

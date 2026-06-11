@@ -9,7 +9,6 @@ class TimetableGrid extends StatelessWidget {
   final List<Course> courses;
   final int week;
   final int rotationTick;
-  final Animation<double>? countdownAnimation;
   final bool showNonCurrentWeekCourses;
   final bool showWeekendColumns;
   final DateTime semesterStart;
@@ -17,6 +16,7 @@ class TimetableGrid extends StatelessWidget {
   final int visibleSlots;
   final void Function(Course course, int index)? onCourseTap;
   final void Function(int weekday, int session)? onEmptyTap;
+  final void Function(bool hasConflict, bool isMutedConflict)? onConflictComputed;
   final Color borderColor;
   final double borderWidth;
   final double courseOpacity;
@@ -27,7 +27,6 @@ class TimetableGrid extends StatelessWidget {
     required this.courses,
     required this.week,
     this.rotationTick = 0,
-    this.countdownAnimation,
     this.showNonCurrentWeekCourses = false,
     this.showWeekendColumns = true,
     required this.semesterStart,
@@ -35,6 +34,7 @@ class TimetableGrid extends StatelessWidget {
     this.visibleSlots = 9,
     this.onCourseTap,
     this.onEmptyTap,
+    this.onConflictComputed,
     this.borderColor = Colors.grey,
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
@@ -48,15 +48,18 @@ class TimetableGrid extends StatelessWidget {
         .asMap()
         .entries
         .map(
-          (entry) =>
-              _IndexedCourse(sourceIndex: entry.key, course: entry.value),
+          (entry) => _IndexedCourse(
+            sourceIndex: entry.key,
+            course: entry.value,
+            isCurrentWeek: entry.value.isInWeek(week),
+          ),
         )
         .toList();
     final currentWeekCourses = indexedCourses
-        .where((entry) => entry.course.isInWeek(week))
+        .where((entry) => entry.isCurrentWeek)
         .toList();
     final otherWeekCourses = showNonCurrentWeekCourses
-        ? indexedCourses.where((entry) => !entry.course.isInWeek(week)).toList()
+        ? indexedCourses.where((entry) => !entry.isCurrentWeek).toList()
         : const <_IndexedCourse>[];
     final dates = weekDates(semesterStart, week);
     final today = DateTime.now();
@@ -69,6 +72,34 @@ class TimetableGrid extends StatelessWidget {
         .toDouble();
 
     final dayCount = showWeekendColumns ? 7 : 5;
+
+    // Pre-compute display courses for all days
+    final dayDisplayData = List.generate(dayCount, (dayIndex) {
+      final weekday = dayIndex + 1;
+      final allDayCourses = <_IndexedCourse>[
+        ...currentWeekCourses.where((e) => e.course.weekday == weekday),
+        ...otherWeekCourses.where((e) => e.course.weekday == weekday),
+      ];
+      return _buildDisplayCourses(allDayCourses, rotationTick);
+    });
+
+    // Compute conflict state
+    var anyConflict = false;
+    var anyMutedConflict = false;
+    for (final displayCourses in dayDisplayData) {
+      for (final d in displayCourses) {
+        if (d.isConflict) {
+          anyConflict = true;
+          if (d.isMutedVariant) anyMutedConflict = true;
+        }
+      }
+    }
+
+    if (onConflictComputed != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        onConflictComputed!(anyConflict, anyMutedConflict);
+      });
+    }
 
     return Column(
       children: [
@@ -159,20 +190,11 @@ class TimetableGrid extends StatelessWidget {
                       TimeColumn(cellHeight: cellHeight, slotCount: slotCount),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
-                        final dayCourses = currentWeekCourses
-                            .where((entry) => entry.course.weekday == weekday)
-                            .toList();
-                        final otherDayCourses = otherWeekCourses
-                            .where((entry) => entry.course.weekday == weekday)
-                            .toList();
-                        final displayCourses = _buildDisplayCourses(
-                          dayCourses,
-                          rotationTick,
-                        );
-                        final otherDisplayCourses = _buildDisplayCourses(
-                          otherDayCourses,
-                          rotationTick,
-                        );
+                        final allDayCourses = <_IndexedCourse>[
+                          ...currentWeekCourses.where((e) => e.course.weekday == weekday),
+                          ...otherWeekCourses.where((e) => e.course.weekday == weekday),
+                        ];
+                        final allDisplayCourses = dayDisplayData[dayIndex];
                         return Expanded(
                           child: GestureDetector(
                             behavior: HitTestBehavior.translucent,
@@ -181,17 +203,11 @@ class TimetableGrid extends StatelessWidget {
                                   (details.localPosition.dy / cellHeight)
                                       .floor() +
                                   1;
-                              final hasCurrentHit = dayCourses.any(
+                              final hasHit = allDayCourses.any(
                                 (entry) =>
                                     _indexedCourseHitsSession(entry, session),
                               );
-                              final hasOtherHit = otherDayCourses.any(
-                                (entry) =>
-                                    _indexedCourseHitsSession(entry, session),
-                              );
-                              if (!hasCurrentHit &&
-                                  !hasOtherHit &&
-                                  onEmptyTap != null) {
+                              if (!hasHit && onEmptyTap != null) {
                                 onEmptyTap!(weekday, session);
                               }
                             },
@@ -223,57 +239,10 @@ class TimetableGrid extends StatelessWidget {
                                     );
                                   }),
                                 ),
-                                ...otherDisplayCourses.map((display) {
-                                  final course = display.course;
-                                  final top =
-                                      (course.startSession - 1) * cellHeight;
-                                  final height =
-                                      course.sessionSpan * cellHeight;
-                                  return Positioned(
-                                    top: top,
-                                    left: 0,
-                                    right: 0,
-                                    height: height,
-                                    child: CourseCard(
-                                      key: ValueKey(
-                                        '${display.animationKey}:ghost',
-                                      ),
-                                      course: course,
-                                      muted: true,
-                                      courseOpacity: nonCurrentCourseOpacity,
-                                      courseBorderOpacity:
-                                          nonCurrentCourseBorderOpacity,
-                                      borderColor: borderColor,
-                                      borderWidth: borderWidth,
-                                    ),
-                                  );
-                                }),
-                                ...otherDisplayCourses.map((display) {
-                                  final top =
-                                      (display.tapStartSession - 1) *
-                                      cellHeight;
-                                  final height =
-                                      display.tapSessionSpan * cellHeight;
-                                  return Positioned(
-                                    top: top,
-                                    left: 0,
-                                    right: 0,
-                                    height: height,
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.translucent,
-                                      onTap: onCourseTap != null
-                                          ? () => onCourseTap!(
-                                              display.course,
-                                              display.sourceIndex,
-                                            )
-                                          : null,
-                                      child: const SizedBox.expand(),
-                                    ),
-                                  );
-                                }),
                                 // Course cards
-                                ...displayCourses.map((display) {
+                                ...allDisplayCourses.map((display) {
                                   final course = display.course;
+                                  final isCurrentWeek = course.isInWeek(week);
                                   final top =
                                       (course.startSession - 1) * cellHeight;
                                   final height =
@@ -294,19 +263,20 @@ class TimetableGrid extends StatelessWidget {
                                       child: CourseCard(
                                         key: ValueKey(display.animationKey),
                                         course: course,
-                                        countdownAnimation: display.isConflict
-                                            ? countdownAnimation
-                                            : null,
-                                        courseOpacity: courseOpacity,
-                                        courseBorderOpacity:
-                                            courseBorderOpacity,
+                                        muted: !isCurrentWeek,
+                                        courseOpacity: isCurrentWeek
+                                            ? courseOpacity
+                                            : nonCurrentCourseOpacity,
+                                        courseBorderOpacity: isCurrentWeek
+                                            ? courseBorderOpacity
+                                            : nonCurrentCourseBorderOpacity,
                                         borderColor: borderColor,
                                         borderWidth: borderWidth,
                                       ),
                                     ),
                                   );
                                 }),
-                                ...displayCourses.map((display) {
+                                ...allDisplayCourses.map((display) {
                                   final top =
                                       (display.tapStartSession - 1) *
                                       cellHeight;
@@ -410,9 +380,25 @@ List<_DisplayCourse> _buildDisplayCourses(
       continue;
     }
 
-    final variants = _buildConflictVariants(group);
+    // Split into current-week and other-week entries
+    final currentWeekEntries = group.where((e) => e.isCurrentWeek).toList();
+    final otherWeekEntries = group.where((e) => !e.isCurrentWeek).toList();
+
+    final currentVariants = currentWeekEntries.isNotEmpty
+        ? _buildConflictVariants(currentWeekEntries)
+        : <List<_IndexedCourse>>[];
+    final otherVariants = otherWeekEntries.isNotEmpty
+        ? _buildConflictVariants(otherWeekEntries)
+        : <List<_IndexedCourse>>[];
+
+    final variants = [...currentVariants, ...otherVariants];
+    if (variants.isEmpty) {
+      variants.add(group.take(1).toList());
+    }
+
     final selectedVariantIndex = rotationTick % variants.length;
     final selectedVariant = variants[selectedVariantIndex];
+    final isMuted = selectedVariantIndex >= currentVariants.length && otherVariants.isNotEmpty;
 
     for (final entry in selectedVariant) {
       displayCourses.add(
@@ -422,6 +408,7 @@ List<_DisplayCourse> _buildDisplayCourses(
           tapStartSession: entry.course.startSession,
           tapSessionSpan: entry.course.sessionSpan,
           isConflict: variants.length > 1,
+          isMutedVariant: isMuted,
           animationKey: '${entry.sourceIndex}:variant:$selectedVariantIndex',
         ),
       );
@@ -498,8 +485,13 @@ bool _coursesOverlap(Course a, Course b) {
 class _IndexedCourse {
   final int sourceIndex;
   final Course course;
+  final bool isCurrentWeek;
 
-  const _IndexedCourse({required this.sourceIndex, required this.course});
+  const _IndexedCourse({
+    required this.sourceIndex,
+    required this.course,
+    required this.isCurrentWeek,
+  });
 }
 
 class _DisplayCourse {
@@ -508,6 +500,7 @@ class _DisplayCourse {
   final int tapStartSession;
   final int tapSessionSpan;
   final bool isConflict;
+  final bool isMutedVariant;
   final String animationKey;
 
   const _DisplayCourse({
@@ -516,6 +509,7 @@ class _DisplayCourse {
     required this.tapStartSession,
     required this.tapSessionSpan,
     this.isConflict = false,
+    this.isMutedVariant = false,
     required this.animationKey,
   });
 }

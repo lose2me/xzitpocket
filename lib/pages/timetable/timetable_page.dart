@@ -33,6 +33,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   bool _isSyncing = false;
   int _conflictRotationTick = 0;
   double _lastConflictCountdownValue = 0;
+  bool _hasConflict = false;
+  bool _isMutedConflict = false;
 
   @override
   void initState() {
@@ -155,6 +157,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               semesterStart: semesterStartDate,
               selectedWeek: selectedWeek,
               onSync: _isSyncing ? null : _onSync,
+              countdownAnimation: _conflictCountdownController,
+              hasConflict: _hasConflict,
+              isMutedConflict: _isMutedConflict,
             ),
             Expanded(
               child: coursesAsync.when(
@@ -193,7 +198,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         courses: courses,
                         week: week,
                         rotationTick: _conflictRotationTick,
-                        countdownAnimation: _conflictCountdownController,
                         showNonCurrentWeekCourses: showNonCurrentWeekCourses,
                         showWeekendColumns: showWeekendColumns,
                         semesterStart: semesterStartDate,
@@ -201,6 +205,14 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         borderWidth: 0.5,
                         courseOpacity: courseOpacity,
                         courseBorderOpacity: courseBorderOpacity,
+                        onConflictComputed: (hasConflict, isMuted) {
+                          if (_hasConflict != hasConflict || _isMutedConflict != isMuted) {
+                            setState(() {
+                              _hasConflict = hasConflict;
+                              _isMutedConflict = isMuted;
+                            });
+                          }
+                        },
                         onCourseTap: (course, idx) {
                           final key = ref
                               .read(scheduleProvider.notifier)
