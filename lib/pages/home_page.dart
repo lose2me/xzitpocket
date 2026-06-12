@@ -85,9 +85,9 @@ class HomePageState extends State<HomePage> {
               label: '课表',
             ),
             NavigationDestination(
-              icon: Icon(Icons.home_repair_service_outlined),
-              selectedIcon: Icon(Icons.home_repair_service),
-              label: '工具',
+              icon: Icon(Icons.campaign_outlined),
+              selectedIcon: Icon(Icons.campaign),
+              label: '比格',
             ),
             NavigationDestination(
               icon: Icon(Icons.person_outline),

@@ -6,8 +6,9 @@ import '../../utils/week_calculator.dart';
 
 class PowerQueryPage extends StatefulWidget {
   final PowerQueryData result;
+  final String? roomId;
 
-  const PowerQueryPage({super.key, required this.result});
+  const PowerQueryPage({super.key, required this.result, this.roomId});
 
   @override
   State<PowerQueryPage> createState() => _PowerQueryPageState();
@@ -65,25 +66,27 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '查询结果',
+            widget.roomId ?? '电费查询',
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 14),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.7,
+          for (var i = 0; i < metrics.length; i += 2)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  Expanded(child: _buildMetricCell(theme, metrics[i])),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: i + 1 < metrics.length
+                        ? _buildMetricCell(theme, metrics[i + 1])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
             ),
-            itemCount: metrics.length,
-            itemBuilder: (context, index) =>
-                _buildMetricTile(theme, metrics[index]),
-          ),
           if (result.dailyUsage.isNotEmpty) ...[
             const SizedBox(height: 18),
             Row(
@@ -138,16 +141,15 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     return value;
   }
 
-  Widget _buildMetricTile(ThemeData theme, _MetricItem item) {
+  Widget _buildMetricCell(ThemeData theme, _MetricItem item) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withAlpha(110),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             item.label,
@@ -155,10 +157,10 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             item.value,
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),

@@ -17,6 +17,7 @@ class TimetableGrid extends StatelessWidget {
   final void Function(Course course, int index)? onCourseTap;
   final void Function(int weekday, int session)? onEmptyTap;
   final void Function(bool hasConflict, bool isMutedConflict)? onConflictComputed;
+  final Animation<double>? countdownAnimation;
   final Color borderColor;
   final double borderWidth;
   final double courseOpacity;
@@ -35,6 +36,7 @@ class TimetableGrid extends StatelessWidget {
     this.onCourseTap,
     this.onEmptyTap,
     this.onConflictComputed,
+    this.countdownAnimation,
     this.borderColor = Colors.grey,
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
@@ -248,6 +250,7 @@ class TimetableGrid extends StatelessWidget {
                                   final height =
                                       course.sessionSpan * cellHeight;
                                   return AnimatedPositioned(
+                                    key: ValueKey(display.animationKey),
                                     duration: const Duration(milliseconds: 250),
                                     curve: Curves.easeOut,
                                     top: top,
@@ -256,13 +259,27 @@ class TimetableGrid extends StatelessWidget {
                                     height: height,
                                     child: AnimatedSwitcher(
                                       duration: const Duration(
-                                        milliseconds: 250,
+                                        milliseconds: 450,
                                       ),
-                                      switchInCurve: Curves.easeOut,
-                                      switchOutCurve: Curves.easeIn,
+                                      switchInCurve: Curves.easeInOutCubic,
+                                      switchOutCurve: Curves.easeInOutCubic,
+                                      transitionBuilder: (child, animation) {
+                                        final slide = Tween<Offset>(
+                                          begin: const Offset(0, 0.15),
+                                          end: Offset.zero,
+                                        ).animate(animation);
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: SlideTransition(
+                                            position: slide,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
                                       child: CourseCard(
                                         key: ValueKey(display.animationKey),
                                         course: course,
+                                        countdownAnimation: display.isConflict ? countdownAnimation : null,
                                         muted: !isCurrentWeek,
                                         courseOpacity: isCurrentWeek
                                             ? courseOpacity

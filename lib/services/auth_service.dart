@@ -1,4 +1,3 @@
-import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 
 import '../constants/network_config.dart';
@@ -6,9 +5,8 @@ import '../constants/semester_config.dart';
 import '../constants/time_slots.dart';
 import '../models/course.dart';
 import '../utils/course_text_parser.dart';
-import '../utils/rsa_encrypt.dart';
 import '../utils/week_calculator.dart';
-import 'dio_factory.dart';
+import 'cas_service.dart';
 
 class LoginResult {
   final String? studentId;
@@ -18,122 +16,87 @@ class LoginResult {
   LoginResult({this.studentId, this.studentName, required this.courses});
 }
 
+class ExamItem {
+  final String courseId;
+  final String title;
+  final String time;
+  final String location;
+  final String campus;
+  final String seat;
+  final String examName;
+  final String teacher;
+  final String className;
+  final String college;
+  final String credit;
+  final String examType;
+  final String note;
+  final bool isResit;
+
+  const ExamItem({
+    required this.courseId,
+    required this.title,
+    required this.time,
+    required this.location,
+    required this.campus,
+    required this.seat,
+    required this.examName,
+    required this.teacher,
+    required this.className,
+    required this.college,
+    required this.credit,
+    required this.examType,
+    required this.note,
+    required this.isResit,
+  });
+}
+
+class ExamResult {
+  final String? studentId;
+  final String? studentName;
+  final List<ExamItem> exams;
+
+  ExamResult({this.studentId, this.studentName, required this.exams});
+}
+
 class AuthService {
-  /// 登录并获取课表。
-  /// - 依次尝试每个 baseUrl：登录 + 获取课表。
-  /// - 业务异常（密码错误、验证码）直接抛出不重试。
-  /// - 登录或获取课表失败则切换到下一个 baseUrl 重新登录。
+  final _casService = CasService();
+
   Future<LoginResult> loginAndFetch(String studentId, String password) async {
-    Object? lastError;
-
-    for (final baseUrl in baseUrls) {
-      final jar = CookieJar();
-      final dio = DioFactory.create(
-        baseUrl: baseUrl,
-        cookieJar: jar,
-        connectTimeout: requestTimeout,
-        receiveTimeout: requestTimeout,
-      );
-
-      try {
-        await _login(dio, baseUrl, studentId, password);
-      } on AuthException {
-        rethrow;
-      } catch (e) {
-        lastError = e;
-        continue;
-      }
-
-      try {
-        return await _fetchSchedule(dio);
-      } catch (e) {
-        lastError = e;
-      }
-    }
-
-    throw AuthException('登录或获取课表失败: $lastError');
-  }
-
-  // ── 登录 ──
-
-  Future<void> _login(
-    Dio dio,
-    String baseUrl,
-    String studentId,
-    String password,
-  ) async {
-    const loginPath = '/xtgl/login_slogin.html';
-    const keyPath = '/xtgl/login_getPublicKey.html';
-
-    dio.options.headers['Referer'] = '$baseUrl$loginPath';
-
-    final loginPage = await dio.get(
-      loginPath,
-      options: Options(responseType: ResponseType.plain),
-    );
-    final html = loginPage.data as String;
-
-    if (RegExp(
-      r'id=["'
-      "'"
-      r']yzm["'
-      "'"
-      r']',
-      caseSensitive: false,
-    ).hasMatch(html)) {
-      throw AuthException('需要验证码，请稍后再试');
-    }
-
-    final csrfToken = _extractCsrfToken(html);
-
-    final keyResp = await dio.get(keyPath);
-    final keyJson = keyResp.data as Map<String, dynamic>;
-    final modulus = keyJson['modulus'] as String;
-    final exponent = keyJson['exponent'] as String;
-
-    final encryptedPwd = encryptPassword(password, modulus, exponent);
-    final loginResp = await dio.post(
-      loginPath,
-      data: {'csrftoken': csrfToken, 'yhm': studentId, 'mm': encryptedPwd},
-      options: Options(
-        contentType: Headers.formUrlEncodedContentType,
-        responseType: ResponseType.plain,
-        followRedirects: true,
-        validateStatus: (status) => status != null && status < 500,
-      ),
-    );
-
-    final respHtml = loginResp.data as String;
-    final tips = _extractTips(respHtml);
-
-    if (tips.contains('用户名或密码')) {
-      throw AuthException('用户名或密码不正确');
-    }
-    if (tips.isNotEmpty) {
-      throw AuthException(tips);
+    final session = await _casService.loginJw(studentId, password);
+    try {
+      return await _fetchSchedule(session.dio);
+    } finally {
+      session.close();
     }
   }
 
-  // ── 获取课表 ──
+  Future<ExamResult> fetchExams(String studentId, String password) async {
+    final session = await _casService.loginJw(studentId, password);
+    try {
+      return await _fetchExams(session.dio);
+    } finally {
+      session.close();
+    }
+  }
 
   Future<LoginResult> _fetchSchedule(Dio dio) async {
     final (year, term) = getCurrentSchoolTerm();
     final xqm = term * term * 3;
 
     final scheduleResp = await dio.post(
-      '/kbcx/xskbcx_cxXsKb.html?gnmkdm=N2151',
+      '$jwBaseUrl/kbcx/xskbcx_cxXsKb.html?gnmkdm=N2151',
       data: {'xnm': year.toString(), 'xqm': xqm.toString()},
       options: Options(contentType: Headers.formUrlEncodedContentType),
     );
 
     final payload = scheduleResp.data;
     if (payload is String && payload.contains('用户登录')) {
-      throw Exception('会话已过期');
+      throw AuthException('会话已过期');
     }
 
     final data = payload as Map<String, dynamic>;
     if (!data.containsKey('kbList')) {
-      throw Exception('未获取到课表数据');
+      throw AuthException('未获取到课表数据');
     }
 
     final courses = <Course>[];
@@ -156,7 +119,7 @@ class AuthService {
 
       final weekday = _parseInt(c['xqj']);
       if (weekday == null || weekday < 1 || weekday > 7) {
-        throw AuthException('解析课程“$title”失败：星期信息无效');
+        throw AuthException('解析课程"$title"失败：星期信息无效');
       }
 
       final sessions = parseSessionRanges(
@@ -165,7 +128,7 @@ class AuthService {
         maxSession: kTimeSlots.length,
       );
       if (sessions == null) {
-        throw AuthException('解析课程“$title”失败：节次信息无效');
+        throw AuthException('解析课程"$title"失败：节次信息无效');
       }
 
       final weeks = parseWeekRanges(
@@ -173,7 +136,7 @@ class AuthService {
         maxWeek: semesterTotalWeeks,
       );
       if (weeks == null) {
-        throw AuthException('解析课程“$title”失败：周次信息无效');
+        throw AuthException('解析课程"$title"失败：周次信息无效');
       }
 
       courses.add(
@@ -200,42 +163,74 @@ class AuthService {
     );
   }
 
-  // ── Helpers ──
+  Future<ExamResult> _fetchExams(Dio dio) async {
+    final (year, term) = getCurrentSchoolTerm();
+    final xqm = term * term * 3;
 
-  String _extractCsrfToken(String html) {
-    var match = RegExp(
-      r'id=["\x27]csrftoken["\x27][^>]*value=["\x27]([^"\x27]+)',
-      caseSensitive: false,
-    ).firstMatch(html);
-    match ??= RegExp(
-      r'value=["\x27]([^"\x27]+)["\x27][^>]*id=["\x27]csrftoken["\x27]',
-      caseSensitive: false,
-    ).firstMatch(html);
-    if (match == null) throw AuthException('无法获取 csrftoken');
-    return match.group(1)!;
-  }
+    final examResp = await dio.post(
+      '$jwBaseUrl/kwgl/kscx_cxXsksxxIndex.html?doType=query&gnmkdm=N358105',
+      data: {
+        'xnm': year.toString(),
+        'xqm': xqm.toString(),
+        '_search': 'false',
+        'queryModel.showCount': '100',
+        'queryModel.currentPage': '1',
+        'queryModel.sortName': '',
+        'queryModel.sortOrder': 'asc',
+        'time': '0',
+      },
+      options: Options(contentType: Headers.formUrlEncodedContentType),
+    );
 
-  String _extractTips(String html) {
-    final match = RegExp(
-      r'<p[^>]*id=["\x27]tips["\x27][^>]*>(.*?)</p>',
-      caseSensitive: false,
-      dotAll: true,
-    ).firstMatch(html);
-    if (match == null) return '';
-    return match.group(1)!.replaceAll(RegExp(r'<[^>]+>'), '').trim();
+    final payload = examResp.data;
+    if (payload is String && payload.contains('用户登录')) {
+      throw AuthException('会话已过期');
+    }
+
+    final data = payload as Map<String, dynamic>;
+    final items = (data['items'] as List?) ?? [];
+
+    if (items.isEmpty) {
+      return ExamResult(exams: []);
+    }
+
+    final exams = items.map((i) {
+      final credit = i['xf'];
+      String creditStr;
+      if (credit is num) {
+        creditStr =
+            credit == credit.toInt() ? credit.toInt().toString() : '$credit';
+      } else {
+        creditStr = credit?.toString() ?? '';
+      }
+
+      return ExamItem(
+        courseId: (i['kch'] ?? '') as String,
+        title: (i['kcmc'] ?? '') as String,
+        time: (i['kssj'] ?? '') as String,
+        location: (i['cdmc'] ?? '') as String,
+        campus: (i['cdxqmc'] ?? '') as String,
+        seat: (i['zwh'] ?? '') as String,
+        examName: (i['ksmc'] ?? '') as String,
+        teacher: (i['jsxx'] ?? '') as String,
+        className: (i['jxbmc'] ?? '') as String,
+        college: (i['kkxy'] ?? '') as String,
+        credit: creditStr,
+        examType: (i['ksfs'] ?? '') as String,
+        note: (i['bz1'] ?? '') as String,
+        isResit: '${i['cxbj'] ?? ''}' != '否',
+      );
+    }).toList();
+
+    return ExamResult(
+      studentId: (items.first['xh'] ?? '') as String?,
+      studentName: (items.first['xm'] ?? '') as String?,
+      exams: exams,
+    );
   }
 
   static int? _parseInt(dynamic value) {
     if (value == null) return null;
     return int.tryParse(value.toString());
   }
-
-}
-
-class AuthException implements Exception {
-  final String message;
-  AuthException(this.message);
-
-  @override
-  String toString() => message;
 }

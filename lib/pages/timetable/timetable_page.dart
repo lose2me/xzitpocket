@@ -157,9 +157,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               semesterStart: semesterStartDate,
               selectedWeek: selectedWeek,
               onSync: _isSyncing ? null : _onSync,
-              countdownAnimation: _conflictCountdownController,
-              hasConflict: _hasConflict,
-              isMutedConflict: _isMutedConflict,
             ),
             Expanded(
               child: coursesAsync.when(
@@ -201,6 +198,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         showNonCurrentWeekCourses: showNonCurrentWeekCourses,
                         showWeekendColumns: showWeekendColumns,
                         semesterStart: semesterStartDate,
+                        countdownAnimation: _conflictCountdownController,
                         borderColor: courseBorderColor,
                         borderWidth: 0.5,
                         courseOpacity: courseOpacity,

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/course.dart';
 import '../services/auth_service.dart';
+import '../services/cas_service.dart';
 
 enum AuthStatus { idle, loading, success, error }
 

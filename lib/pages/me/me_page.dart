@@ -17,6 +17,8 @@ import '../../services/power_service.dart';
 import '../../services/update_service.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../services/cas_service.dart';
+import '../../services/password_reset_service.dart';
 import '../timetable/timetable_providers.dart';
 
 class MePage extends ConsumerStatefulWidget {
@@ -27,12 +29,25 @@ class MePage extends ConsumerStatefulWidget {
 }
 
 class _MePageState extends ConsumerState<MePage> {
-  bool _isCheckingUpdate = false;
-
   final _formKey = GlobalKey<FormState>();
   final _sidCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
   bool _obscurePassword = true;
+
+  // Password reset
+  final _phoneCtrl = TextEditingController();
+  final _codeCtrl = TextEditingController();
+  final _newPwdCtrl = TextEditingController();
+  final _newPwd2Ctrl = TextEditingController();
+  final _codeFocusNode = FocusNode();
+  final _resetService = PasswordResetService();
+  bool _resetLoading = false;
+  bool _codeSent = false;
+  bool _obscureNew1 = true;
+  bool _obscureNew2 = true;
+  int _currentPage = 0;
+  String? _verifyValidateId;
+  String? _selectedSid;
 
   final _roomIdController = TextEditingController();
   bool _roomIdInitialized = false;
@@ -42,6 +57,12 @@ class _MePageState extends ConsumerState<MePage> {
   void dispose() {
     _sidCtrl.dispose();
     _pwdCtrl.dispose();
+    _phoneCtrl.dispose();
+    _codeCtrl.dispose();
+    _newPwdCtrl.dispose();
+    _newPwd2Ctrl.dispose();
+    _codeFocusNode.dispose();
+    _resetService.dispose();
     _roomIdController.dispose();
     super.dispose();
   }
@@ -71,16 +92,55 @@ class _MePageState extends ConsumerState<MePage> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('我的'), centerTitle: true),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 22),
-        children: [
-          _buildOpenSourceInfo(theme),
-          if (UpgradeConfig.isConfigured) ...[
-            const SizedBox(height: 16),
-            Center(child: _buildCheckUpdateButton()),
+      appBar: AppBar(
+        title: Column(
+          children: [
+            const Text('掌上徐工'),
+            const SizedBox(height: 4),
+            FutureBuilder<PackageInfo>(
+              future: PackageInfo.fromPlatform(),
+              builder: (context, snapshot) {
+                final version = snapshot.data?.version ?? '';
+                const buildChannel = String.fromEnvironment('BUILD_CHANNEL');
+                final suffix = buildChannel == 'dev' ? 'Dev' : '';
+                return Text(
+                  'Ver: $version$suffix License: GPL-3.0',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                  ),
+                );
+              },
+            ),
           ],
-          const SizedBox(height: 20),
+        ),
+        centerTitle: true,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SectionLabel(title: '用户信息'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SettingsCard(
+              children: [
+                _SettingsTile(
+                  icon: Icons.person_outline,
+                  title: '姓名',
+                  value: config.studentName ?? '',
+                ),
+                _SettingsTile(
+                  icon: Icons.badge_outlined,
+                  title: '学号',
+                  value: config.studentId ?? '',
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: _SectionLabel(title: '补充信息'),
@@ -156,7 +216,7 @@ class _MePageState extends ConsumerState<MePage> {
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SectionLabel(title: '课堂'),
+            child: _SectionLabel(title: '课表'),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -232,6 +292,32 @@ class _MePageState extends ConsumerState<MePage> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SectionLabel(title: '软件信息'),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _SettingsCard(
+              children: [
+                FutureBuilder<PackageInfo>(
+                  future: PackageInfo.fromPlatform(),
+                  builder: (context, snapshot) {
+                    final version = snapshot.data?.version ?? '';
+                    return _SettingsTile(
+                      icon: Icons.system_update_outlined,
+                      title: '版本更新',
+                      value: version,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const _VersionPage()),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 24),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -258,22 +344,159 @@ class _MePageState extends ConsumerState<MePage> {
   Widget _buildLoginForm(ThemeData theme) {
     final authState = ref.watch(authProvider);
     final isLoading = authState.status == AuthStatus.loading;
+    final buttons = _buildSegmentedButtons(theme, authState, isLoading);
 
-    return Center(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: _buildOpenSourceInfo(theme),
+        ),
+        Expanded(
+          child: IndexedStack(
+            index: _currentPage,
+            children: [
+              _buildLoginPanel(theme, authState, isLoading, buttons),
+              _buildVerifyPanel(theme, buttons),
+              _buildPasswordPanel(theme, buttons),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _switchPage(int page) {
+    setState(() => _currentPage = page);
+  }
+
+  Widget _buildSegmentedButtons(
+      ThemeData theme, dynamic authState, bool isLoading) {
+    const dur = Duration(milliseconds: 350);
+    const curve = Curves.easeInOutCubic;
+    final primary = theme.colorScheme.primary;
+    final onPrimary = theme.colorScheme.onPrimary;
+    final surfaceVariant = theme.colorScheme.surfaceContainerHighest;
+    final onReset = _currentPage > 0;
+
+    final rightLabel =
+        _currentPage == 0 ? '找回密码' : (_currentPage == 1 ? '验证' : '确定');
+    final leftLoading = !onReset && isLoading;
+    final rightLoading = onReset && _resetLoading;
+
+    VoidCallback? rightAction;
+    if (_currentPage == 0) {
+      rightAction = isLoading ? null : () => _switchPage(1);
+    } else if (_currentPage == 1) {
+      rightAction = _resetLoading ? null : _submitVerify;
+    } else {
+      rightAction = _resetLoading ? null : _submitReset;
+    }
+
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: surfaceVariant,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final halfWidth = constraints.maxWidth / 2;
+          return Stack(
+            children: [
+              AnimatedPositioned(
+                duration: dur,
+                curve: curve,
+                left: onReset ? halfWidth : 0,
+                top: 0,
+                bottom: 0,
+                width: halfWidth,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: primary,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: onReset
+                          ? (_resetLoading ? null : () => _switchPage(0))
+                          : (isLoading ? null : _login),
+                      child: Center(
+                        child: leftLoading
+                            ? SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: onPrimary,
+                                ),
+                              )
+                            : AnimatedDefaultTextStyle(
+                                duration: dur,
+                                curve: curve,
+                                style: TextStyle(
+                                  color: onReset ? primary : onPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                child: const Text('登录'),
+                              ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: rightAction,
+                      child: Center(
+                        child: rightLoading
+                            ? SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: onPrimary,
+                                ),
+                              )
+                            : AnimatedDefaultTextStyle(
+                                duration: dur,
+                                curve: curve,
+                                style: TextStyle(
+                                  color: onReset ? onPrimary : primary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                child: Text(rightLabel),
+                              ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildLoginPanel(
+      ThemeData theme, dynamic authState, bool isLoading, Widget buttons) {
+    return Align(
+      alignment: const Alignment(0, -0.3),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildOpenSourceInfo(theme),
-              const SizedBox(height: 24),
-              if (UpgradeConfig.isConfigured) ...[
-                _buildCheckUpdateButton(),
-                const SizedBox(height: 24),
-              ],
-              Text('登录教务系统', style: theme.textTheme.titleLarge),
+              Text('统一身份认证', style: theme.textTheme.titleLarge),
               const SizedBox(height: 24),
               TextFormField(
                 controller: _sidCtrl,
@@ -312,59 +535,268 @@ class _MePageState extends ConsumerState<MePage> {
                 ),
                 validator: (v) => v == null || v.isEmpty ? '请输入密码' : null,
               ),
-              if (authState.status == AuthStatus.error) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.errorContainer.withAlpha(120),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.error_outline,
-                        size: 18,
-                        color: theme.colorScheme.error,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          authState.errorMessage ?? '登录失败',
-                          style: TextStyle(
-                            color: theme.colorScheme.error,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: FilledButton(
-                  onPressed: isLoading ? null : _login,
-                  child: isLoading
-                      ? const SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
-                        )
-                      : const Text('登录', style: TextStyle(fontSize: 16)),
-                ),
-              ),
+              buttons,
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildVerifyPanel(ThemeData theme, Widget buttons) {
+    return Align(
+      alignment: const Alignment(0, -0.3),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('找回密码', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _phoneCtrl,
+              keyboardType: TextInputType.phone,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: '手机号',
+                hintText: '请输入绑定的手机号',
+                prefixIcon: const Icon(Icons.phone_outlined),
+                border: const OutlineInputBorder(),
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: TextButton(
+                    onPressed:
+                        _resetLoading || _codeSent ? null : _sendResetCode,
+                    child: Text(_codeSent ? '已发送' : '发送验证码'),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _codeCtrl,
+              focusNode: _codeFocusNode,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submitVerify(),
+              decoration: const InputDecoration(
+                labelText: '验证码',
+                hintText: '请输入短信验证码',
+                prefixIcon: Icon(Icons.sms_outlined),
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 24),
+            buttons,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordPanel(ThemeData theme, Widget buttons) {
+    return Align(
+      alignment: const Alignment(0, -0.3),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('设置新密码', style: theme.textTheme.titleLarge),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _newPwdCtrl,
+              obscureText: _obscureNew1,
+              textInputAction: TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: '新密码',
+                hintText: '至少10位，含大小写、数字、特殊字符',
+                prefixIcon: const Icon(Icons.lock_outline),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureNew1
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined),
+                  onPressed: () =>
+                      setState(() => _obscureNew1 = !_obscureNew1),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _newPwd2Ctrl,
+              obscureText: _obscureNew2,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submitReset(),
+              decoration: InputDecoration(
+                labelText: '确认密码',
+                hintText: '再次输入新密码',
+                prefixIcon: const Icon(Icons.lock_outline),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureNew2
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined),
+                  onPressed: () =>
+                      setState(() => _obscureNew2 = !_obscureNew2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            buttons,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendResetCode() async {
+    final phone = _phoneCtrl.text.trim();
+    if (phone.isEmpty) {
+      showAppSnackBar(context, '请输入手机号');
+      return;
+    }
+    setState(() => _resetLoading = true);
+    try {
+      await _resetService.sendCode(phone);
+      if (!mounted) return;
+      setState(() {
+        _codeSent = true;
+        _resetLoading = false;
+      });
+      showAppSnackBar(context, '验证码已发送');
+      _codeFocusNode.requestFocus();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _resetLoading = false);
+      showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _resetLoading = false);
+      showAppSnackBar(context, '发送失败');
+    }
+  }
+
+  Future<void> _submitVerify() async {
+    final phone = _phoneCtrl.text.trim();
+    final code = _codeCtrl.text.trim();
+
+    if (phone.isEmpty) {
+      showAppSnackBar(context, '请输入手机号');
+      return;
+    }
+    if (code.isEmpty) {
+      showAppSnackBar(context, '请输入验证码');
+      return;
+    }
+
+    setState(() => _resetLoading = true);
+    try {
+      final verifyResult = await _resetService.verifyCode(phone, code);
+      if (!mounted) return;
+
+      String? selectedSid;
+      final accounts = verifyResult.accounts;
+      if (accounts.isEmpty) {
+        showAppSnackBar(context, '未找到关联账号');
+        setState(() => _resetLoading = false);
+        return;
+      } else if (accounts.length == 1) {
+        selectedSid = accounts.first.sid;
+      } else {
+        selectedSid = await showDialog<String>(
+          context: context,
+          builder: (ctx) => SimpleDialog(
+            title: const Text('选择账号'),
+            children: accounts
+                .map((a) => SimpleDialogOption(
+                      onPressed: () => Navigator.pop(ctx, a.sid),
+                      child: Text(a.info.isNotEmpty
+                          ? '${a.sid} (${a.info})'
+                          : a.sid),
+                    ))
+                .toList(),
+          ),
+        );
+        if (selectedSid == null || !mounted) {
+          setState(() => _resetLoading = false);
+          return;
+        }
+      }
+
+      setState(() {
+        _verifyValidateId = verifyResult.validateId;
+        _selectedSid = selectedSid;
+        _resetLoading = false;
+      });
+      _switchPage(2);
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _resetLoading = false);
+      showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _resetLoading = false);
+      showAppSnackBar(context, '验证失败');
+    }
+  }
+
+  Future<void> _submitReset() async {
+    final phone = _phoneCtrl.text.trim();
+    final pwd = _newPwdCtrl.text;
+    final pwd2 = _newPwd2Ctrl.text;
+
+    if (pwd.isEmpty) {
+      showAppSnackBar(context, '请输入新密码');
+      return;
+    }
+    if (pwd != pwd2) {
+      showAppSnackBar(context, '两次密码不一致');
+      return;
+    }
+    final valErr = PasswordResetService.validatePassword(pwd);
+    if (valErr.isNotEmpty) {
+      showAppSnackBar(context, valErr);
+      return;
+    }
+    if (_selectedSid == null || _verifyValidateId == null) {
+      showAppSnackBar(context, '请先完成验证');
+      return;
+    }
+
+    setState(() => _resetLoading = true);
+    try {
+      await _resetService.resetPassword(
+          phone, pwd, _selectedSid!, _verifyValidateId!);
+      if (!mounted) return;
+      showAppSnackBar(context, '密码重置成功，正在登录...');
+      _phoneCtrl.clear();
+      _codeCtrl.clear();
+      _newPwdCtrl.clear();
+      _newPwd2Ctrl.clear();
+      setState(() {
+        _codeSent = false;
+        _resetLoading = false;
+        _verifyValidateId = null;
+      });
+
+      _sidCtrl.text = _selectedSid!;
+      _pwdCtrl.text = pwd;
+      _selectedSid = null;
+      _switchPage(0);
+      await Future.delayed(const Duration(milliseconds: 450));
+      if (!mounted) return;
+      _login();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _resetLoading = false);
+      showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _resetLoading = false);
+      showAppSnackBar(context, '重置失败');
+    }
   }
 
   Future<void> _login() async {
@@ -396,6 +828,9 @@ class _MePageState extends ConsumerState<MePage> {
       if (mounted) {
         showAppSnackBar(context, '登录成功，课表已同步');
       }
+    } else if (mounted) {
+      final authState = ref.read(authProvider);
+      showAppSnackBar(context, authState.errorMessage ?? '登录失败');
     }
   }
 
@@ -418,8 +853,10 @@ class _MePageState extends ConsumerState<MePage> {
           future: PackageInfo.fromPlatform(),
           builder: (context, snapshot) {
             final version = snapshot.data?.version ?? '';
+            const buildChannel = String.fromEnvironment('BUILD_CHANNEL');
+            final suffix = buildChannel == 'dev' ? 'Dev' : '';
             return Text(
-              'Ver: $version License: GPL-3.0',
+              'Ver: $version$suffix License: GPL-3.0',
               style: TextStyle(
                 fontSize: 11,
                 color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
@@ -428,20 +865,6 @@ class _MePageState extends ConsumerState<MePage> {
           },
         ),
       ],
-    );
-  }
-
-  Widget _buildCheckUpdateButton() {
-    return OutlinedButton.icon(
-      onPressed: _isCheckingUpdate ? null : _checkForUpdate,
-      icon: _isCheckingUpdate
-          ? const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : const Icon(Icons.system_update_alt_outlined),
-      label: Text(_isCheckingUpdate ? '检查中...' : '检查更新'),
     );
   }
 
@@ -606,89 +1029,6 @@ class _MePageState extends ConsumerState<MePage> {
     );
   }
 
-  // ── Check update ──
-
-  Future<void> _checkForUpdate() async {
-    if (_isCheckingUpdate) return;
-
-    setState(() => _isCheckingUpdate = true);
-    try {
-      final result = await UpdateService.checkForUpdate();
-      if (!mounted) return;
-
-      if (!result.hasUpdate || result.updateInfo == null) {
-        showAppSnackBar(context, result.message ?? '当前已是最新版本');
-        return;
-      }
-
-      await _showUpdateDialog(result.updateInfo!);
-    } on UpdateException catch (e) {
-      if (!mounted) return;
-      showAppSnackBar(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnackBar(context, '检查更新失败，请稍后重试');
-    } finally {
-      if (mounted) {
-        setState(() => _isCheckingUpdate = false);
-      }
-    }
-  }
-
-  Future<void> _showUpdateDialog(UpdateInfo updateInfo) {
-    final notes = updateInfo.releaseNotes.trim();
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: !updateInfo.isForced,
-      builder: (ctx) => AlertDialog(
-        title: Text(updateInfo.upgradeLabel),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('发现新版本 ${updateInfo.versionName}'),
-            const SizedBox(height: 8),
-            Text('版本号: ${updateInfo.versionCode}'),
-            if (notes.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text('更新说明'),
-              const SizedBox(height: 4),
-              Text(notes),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              if (updateInfo.isForced) {
-                await SystemNavigator.pop();
-                return;
-              }
-              Navigator.pop(ctx);
-            },
-            child: Text(updateInfo.isForced ? '取消' : '稍后'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-              if (!mounted) return;
-              await _showDownloadDialog(updateInfo);
-            },
-            child: const Text('立即更新'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showDownloadDialog(UpdateInfo updateInfo) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _UpdateDownloadDialog(updateInfo: updateInfo),
-    );
-  }
 }
 
 // ── Settings widgets ──
@@ -812,11 +1152,12 @@ class _SettingsTile extends StatelessWidget {
                       ),
                     ),
                   if (value != null) const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    size: 24,
-                    color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
-                  ),
+                  if (onTap != null)
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      size: 24,
+                      color: theme.colorScheme.onSurfaceVariant.withAlpha(170),
+                    ),
                 ],
               ),
             ),
@@ -1113,5 +1454,162 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
   String _formatSpeed(double bytesPerSecond) {
     final safeValue = bytesPerSecond.isFinite ? bytesPerSecond : 0;
     return '${_formatBytes(safeValue.round())}/s';
+  }
+}
+
+class _VersionPage extends StatefulWidget {
+  const _VersionPage();
+
+  @override
+  State<_VersionPage> createState() => _VersionPageState();
+}
+
+class _VersionPageState extends State<_VersionPage> {
+  bool _isChecking = true;
+  String? _error;
+  UpdateCheckResult? _result;
+  String _currentVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersionAndCheck();
+  }
+
+  Future<void> _loadVersionAndCheck() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _currentVersion = info.version);
+    await _checkForUpdate();
+  }
+
+  Future<void> _checkForUpdate() async {
+    if (!UpgradeConfig.isConfigured) {
+      setState(() => _isChecking = false);
+      return;
+    }
+    setState(() {
+      _isChecking = true;
+      _error = null;
+    });
+    try {
+      final result = await UpdateService.checkForUpdate();
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _isChecking = false;
+      });
+    } on UpdateException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _isChecking = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = '检查更新失败';
+        _isChecking = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasUpdate = _result?.hasUpdate == true && _result?.updateInfo != null;
+    final updateInfo = _result?.updateInfo;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('版本更新'), centerTitle: true),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+            Icon(Icons.code, size: 36, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(height: 8),
+            Text(
+              'github.com/lose2me/xzitpocket',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              hasUpdate
+                  ? 'Ver $_currentVersion → ${updateInfo!.versionName}'
+                  : 'Ver $_currentVersion  |  License: GPL-3.0',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: hasUpdate
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                fontWeight: hasUpdate ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (_isChecking)
+              const CircularProgressIndicator()
+            else if (_error != null) ...[
+              Text(
+                _error!,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _checkForUpdate,
+                icon: const Icon(Icons.refresh),
+                label: const Text('重试'),
+              ),
+            ] else if (hasUpdate) ...[
+              if (updateInfo!.releaseNotes.trim().isNotEmpty) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '更新说明',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    updateInfo.releaseNotes.trim(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    showDialog<void>(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (_) => _UpdateDownloadDialog(updateInfo: updateInfo),
+                    );
+                  },
+                  icon: const Icon(Icons.system_update_alt_outlined),
+                  label: const Text('立即更新'),
+                ),
+              ),
+            ] else
+              Text(
+                UpgradeConfig.isConfigured ? '当前已是最新版本' : '升级服务未配置',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
