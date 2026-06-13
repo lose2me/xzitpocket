@@ -19,6 +19,19 @@ class _JpPageState extends ConsumerState<JpPage> {
   bool _isLoading = false;
   bool _isEvaluating = false;
   JpStatusResult? _status;
+  int _currentPage = 0;
+  final _pageController = PageController();
+
+  List<JpTask> get _sortedTasks {
+    if (_status == null) return [];
+    final tasks = List<JpTask>.from(_status!.tasks);
+    tasks.sort((a, b) {
+      if (a.status == '进行中' && b.status != '进行中') return -1;
+      if (a.status != '进行中' && b.status == '进行中') return 1;
+      return 0;
+    });
+    return tasks;
+  }
 
   @override
   void initState() {
@@ -26,10 +39,10 @@ class _JpPageState extends ConsumerState<JpPage> {
     _loadStatus();
   }
 
-  JpTask? get _activeTask {
-    if (_status == null) return null;
-    final active = _status!.tasks.where((t) => t.status == '进行中');
-    return active.isNotEmpty ? active.first : null;
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadStatus() async {
@@ -49,7 +62,13 @@ class _JpPageState extends ConsumerState<JpPage> {
         result = await _jpService.queryStatus(config.studentId!, password);
       }
       if (!mounted) return;
-      setState(() => _status = result);
+      setState(() {
+        _status = result;
+        _currentPage = 0;
+      });
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(0);
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
       showAppSnackBar(context, e.message);
@@ -61,7 +80,7 @@ class _JpPageState extends ConsumerState<JpPage> {
     }
   }
 
-  Future<void> _autoEvaluate() async {
+  Future<void> _autoEvaluate(JpTask task) async {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) return;
     final password = await CredentialStorage.getSavedPassword();
@@ -113,17 +132,25 @@ class _JpPageState extends ConsumerState<JpPage> {
     }
   }
 
+  void _goToPage(int page) {
+    _pageController.animateToPage(
+      page,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final task = _activeTask;
+    final tasks = _sortedTasks;
 
     return Scaffold(
       appBar: AppBar(title: const Text('教师评价'), centerTitle: true),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : task == null
+            : tasks.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -133,7 +160,7 @@ class _JpPageState extends ConsumerState<JpPage> {
                             color: theme.colorScheme.onSurfaceVariant),
                         const SizedBox(height: 12),
                         Text(
-                          '暂无进行中的评教任务',
+                          '暂无评教任务',
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -141,36 +168,77 @@ class _JpPageState extends ConsumerState<JpPage> {
                       ],
                     ),
                   )
-                : RefreshIndicator(
-                    onRefresh: _loadStatus,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                      children: [
-                        _buildTaskCard(theme, task),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            onPressed: _isEvaluating || task.pending == 0
-                                ? null
-                                : _autoEvaluate,
-                            icon: _isEvaluating
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.thumb_up_outlined),
-                            label: Text(task.pending > 0
-                                ? '给恩师们点赞'
-                                : '已全部完成'),
+                : Column(
+                    children: [
+                      Expanded(
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: tasks.length,
+                          onPageChanged: (i) =>
+                              setState(() => _currentPage = i),
+                          itemBuilder: (_, i) =>
+                              _buildTaskPage(theme, tasks[i]),
+                        ),
+                      ),
+                      if (tasks.length > 1)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.chevron_left),
+                                onPressed: _currentPage > 0
+                                    ? () => _goToPage(_currentPage - 1)
+                                    : null,
+                              ),
+                              Text(
+                                '${_currentPage + 1} / ${tasks.length}',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.chevron_right),
+                                onPressed: _currentPage < tasks.length - 1
+                                    ? () => _goToPage(_currentPage + 1)
+                                    : null,
+                              ),
+                            ],
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
+      ),
+    );
+  }
+
+  Widget _buildTaskPage(ThemeData theme, JpTask task) {
+    return RefreshIndicator(
+      onRefresh: _loadStatus,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          _buildTaskCard(theme, task),
+          if (task.status == '进行中') ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isEvaluating || task.pending == 0
+                    ? null
+                    : () => _autoEvaluate(task),
+                icon: _isEvaluating
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.thumb_up_outlined),
+                label: Text(
+                    task.pending > 0 ? '给恩师们点赞' : '已全部完成'),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -184,11 +252,35 @@ class _JpPageState extends ConsumerState<JpPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              task.taskName,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    task.taskName,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: task.status == '进行中'
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    task.status,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: task.status == '进行中'
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Text(

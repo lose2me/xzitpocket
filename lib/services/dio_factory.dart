@@ -5,6 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
+import 'debug_log_service.dart';
+
 const _defaultUserAgent =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
     'AppleWebKit/537.36 (KHTML, like Gecko) '
@@ -45,6 +47,7 @@ class DioFactory {
         },
       );
     }
+    dio.interceptors.add(DebugLogService.instance.dioInterceptor);
     dio.interceptors.add(_LenientCookieManager(cookieJar));
     return dio;
   }
@@ -75,6 +78,7 @@ class DioFactory {
         },
       );
     }
+    dio.interceptors.add(DebugLogService.instance.dioInterceptor);
     dio.interceptors.add(_LenientCookieManager(cookieJar));
     return dio;
   }

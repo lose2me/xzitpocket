@@ -7,11 +7,13 @@ import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'providers/config_provider.dart';
 import 'services/course_storage.dart';
+import 'services/debug_log_service.dart';
 import 'services/preferences_storage.dart';
 import 'services/widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  DebugLogService.instance.installErrorHandlers();
 
   final courseStorage = CourseStorage();
   final preferencesStorage = PreferencesStorage();

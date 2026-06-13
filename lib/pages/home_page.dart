@@ -40,7 +40,7 @@ class HomePageState extends State<HomePage> {
             enabled: _currentIndex == 0,
             child: TimetablePage(key: TimetablePage.globalKey),
           ),
-          const ToolsPage(),
+          ToolsPage(key: ToolsPage.globalKey),
           const MePage(),
         ],
       ),
@@ -77,7 +77,12 @@ class HomePageState extends State<HomePage> {
           height: 64,
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           selectedIndex: _currentIndex,
-          onDestinationSelected: (i) => setState(() => _currentIndex = i),
+          onDestinationSelected: (i) {
+            setState(() => _currentIndex = i);
+            if (i == 1) {
+              ToolsPage.globalKey.currentState?.refreshData();
+            }
+          },
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.calendar_today_outlined),

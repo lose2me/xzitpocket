@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/credential_storage.dart';
+import '../../services/tools_data_manager.dart';
 import 'timetable_providers.dart';
 import '../../services/widget_service.dart';
 import '../../utils/course_text_parser.dart';
@@ -108,13 +109,15 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
       final result = await ref.read(authProvider.notifier).login(sid, pwd);
       if (result != null) {
+        final (loginResult, examResult) = result;
+        ToolsDataManager.instance.setExams(examResult);
         try {
           await ref
               .read(scheduleProvider.notifier)
               .updateFromLoginResult(
-                courses: result.courses,
-                studentId: result.studentId ?? sid,
-                studentName: result.studentName ?? '',
+                courses: loginResult.courses,
+                studentId: loginResult.studentId ?? sid,
+                studentName: loginResult.studentName ?? '',
               );
         } on WidgetSyncException catch (e) {
           if (mounted) {

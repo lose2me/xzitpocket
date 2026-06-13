@@ -65,7 +65,7 @@ class _RepairPageState extends State<RepairPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('在线报修'), centerTitle: true),
+      appBar: AppBar(title: const Text('极速报修'), centerTitle: true),
       floatingActionButton: FloatingActionButton(
         onPressed: _openForm,
         child: const Icon(Icons.add),
@@ -95,8 +95,9 @@ class _RepairPageState extends State<RepairPage> {
 
   Widget _buildRecordCard(ThemeData theme, RepairRecord record) {
     final statusColor = switch (record.status) {
-      '已完成' || '已办结' => Colors.green,
-      '处理中' || '维修中' => Colors.orange,
+      '已完工' || '已关闭' || '已评价' => Colors.green,
+      '已接单' || '已转单' || '处理中' || '维修中' => Colors.orange,
+      '已上报' || '已上传照片' => Colors.blue,
       _ => theme.colorScheme.onSurfaceVariant,
     };
 
@@ -150,18 +151,13 @@ class _RepairPageState extends State<RepairPage> {
             ),
             const SizedBox(height: 6),
             Text(
-              '${record.areaName}  ${record.itemName}',
+              record.address.isNotEmpty
+                  ? '${record.areaName}(${record.address})  ${record.itemName}'
+                  : '${record.areaName}  ${record.itemName}',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            if (record.address.isNotEmpty)
-              Text(
-                record.address,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
           ],
         ),
       ),

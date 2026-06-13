@@ -277,7 +277,7 @@ class UpdateService {
     return true;
   }
 
-  static Future<bool> _canRequestPackageInstalls() async {
+  static Future<bool> canInstallPackages() async {
     try {
       return await _channel.invokeMethod<bool>('canRequestPackageInstalls') ??
           true;
@@ -286,13 +286,18 @@ class UpdateService {
     }
   }
 
-  static Future<void> _openInstallUnknownSourcesSettings() async {
+  static Future<void> requestInstallPermission() async {
     try {
       await _channel.invokeMethod<void>('openInstallUnknownSourcesSettings');
     } on PlatformException catch (e) {
       throw UpdateException(e.message ?? '无法打开安装权限设置');
     }
   }
+
+  static Future<bool> _canRequestPackageInstalls() => canInstallPackages();
+
+  static Future<void> _openInstallUnknownSourcesSettings() =>
+      requestInstallPermission();
 
   static Future<void> _installApk(String filePath) async {
     try {

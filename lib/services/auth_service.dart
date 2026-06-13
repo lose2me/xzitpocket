@@ -79,6 +79,22 @@ class AuthService {
     }
   }
 
+  Future<(LoginResult, ExamResult)> loginAndFetchAll(
+    String studentId,
+    String password,
+  ) async {
+    final session = await _casService.loginJw(studentId, password);
+    try {
+      final results = await Future.wait([
+        _fetchSchedule(session.dio),
+        _fetchExams(session.dio),
+      ]);
+      return (results[0] as LoginResult, results[1] as ExamResult);
+    } finally {
+      session.close();
+    }
+  }
+
   Future<LoginResult> _fetchSchedule(Dio dio) async {
     final (year, term) = getCurrentSchoolTerm();
     final xqm = term * term * 3;

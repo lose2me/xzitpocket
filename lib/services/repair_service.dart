@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:image/image.dart' as img;
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
@@ -34,6 +36,13 @@ class RepairUserInfo {
   final String phone;
 
   const RepairUserInfo({required this.username, required this.phone});
+
+  Map<String, dynamic> toJson() => {'username': username, 'phone': phone};
+
+  factory RepairUserInfo.fromJson(Map<String, dynamic> json) => RepairUserInfo(
+        username: json['username'] as String,
+        phone: json['phone'] as String,
+      );
 }
 
 class RepairRecord {
@@ -56,14 +65,24 @@ class RepairRecord {
   });
 
   factory RepairRecord.fromJson(Map<String, dynamic> json) => RepairRecord(
-        orderId: '${json['orderid'] ?? ''}',
+        orderId: '${json['orderid'] ?? json['orderId'] ?? ''}',
         content: '${json['content'] ?? ''}',
-        areaName: '${json['areaname'] ?? ''}',
-        itemName: '${json['itemname'] ?? ''}',
+        areaName: '${json['areaname'] ?? json['areaName'] ?? ''}',
+        itemName: '${json['itemname'] ?? json['itemName'] ?? ''}',
         address: '${json['address'] ?? ''}',
-        status: '${json['nodename'] ?? '未知'}',
-        createTime: '${json['createtime'] ?? ''}',
+        status: '${json['nodename'] ?? json['status'] ?? '未知'}',
+        createTime: '${json['createtime'] ?? json['createTime'] ?? ''}',
       );
+
+  Map<String, dynamic> toJson() => {
+        'orderId': orderId,
+        'content': content,
+        'areaName': areaName,
+        'itemName': itemName,
+        'address': address,
+        'status': status,
+        'createTime': createTime,
+      };
 }
 
 class RepairResult {
@@ -71,6 +90,19 @@ class RepairResult {
   final List<RepairRecord> records;
 
   const RepairResult({required this.userInfo, required this.records});
+
+  Map<String, dynamic> toJson() => {
+        'userInfo': userInfo.toJson(),
+        'records': records.map((r) => r.toJson()).toList(),
+      };
+
+  factory RepairResult.fromJson(Map<String, dynamic> json) => RepairResult(
+        userInfo:
+            RepairUserInfo.fromJson(json['userInfo'] as Map<String, dynamic>),
+        records: (json['records'] as List)
+            .map((r) => RepairRecord.fromJson(r as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class RepairService {
@@ -221,6 +253,75 @@ class RepairService {
     }
   }
 
+  Future<({String token, String url})> getUploadToken(
+    CasSession session,
+  ) async {
+    final data = await _api(session.dio, 'process/getuploadtoken');
+    return (
+      token: '${data['msg'] ?? ''}',
+      url: '${data['url'] ?? ''}',
+    );
+  }
+
+  Future<String> uploadImage(
+    CasSession session, {
+    required String uploadUrl,
+    required String token,
+    required File file,
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(file.path),
+    });
+    final resp = await session.dio.post(
+      '$uploadUrl?token=$token',
+      data: formData,
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+    final body = resp.data as Map<String, dynamic>;
+    if (body['code'] != 0) {
+      throw AuthException('${body['msg'] ?? '上传失败'}');
+    }
+    return '${(body['map'] as Map<String, dynamic>?)?['imgurl'] ?? ''}';
+  }
+
+  Future<List<String>> uploadImages(
+    CasSession session,
+    List<File> files,
+  ) async {
+    if (files.isEmpty) return [];
+    final cred = await getUploadToken(session);
+    if (cred.url.isEmpty) throw AuthException('获取上传地址失败');
+    final paths = <String>[];
+    for (final f in files) {
+      final jpeg = await _compressToJpeg(f);
+      try {
+        final path = await uploadImage(
+          session,
+          uploadUrl: cred.url,
+          token: cred.token,
+          file: jpeg,
+        );
+        paths.add(path);
+      } finally {
+        if (jpeg.path != f.path) jpeg.deleteSync();
+      }
+    }
+    return paths;
+  }
+
+  Future<File> _compressToJpeg(File file) async {
+    final bytes = await file.readAsBytes();
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return file;
+    final jpeg = img.encodeJpg(decoded, quality: 80);
+    final tmp = File(
+      '${Directory.systemTemp.path}/'
+      '${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    await tmp.writeAsBytes(jpeg);
+    return tmp;
+  }
+
   Future<String> submitRepair(
     CasSession session, {
     required String areaId,
@@ -230,6 +331,7 @@ class RepairService {
     required String phone,
     required String repairer,
     String remark = '',
+    List<String> images = const [],
   }) async {
     final procData = await _api(
       session.dio,
@@ -266,7 +368,7 @@ class RepairService {
       'repairer': repairer,
       'remark': remark,
       'maketime': '',
-      'images': '',
+      'images': images.join(','),
     });
     if (formResp['code'] != 0) {
       throw AuthException('${formResp['msg'] ?? '创建报修单失败'}');
@@ -292,7 +394,7 @@ class RepairService {
       'processid': processId,
       'bnodename': nodeName,
       'nodecode': btnCode,
-      'images': '',
+      'images': images.join(','),
     });
     if (subResp['code'] != 0) {
       throw AuthException('${subResp['msg'] ?? '流程提交失败'}');

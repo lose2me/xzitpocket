@@ -12,14 +12,19 @@ import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/credential_storage.dart';
+import '../../services/debug_log_service.dart';
 import '../../services/native_automation_service.dart';
 import '../../services/power_service.dart';
+import '../../services/preferences_storage.dart';
+import '../../services/tools_data_manager.dart';
 import '../../services/update_service.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../services/cas_service.dart';
 import '../../services/password_reset_service.dart';
+import '../home_page.dart';
 import '../timetable/timetable_providers.dart';
+import 'debug_page.dart';
 
 class MePage extends ConsumerStatefulWidget {
   const MePage({super.key});
@@ -162,7 +167,9 @@ class _MePageState extends ConsumerState<MePage> {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      Expanded(
+                      const Spacer(),
+                      SizedBox(
+                        width: 80,
                         child: TextField(
                           controller: _roomIdController,
                           textCapitalization: TextCapitalization.characters,
@@ -313,6 +320,17 @@ class _MePageState extends ConsumerState<MePage> {
                         MaterialPageRoute(builder: (_) => const _VersionPage()),
                       ),
                     );
+                  },
+                ),
+                _SettingsTile(
+                  icon: Icons.bug_report_outlined,
+                  title: '调试模式',
+                  value: DebugLogService.instance.enabled ? '已开启' : '关闭',
+                  onTap: () async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const DebugPage()),
+                    );
+                    setState(() {});
                   },
                 ),
               ],
@@ -808,15 +826,18 @@ class _MePageState extends ConsumerState<MePage> {
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
     _pwdCtrl.clear();
     if (result != null) {
+      final (loginResult, examResult) = result;
       await CredentialStorage.setSavedPassword(pwd);
+
+      ToolsDataManager.instance.setExams(examResult);
 
       try {
         await ref
             .read(scheduleProvider.notifier)
             .updateFromLoginResult(
-              courses: result.courses,
-              studentId: result.studentId ?? sid,
-              studentName: result.studentName ?? '',
+              courses: loginResult.courses,
+              studentId: loginResult.studentId ?? sid,
+              studentName: loginResult.studentName ?? '',
             );
       } on WidgetSyncException catch (e) {
         if (mounted) {
@@ -826,8 +847,17 @@ class _MePageState extends ConsumerState<MePage> {
       }
 
       if (mounted) {
-        showAppSnackBar(context, '登录成功，课表已同步');
+        showAppSnackBar(context, '登录成功');
+        HomePage.globalKey.currentState?.switchToTimetable();
       }
+
+      final prefs = ref.read(preferencesStorageProvider);
+      ToolsDataManager.instance.startBackgroundLoading(
+        studentId: sid,
+        password: pwd,
+        prefs: prefs,
+        roomId: prefs.getSavedPowerRoomId(),
+      );
     } else if (mounted) {
       final authState = ref.read(authProvider);
       showAppSnackBar(context, authState.errorMessage ?? '登录失败');
@@ -1470,10 +1500,23 @@ class _VersionPageState extends State<_VersionPage> {
   UpdateCheckResult? _result;
   String _currentVersion = '';
 
+  // Inline download state
+  bool _isDownloading = false;
+  UpdateDownloadProgress _downloadProgress = const UpdateDownloadProgress(
+    stage: UpdateDownloadStage.preparing,
+  );
+  CancelToken? _cancelToken;
+
   @override
   void initState() {
     super.initState();
     _loadVersionAndCheck();
+  }
+
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadVersionAndCheck() async {
@@ -1514,102 +1557,227 @@ class _VersionPageState extends State<_VersionPage> {
     }
   }
 
+  Future<void> _startDownload() async {
+    final updateInfo = _result?.updateInfo;
+    if (updateInfo == null) return;
+
+    if (!await UpdateService.canInstallPackages()) {
+      await UpdateService.requestInstallPermission();
+      if (!mounted) return;
+      if (!await UpdateService.canInstallPackages()) {
+        showAppSnackBar(context, '需要允许安装未知应用才能更新');
+        return;
+      }
+    }
+
+    _cancelToken?.cancel();
+    final cancelToken = CancelToken();
+    setState(() {
+      _isDownloading = true;
+      _cancelToken = cancelToken;
+      _downloadProgress = const UpdateDownloadProgress(
+        stage: UpdateDownloadStage.preparing,
+        message: '准备下载更新包',
+      );
+    });
+
+    try {
+      await UpdateService.downloadAndInstallUpdate(
+        updateInfo,
+        cancelToken: cancelToken,
+        onProgress: (progress) {
+          if (!mounted) return;
+          setState(() => _downloadProgress = progress);
+        },
+      );
+      if (!mounted) return;
+      setState(() => _isDownloading = false);
+    } on UpdateException catch (e) {
+      if (!mounted) return;
+      setState(() => _isDownloading = false);
+      if (!e.message.contains('取消')) {
+        showAppSnackBar(context, e.message);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isDownloading = false);
+      showAppSnackBar(context, '下载更新失败，请稍后重试');
+    }
+  }
+
+  void _cancelDownload() {
+    _cancelToken?.cancel();
+    setState(() => _isDownloading = false);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasUpdate = _result?.hasUpdate == true && _result?.updateInfo != null;
     final updateInfo = _result?.updateInfo;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('版本更新'), centerTitle: true),
-      body: Padding(
+    final scrollBody = SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-            Icon(Icons.code, size: 36, color: theme.colorScheme.onSurfaceVariant),
-            const SizedBox(height: 8),
+          Icon(Icons.code, size: 36, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(height: 8),
+          Text(
+            'github.com/lose2me/xzitpocket',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            hasUpdate
+                ? 'Ver $_currentVersion → ${updateInfo!.versionName}'
+                : 'Ver $_currentVersion  |  License: GPL-3.0',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: hasUpdate
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant.withAlpha(150),
+              fontWeight: hasUpdate ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (_isChecking)
+            const CircularProgressIndicator()
+          else if (_error != null) ...[
             Text(
-              'github.com/lose2me/xzitpocket',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
+              _error!,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _checkForUpdate,
+              icon: const Icon(Icons.refresh),
+              label: const Text('重试'),
+            ),
+          ] else if (hasUpdate) ...[
+            if (updateInfo!.releaseNotes.trim().isNotEmpty) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  '更新说明',
+                  style: theme.textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 120),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withAlpha(40),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withAlpha(100),
+                  ),
+                ),
+                child: Text(
+                  updateInfo.releaseNotes.trim(),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isDownloading ? _cancelDownload : _startDownload,
+                icon: Icon(_isDownloading
+                    ? Icons.close
+                    : Icons.system_update_alt_outlined),
+                label: Text(_isDownloading ? '取消' : '立即更新'),
+              ),
+            ),
+            if (_isDownloading) ...[
+              const SizedBox(height: 16),
+              _buildDownloadProgress(theme),
+            ],
+          ] else
+            Text(
+              UpgradeConfig.isConfigured ? '当前已是最新版本' : '升级服务未配置',
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              hasUpdate
-                  ? 'Ver $_currentVersion → ${updateInfo!.versionName}'
-                  : 'Ver $_currentVersion  |  License: GPL-3.0',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: hasUpdate
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant.withAlpha(150),
-                fontWeight: hasUpdate ? FontWeight.w600 : FontWeight.normal,
-              ),
-            ),
-            const SizedBox(height: 24),
-            if (_isChecking)
-              const CircularProgressIndicator()
-            else if (_error != null) ...[
-              Text(
-                _error!,
-                style: TextStyle(color: theme.colorScheme.error),
-              ),
-              const SizedBox(height: 16),
-              OutlinedButton.icon(
-                onPressed: _checkForUpdate,
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
-              ),
-            ] else if (hasUpdate) ...[
-              if (updateInfo!.releaseNotes.trim().isNotEmpty) ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    '更新说明',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    updateInfo.releaseNotes.trim(),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    showDialog<void>(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (_) => _UpdateDownloadDialog(updateInfo: updateInfo),
-                    );
-                  },
-                  icon: const Icon(Icons.system_update_alt_outlined),
-                  label: const Text('立即更新'),
-                ),
-              ),
-            ] else
-              Text(
-                UpgradeConfig.isConfigured ? '当前已是最新版本' : '升级服务未配置',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-          ],
+        ],
         ),
-      ),
     );
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('版本更新'), centerTitle: true),
+      body: hasUpdate ? scrollBody : Center(child: scrollBody),
+    );
+  }
+
+  Widget _buildDownloadProgress(ThemeData theme) {
+    final progressValue = _downloadProgress.progress;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        LinearProgressIndicator(value: progressValue),
+        const SizedBox(height: 8),
+        Text(
+          _downloadProgress.message ?? '',
+          style: theme.textTheme.bodySmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _buildProgressLine(),
+          style: theme.textTheme.bodySmall,
+        ),
+        if (_downloadProgress.stage == UpdateDownloadStage.downloading) ...[
+          const SizedBox(height: 2),
+          Text(
+            '速率: ${_formatSpeed(_downloadProgress.bytesPerSecond)}',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  String _buildProgressLine() {
+    if (_downloadProgress.stage == UpdateDownloadStage.installing) {
+      return '已下载 ${_formatBytes(_downloadProgress.receivedBytes)}';
+    }
+    final received = _formatBytes(_downloadProgress.receivedBytes);
+    if (_downloadProgress.totalBytes > 0) {
+      final total = _formatBytes(_downloadProgress.totalBytes);
+      final percent =
+          ((_downloadProgress.progress ?? 0) * 100).clamp(0.0, 100.0);
+      return '$received / $total  (${percent.toStringAsFixed(1)}%)';
+    }
+    return received;
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    double value = bytes.toDouble();
+    var unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+    final fractionDigits = unitIndex == 0 ? 0 : 1;
+    return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+  }
+
+  String _formatSpeed(double bytesPerSecond) {
+    final safeValue = bytesPerSecond.isFinite ? bytesPerSecond : 0;
+    return '${_formatBytes(safeValue.round())}/s';
   }
 }

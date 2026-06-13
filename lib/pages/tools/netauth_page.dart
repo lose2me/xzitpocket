@@ -114,25 +114,30 @@ class _NetAuthPageState extends State<NetAuthPage> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: 1.7,
+                    Row(
                       children: [
-                        _buildMetricTile(theme, '套餐', _info.group),
-                        _buildMetricTile(theme, '状态', _info.status),
-                        _buildMetricTile(
-                          theme,
-                          '已用时长',
-                          '${_info.usedHours.toStringAsFixed(1)} 小时',
+                        Expanded(child: _buildMetricCell(theme, '套餐', _info.group)),
+                        const SizedBox(width: 10),
+                        Expanded(child: _buildMetricCell(theme, '状态', _info.status)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetricCell(
+                            theme,
+                            '已用时长',
+                            '${_info.usedHours.toStringAsFixed(1)} 小时',
+                          ),
                         ),
-                        _buildMetricTile(
-                          theme,
-                          '已用流量',
-                          '${_info.usedFlowGb.toStringAsFixed(2)} GB',
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildMetricCell(
+                            theme,
+                            '已用流量',
+                            '${_info.usedFlowGb.toStringAsFixed(2)} GB',
+                          ),
                         ),
                       ],
                     ),
@@ -187,16 +192,15 @@ class _NetAuthPageState extends State<NetAuthPage> {
     );
   }
 
-  Widget _buildMetricTile(ThemeData theme, String label, String value) {
+  Widget _buildMetricCell(ThemeData theme, String label, String value) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withAlpha(110),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             label,
@@ -204,10 +208,10 @@ class _NetAuthPageState extends State<NetAuthPage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               fontWeight: FontWeight.w700,
             ),
             maxLines: 1,

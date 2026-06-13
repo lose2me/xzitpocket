@@ -22,6 +22,7 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   connectivity_plus: ^7.1.1
   package_info_plus: ^9.0.1
+  device_info_plus: ^11.3.3
   home_widget: ^0.9.3
   html: ^0.15.6
   path: ^1.9.1
@@ -30,6 +31,8 @@ dependencies:
   upgradelink_api_dart: ^1.0.4
   url_launcher: ^6.3.1
   flutter_markdown: ^0.7.6
+  image_picker: ^1.1.2
+  image: ^4.5.3
 
 dev_dependencies:
   flutter_test:

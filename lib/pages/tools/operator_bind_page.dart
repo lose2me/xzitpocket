@@ -149,7 +149,7 @@ class _OperatorBindPageState extends State<OperatorBindPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                '系统不会立即核验账号密码的准确性，但如果账号密码错误，则无法连接至校园网络。',
+                '系统不会立即核验账号密码的准确性\n如果账号密码错误，则无法连接至校园网络',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),

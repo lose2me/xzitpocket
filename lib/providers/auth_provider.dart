@@ -26,18 +26,22 @@ class AuthNotifier extends Notifier<AuthState> {
   @override
   AuthState build() => const AuthState();
 
-  Future<LoginResult?> login(String studentId, String password) async {
+  Future<(LoginResult, ExamResult)?> login(
+    String studentId,
+    String password,
+  ) async {
     state = const AuthState(status: AuthStatus.loading);
     try {
       final authService = AuthService();
-      final result = await authService.loginAndFetch(studentId, password);
+      final (login, exams) =
+          await authService.loginAndFetchAll(studentId, password);
       state = AuthState(
         status: AuthStatus.success,
-        courses: result.courses,
-        studentId: result.studentId,
-        studentName: result.studentName,
+        courses: login.courses,
+        studentId: login.studentId,
+        studentName: login.studentName,
       );
-      return result;
+      return (login, exams);
     } on AuthException catch (e) {
       state = AuthState(status: AuthStatus.error, errorMessage: e.message);
       return null;

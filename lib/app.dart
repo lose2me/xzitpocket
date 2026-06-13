@@ -8,6 +8,8 @@ import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
 import 'services/course_storage.dart';
+import 'services/debug_log_service.dart';
+import 'services/debug_navigator_observer.dart';
 import 'services/widget_service.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -49,6 +51,11 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    DebugLogService.instance.log(
+      DebugLogCategory.lifecycle,
+      state == AppLifecycleState.resumed ? '回到前台' : '进入后台',
+      state.name,
+    );
     if (state == AppLifecycleState.resumed) {
       TimetablePage.globalKey.currentState?.refreshForResume();
       unawaited(_syncWidgetsFromCache());
@@ -94,6 +101,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
           ),
         ),
         themeMode: themePreference.themeMode,
+        navigatorObservers: [DebugNavigatorObserver()],
         home: HomePage(key: HomePage.globalKey),
       ),
     );

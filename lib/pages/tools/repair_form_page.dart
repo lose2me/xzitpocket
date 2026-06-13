@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/repair_service.dart';
@@ -20,19 +25,63 @@ class RepairFormPage extends StatefulWidget {
 
 class _RepairFormPageState extends State<RepairFormPage> {
   final _service = RepairService();
+  final _picker = ImagePicker();
   final _addressCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
-  final _remarkCtrl = TextEditingController();
+  final _images = <XFile>[];
+  String? _tutorial;
 
   RepairArea? _selectedArea;
   RepairItem? _selectedItem;
   bool _submitting = false;
 
   @override
+  void initState() {
+    super.initState();
+    _loadTutorial();
+  }
+
+  Future<void> _loadTutorial() async {
+    final content = await rootBundle.loadString('assets/tutorials/repair_guide.md');
+    if (mounted) setState(() => _tutorial = content);
+  }
+
+  Future<void> _pickImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('拍照'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('从相册选择'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final picked = await _picker.pickImage(
+      source: source,
+      imageQuality: 80,
+      maxWidth: 1920,
+    );
+    if (picked != null && mounted) {
+      setState(() => _images.add(picked));
+    }
+  }
+
+  @override
   void dispose() {
     _addressCtrl.dispose();
     _contentCtrl.dispose();
-    _remarkCtrl.dispose();
     super.dispose();
   }
 
@@ -46,6 +95,19 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
+  static int _areaSortKey(String name) {
+    if (name.contains('中心校区')) return 0;
+    if (name.contains('东校区')) return 1;
+    return 2;
+  }
+
+  static int _areaSubSortKey(String name) {
+    if (name.contains('公寓')) return 0;
+    if (name.contains('楼宇')) return 1;
+    if (name.contains('食堂')) return 2;
+    return 3;
+  }
+
   Future<RepairArea?> _drillDownAreas() async {
     List<RepairArea> items;
     try {
@@ -54,6 +116,13 @@ class _RepairFormPageState extends State<RepairFormPage> {
       if (mounted) showAppSnackBar(context, '获取区域失败');
       return null;
     }
+
+    items = items.where((a) => !a.name.contains('城南校区')).toList();
+    items.sort((a, b) {
+      final cmp = _areaSortKey(a.name).compareTo(_areaSortKey(b.name));
+      if (cmp != 0) return cmp;
+      return _areaSubSortKey(a.name).compareTo(_areaSubSortKey(b.name));
+    });
     if (items.isEmpty) {
       if (mounted) showAppSnackBar(context, '没有可选区域');
       return null;
@@ -185,6 +254,10 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
     setState(() => _submitting = true);
     try {
+      final imagePaths = await _service.uploadImages(
+        widget.session,
+        _images.map((x) => File(x.path)).toList(),
+      );
       await _service.submitRepair(
         widget.session,
         areaId: _selectedArea!.id,
@@ -193,7 +266,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
         content: content,
         phone: widget.userInfo.phone,
         repairer: widget.userInfo.username,
-        remark: _remarkCtrl.text.trim(),
+        remark: '',
+        images: imagePaths,
       );
       if (!mounted) return;
       showAppSnackBar(context, '提交成功');
@@ -233,11 +307,15 @@ class _RepairFormPageState extends State<RepairFormPage> {
               onTap: _pickItem,
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _addressCtrl,
-              decoration: const InputDecoration(
-                labelText: '详细地址',
-                border: OutlineInputBorder(),
+            SizedBox(
+              width: 140,
+              child: TextField(
+                controller: _addressCtrl,
+                decoration: const InputDecoration(
+                  labelText: '宿舍号',
+                  hintText: '7B216',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -246,17 +324,22 @@ class _RepairFormPageState extends State<RepairFormPage> {
               decoration: const InputDecoration(
                 labelText: '故障描述',
                 border: OutlineInputBorder(),
+                alignLabelWithHint: true,
               ),
-              maxLines: 3,
+              minLines: 3,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _remarkCtrl,
-              decoration: const InputDecoration(
-                labelText: '补充说明（可选）',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (var i = 0; i < _images.length; i++)
+                  _buildImageTile(theme, i),
+                if (_images.length < 9)
+                  _buildAddImageTile(theme),
+              ],
             ),
             const SizedBox(height: 24),
             FilledButton(
@@ -272,6 +355,20 @@ class _RepairFormPageState extends State<RepairFormPage> {
                     )
                   : const Text('提交报修'),
             ),
+            if (_tutorial != null && _tutorial!.trim().isNotEmpty) ...[
+              const SizedBox(height: 28),
+              const Divider(),
+              const SizedBox(height: 16),
+              MarkdownBody(
+                data: _tutorial!,
+                selectable: true,
+                styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+                  p: theme.textTheme.bodyMedium,
+                  h1: theme.textTheme.titleLarge,
+                  h2: theme.textTheme.titleMedium,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -300,6 +397,63 @@ class _RepairFormPageState extends State<RepairFormPage> {
                   color: theme.colorScheme.onSurfaceVariant,
                 )
               : theme.textTheme.bodyLarge,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageTile(ThemeData theme, int index) {
+    return SizedBox(
+      width: 90,
+      height: 90,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.file(
+              File(_images[index].path),
+              width: 90,
+              height: 90,
+              fit: BoxFit.cover,
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: () => setState(() => _images.removeAt(index)),
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(3),
+                child: const Icon(Icons.close, size: 14, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddImageTile(ThemeData theme) {
+    return GestureDetector(
+      onTap: _submitting ? null : _pickImage,
+      child: Container(
+        width: 90,
+        height: 90,
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: theme.colorScheme.outline.withAlpha(60),
+          ),
+        ),
+        child: Icon(
+          Icons.add_photo_alternate_outlined,
+          size: 32,
+          color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
     );

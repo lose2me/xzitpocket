@@ -28,6 +28,20 @@ class JpTaskCourse {
     required this.teacherName,
     required this.done,
   });
+
+  Map<String, dynamic> toJson() => {
+        'pjjgid': pjjgid,
+        'courseName': courseName,
+        'teacherName': teacherName,
+        'done': done,
+      };
+
+  factory JpTaskCourse.fromJson(Map<String, dynamic> json) => JpTaskCourse(
+        pjjgid: json['pjjgid'] as String,
+        courseName: json['courseName'] as String,
+        teacherName: json['teacherName'] as String,
+        done: json['done'] as bool,
+      );
 }
 
 class JpTask {
@@ -52,11 +66,47 @@ class JpTask {
     required this.pending,
     required this.courses,
   });
+
+  Map<String, dynamic> toJson() => {
+        'taskId': taskId,
+        'taskName': taskName,
+        'status': status,
+        'startTime': startTime,
+        'endTime': endTime,
+        'total': total,
+        'completed': completed,
+        'pending': pending,
+        'courses': courses.map((c) => c.toJson()).toList(),
+      };
+
+  factory JpTask.fromJson(Map<String, dynamic> json) => JpTask(
+        taskId: json['taskId'] as String,
+        taskName: json['taskName'] as String,
+        status: json['status'] as String,
+        startTime: json['startTime'] as String,
+        endTime: json['endTime'] as String,
+        total: json['total'] as int,
+        completed: json['completed'] as int,
+        pending: json['pending'] as int,
+        courses: (json['courses'] as List)
+            .map((c) => JpTaskCourse.fromJson(c as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class JpStatusResult {
   final List<JpTask> tasks;
   const JpStatusResult({required this.tasks});
+
+  Map<String, dynamic> toJson() => {
+        'tasks': tasks.map((t) => t.toJson()).toList(),
+      };
+
+  factory JpStatusResult.fromJson(Map<String, dynamic> json) => JpStatusResult(
+        tasks: (json['tasks'] as List)
+            .map((t) => JpTask.fromJson(t as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class JpAutoResult {

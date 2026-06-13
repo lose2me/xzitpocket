@@ -24,8 +24,8 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   int get _totalPages =>
       (_reversed.length / _pageSize).ceil().clamp(1, 999);
 
-  List<PowerDailyUsage> get _currentPageItems {
-    final start = _currentPage * _pageSize;
+  List<PowerDailyUsage> _pageItems(int page) {
+    final start = page * _pageSize;
     final end = (start + _pageSize).clamp(0, _reversed.length);
     return _reversed.sublist(start, end);
   }
@@ -119,7 +119,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
               ],
             ),
             const SizedBox(height: 10),
-            ..._currentPageItems.map((item) => _buildUsageRow(theme, item)),
+            ..._pageItems(_currentPage).map((item) => _buildUsageRow(theme, item)),
           ] else ...[
             const SizedBox(height: 18),
             Text(

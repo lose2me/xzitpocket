@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,10 +5,10 @@ import '../../providers/config_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
 import '../../services/credential_storage.dart';
+import '../../services/debug_log_service.dart';
 import '../../services/netauth_service.dart';
-import '../../services/power_service.dart';
 import '../../services/repair_service.dart';
-import '../../services/ykt_service.dart';
+import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 import 'exam_query_page.dart';
 import 'jp_page.dart';
@@ -22,125 +20,56 @@ import 'ykt_page.dart';
 class ToolsPage extends ConsumerStatefulWidget {
   const ToolsPage({super.key});
 
+  static final globalKey = GlobalKey<ToolsPageState>();
+
   @override
-  ConsumerState<ToolsPage> createState() => _ToolsPageState();
+  ConsumerState<ToolsPage> createState() => ToolsPageState();
 }
 
-class _ToolsPageState extends ConsumerState<ToolsPage> {
-  final _powerService = PowerService();
-  final _yktService = YktService();
-
-  bool _isLoading = false;
-  PowerQueryData? _cachedData;
-
-  bool _examLoading = false;
-  bool _yktLoading = false;
-  bool _repairLoading = false;
-  bool _netAuthLoading = false;
-
-  ExamResult? _cachedExams;
-  YktDetailResult? _cachedYkt;
+class ToolsPageState extends ConsumerState<ToolsPage> {
+  final _manager = ToolsDataManager.instance;
 
   @override
   void initState() {
     super.initState();
-    _loadPowerData();
-    _loadExamData();
-    _loadYktData();
+    _manager.addListener(_onManagerUpdate);
   }
 
-  String _todayString() {
-    final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  @override
+  void dispose() {
+    _manager.removeListener(_onManagerUpdate);
+    super.dispose();
   }
 
-  Future<void> _loadPowerData() async {
-    final prefs = ref.read(preferencesStorageProvider);
-    final roomId = prefs.getSavedPowerRoomId();
-    if (roomId == null || roomId.isEmpty) return;
-
-    final cacheDate = prefs.getPowerCacheDate();
-    final cacheJson = prefs.getPowerCache();
-    if (cacheDate == _todayString() && cacheJson != null) {
-      setState(() {
-        _cachedData = PowerQueryData.fromJson(
-          jsonDecode(cacheJson) as Map<String, dynamic>,
-        );
-      });
-      return;
-    }
-
-    await _refreshPowerData();
+  void _onManagerUpdate() {
+    if (mounted) setState(() {});
   }
 
-  Future<void> _refreshPowerData() async {
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) {
-      if (mounted) showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-
-    final prefs = ref.read(preferencesStorageProvider);
-    final roomId = prefs.getSavedPowerRoomId();
-    if (roomId == null || roomId.isEmpty) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _powerService.queryRoom(roomId);
-      if (!mounted) return;
-      await prefs.setPowerCache(jsonEncode(result.toJson()), _todayString());
-      setState(() => _cachedData = result);
-    } on PowerQueryException catch (e) {
-      if (!mounted) return;
-      showAppSnackBar(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnackBar(context, '查询失败，请稍后重试');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _loadExamData() async {
+  Future<void> refreshData() async {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) return;
     final password = await CredentialStorage.getSavedPassword();
     if (password == null || password.isEmpty) return;
 
-    setState(() => _examLoading = true);
-    try {
-      final result = await AuthService().fetchExams(config.studentId!, password);
-      if (!mounted) return;
-      setState(() => _cachedExams = result);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _examLoading = false);
-    }
+    final prefs = ref.read(preferencesStorageProvider);
+    _manager.refreshOnTabSwitch(
+      studentId: config.studentId!,
+      password: password,
+      prefs: prefs,
+      roomId: prefs.getSavedPowerRoomId(),
+    );
   }
 
-  Future<void> _loadYktData() async {
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) return;
-    final password = await CredentialStorage.getSavedPassword();
-    if (password == null || password.isEmpty) return;
-
-    setState(() => _yktLoading = true);
-    try {
-      final result = await _yktService.getDetail(config.studentId!, password);
-      if (!mounted) return;
-      setState(() => _cachedYkt = result);
-    } catch (_) {
-    } finally {
-      if (mounted) setState(() => _yktLoading = false);
-    }
-  }
+  // ── Open methods ──
 
   Future<void> _openExamQuery() async {
-    if (_examLoading) return;
-    if (_cachedExams != null) {
+    if (_manager.examLoading) return;
+    DebugLogService.instance.log(DebugLogCategory.action, '打开考试查询');
+    if (_manager.exams != null) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ExamQueryPage(result: _cachedExams!)),
+        MaterialPageRoute(
+          builder: (_) => ExamQueryPage(result: _manager.exams!),
+        ),
       );
       return;
     }
@@ -155,30 +84,21 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       return;
     }
 
-    setState(() => _examLoading = true);
-    try {
-      final result = await AuthService().fetchExams(config.studentId!, password);
-      if (!mounted) return;
-      setState(() => _cachedExams = result);
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => ExamQueryPage(result: result)),
-      );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      showAppSnackBar(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnackBar(context, '查询失败');
-    } finally {
-      if (mounted) setState(() => _examLoading = false);
-    }
+    await _manager.loadExam(config.studentId!, password);
+    if (!mounted || _manager.exams == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ExamQueryPage(result: _manager.exams!),
+      ),
+    );
   }
 
   Future<void> _openYkt() async {
-    if (_yktLoading) return;
-    if (_cachedYkt != null) {
+    if (_manager.yktLoading) return;
+    DebugLogService.instance.log(DebugLogCategory.action, '打开一卡通查询');
+    if (_manager.ykt != null) {
       Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => YktPage(result: _cachedYkt!)),
+        MaterialPageRoute(builder: (_) => YktPage(result: _manager.ykt!)),
       );
       return;
     }
@@ -193,27 +113,16 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       return;
     }
 
-    setState(() => _yktLoading = true);
-    try {
-      final result = await _yktService.getDetail(config.studentId!, password);
-      if (!mounted) return;
-      setState(() => _cachedYkt = result);
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => YktPage(result: result)),
-      );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      showAppSnackBar(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnackBar(context, '查询失败');
-    } finally {
-      if (mounted) setState(() => _yktLoading = false);
-    }
+    await _manager.loadYkt(config.studentId!, password);
+    if (!mounted || _manager.ykt == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => YktPage(result: _manager.ykt!)),
+    );
   }
 
   Future<void> _openRepair() async {
-    if (_repairLoading) return;
+    if (_manager.repairLoading) return;
+    DebugLogService.instance.log(DebugLogCategory.action, '打开极速报修');
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
       showAppSnackBar(context, '此功能需登录使用');
@@ -225,16 +134,24 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       return;
     }
 
-    setState(() => _repairLoading = true);
+    setState(() {});
+
     try {
       final service = RepairService();
+
       RepairResult result;
-      try {
-        result = await service.fetchAll(config.studentId!, password);
-      } on AuthException {
-        await Future.delayed(const Duration(seconds: 1));
-        result = await service.fetchAll(config.studentId!, password);
+      if (_manager.repair != null) {
+        result = _manager.repair!;
+      } else {
+        try {
+          result = await service.fetchAll(config.studentId!, password);
+        } on AuthException {
+          await Future.delayed(const Duration(seconds: 1));
+          result = await service.fetchAll(config.studentId!, password);
+        }
+        _manager.repair = result;
       }
+
       if (!mounted) return;
       final session = await service.login(config.studentId!, password);
       if (!mounted) {
@@ -251,17 +168,20 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       );
     } on AuthException catch (e) {
       if (!mounted) return;
+      DebugLogService.instance
+          .log(DebugLogCategory.error, '报修加载失败', e.message);
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      DebugLogService.instance
+          .log(DebugLogCategory.error, '报修加载异常', '$e');
       showAppSnackBar(context, '加载失败');
-    } finally {
-      if (mounted) setState(() => _repairLoading = false);
     }
   }
 
   Future<void> _openNetAuth() async {
-    if (_netAuthLoading) return;
+    if (_manager.netAuthLoading) return;
+    DebugLogService.instance.log(DebugLogCategory.action, '打开网络管理');
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
       showAppSnackBar(context, '此功能需登录使用');
@@ -273,33 +193,55 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
       return;
     }
 
-    setState(() => _netAuthLoading = true);
-    try {
-      NetAuthResult result;
-      try {
-        result = await NetAuthService().login(config.studentId!, password);
-      } on AuthException {
-        await Future.delayed(const Duration(seconds: 1));
-        result = await NetAuthService().login(config.studentId!, password);
-      }
-      if (!mounted) return;
+    if (_manager.netAuth != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
           builder: (_) => NetAuthPage(
-            result: result,
+            result: _manager.netAuth!,
             account: config.studentId!,
             password: password,
           ),
         ),
       );
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      showAppSnackBar(context, e.message);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnackBar(context, '加载失败');
-    } finally {
-      if (mounted) setState(() => _netAuthLoading = false);
+      return;
+    }
+
+    await _manager.loadNetAuth(config.studentId!, password);
+    if (!mounted || _manager.netAuth == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => NetAuthPage(
+          result: _manager.netAuth!,
+          account: config.studentId!,
+          password: password,
+        ),
+      ),
+    );
+  }
+
+  // ── Power refresh (manual) ──
+
+  Future<void> _refreshPower() async {
+    final config = ref.read(configProvider);
+    if (config.studentId == null || config.studentId!.isEmpty) {
+      showAppSnackBar(context, '此功能需登录使用');
+      return;
+    }
+
+    final prefs = ref.read(preferencesStorageProvider);
+    final roomId = prefs.getSavedPowerRoomId();
+    if (roomId == null || roomId.isEmpty) return;
+
+    final campusOk = await _manager.checkCampusNetwork();
+    if (!campusOk) {
+      if (mounted) showAppSnackBar(context, '请连接校园网');
+      return;
+    }
+
+    await _manager.loadPower(roomId, prefs);
+    if (!mounted) return;
+    if (_manager.powerError != null) {
+      showAppSnackBar(context, _manager.powerError!);
     }
   }
 
@@ -311,9 +253,10 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
 
     ref.listen(savedRoomIdProvider, (prev, next) {
       if (next != null && next.isNotEmpty) {
-        _loadPowerData();
+        final prefs = ref.read(preferencesStorageProvider);
+        _manager.loadPower(next, prefs);
       } else {
-        setState(() => _cachedData = null);
+        _manager.clearPower();
       }
     });
 
@@ -338,7 +281,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
               theme,
               icon: Icons.wifi_outlined,
               title: '网络管理',
-              loading: _netAuthLoading,
+              loading: _manager.netAuthLoading,
               onTap: _openNetAuth,
             ),
             const SizedBox(height: 12),
@@ -346,7 +289,7 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
               theme,
               icon: Icons.build_outlined,
               title: '极速报修',
-              loading: _repairLoading,
+              loading: _manager.repairLoading,
               onTap: _openRepair,
             ),
             const SizedBox(height: 12),
@@ -354,9 +297,13 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
               theme,
               icon: Icons.rate_review_outlined,
               title: '教师评价',
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const JpPage()),
-              ),
+              onTap: () {
+                DebugLogService.instance
+                    .log(DebugLogCategory.action, '打开教师评价');
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const JpPage()),
+                );
+              },
             ),
           ],
         ),
@@ -407,32 +354,72 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
     );
   }
 
+  static DateTime? _parseExamDate(String time) {
+    final match = RegExp(r'(\d{4})-(\d{2})-(\d{2})').firstMatch(time);
+    if (match == null) return null;
+    return DateTime(
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+      int.parse(match.group(3)!),
+      23, 59, 59,
+    );
+  }
+
   Widget _buildExamCard(ThemeData theme) {
-    final exams = _cachedExams?.exams;
+    final now = DateTime.now();
+    final exams = _manager.exams?.exams
+        .where((e) {
+          final d = _parseExamDate(e.time);
+          return d == null || !d.isBefore(now);
+        })
+        .toList()
+      ?..sort((a, b) {
+        final da = _parseExamDate(a.time);
+        final db = _parseExamDate(b.time);
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
     final nextExam = exams != null && exams.isNotEmpty ? exams.first : null;
+
+    String examTimeLabel(ExamItem exam) {
+      final d = _parseExamDate(exam.time);
+      if (d == null) return exam.time;
+      final today = DateTime.now();
+      final days = DateTime(d.year, d.month, d.day)
+          .difference(DateTime(today.year, today.month, today.day))
+          .inDays;
+      return days >= 0 ? '${exam.time} [剩 $days 天]' : exam.time;
+    }
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: _examLoading ? null : _openExamQuery,
+        onTap: _manager.examLoading ? null : _openExamQuery,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(Icons.quiz_outlined, color: theme.colorScheme.primary, size: 22),
-              const SizedBox(width: 12),
               Expanded(
                 child: nextExam != null
                     ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '考试查询',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+                          Row(
+                            children: [
+                              Icon(Icons.quiz_outlined,
+                                  color: theme.colorScheme.primary, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                '考试查询',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -445,19 +432,26 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                           ),
                           if (nextExam.time.isNotEmpty)
                             Text(
-                              nextExam.time,
+                              examTimeLabel(nextExam),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
                             ),
                         ],
                       )
-                    : Text(
-                        '考试查询',
-                        style: theme.textTheme.bodyLarge,
+                    : Row(
+                        children: [
+                          Icon(Icons.quiz_outlined,
+                              color: theme.colorScheme.primary, size: 22),
+                          const SizedBox(width: 12),
+                          Text(
+                            '考试查询',
+                            style: theme.textTheme.bodyLarge,
+                          ),
+                        ],
                       ),
               ),
-              if (_examLoading)
+              if (_manager.examLoading)
                 const SizedBox(
                   width: 18,
                   height: 18,
@@ -476,50 +470,59 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   }
 
   Widget _buildYktCard(ThemeData theme) {
-    final balance = _cachedYkt?.balance;
+    final balance = _manager.ykt?.balance;
+    final campusError =
+        _manager.campusNetAvailable == false && _manager.ykt == null;
 
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: _yktLoading ? null : _openYkt,
+        onTap: _manager.yktLoading || campusError ? null : _openYkt,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Expanded(
-                child: balance != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '一卡通查询',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${balance.balance} 元',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
+                child: campusError
+                    ? Text(
+                        '请连接校园网',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.error,
+                        ),
                       )
-                    : Text(
-                        '一卡通查询',
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                    : balance != null
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '一卡通查询',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                '${balance.balance} 元',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Text(
+                            '一卡通查询',
+                            style: theme.textTheme.bodyLarge,
+                          ),
               ),
-              if (_yktLoading)
+              if (_manager.yktLoading)
                 const SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              else
+              else if (!campusError)
                 Icon(
                   Icons.chevron_right,
                   color: theme.colorScheme.onSurfaceVariant,
@@ -532,15 +535,20 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
   }
 
   Widget _buildPowerCard(ThemeData theme, bool hasRoom, String? roomId) {
+    final data = _manager.power;
+    final campusError =
+        _manager.campusNetAvailable == false && data == null && hasRoom;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: hasRoom && _cachedData != null
+        onTap: hasRoom && data != null
             ? () => Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => PowerQueryPage(result: _cachedData!, roomId: roomId),
+                    builder: (_) =>
+                        PowerQueryPage(result: data, roomId: roomId),
                   ),
                 )
             : null,
@@ -556,54 +564,68 @@ class _ToolsPageState extends ConsumerState<ToolsPage> {
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       )
-                    : _cachedData != null
-                        ? Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '电费查询',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${_cachedData!.available} 度',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
+                    : campusError
+                        ? Text(
+                            '请连接校园网',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.error,
+                            ),
                           )
-                        : _isLoading
-                            ? Text(
-                                '电费查询',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                        : data != null
+                            ? Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '电费查询',
+                                    style:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${data.available} 度',
+                                    style:
+                                        theme.textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               )
-                            : Text(
-                                '暂无数据，点击刷新',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
+                            : _manager.powerLoading
+                                ? Text(
+                                    '电费查询',
+                                    style:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  )
+                                : Text(
+                                    '暂无数据，点击刷新',
+                                    style:
+                                        theme.textTheme.bodyMedium?.copyWith(
+                                      color:
+                                          theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
               ),
-              if (hasRoom && _isLoading)
+              if (hasRoom && _manager.powerLoading)
                 const SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              else if (hasRoom && _cachedData != null)
+              else if (hasRoom && data != null)
                 Icon(
                   Icons.chevron_right,
                   color: theme.colorScheme.onSurfaceVariant,
                 )
-              else if (hasRoom)
+              else if (hasRoom && !campusError)
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
-                  onPressed: _refreshPowerData,
+                  onPressed: _refreshPower,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),

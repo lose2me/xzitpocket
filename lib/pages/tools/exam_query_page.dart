@@ -18,6 +18,15 @@ class ExamQueryPage extends StatelessWidget {
     );
   }
 
+  int? _daysUntil(String time) {
+    final d = _parseExamDate(time);
+    if (d == null) return null;
+    final today = DateTime.now();
+    return DateTime(d.year, d.month, d.day)
+        .difference(DateTime(today.year, today.month, today.day))
+        .inDays;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -60,9 +69,22 @@ class ExamQueryPage extends StatelessWidget {
               )
             : ListView.builder(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                itemCount: exams.length,
-                itemBuilder: (context, index) =>
-                    _buildExamCard(theme, exams[index]),
+                itemCount: exams.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        '还剩 ${exams.length} 门考试，比格咬它',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    );
+                  }
+                  return _buildExamCard(theme, exams[index - 1]);
+                },
               ),
       ),
     );
@@ -88,7 +110,20 @@ class ExamQueryPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (exam.isResit)
+                if (exam.location.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.location_on_outlined,
+                      size: 16, color: theme.colorScheme.onSurfaceVariant),
+                  const SizedBox(width: 2),
+                  Text(
+                    exam.location,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+                if (exam.isResit) ...[
+                  const SizedBox(width: 8),
                   Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -104,35 +139,40 @@ class ExamQueryPage extends StatelessWidget {
                       ),
                     ),
                   ),
+                ],
               ],
             ),
             const SizedBox(height: 10),
-            if (exam.time.isNotEmpty) _infoRow(theme, Icons.access_time, exam.time),
-            if (exam.location.isNotEmpty)
-              _infoRow(theme, Icons.location_on_outlined, exam.location),
+            if (exam.time.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    Icon(Icons.access_time,
+                        size: 16, color: theme.colorScheme.onSurfaceVariant),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        exam.time,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    if (_daysUntil(exam.time) case final days? when days >= 0)
+                      Text(
+                        '$days 天',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _infoRow(ThemeData theme, IconData icon, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
