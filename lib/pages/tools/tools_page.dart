@@ -6,7 +6,6 @@ import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
 import '../../services/credential_storage.dart';
 import '../../services/debug_log_service.dart';
-import '../../services/netauth_service.dart';
 import '../../services/repair_service.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
@@ -134,26 +133,17 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       return;
     }
 
+    if (_manager.repair == null) {
+      final prefs = ref.read(preferencesStorageProvider);
+      await _manager.loadRepair(config.studentId!, password, prefs);
+      if (!mounted || _manager.repair == null) return;
+    }
+
+    _manager.repairLoading = true;
     setState(() {});
-
     try {
-      final service = RepairService();
-
-      RepairResult result;
-      if (_manager.repair != null) {
-        result = _manager.repair!;
-      } else {
-        try {
-          result = await service.fetchAll(config.studentId!, password);
-        } on AuthException {
-          await Future.delayed(const Duration(seconds: 1));
-          result = await service.fetchAll(config.studentId!, password);
-        }
-        _manager.repair = result;
-      }
-
-      if (!mounted) return;
-      final session = await service.login(config.studentId!, password);
+      final session =
+          await RepairService().login(config.studentId!, password);
       if (!mounted) {
         session.close();
         return;
@@ -162,20 +152,23 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
         MaterialPageRoute(
           builder: (_) => RepairPage(
             session: session,
-            initialResult: result,
+            initialResult: _manager.repair!,
           ),
         ),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
       DebugLogService.instance
-          .log(DebugLogCategory.error, '报修加载失败', e.message);
+          .log(DebugLogCategory.error, '报修会话创建失败', e.message);
       showAppSnackBar(context, e.message);
     } catch (e) {
       if (!mounted) return;
       DebugLogService.instance
-          .log(DebugLogCategory.error, '报修加载异常', '$e');
+          .log(DebugLogCategory.error, '报修会话创建异常', '$e');
       showAppSnackBar(context, '加载失败');
+    } finally {
+      _manager.repairLoading = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -193,6 +186,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       return;
     }
 
+    if (!mounted) return;
     if (_manager.netAuth != null) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -216,6 +210,34 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
           password: password,
         ),
       ),
+    );
+  }
+
+  Future<void> _openJp() async {
+    if (_manager.jpLoading) return;
+    DebugLogService.instance.log(DebugLogCategory.action, '打开教师评价');
+    if (_manager.jp != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => JpPage(result: _manager.jp!)),
+      );
+      return;
+    }
+    final config = ref.read(configProvider);
+    if (config.studentId == null || config.studentId!.isEmpty) {
+      showAppSnackBar(context, '此功能需登录使用');
+      return;
+    }
+    final password = await CredentialStorage.getSavedPassword();
+    if (password == null || password.isEmpty) {
+      if (mounted) showAppSnackBar(context, '此功能需登录使用');
+      return;
+    }
+
+    final prefs = ref.read(preferencesStorageProvider);
+    await _manager.loadJp(config.studentId!, password, prefs);
+    if (!mounted || _manager.jp == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => JpPage(result: _manager.jp!)),
     );
   }
 
@@ -297,13 +319,8 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
               theme,
               icon: Icons.rate_review_outlined,
               title: '教师评价',
-              onTap: () {
-                DebugLogService.instance
-                    .log(DebugLogCategory.action, '打开教师评价');
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const JpPage()),
-                );
-              },
+              loading: _manager.jpLoading,
+              onTap: _openJp,
             ),
           ],
         ),

@@ -8,7 +8,9 @@ import '../../services/credential_storage.dart';
 import '../../utils/snackbar_helper.dart';
 
 class JpPage extends ConsumerStatefulWidget {
-  const JpPage({super.key});
+  const JpPage({super.key, this.result});
+
+  final JpStatusResult? result;
 
   @override
   ConsumerState<JpPage> createState() => _JpPageState();
@@ -36,7 +38,11 @@ class _JpPageState extends ConsumerState<JpPage> {
   @override
   void initState() {
     super.initState();
-    _loadStatus();
+    if (widget.result != null) {
+      _status = widget.result;
+    } else {
+      _loadStatus();
+    }
   }
 
   @override
@@ -86,6 +92,7 @@ class _JpPageState extends ConsumerState<JpPage> {
     final password = await CredentialStorage.getSavedPassword();
     if (password == null || password.isEmpty) return;
 
+    if (!mounted) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

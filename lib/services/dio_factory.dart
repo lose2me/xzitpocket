@@ -41,7 +41,7 @@ class DioFactory {
           final client = HttpClient();
           if (bypassProxy) client.findProxy = (_) => 'DIRECT';
           if (ignoreCertificate) {
-            client.badCertificateCallback = (_, __, ___) => true;
+            client.badCertificateCallback = (_, _, _) => true;
           }
           return client;
         },
@@ -73,7 +73,7 @@ class DioFactory {
       dio.httpClientAdapter = IOHttpClientAdapter(
         createHttpClient: () {
           final client = HttpClient();
-          client.badCertificateCallback = (_, __, ___) => true;
+          client.badCertificateCallback = (_, _, _) => true;
           return client;
         },
       );

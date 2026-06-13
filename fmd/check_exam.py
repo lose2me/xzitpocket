@@ -1,5 +1,10 @@
-import json, re, requests, urllib3, datetime
+import json, re, sys, requests, urllib3, datetime
 urllib3.disable_warnings()
+
+if len(sys.argv) < 3:
+    print(f"Usage: python {sys.argv[0]} <username> <password>")
+    sys.exit(1)
+username, password = sys.argv[1], sys.argv[2]
 
 CAS_BASE = "https://ca.xzit.edu.cn/cas"
 JW_BASE = "http://jwxt.xzit.edu.cn/jwglxt"
@@ -30,10 +35,10 @@ login_url = CAS_BASE + "/login"
 page = s.get(login_url, headers={**headers, "Referer": login_url}, verify=False, timeout=10)
 execution = re.search(r"name=[\"']execution[\"'][^>]*value=[\"']([^\"']+)", page.text).group(1)
 pk = s.get(CAS_BASE + "/v2/getPubKey", headers=headers, verify=False, timeout=10).json()
-encrypted = rsa_encrypt("@Wangrun071519"[::-1], pk["exponent"], pk["modulus"])
+encrypted = rsa_encrypt(password[::-1], pk["exponent"], pk["modulus"])
 
 resp = s.post(login_url, headers={**headers, "Referer": login_url}, data={
-    "username": "25070100245",
+    "username": username,
     "password": encrypted,
     "execution": execution,
     "_eventId": "submit",

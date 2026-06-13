@@ -97,7 +97,7 @@ class CasService {
         DebugLogService.instance.log(
           DebugLogCategory.auth,
           'CAS 登录重试',
-          '第${attempt}次失败(服务端偶发)，${500 * attempt}ms 后重试',
+          '第$attempt次失败(服务端偶发)，${500 * attempt}ms 后重试',
         );
         await Future.delayed(Duration(milliseconds: 500 * attempt));
         continue;
@@ -176,7 +176,7 @@ class CasService {
           DebugLogService.instance.log(
             DebugLogCategory.auth,
             'JW CAS 登录重试',
-            '第${attempt}次失败(服务端偶发)，${500 * attempt}ms 后重试',
+            '第$attempt次失败(服务端偶发)，${500 * attempt}ms 后重试',
           );
           await Future.delayed(Duration(milliseconds: 500 * attempt));
           continue;

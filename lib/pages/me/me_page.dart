@@ -15,7 +15,6 @@ import '../../services/credential_storage.dart';
 import '../../services/debug_log_service.dart';
 import '../../services/native_automation_service.dart';
 import '../../services/power_service.dart';
-import '../../services/preferences_storage.dart';
 import '../../services/tools_data_manager.dart';
 import '../../services/update_service.dart';
 import '../../services/widget_service.dart';
@@ -947,6 +946,7 @@ class _MePageState extends ConsumerState<MePage> {
       await prefs.setSavedPowerRoomId(upper);
       await prefs.clearPowerCache();
       ref.read(savedRoomIdProvider.notifier).set(upper);
+      if (!mounted) return;
       FocusScope.of(context).unfocus();
       showAppSnackBar(context, '保存成功');
     } else {
@@ -1126,14 +1126,12 @@ class _SettingsTile extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? value;
-  final Color? valueColor;
   final VoidCallback? onTap;
 
   const _SettingsTile({
     required this.icon,
     required this.title,
     this.value,
-    this.valueColor,
     this.onTap,
   });
 
@@ -1141,7 +1139,7 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final effectiveValueColor =
-        valueColor ?? theme.colorScheme.onSurfaceVariant.withAlpha(200);
+        theme.colorScheme.onSurfaceVariant.withAlpha(200);
 
     return InkWell(
       borderRadius: BorderRadius.circular(24),
@@ -1565,7 +1563,7 @@ class _VersionPageState extends State<_VersionPage> {
       await UpdateService.requestInstallPermission();
       if (!mounted) return;
       if (!await UpdateService.canInstallPackages()) {
-        showAppSnackBar(context, '需要允许安装未知应用才能更新');
+        if (mounted) showAppSnackBar(context, '需要允许安装未知应用才能更新');
         return;
       }
     }
