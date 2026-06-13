@@ -5,7 +5,9 @@ import '../../providers/config_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/credential_storage.dart';
 import '../../services/debug_log_service.dart';
+import '../../services/preferences_storage.dart';
 import '../../services/tools_data_manager.dart';
+import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
 import 'exam_query_page.dart';
 import 'jp_page.dart';
@@ -59,168 +61,87 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
   // ── Open methods ──
 
-  Future<void> _openExamQuery() async {
-    if (_manager.examLoading) return;
-    DebugLogService.instance.log(DebugLogCategory.action, '打开考试查询');
+  Future<({String studentId, String password})?> _ensureCredentials() async {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
       showAppSnackBar(context, '此功能需登录使用');
-      return;
+      return null;
     }
     final password = await CredentialStorage.getSavedPassword();
     if (password == null || password.isEmpty) {
       if (mounted) showAppSnackBar(context, '此功能需登录使用');
-      return;
+      return null;
     }
+    return (studentId: config.studentId!, password: password);
+  }
 
-    if (_manager.exams == null) {
+  Future<void> _openTool<T>({
+    required bool loading,
+    required String logLabel,
+    required T? Function() getData,
+    required Future<void> Function(String sid, String pwd, PreferencesStorage prefs) load,
+    required Widget Function(T data, String sid, String pwd) buildPage,
+  }) async {
+    if (loading) return;
+    DebugLogService.instance.log(DebugLogCategory.action, logLabel);
+    final creds = await _ensureCredentials();
+    if (creds == null || !mounted) return;
+
+    if (getData() == null) {
       final prefs = ref.read(preferencesStorageProvider);
-      await _manager.loadExam(config.studentId!, password, prefs);
-      if (!mounted || _manager.exams == null) return;
+      await load(creds.studentId, creds.password, prefs);
+      if (!mounted || getData() == null) return;
     }
-    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => ExamQueryPage(
-          result: _manager.exams!,
-          studentId: config.studentId!,
-          password: password,
-        ),
+        builder: (_) => buildPage(getData() as T, creds.studentId, creds.password),
       ),
     );
   }
 
-  Future<void> _openYkt() async {
-    if (_manager.yktLoading) return;
-    DebugLogService.instance.log(DebugLogCategory.action, '打开一卡通查询');
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-    final password = await CredentialStorage.getSavedPassword();
-    if (password == null || password.isEmpty) {
-      if (mounted) showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
+  Future<void> _openExamQuery() => _openTool(
+    loading: _manager.examLoading,
+    logLabel: '打开考试查询',
+    getData: () => _manager.exams,
+    load: _manager.loadExam,
+    buildPage: (data, sid, pwd) =>
+        ExamQueryPage(result: data, studentId: sid, password: pwd),
+  );
 
-    if (_manager.ykt == null) {
-      final prefs = ref.read(preferencesStorageProvider);
-      await _manager.loadYkt(config.studentId!, password, prefs);
-      if (!mounted || _manager.ykt == null) return;
-    }
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => YktPage(
-          result: _manager.ykt!,
-          studentId: config.studentId!,
-          password: password,
-        ),
-      ),
-    );
-  }
+  Future<void> _openYkt() => _openTool(
+    loading: _manager.yktLoading,
+    logLabel: '打开一卡通查询',
+    getData: () => _manager.ykt,
+    load: _manager.loadYkt,
+    buildPage: (data, sid, pwd) =>
+        YktPage(result: data, studentId: sid, password: pwd),
+  );
 
-  Future<void> _openRepair() async {
-    if (_manager.repairLoading) return;
-    DebugLogService.instance.log(DebugLogCategory.action, '打开极速报修');
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-    final password = await CredentialStorage.getSavedPassword();
-    if (password == null || password.isEmpty) {
-      if (mounted) showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
+  Future<void> _openRepair() => _openTool(
+    loading: _manager.repairLoading,
+    logLabel: '打开极速报修',
+    getData: () => _manager.repair,
+    load: _manager.loadRepair,
+    buildPage: (data, sid, pwd) =>
+        RepairPage(initialResult: data, studentId: sid, password: pwd),
+  );
 
-    if (_manager.repair == null) {
-      final prefs = ref.read(preferencesStorageProvider);
-      await _manager.loadRepair(config.studentId!, password, prefs);
-      if (!mounted || _manager.repair == null) return;
-    }
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RepairPage(
-          initialResult: _manager.repair!,
-          studentId: config.studentId!,
-          password: password,
-        ),
-      ),
-    );
-  }
+  Future<void> _openNetAuth() => _openTool(
+    loading: _manager.netAuthLoading,
+    logLabel: '打开网络管理',
+    getData: () => _manager.netAuth,
+    load: _manager.loadNetAuth,
+    buildPage: (data, sid, pwd) =>
+        NetAuthPage(result: data, account: sid, password: pwd),
+  );
 
-  Future<void> _openNetAuth() async {
-    if (_manager.netAuthLoading) return;
-    DebugLogService.instance.log(DebugLogCategory.action, '打开网络管理');
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-    final password = await CredentialStorage.getSavedPassword();
-    if (password == null || password.isEmpty) {
-      if (mounted) showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-
-    if (!mounted) return;
-    if (_manager.netAuth != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => NetAuthPage(
-            result: _manager.netAuth!,
-            account: config.studentId!,
-            password: password,
-          ),
-        ),
-      );
-      return;
-    }
-
-    await _manager.loadNetAuth(config.studentId!, password,
-        ref.read(preferencesStorageProvider));
-    if (!mounted || _manager.netAuth == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => NetAuthPage(
-          result: _manager.netAuth!,
-          account: config.studentId!,
-          password: password,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openJp() async {
-    if (_manager.jpLoading) return;
-    DebugLogService.instance.log(DebugLogCategory.action, '打开教师评价');
-    if (_manager.jp != null) {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => JpPage(result: _manager.jp!)),
-      );
-      return;
-    }
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-    final password = await CredentialStorage.getSavedPassword();
-    if (password == null || password.isEmpty) {
-      if (mounted) showAppSnackBar(context, '此功能需登录使用');
-      return;
-    }
-
-    final prefs = ref.read(preferencesStorageProvider);
-    await _manager.loadJp(config.studentId!, password, prefs);
-    if (!mounted || _manager.jp == null) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => JpPage(result: _manager.jp!)),
-    );
-  }
+  Future<void> _openJp() => _openTool(
+    loading: _manager.jpLoading,
+    logLabel: '打开教师评价',
+    getData: () => _manager.jp,
+    load: _manager.loadJp,
+    buildPage: (data, _, _) => JpPage(result: data),
+  );
 
   // ── Power refresh (manual) ──
 
@@ -354,28 +275,17 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     );
   }
 
-  static DateTime? _parseExamDate(String time) {
-    final match = RegExp(r'(\d{4})-(\d{2})-(\d{2})').firstMatch(time);
-    if (match == null) return null;
-    return DateTime(
-      int.parse(match.group(1)!),
-      int.parse(match.group(2)!),
-      int.parse(match.group(3)!),
-      23, 59, 59,
-    );
-  }
-
   Widget _buildExamCard(ThemeData theme) {
     final now = DateTime.now();
     final exams = _manager.exams?.exams
         .where((e) {
-          final d = _parseExamDate(e.time);
+          final d = parseExamDate(e.time);
           return d == null || !d.isBefore(now);
         })
         .toList()
       ?..sort((a, b) {
-        final da = _parseExamDate(a.time);
-        final db = _parseExamDate(b.time);
+        final da = parseExamDate(a.time);
+        final db = parseExamDate(b.time);
         if (da == null && db == null) return 0;
         if (da == null) return 1;
         if (db == null) return -1;
@@ -384,7 +294,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final nextExam = exams != null && exams.isNotEmpty ? exams.first : null;
 
     String examTimeLabel(ExamItem exam) {
-      final d = _parseExamDate(exam.time);
+      final d = parseExamDate(exam.time);
       if (d == null) return exam.time;
       final today = DateTime.now();
       final days = DateTime(d.year, d.month, d.day)

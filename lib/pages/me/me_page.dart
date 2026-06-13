@@ -1409,7 +1409,7 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _buildProgressLine(),
+                    _buildProgressLine(_progress),
                     style: theme.textTheme.bodyMedium,
                   ),
                   if (_progress.stage ==
@@ -1453,37 +1453,6 @@ class _UpdateDownloadDialogState extends State<_UpdateDownloadDialog> {
     );
   }
 
-  String _buildProgressLine() {
-    if (_progress.stage == UpdateDownloadStage.installing) {
-      return '已下载 ${_formatBytes(_progress.receivedBytes)}';
-    }
-
-    final received = _formatBytes(_progress.receivedBytes);
-    if (_progress.totalBytes > 0) {
-      final total = _formatBytes(_progress.totalBytes);
-      final percent = ((_progress.progress ?? 0) * 100).clamp(0.0, 100.0);
-      return '$received / $total  (${percent.toStringAsFixed(1)}%)';
-    }
-    return received;
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    double value = bytes.toDouble();
-    var unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex++;
-    }
-    final fractionDigits = unitIndex == 0 ? 0 : 1;
-    return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
-  }
-
-  String _formatSpeed(double bytesPerSecond) {
-    final safeValue = bytesPerSecond.isFinite ? bytesPerSecond : 0;
-    return '${_formatBytes(safeValue.round())}/s';
-  }
 }
 
 class _VersionPage extends StatefulWidget {
@@ -1732,7 +1701,7 @@ class _VersionPageState extends State<_VersionPage> {
         ),
         const SizedBox(height: 4),
         Text(
-          _buildProgressLine(),
+          _buildProgressLine(_downloadProgress),
           style: theme.textTheme.bodySmall,
         ),
         if (_downloadProgress.stage == UpdateDownloadStage.downloading) ...[
@@ -1747,36 +1716,37 @@ class _VersionPageState extends State<_VersionPage> {
       ],
     );
   }
+}
 
-  String _buildProgressLine() {
-    if (_downloadProgress.stage == UpdateDownloadStage.installing) {
-      return '已下载 ${_formatBytes(_downloadProgress.receivedBytes)}';
-    }
-    final received = _formatBytes(_downloadProgress.receivedBytes);
-    if (_downloadProgress.totalBytes > 0) {
-      final total = _formatBytes(_downloadProgress.totalBytes);
-      final percent =
-          ((_downloadProgress.progress ?? 0) * 100).clamp(0.0, 100.0);
-      return '$received / $total  (${percent.toStringAsFixed(1)}%)';
-    }
-    return received;
-  }
+// ── Shared download-progress helpers ──
 
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    double value = bytes.toDouble();
-    var unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex++;
-    }
-    final fractionDigits = unitIndex == 0 ? 0 : 1;
-    return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+String _buildProgressLine(UpdateDownloadProgress p) {
+  if (p.stage == UpdateDownloadStage.installing) {
+    return '已下载 ${_formatBytes(p.receivedBytes)}';
   }
+  final received = _formatBytes(p.receivedBytes);
+  if (p.totalBytes > 0) {
+    final total = _formatBytes(p.totalBytes);
+    final percent = ((p.progress ?? 0) * 100).clamp(0.0, 100.0);
+    return '$received / $total  (${percent.toStringAsFixed(1)}%)';
+  }
+  return received;
+}
 
-  String _formatSpeed(double bytesPerSecond) {
-    final safeValue = bytesPerSecond.isFinite ? bytesPerSecond : 0;
-    return '${_formatBytes(safeValue.round())}/s';
+String _formatBytes(int bytes) {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  double value = bytes.toDouble();
+  var unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
   }
+  final fractionDigits = unitIndex == 0 ? 0 : 1;
+  return '${value.toStringAsFixed(fractionDigits)} ${units[unitIndex]}';
+}
+
+String _formatSpeed(double bytesPerSecond) {
+  final safeValue = bytesPerSecond.isFinite ? bytesPerSecond : 0;
+  return '${_formatBytes(safeValue.round())}/s';
 }

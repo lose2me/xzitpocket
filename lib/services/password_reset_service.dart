@@ -22,11 +22,6 @@ class PasswordResetService {
   Dio? _dio;
   CookieJar? _jar;
 
-  static const _userAgent =
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-      'AppleWebKit/537.36 (KHTML, like Gecko) '
-      'Chrome/146.0.0.0 Safari/537.36';
-
   Dio _ensureDio() {
     if (_dio != null) return _dio!;
     _jar = CookieJar();
@@ -35,7 +30,7 @@ class PasswordResetService {
       connectTimeout: requestTimeout,
       receiveTimeout: requestTimeout,
     );
-    _dio!.options.headers['User-Agent'] = _userAgent;
+    _dio!.options.headers['User-Agent'] = kUserAgent;
     return _dio!;
   }
 

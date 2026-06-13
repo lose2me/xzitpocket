@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
 
 class ExamQueryPage extends StatefulWidget {
@@ -48,19 +49,8 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
     }
   }
 
-  DateTime? _parseExamDate(String time) {
-    final match = RegExp(r'(\d{4})-(\d{2})-(\d{2})').firstMatch(time);
-    if (match == null) return null;
-    return DateTime(
-      int.parse(match.group(1)!),
-      int.parse(match.group(2)!),
-      int.parse(match.group(3)!),
-      23, 59, 59,
-    );
-  }
-
   int? _daysUntil(String time) {
-    final d = _parseExamDate(time);
+    final d = parseExamDate(time);
     if (d == null) return null;
     final today = DateTime.now();
     return DateTime(d.year, d.month, d.day)
@@ -74,13 +64,13 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
     final now = DateTime.now();
     final exams = _result.exams
         .where((e) {
-          final d = _parseExamDate(e.time);
+          final d = parseExamDate(e.time);
           return d == null || !d.isBefore(now);
         })
         .toList()
       ..sort((a, b) {
-        final da = _parseExamDate(a.time);
-        final db = _parseExamDate(b.time);
+        final da = parseExamDate(a.time);
+        final db = parseExamDate(b.time);
         if (da == null && db == null) return 0;
         if (da == null) return 1;
         if (db == null) return -1;

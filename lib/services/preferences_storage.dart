@@ -1,28 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _themePreferenceKey = 'theme_preference';
-const _classAutomationModeKey = 'class_automation_mode';
-const _savedPowerRoomIdKey = 'saved_power_room_id';
-const _savedPowerCacheKey = 'saved_power_cache';
-const _savedPowerCacheDateKey = 'saved_power_cache_date';
-const _savedPowerCacheTimeKey = 'saved_power_cache_time';
-const _jpCacheKey = 'jp_cache';
-const _jpCacheTimeKey = 'jp_cache_time';
-const _repairCacheKey = 'repair_cache';
-const _repairCacheTimeKey = 'repair_cache_time';
-const _examCacheKey = 'exam_cache';
-const _examCacheTimeKey = 'exam_cache_time';
-const _yktCacheKey = 'ykt_cache';
-const _yktCacheTimeKey = 'ykt_cache_time';
-const _netauthCacheKey = 'netauth_cache';
-const _netauthCacheTimeKey = 'netauth_cache_time';
-
 class PreferencesStorage {
   late SharedPreferences _prefs;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
   }
+
+  // ── Student info ──
 
   String? getStudentId() => _prefs.getString('student_id');
   Future<void> setStudentId(String id) => _prefs.setString('student_id', id);
@@ -36,113 +21,94 @@ class PreferencesStorage {
     await _prefs.remove('student_name');
   }
 
-  String? getThemePreference() => _prefs.getString(_themePreferenceKey);
+  // ── Settings ──
 
+  String? getThemePreference() => _prefs.getString('theme_preference');
   Future<void> setThemePreference(String value) =>
-      _prefs.setString(_themePreferenceKey, value);
+      _prefs.setString('theme_preference', value);
 
   String? getClassAutomationMode() =>
-      _prefs.getString(_classAutomationModeKey);
-
+      _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
-      _prefs.setString(_classAutomationModeKey, value);
+      _prefs.setString('class_automation_mode', value);
 
-  String? getSavedPowerRoomId() => _prefs.getString(_savedPowerRoomIdKey);
+  // ── Power room ──
+
+  String? getSavedPowerRoomId() => _prefs.getString('saved_power_room_id');
 
   Future<void> setSavedPowerRoomId(String roomId) async {
     final value = roomId.trim();
     if (value.isEmpty) {
-      await _prefs.remove(_savedPowerRoomIdKey);
+      await _prefs.remove('saved_power_room_id');
       return;
     }
-    await _prefs.setString(_savedPowerRoomIdKey, value);
+    await _prefs.setString('saved_power_room_id', value);
   }
 
-  String? getPowerCache() => _prefs.getString(_savedPowerCacheKey);
-  String? getPowerCacheDate() => _prefs.getString(_savedPowerCacheDateKey);
+  // ── Power cache (has extra date field) ──
+
+  String? getPowerCache() => _prefs.getString('saved_power_cache');
+  String? getPowerCacheDate() => _prefs.getString('saved_power_cache_date');
+  int? getPowerCacheTime() => _prefs.getInt('saved_power_cache_time');
 
   Future<void> setPowerCache(String json, String date) async {
-    await _prefs.setString(_savedPowerCacheKey, json);
-    await _prefs.setString(_savedPowerCacheDateKey, date);
+    await _prefs.setString('saved_power_cache', json);
+    await _prefs.setString('saved_power_cache_date', date);
     await _prefs.setInt(
-      _savedPowerCacheTimeKey,
+      'saved_power_cache_time',
       DateTime.now().millisecondsSinceEpoch,
     );
   }
 
   Future<void> clearPowerCache() async {
-    await _prefs.remove(_savedPowerCacheKey);
-    await _prefs.remove(_savedPowerCacheDateKey);
-    await _prefs.remove(_savedPowerCacheTimeKey);
+    await _prefs.remove('saved_power_cache');
+    await _prefs.remove('saved_power_cache_date');
+    await _prefs.remove('saved_power_cache_time');
   }
 
-  int? getPowerCacheTime() => _prefs.getInt(_savedPowerCacheTimeKey);
+  // ── Generic cache helpers ──
+
+  Future<void> _setCache(String dataKey, String timeKey, String json) async {
+    await _prefs.setString(dataKey, json);
+    await _prefs.setInt(timeKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  Future<void> _clearCache(String dataKey, String timeKey) async {
+    await _prefs.remove(dataKey);
+    await _prefs.remove(timeKey);
+  }
 
   // ── JP cache ──
 
-  String? getJpCache() => _prefs.getString(_jpCacheKey);
-  int? getJpCacheTime() => _prefs.getInt(_jpCacheTimeKey);
-
-  Future<void> setJpCache(String json) async {
-    await _prefs.setString(_jpCacheKey, json);
-    await _prefs.setInt(_jpCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
-  }
-
-  Future<void> clearJpCache() async {
-    await _prefs.remove(_jpCacheKey);
-    await _prefs.remove(_jpCacheTimeKey);
-  }
+  String? getJpCache() => _prefs.getString('jp_cache');
+  int? getJpCacheTime() => _prefs.getInt('jp_cache_time');
+  Future<void> setJpCache(String json) => _setCache('jp_cache', 'jp_cache_time', json);
+  Future<void> clearJpCache() => _clearCache('jp_cache', 'jp_cache_time');
 
   // ── Repair cache ──
 
-  String? getRepairCache() => _prefs.getString(_repairCacheKey);
-  int? getRepairCacheTime() => _prefs.getInt(_repairCacheTimeKey);
-
-  Future<void> setRepairCache(String json) async {
-    await _prefs.setString(_repairCacheKey, json);
-    await _prefs.setInt(
-      _repairCacheTimeKey,
-      DateTime.now().millisecondsSinceEpoch,
-    );
-  }
-
-  Future<void> clearRepairCache() async {
-    await _prefs.remove(_repairCacheKey);
-    await _prefs.remove(_repairCacheTimeKey);
-  }
+  String? getRepairCache() => _prefs.getString('repair_cache');
+  int? getRepairCacheTime() => _prefs.getInt('repair_cache_time');
+  Future<void> setRepairCache(String json) => _setCache('repair_cache', 'repair_cache_time', json);
+  Future<void> clearRepairCache() => _clearCache('repair_cache', 'repair_cache_time');
 
   // ── Exam cache ──
 
-  String? getExamCache() => _prefs.getString(_examCacheKey);
-  int? getExamCacheTime() => _prefs.getInt(_examCacheTimeKey);
-
-  Future<void> setExamCache(String json) async {
-    await _prefs.setString(_examCacheKey, json);
-    await _prefs.setInt(_examCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
-  }
+  String? getExamCache() => _prefs.getString('exam_cache');
+  int? getExamCacheTime() => _prefs.getInt('exam_cache_time');
+  Future<void> setExamCache(String json) => _setCache('exam_cache', 'exam_cache_time', json);
 
   // ── YKT cache ──
 
-  String? getYktCache() => _prefs.getString(_yktCacheKey);
-  int? getYktCacheTime() => _prefs.getInt(_yktCacheTimeKey);
-
-  Future<void> setYktCache(String json) async {
-    await _prefs.setString(_yktCacheKey, json);
-    await _prefs.setInt(_yktCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
-  }
+  String? getYktCache() => _prefs.getString('ykt_cache');
+  int? getYktCacheTime() => _prefs.getInt('ykt_cache_time');
+  Future<void> setYktCache(String json) => _setCache('ykt_cache', 'ykt_cache_time', json);
 
   // ── NetAuth cache ──
 
-  String? getNetauthCache() => _prefs.getString(_netauthCacheKey);
-  int? getNetauthCacheTime() => _prefs.getInt(_netauthCacheTimeKey);
-
-  Future<void> setNetauthCache(String json) async {
-    await _prefs.setString(_netauthCacheKey, json);
-    await _prefs.setInt(
-      _netauthCacheTimeKey,
-      DateTime.now().millisecondsSinceEpoch,
-    );
-  }
+  String? getNetauthCache() => _prefs.getString('netauth_cache');
+  int? getNetauthCacheTime() => _prefs.getInt('netauth_cache_time');
+  Future<void> setNetauthCache(String json) => _setCache('netauth_cache', 'netauth_cache_time', json);
 
   // ── Cache validity ──
 

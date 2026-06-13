@@ -347,13 +347,9 @@ class ToolsDataManager extends ChangeNotifier {
 
     try {
       final service = RepairService();
-      RepairResult result;
-      try {
-        result = await service.fetchAll(studentId, password);
-      } on AuthException {
-        await Future.delayed(const Duration(seconds: 1));
-        result = await service.fetchAll(studentId, password);
-      }
+      final result = await _retryOnce(
+        () => service.fetchAll(studentId, password),
+      );
       repair = result;
       await prefs.setRepairCache(jsonEncode(result.toJson()));
     } on AuthException catch (e) {
@@ -389,13 +385,9 @@ class ToolsDataManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      NetAuthResult result;
-      try {
-        result = await NetAuthService().login(studentId, password);
-      } on AuthException {
-        await Future.delayed(const Duration(seconds: 1));
-        result = await NetAuthService().login(studentId, password);
-      }
+      final result = await _retryOnce(
+        () => NetAuthService().login(studentId, password),
+      );
       netAuth = result;
       await prefs.setNetauthCache(jsonEncode(result.toJson()));
     } on AuthException catch (e) {
@@ -437,13 +429,9 @@ class ToolsDataManager extends ChangeNotifier {
 
     try {
       final service = JpService();
-      JpStatusResult result;
-      try {
-        result = await service.queryStatus(studentId, password);
-      } on AuthException {
-        await Future.delayed(const Duration(seconds: 1));
-        result = await service.queryStatus(studentId, password);
-      }
+      final result = await _retryOnce(
+        () => service.queryStatus(studentId, password),
+      );
       jp = result;
       await prefs.setJpCache(jsonEncode(result.toJson()));
     } on AuthException catch (e) {
@@ -459,6 +447,15 @@ class ToolsDataManager extends ChangeNotifier {
   }
 
   // ── Helpers ──
+
+  static Future<T> _retryOnce<T>(Future<T> Function() fn) async {
+    try {
+      return await fn();
+    } on AuthException {
+      await Future.delayed(const Duration(seconds: 1));
+      return await fn();
+    }
+  }
 
   static String _todayString() {
     final now = DateTime.now();

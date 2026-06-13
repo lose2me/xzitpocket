@@ -5,12 +5,8 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
+import '../constants/network_config.dart';
 import 'debug_log_service.dart';
-
-const _defaultUserAgent =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-    'AppleWebKit/537.36 (KHTML, like Gecko) '
-    'Chrome/146.0.0.0 Safari/537.36';
 
 class DioFactory {
   DioFactory._();
@@ -20,7 +16,7 @@ class DioFactory {
     required CookieJar cookieJar,
     Duration? connectTimeout,
     Duration? receiveTimeout,
-    String userAgent = _defaultUserAgent,
+    String userAgent = kUserAgent,
     bool bypassProxy = false,
     bool ignoreCertificate = false,
   }) {
@@ -56,7 +52,7 @@ class DioFactory {
     required CookieJar cookieJar,
     Duration? connectTimeout,
     Duration? receiveTimeout,
-    String userAgent = _defaultUserAgent,
+    String userAgent = kUserAgent,
     bool ignoreCertificate = false,
   }) {
     final dio = Dio(
