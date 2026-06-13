@@ -25,15 +25,18 @@ class _NetAuthPageState extends State<NetAuthPage> {
   late NetAuthInfo _info;
   late List<NetAuthDevice> _devices;
   String? _unbindingMac;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
     _info = widget.result.info;
     _devices = widget.result.devices;
+    _refresh();
   }
 
   Future<void> _refresh() async {
+    setState(() => _isRefreshing = true);
     try {
       final result = await NetAuthService().login(
         widget.account,
@@ -48,6 +51,8 @@ class _NetAuthPageState extends State<NetAuthPage> {
       if (mounted) showAppSnackBar(context, e.message);
     } catch (_) {
       if (mounted) showAppSnackBar(context, '刷新失败');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -95,7 +100,22 @@ class _NetAuthPageState extends State<NetAuthPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('网络管理'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('网络管理'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _isRefreshing ? null : _refresh,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refresh,

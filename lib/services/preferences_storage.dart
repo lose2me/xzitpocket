@@ -10,6 +10,12 @@ const _jpCacheKey = 'jp_cache';
 const _jpCacheTimeKey = 'jp_cache_time';
 const _repairCacheKey = 'repair_cache';
 const _repairCacheTimeKey = 'repair_cache_time';
+const _examCacheKey = 'exam_cache';
+const _examCacheTimeKey = 'exam_cache_time';
+const _yktCacheKey = 'ykt_cache';
+const _yktCacheTimeKey = 'ykt_cache_time';
+const _netauthCacheKey = 'netauth_cache';
+const _netauthCacheTimeKey = 'netauth_cache_time';
 
 class PreferencesStorage {
   late SharedPreferences _prefs;
@@ -103,6 +109,39 @@ class PreferencesStorage {
   Future<void> clearRepairCache() async {
     await _prefs.remove(_repairCacheKey);
     await _prefs.remove(_repairCacheTimeKey);
+  }
+
+  // ── Exam cache ──
+
+  String? getExamCache() => _prefs.getString(_examCacheKey);
+  int? getExamCacheTime() => _prefs.getInt(_examCacheTimeKey);
+
+  Future<void> setExamCache(String json) async {
+    await _prefs.setString(_examCacheKey, json);
+    await _prefs.setInt(_examCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  // ── YKT cache ──
+
+  String? getYktCache() => _prefs.getString(_yktCacheKey);
+  int? getYktCacheTime() => _prefs.getInt(_yktCacheTimeKey);
+
+  Future<void> setYktCache(String json) async {
+    await _prefs.setString(_yktCacheKey, json);
+    await _prefs.setInt(_yktCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  // ── NetAuth cache ──
+
+  String? getNetauthCache() => _prefs.getString(_netauthCacheKey);
+  int? getNetauthCacheTime() => _prefs.getInt(_netauthCacheTimeKey);
+
+  Future<void> setNetauthCache(String json) async {
+    await _prefs.setString(_netauthCacheKey, json);
+    await _prefs.setInt(
+      _netauthCacheTimeKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
   }
 
   // ── Cache validity ──

@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../services/cas_service.dart';
 import '../../services/ykt_service.dart';
+import '../../utils/snackbar_helper.dart';
 
 class YktPage extends StatefulWidget {
   final YktDetailResult result;
+  final String studentId;
+  final String password;
 
-  const YktPage({super.key, required this.result});
+  const YktPage({
+    super.key,
+    required this.result,
+    required this.studentId,
+    required this.password,
+  });
 
   @override
   State<YktPage> createState() => _YktPageState();
@@ -14,8 +23,39 @@ class YktPage extends StatefulWidget {
 class _YktPageState extends State<YktPage> {
   static const _pageSize = 7;
   int _currentPage = 0;
+  bool _isRefreshing = false;
 
-  late final List<YktTransaction> _txns = widget.result.transactions.reversed.toList();
+  late YktDetailResult _result;
+  late List<YktTransaction> _txns;
+
+  @override
+  void initState() {
+    super.initState();
+    _result = widget.result;
+    _txns = _result.transactions.reversed.toList();
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _isRefreshing = true);
+    try {
+      final result = await YktService().getDetail(
+        widget.studentId,
+        widget.password,
+      );
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _txns = result.transactions.reversed.toList();
+        _currentPage = 0;
+      });
+    } on AuthException catch (e) {
+      if (mounted) showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (mounted) showAppSnackBar(context, '刷新失败');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
 
   int get _totalPages => (_txns.length / _pageSize).ceil().clamp(1, 999);
 
@@ -28,10 +68,25 @@ class _YktPageState extends State<YktPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bal = widget.result.balance;
+    final bal = _result.balance;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('一卡通查询'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('一卡通查询'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _isRefreshing ? null : _refresh,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),

@@ -10,12 +10,14 @@ import '../../services/repair_service.dart';
 import '../../utils/snackbar_helper.dart';
 
 class RepairFormPage extends StatefulWidget {
-  final CasSession session;
+  final String studentId;
+  final String password;
   final RepairUserInfo userInfo;
 
   const RepairFormPage({
     super.key,
-    required this.session,
+    required this.studentId,
+    required this.password,
     required this.userInfo,
   });
 
@@ -31,6 +33,9 @@ class _RepairFormPageState extends State<RepairFormPage> {
   final _images = <XFile>[];
   String? _tutorial;
 
+  CasSession? _session;
+  bool _sessionLoading = true;
+
   RepairArea? _selectedArea;
   RepairItem? _selectedItem;
   bool _submitting = false;
@@ -39,10 +44,37 @@ class _RepairFormPageState extends State<RepairFormPage> {
   void initState() {
     super.initState();
     _loadTutorial();
+    _createSession();
+  }
+
+  Future<void> _createSession() async {
+    try {
+      final session = await _service.login(
+        widget.studentId,
+        widget.password,
+      );
+      if (!mounted) {
+        session.close();
+        return;
+      }
+      setState(() {
+        _session = session;
+        _sessionLoading = false;
+      });
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      setState(() => _sessionLoading = false);
+      showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _sessionLoading = false);
+      showAppSnackBar(context, '会话创建失败');
+    }
   }
 
   Future<void> _loadTutorial() async {
-    final content = await rootBundle.loadString('assets/tutorials/repair_guide.md');
+    final content =
+        await rootBundle.loadString('assets/tutorials/repair_guide.md');
     if (mounted) setState(() => _tutorial = content);
   }
 
@@ -80,12 +112,14 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
   @override
   void dispose() {
+    _session?.close();
     _addressCtrl.dispose();
     _contentCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _pickArea() async {
+    if (_session == null) return;
     final result = await _drillDownAreas();
     if (result != null && mounted) {
       setState(() {
@@ -111,7 +145,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Future<RepairArea?> _drillDownAreas() async {
     List<RepairArea> items;
     try {
-      items = await _service.getAreas(widget.session);
+      items = await _service.getAreas(_session!);
     } catch (_) {
       if (mounted) showAppSnackBar(context, '获取区域失败');
       return null;
@@ -131,12 +165,13 @@ class _RepairFormPageState extends State<RepairFormPage> {
     RepairArea? chosen;
     while (true) {
       if (!mounted) return null;
-      chosen = await _showPickerSheet('选择区域', items);
+      chosen = await _showPickerSheet('选择区域', items,
+          selectedId: _selectedArea?.id);
       if (chosen == null) return null;
 
       List<RepairArea> children;
       try {
-        children = await _service.getChildAreas(widget.session, chosen.id);
+        children = await _service.getChildAreas(_session!, chosen.id);
       } catch (_) {
         return chosen;
       }
@@ -146,6 +181,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _pickItem() async {
+    if (_session == null) return;
     if (_selectedArea == null) {
       showAppSnackBar(context, '请先选择区域');
       return;
@@ -159,7 +195,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Future<RepairItem?> _drillDownItems() async {
     List<RepairItem> items;
     try {
-      items = await _service.getItems(widget.session, _selectedArea!.id);
+      items = await _service.getItems(_session!, _selectedArea!.id);
     } catch (_) {
       if (mounted) showAppSnackBar(context, '获取项目失败');
       return null;
@@ -175,69 +211,138 @@ class _RepairFormPageState extends State<RepairFormPage> {
       chosen = await _showPickerSheet(
         '选择项目',
         items.map((i) => RepairArea(id: i.id, name: i.name)).toList(),
+        selectedId: _selectedItem?.id,
       );
       if (chosen == null) return null;
 
       List<RepairItem> children;
       try {
-        children = await _service.getChildItems(widget.session, chosen.id);
+        children = await _service.getChildItems(_session!, chosen.id);
       } catch (_) {
         return RepairItem(id: chosen.id, name: chosen.name);
       }
-      if (children.isEmpty) return RepairItem(id: chosen.id, name: chosen.name);
+      if (children.isEmpty) {
+        return RepairItem(id: chosen.id, name: chosen.name);
+      }
       items = children;
     }
   }
 
   Future<RepairArea?> _showPickerSheet(
     String title,
-    List<RepairArea> items,
-  ) {
+    List<RepairArea> items, {
+    String? selectedId,
+  }) {
     return showModalBottomSheet<RepairArea>(
       context: context,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.45,
-          minChildSize: 0.3,
-          maxChildSize: 0.7,
-          expand: false,
-          builder: (ctx, scrollCtrl) {
-            final theme = Theme.of(ctx);
-            return Column(
+        final theme = Theme.of(ctx);
+        final maxH = MediaQuery.of(ctx).size.height * 0.6;
+        return SafeArea(
+          top: false,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+            constraints: BoxConstraints(maxHeight: maxH),
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.outlineVariant,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Center(
+                        child: Text(
+                          title,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                   ),
                 ),
-                const Divider(height: 1),
-                Expanded(
+                Flexible(
                   child: ListView.builder(
-                    controller: scrollCtrl,
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
                     itemCount: items.length,
                     itemBuilder: (ctx, i) {
                       final item = items[i];
-                      return ListTile(
-                        title: Text(item.name),
-                        onTap: () => Navigator.of(ctx).pop(item),
+                      final selected = item.id == selectedId;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Material(
+                          color: selected
+                              ? theme.colorScheme.primaryContainer
+                                  .withAlpha(72)
+                              : theme.colorScheme.surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(28),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(28),
+                            onTap: () => Navigator.pop(ctx, item),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 15,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.name,
+                                      style: theme.textTheme.titleMedium
+                                          ?.copyWith(
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Icon(
+                                    selected
+                                        ? Icons.check_circle_rounded
+                                        : Icons.radio_button_unchecked_rounded,
+                                    color: selected
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outline,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       );
                     },
                   ),
                 ),
               ],
-            );
-          },
+            ),
+          ),
         );
       },
     );
   }
 
   Future<void> _submit() async {
+    if (_session == null) return;
     if (_selectedArea == null) {
       showAppSnackBar(context, '请选择区域');
       return;
@@ -255,11 +360,11 @@ class _RepairFormPageState extends State<RepairFormPage> {
     setState(() => _submitting = true);
     try {
       final imagePaths = await _service.uploadImages(
-        widget.session,
+        _session!,
         _images.map((x) => File(x.path)).toList(),
       );
       await _service.submitRepair(
-        widget.session,
+        _session!,
         areaId: _selectedArea!.id,
         itemId: _selectedItem!.id,
         address: _addressCtrl.text.trim(),
@@ -283,12 +388,28 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
+  bool get _formDisabled => _session == null || _submitting;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('新建报修'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('新建报修'),
+        centerTitle: true,
+        actions: [
+          if (_sessionLoading)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
@@ -311,6 +432,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
               width: 140,
               child: TextField(
                 controller: _addressCtrl,
+                enabled: !_formDisabled,
                 decoration: const InputDecoration(
                   labelText: '宿舍号',
                   hintText: '7B216',
@@ -321,6 +443,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
             const SizedBox(height: 12),
             TextField(
               controller: _contentCtrl,
+              enabled: !_formDisabled,
               decoration: const InputDecoration(
                 labelText: '故障描述',
                 border: OutlineInputBorder(),
@@ -337,13 +460,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
               children: [
                 for (var i = 0; i < _images.length; i++)
                   _buildImageTile(theme, i),
-                if (_images.length < 9)
-                  _buildAddImageTile(theme),
+                if (_images.length < 9) _buildAddImageTile(theme),
               ],
             ),
             const SizedBox(height: 24),
             FilledButton(
-              onPressed: _submitting ? null : _submit,
+              onPressed: _formDisabled ? null : _submit,
               child: _submitting
                   ? const SizedBox(
                       width: 20,
@@ -383,7 +505,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }) {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: _submitting ? null : onTap,
+      onTap: _formDisabled ? null : onTap,
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
@@ -439,7 +561,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
   Widget _buildAddImageTile(ThemeData theme) {
     return GestureDetector(
-      onTap: _submitting ? null : _pickImage,
+      onTap: _formDisabled ? null : _pickImage,
       child: Container(
         width: 90,
         height: 90,

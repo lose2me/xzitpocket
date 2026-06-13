@@ -48,6 +48,32 @@ class NetAuthInfo {
       maxDevices: (userGroup['ipMaxCount'] as int?) ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'account': account,
+        'className': className,
+        'group': group,
+        'status': status,
+        'usedHours': usedHours,
+        'usedFlowGb': usedFlowGb,
+        'downFlowGb': downFlowGb,
+        'upFlowGb': upFlowGb,
+        'maxDevices': maxDevices,
+      };
+
+  factory NetAuthInfo.fromCache(Map<String, dynamic> j) => NetAuthInfo(
+        name: j['name'] as String,
+        account: j['account'] as String,
+        className: j['className'] as String,
+        group: j['group'] as String,
+        status: j['status'] as String,
+        usedHours: (j['usedHours'] as num).toDouble(),
+        usedFlowGb: (j['usedFlowGb'] as num).toDouble(),
+        downFlowGb: (j['downFlowGb'] as num).toDouble(),
+        upFlowGb: (j['upFlowGb'] as num).toDouble(),
+        maxDevices: j['maxDevices'] as int,
+      );
 }
 
 class NetAuthDevice {
@@ -64,6 +90,22 @@ class NetAuthDevice {
     required this.lastTime,
     required this.ip,
   });
+
+  Map<String, dynamic> toJson() => {
+        'online': online,
+        'mac': mac,
+        'type': type,
+        'lastTime': lastTime,
+        'ip': ip,
+      };
+
+  factory NetAuthDevice.fromCache(Map<String, dynamic> j) => NetAuthDevice(
+        online: j['online'] as bool,
+        mac: j['mac'] as String,
+        type: j['type'] as String,
+        lastTime: j['lastTime'] as String,
+        ip: j['ip'] as String,
+      );
 }
 
 class NetAuthResult {
@@ -71,6 +113,18 @@ class NetAuthResult {
   final List<NetAuthDevice> devices;
 
   const NetAuthResult({required this.info, required this.devices});
+
+  Map<String, dynamic> toJson() => {
+        'info': info.toJson(),
+        'devices': devices.map((d) => d.toJson()).toList(),
+      };
+
+  factory NetAuthResult.fromCache(Map<String, dynamic> j) => NetAuthResult(
+        info: NetAuthInfo.fromCache(j['info'] as Map<String, dynamic>),
+        devices: (j['devices'] as List)
+            .map((d) => NetAuthDevice.fromCache(d as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class NetAuthService {

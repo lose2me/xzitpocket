@@ -49,11 +49,16 @@ class ToolsDataManager extends ChangeNotifier {
   static const _powerTtl = Duration(days: 1);
   static const _jpTtl = Duration(hours: 3);
   static const _repairTtl = Duration(hours: 1);
+  static const _refreshCooldown = Duration(seconds: 60);
+
+  DateTime? _lastYktFetch;
+  DateTime? _lastExamFetch;
 
   // ── Public API ──
 
-  void setExams(ExamResult result) {
+  void setExams(ExamResult result, PreferencesStorage prefs) {
     exams = result;
+    prefs.setExamCache(jsonEncode(result.toJson()));
     notifyListeners();
   }
 
@@ -78,6 +83,8 @@ class ToolsDataManager extends ChangeNotifier {
     jp = null;
     jpLoading = false;
     campusNetAvailable = null;
+    _lastYktFetch = null;
+    _lastExamFetch = null;
     notifyListeners();
   }
 
@@ -98,14 +105,14 @@ class ToolsDataManager extends ChangeNotifier {
       if (roomId != null && roomId.isNotEmpty) {
         futures.add(loadPower(roomId, prefs));
       }
-      futures.add(loadYkt(studentId, password));
     } else {
       powerError = '请连接校园网';
       notifyListeners();
     }
 
+    futures.add(loadYkt(studentId, password, prefs));
     futures.add(loadRepair(studentId, password, prefs));
-    futures.add(loadNetAuth(studentId, password));
+    futures.add(loadNetAuth(studentId, password, prefs));
     futures.add(loadJp(studentId, password, prefs));
 
     await Future.wait(futures);
@@ -123,11 +130,17 @@ class ToolsDataManager extends ChangeNotifier {
     final futures = <Future>[];
 
     if (roomId != null && roomId.isNotEmpty) {
-      futures.add(loadPower(roomId, prefs));
+      final campusOk = await checkCampusNetwork();
+      if (campusOk) {
+        futures.add(loadPower(roomId, prefs));
+      } else if (power == null) {
+        powerError = '请连接校园网';
+        notifyListeners();
+      }
     }
 
-    futures.add(loadYkt(studentId, password));
-    futures.add(loadExam(studentId, password));
+    futures.add(loadYkt(studentId, password, prefs));
+    futures.add(loadExam(studentId, password, prefs));
 
     await Future.wait(futures);
   }
@@ -220,14 +233,37 @@ class ToolsDataManager extends ChangeNotifier {
     }
   }
 
-  Future<void> loadYkt(String studentId, String password) async {
+  Future<void> loadYkt(
+    String studentId,
+    String password,
+    PreferencesStorage prefs,
+  ) async {
     if (yktLoading) return;
+
+    if (_lastYktFetch != null &&
+        ykt != null &&
+        DateTime.now().difference(_lastYktFetch!) < _refreshCooldown) {
+      return;
+    }
+
+    if (ykt == null) {
+      final cached = prefs.getYktCache();
+      if (cached != null) {
+        ykt = YktDetailResult.fromJson(
+          jsonDecode(cached) as Map<String, dynamic>,
+        );
+        notifyListeners();
+      }
+    }
+
     yktLoading = true;
     notifyListeners();
 
     try {
       final result = await YktService().getDetail(studentId, password);
       ykt = result;
+      _lastYktFetch = DateTime.now();
+      await prefs.setYktCache(jsonEncode(result.toJson()));
     } on AuthException catch (e) {
       DebugLogService.instance
           .log(DebugLogCategory.error, '一卡通后台加载失败', e.message);
@@ -240,14 +276,37 @@ class ToolsDataManager extends ChangeNotifier {
     }
   }
 
-  Future<void> loadExam(String studentId, String password) async {
+  Future<void> loadExam(
+    String studentId,
+    String password,
+    PreferencesStorage prefs,
+  ) async {
     if (examLoading) return;
+
+    if (_lastExamFetch != null &&
+        exams != null &&
+        DateTime.now().difference(_lastExamFetch!) < _refreshCooldown) {
+      return;
+    }
+
+    if (exams == null) {
+      final cached = prefs.getExamCache();
+      if (cached != null) {
+        exams = ExamResult.fromJson(
+          jsonDecode(cached) as Map<String, dynamic>,
+        );
+        notifyListeners();
+      }
+    }
+
     examLoading = true;
     notifyListeners();
 
     try {
       final result = await AuthService().fetchExams(studentId, password);
       exams = result;
+      _lastExamFetch = DateTime.now();
+      await prefs.setExamCache(jsonEncode(result.toJson()));
     } on AuthException catch (e) {
       DebugLogService.instance
           .log(DebugLogCategory.error, '考试后台加载失败', e.message);
@@ -267,17 +326,20 @@ class ToolsDataManager extends ChangeNotifier {
   ) async {
     if (repairLoading) return;
 
-    final cacheTime = prefs.getRepairCacheTime();
-    if (PreferencesStorage.isCacheValid(cacheTime, _repairTtl)) {
+    if (repair == null) {
       final cached = prefs.getRepairCache();
-      if (cached != null && repair == null) {
+      if (cached != null) {
         repair = RepairResult.fromJson(
           jsonDecode(cached) as Map<String, dynamic>,
         );
         notifyListeners();
-        return;
       }
-      if (repair != null) return;
+    }
+
+    final cacheTime = prefs.getRepairCacheTime();
+    if (PreferencesStorage.isCacheValid(cacheTime, _repairTtl) &&
+        repair != null) {
+      return;
     }
 
     repairLoading = true;
@@ -306,8 +368,23 @@ class ToolsDataManager extends ChangeNotifier {
     }
   }
 
-  Future<void> loadNetAuth(String studentId, String password) async {
+  Future<void> loadNetAuth(
+    String studentId,
+    String password,
+    PreferencesStorage prefs,
+  ) async {
     if (netAuthLoading) return;
+
+    if (netAuth == null) {
+      final cached = prefs.getNetauthCache();
+      if (cached != null) {
+        netAuth = NetAuthResult.fromCache(
+          jsonDecode(cached) as Map<String, dynamic>,
+        );
+        notifyListeners();
+      }
+    }
+
     netAuthLoading = true;
     notifyListeners();
 
@@ -320,6 +397,7 @@ class ToolsDataManager extends ChangeNotifier {
         result = await NetAuthService().login(studentId, password);
       }
       netAuth = result;
+      await prefs.setNetauthCache(jsonEncode(result.toJson()));
     } on AuthException catch (e) {
       DebugLogService.instance
           .log(DebugLogCategory.error, '网络管理后台加载失败', e.message);
@@ -339,17 +417,19 @@ class ToolsDataManager extends ChangeNotifier {
   ) async {
     if (jpLoading) return;
 
-    final cacheTime = prefs.getJpCacheTime();
-    if (PreferencesStorage.isCacheValid(cacheTime, _jpTtl)) {
+    if (jp == null) {
       final cached = prefs.getJpCache();
-      if (cached != null && jp == null) {
+      if (cached != null) {
         jp = JpStatusResult.fromJson(
           jsonDecode(cached) as Map<String, dynamic>,
         );
         notifyListeners();
-        return;
       }
-      if (jp != null) return;
+    }
+
+    final cacheTime = prefs.getJpCacheTime();
+    if (PreferencesStorage.isCacheValid(cacheTime, _jpTtl) && jp != null) {
+      return;
     }
 
     jpLoading = true;

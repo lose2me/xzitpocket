@@ -9,7 +9,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:upgradelink_api_dart/upgradelink_api_dart.dart';
 import 'package:upgradelink_api_dart/src/models/config.dart';
-import 'package:upgradelink_api_dart/src/models/file_upgrade.dart';
+import 'package:upgradelink_api_dart/src/models/url_upgrade.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/upgrade_config.dart';
@@ -96,9 +96,9 @@ class UpdateService {
       ),
     );
 
-    final response = await client.getFileUpgrade(
-      FileUpgradeRequest(
-        fileKey: UpgradeConfig.fileKey,
+    final response = await client.getUrlUpgrade(
+      UrlUpgradeRequest(
+        urlKey: UpgradeConfig.urlKey,
         versionCode: versionCode,
         appointVersionCode: 0,
         devModelKey: UpgradeConfig.devModelKey,

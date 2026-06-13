@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/semester_config.dart';
 import '../../services/power_service.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 
 class PowerQueryPage extends StatefulWidget {
@@ -17,9 +18,38 @@ class PowerQueryPage extends StatefulWidget {
 class _PowerQueryPageState extends State<PowerQueryPage> {
   static const _pageSize = 7;
   int _currentPage = 0;
+  bool _isRefreshing = false;
 
-  late final List<PowerDailyUsage> _reversed =
-      widget.result.dailyUsage.reversed.toList();
+  late PowerQueryData _result;
+  late List<PowerDailyUsage> _reversed;
+
+  @override
+  void initState() {
+    super.initState();
+    _result = widget.result;
+    _reversed = _result.dailyUsage.reversed.toList();
+  }
+
+  Future<void> _refresh() async {
+    final roomId = widget.roomId;
+    if (roomId == null || roomId.isEmpty) return;
+    setState(() => _isRefreshing = true);
+    try {
+      final result = await PowerService().queryRoom(roomId);
+      if (!mounted) return;
+      setState(() {
+        _result = result;
+        _reversed = result.dailyUsage.reversed.toList();
+        _currentPage = 0;
+      });
+    } on PowerQueryException catch (e) {
+      if (mounted) showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (mounted) showAppSnackBar(context, '刷新失败');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
 
   int get _totalPages =>
       (_reversed.length / _pageSize).ceil().clamp(1, 999);
@@ -40,11 +70,26 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('电费查询'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('电费查询'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _isRefreshing ? null : _refresh,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [_buildResultCard(theme, widget.result)],
+          children: [_buildResultCard(theme, _result)],
         ),
       ),
     );

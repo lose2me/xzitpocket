@@ -3,7 +3,7 @@ class UpgradeConfig {
 
   static const accessKey = String.fromEnvironment('UPGRADELINK_ACCESS_KEY');
   static const secretKey = String.fromEnvironment('UPGRADELINK_SECRET_KEY');
-  static const fileKey = String.fromEnvironment('UPGRADELINK_FILE_KEY');
+  static const urlKey = String.fromEnvironment('UPGRADELINK_URL_KEY');
   static const devModelKey = String.fromEnvironment(
     'UPGRADELINK_DEV_MODEL_KEY',
   );
@@ -18,6 +18,6 @@ class UpgradeConfig {
   );
 
   static bool get isConfigured {
-    return accessKey.isNotEmpty && secretKey.isNotEmpty && fileKey.isNotEmpty;
+    return accessKey.isNotEmpty && secretKey.isNotEmpty && urlKey.isNotEmpty;
   }
 }

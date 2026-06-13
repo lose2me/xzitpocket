@@ -1,7 +1,7 @@
 {
   "UPGRADELINK_ACCESS_KEY": "your-access-key",
   "UPGRADELINK_SECRET_KEY": "your-secret-key",
-  "UPGRADELINK_FILE_KEY": "your-file-key",
+  "UPGRADELINK_URL_KEY": "your-url-key",
   "UPGRADELINK_DEV_MODEL_KEY": "",
   "UPGRADELINK_DEV_KEY": "",
   "UPGRADELINK_ENDPOINT": "api.upgrade.toolsetlink.com",

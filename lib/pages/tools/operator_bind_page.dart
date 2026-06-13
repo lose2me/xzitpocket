@@ -147,14 +147,6 @@ class _OperatorBindPageState extends State<OperatorBindPage> {
                       : const Text('绑定'),
                 ),
               ),
-              const SizedBox(height: 10),
-              Text(
-                '系统不会立即核验账号密码的准确性\n如果账号密码错误，则无法连接至校园网络',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
               if (tutorial != null && tutorial.trim().isNotEmpty) ...[
                 const SizedBox(height: 28),
                 const Divider(),

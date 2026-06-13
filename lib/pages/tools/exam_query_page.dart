@@ -1,11 +1,52 @@
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/cas_service.dart';
+import '../../utils/snackbar_helper.dart';
 
-class ExamQueryPage extends StatelessWidget {
+class ExamQueryPage extends StatefulWidget {
   final ExamResult result;
+  final String studentId;
+  final String password;
 
-  const ExamQueryPage({super.key, required this.result});
+  const ExamQueryPage({
+    super.key,
+    required this.result,
+    required this.studentId,
+    required this.password,
+  });
+
+  @override
+  State<ExamQueryPage> createState() => _ExamQueryPageState();
+}
+
+class _ExamQueryPageState extends State<ExamQueryPage> {
+  late ExamResult _result;
+  bool _isRefreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _result = widget.result;
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _isRefreshing = true);
+    try {
+      final result = await AuthService().fetchExams(
+        widget.studentId,
+        widget.password,
+      );
+      if (!mounted) return;
+      setState(() => _result = result);
+    } on AuthException catch (e) {
+      if (mounted) showAppSnackBar(context, e.message);
+    } catch (_) {
+      if (mounted) showAppSnackBar(context, '刷新失败');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
+    }
+  }
 
   DateTime? _parseExamDate(String time) {
     final match = RegExp(r'(\d{4})-(\d{2})-(\d{2})').firstMatch(time);
@@ -31,7 +72,7 @@ class ExamQueryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final now = DateTime.now();
-    final exams = result.exams
+    final exams = _result.exams
         .where((e) {
           final d = _parseExamDate(e.time);
           return d == null || !d.isBefore(now);
@@ -47,7 +88,22 @@ class ExamQueryPage extends StatelessWidget {
       });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('考试查询'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('考试查询'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _isRefreshing ? null : _refresh,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: exams.isEmpty
             ? Center(
@@ -174,5 +230,4 @@ class ExamQueryPage extends StatelessWidget {
       ),
     );
   }
-
 }

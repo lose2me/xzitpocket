@@ -132,14 +132,14 @@ class _MePageState extends ConsumerState<MePage> {
             child: _SettingsCard(
               children: [
                 _SettingsTile(
-                  icon: Icons.person_outline,
-                  title: '姓名',
-                  value: config.studentName ?? '',
-                ),
-                _SettingsTile(
                   icon: Icons.badge_outlined,
                   title: '学号',
                   value: config.studentId ?? '',
+                ),
+                _SettingsTile(
+                  icon: Icons.person_outline,
+                  title: '姓名',
+                  value: config.studentName ?? '',
                 ),
               ],
             ),
@@ -828,7 +828,8 @@ class _MePageState extends ConsumerState<MePage> {
       final (loginResult, examResult) = result;
       await CredentialStorage.setSavedPassword(pwd);
 
-      ToolsDataManager.instance.setExams(examResult);
+      ToolsDataManager.instance.setExams(examResult,
+          ref.read(preferencesStorageProvider));
 
       try {
         await ref
@@ -1714,7 +1715,7 @@ class _VersionPageState extends State<_VersionPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('版本更新'), centerTitle: true),
-      body: hasUpdate ? scrollBody : Center(child: scrollBody),
+      body: Align(alignment: Alignment.topCenter, child: scrollBody),
     );
   }
 

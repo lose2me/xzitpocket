@@ -153,7 +153,22 @@ class _JpPageState extends ConsumerState<JpPage> {
     final tasks = _sortedTasks;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('教师评价'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('教师评价'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _isLoading ? null : _loadStatus,
+            icon: _isLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())

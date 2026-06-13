@@ -48,6 +48,40 @@ class ExamItem {
     required this.note,
     required this.isResit,
   });
+
+  Map<String, dynamic> toJson() => {
+        'courseId': courseId,
+        'title': title,
+        'time': time,
+        'location': location,
+        'campus': campus,
+        'seat': seat,
+        'examName': examName,
+        'teacher': teacher,
+        'className': className,
+        'college': college,
+        'credit': credit,
+        'examType': examType,
+        'note': note,
+        'isResit': isResit,
+      };
+
+  factory ExamItem.fromJson(Map<String, dynamic> j) => ExamItem(
+        courseId: j['courseId'] as String,
+        title: j['title'] as String,
+        time: j['time'] as String,
+        location: j['location'] as String,
+        campus: j['campus'] as String,
+        seat: j['seat'] as String,
+        examName: j['examName'] as String,
+        teacher: j['teacher'] as String,
+        className: j['className'] as String,
+        college: j['college'] as String,
+        credit: j['credit'] as String,
+        examType: j['examType'] as String,
+        note: j['note'] as String,
+        isResit: j['isResit'] as bool,
+      );
 }
 
 class ExamResult {
@@ -56,6 +90,20 @@ class ExamResult {
   final List<ExamItem> exams;
 
   ExamResult({this.studentId, this.studentName, required this.exams});
+
+  Map<String, dynamic> toJson() => {
+        'studentId': studentId,
+        'studentName': studentName,
+        'exams': exams.map((e) => e.toJson()).toList(),
+      };
+
+  factory ExamResult.fromJson(Map<String, dynamic> j) => ExamResult(
+        studentId: j['studentId'] as String?,
+        studentName: j['studentName'] as String?,
+        exams: (j['exams'] as List)
+            .map((e) => ExamItem.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
 }
 
 class AuthService {

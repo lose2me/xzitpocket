@@ -6,13 +6,15 @@ import '../../utils/snackbar_helper.dart';
 import 'repair_form_page.dart';
 
 class RepairPage extends StatefulWidget {
-  final CasSession session;
   final RepairResult initialResult;
+  final String studentId;
+  final String password;
 
   const RepairPage({
     super.key,
-    required this.session,
     required this.initialResult,
+    required this.studentId,
+    required this.password,
   });
 
   @override
@@ -22,6 +24,7 @@ class RepairPage extends StatefulWidget {
 class _RepairPageState extends State<RepairPage> {
   late List<RepairRecord> _records;
   late RepairUserInfo _userInfo;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -30,19 +33,24 @@ class _RepairPageState extends State<RepairPage> {
     _userInfo = widget.initialResult.userInfo;
   }
 
-  @override
-  void dispose() {
-    widget.session.close();
-    super.dispose();
-  }
-
   Future<void> _refresh() async {
+    setState(() => _isRefreshing = true);
     try {
-      final records = await RepairService().queryRepairs(widget.session);
+      final result = await RepairService().fetchAll(
+        widget.studentId,
+        widget.password,
+      );
       if (!mounted) return;
-      setState(() => _records = records);
+      setState(() {
+        _records = result.records;
+        _userInfo = result.userInfo;
+      });
+    } on AuthException catch (e) {
+      if (mounted) showAppSnackBar(context, e.message);
     } catch (_) {
       if (mounted) showAppSnackBar(context, '刷新失败');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -50,7 +58,8 @@ class _RepairPageState extends State<RepairPage> {
     final submitted = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => RepairFormPage(
-          session: widget.session,
+          studentId: widget.studentId,
+          password: widget.password,
           userInfo: _userInfo,
         ),
       ),
@@ -60,18 +69,41 @@ class _RepairPageState extends State<RepairPage> {
     }
   }
 
+  static const _knownStatuses = {
+    '已完工', '已关闭', '已评价',
+    '已接单', '已转单', '处理中', '维修中',
+    '已上报', '已上传照片',
+  };
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final visible =
+        _records.where((r) => _knownStatuses.contains(r.status)).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('极速报修'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('我的报修'),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            onPressed: _isRefreshing ? null : _refresh,
+            icon: _isRefreshing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.sync),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: _openForm,
         child: const Icon(Icons.add),
       ),
       body: SafeArea(
-        child: _records.isEmpty
+        child: visible.isEmpty
             ? Center(
                 child: Text(
                   '暂无报修记录',
@@ -84,9 +116,9 @@ class _RepairPageState extends State<RepairPage> {
                 onRefresh: _refresh,
                 child: ListView.builder(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                  itemCount: _records.length,
+                  itemCount: visible.length,
                   itemBuilder: (context, index) =>
-                      _buildRecordCard(theme, _records[index]),
+                      _buildRecordCard(theme, visible[index]),
                 ),
               ),
       ),

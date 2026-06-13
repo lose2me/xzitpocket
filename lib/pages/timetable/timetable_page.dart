@@ -110,7 +110,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       final result = await ref.read(authProvider.notifier).login(sid, pwd);
       if (result != null) {
         final (loginResult, examResult) = result;
-        ToolsDataManager.instance.setExams(examResult);
+        ToolsDataManager.instance.setExams(examResult,
+            ref.read(preferencesStorageProvider));
         try {
           await ref
               .read(scheduleProvider.notifier)

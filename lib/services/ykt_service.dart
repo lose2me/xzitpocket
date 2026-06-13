@@ -9,6 +9,11 @@ class YktBalanceResult {
   final String cardNo;
 
   const YktBalanceResult({required this.balance, required this.cardNo});
+
+  Map<String, dynamic> toJson() => {'balance': balance, 'cardNo': cardNo};
+
+  factory YktBalanceResult.fromJson(Map<String, dynamic> j) =>
+      YktBalanceResult(balance: j['balance'] as String, cardNo: j['cardNo'] as String);
 }
 
 class YktTransaction {
@@ -25,6 +30,22 @@ class YktTransaction {
     required this.balance,
     required this.type,
   });
+
+  Map<String, dynamic> toJson() => {
+        'time': time,
+        'location': location,
+        'amount': amount,
+        'balance': balance,
+        'type': type,
+      };
+
+  factory YktTransaction.fromJson(Map<String, dynamic> j) => YktTransaction(
+        time: j['time'] as String,
+        location: j['location'] as String,
+        amount: j['amount'] as String,
+        balance: j['balance'] as String,
+        type: j['type'] as String,
+      );
 }
 
 class YktDetailResult {
@@ -33,6 +54,20 @@ class YktDetailResult {
   final String? txnError;
 
   const YktDetailResult({required this.balance, required this.transactions, this.txnError});
+
+  Map<String, dynamic> toJson() => {
+        'balance': balance.toJson(),
+        'transactions': transactions.map((t) => t.toJson()).toList(),
+        'txnError': txnError,
+      };
+
+  factory YktDetailResult.fromJson(Map<String, dynamic> j) => YktDetailResult(
+        balance: YktBalanceResult.fromJson(j['balance'] as Map<String, dynamic>),
+        transactions: (j['transactions'] as List)
+            .map((t) => YktTransaction.fromJson(t as Map<String, dynamic>))
+            .toList(),
+        txnError: j['txnError'] as String?,
+      );
 }
 
 class YktService {
