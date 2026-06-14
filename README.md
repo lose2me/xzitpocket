@@ -30,6 +30,8 @@
   <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="210px" />
   <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/2.jpg" width="210px" />
   <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/3.jpg" width="210px" />
+  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/4.jpg" width="210px" />
+  <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/5.jpg" width="210px" />
 </p>
 
 
