@@ -49,7 +49,7 @@ class ToolsDataManager extends ChangeNotifier {
   static const _powerTtl = Duration(days: 1);
   static const _jpTtl = Duration(hours: 3);
   static const _repairTtl = Duration(hours: 1);
-  static const _refreshCooldown = Duration(seconds: 60);
+  static const _refreshCooldown = Duration(minutes: 2);
 
   DateTime? _lastYktFetch;
   DateTime? _lastExamFetch;
