@@ -195,12 +195,17 @@ class DebugLogService {
           options.extra['_debugReqId'] = id;
           options.extra['_debugStart'] = DateTime.now().millisecondsSinceEpoch;
 
-          final headers = _summarizeHeaders(options.headers);
           log(
             DebugLogCategory.network,
             '#$id → ${options.method} ${_shortenUrl(options.uri.toString())}',
-            headers,
+            _summarizeHeaders(options.headers),
           );
+
+          final body = _truncateBody(options.data);
+          if (body.isNotEmpty) {
+            log(DebugLogCategory.network, '#$id → body', body);
+          }
+
           handler.next(options);
         },
         onResponse: (response, handler) {
@@ -211,7 +216,8 @@ class DebugLogService {
               start != null ? DateTime.now().millisecondsSinceEpoch - start : 0;
 
           final size = _estimateSize(response);
-          final detail = '${size}B  ${elapsed}ms';
+          final respHeaders = _summarizeResponseHeaders(response.headers);
+          final detail = '${size}B  ${elapsed}ms${respHeaders.isNotEmpty ? '  $respHeaders' : ''}';
 
           if (elapsed > 5000) {
             log(
@@ -226,6 +232,12 @@ class DebugLogService {
               detail,
             );
           }
+
+          final body = _truncateBody(response.data);
+          if (body.isNotEmpty) {
+            log(DebugLogCategory.network, '#$id ← body', body);
+          }
+
           handler.next(response);
         },
         onError: (error, handler) {
@@ -282,16 +294,38 @@ class DebugLogService {
 
   String _summarizeHeaders(Map<String, dynamic> headers) {
     final parts = <String>[];
-    final ct = headers['Content-Type'] ?? headers['content-type'];
-    if (ct != null) parts.add('CT: $ct');
-    final auth = headers['Authorization'] ?? headers['authorization'];
-    if (auth != null) parts.add('Auth: ***');
-    final cookie = headers['Cookie'] ?? headers['cookie'];
-    if (cookie != null) {
-      final count = cookie.toString().split(';').length;
-      parts.add('Cookies: $count');
+    for (final entry in headers.entries) {
+      final key = entry.key;
+      final kl = key.toLowerCase();
+      if (kl == 'authorization' || kl == 'cookie') {
+        parts.add('$key: ***');
+      } else {
+        parts.add('$key: ${entry.value}');
+      }
     }
     return parts.join(', ');
+  }
+
+  String _summarizeResponseHeaders(Headers headers) {
+    final parts = <String>[];
+    headers.forEach((name, values) {
+      final nl = name.toLowerCase();
+      if (nl == 'set-cookie') {
+        parts.add('Set-Cookie: ${values.length}个');
+      } else if (nl == 'content-type' || nl == 'location') {
+        parts.add('$name: ${values.join(', ')}');
+      }
+    });
+    return parts.join(', ');
+  }
+
+  static const _maxBodyLen = 1024;
+
+  String _truncateBody(dynamic data) {
+    if (data == null) return '';
+    final str = _redact(data.toString());
+    if (str.length <= _maxBodyLen) return str;
+    return '${str.substring(0, _maxBodyLen)}... [截断, 共${str.length}字符]';
   }
 
   int _estimateSize(Response response) {

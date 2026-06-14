@@ -146,18 +146,18 @@ class _CourseFormPageState extends State<CourseFormPage> {
             TextFormField(
               controller: _weeksCtrl,
               decoration: InputDecoration(
-                labelText: '周次 (例: 1-$semesterTotalWeeks)',
+                labelText: '周次 (例: 1-16,18)',
                 border: OutlineInputBorder(),
               ),
               validator: (v) {
                 return parseWeekRanges(
                           v ?? '',
-                          maxWeek: semesterTotalWeeks,
+                          maxWeek: 30,
                           emptyMeansAll: true,
                           allowParity: false,
                         ) ==
                         null
-                    ? '请输入1-$semesterTotalWeeks周，例如1-16,18'
+                    ? '格式: 1-16,18 (最大30周)'
                     : null;
               },
             ),
@@ -312,7 +312,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     );
     final weeks = parseWeekRanges(
       _weeksCtrl.text,
-      maxWeek: semesterTotalWeeks,
+      maxWeek: 30,
       emptyMeansAll: true,
       allowParity: false,
     );

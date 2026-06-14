@@ -5,6 +5,7 @@ import '../../providers/config_provider.dart';
 import '../../services/cas_service.dart';
 import '../../services/jp_service.dart';
 import '../../services/credential_storage.dart';
+import '../../services/debug_log_service.dart';
 import '../../utils/snackbar_helper.dart';
 
 class JpPage extends ConsumerStatefulWidget {
@@ -78,9 +79,11 @@ class _JpPageState extends ConsumerState<JpPage> {
     } on AuthException catch (e) {
       if (!mounted) return;
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, '查询失败');
+      DebugLogService.instance
+          .log(DebugLogCategory.error, '教师评价查询失败', '$e');
+      showAppSnackBar(context, '查询失败: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -123,17 +126,25 @@ class _JpPageState extends ConsumerState<JpPage> {
       }
       if (!mounted) return;
 
-      final msg = result.evaluated.isEmpty
-          ? '没有待评课程'
-          : '已评 ${result.evaluated.length} 门课';
-      showAppSnackBar(context, msg);
+      if (result.evaluated.isEmpty) {
+        final detail = result.skipped.isEmpty
+            ? '没有待评课程'
+            : '没有待评课程 (跳过${result.skipped.length}门)';
+        DebugLogService.instance.log(DebugLogCategory.action, '评教结果',
+            '已评=0, 跳过=${result.skipped.length}: ${result.skipped.join(', ')}');
+        showAppSnackBar(context, detail);
+      } else {
+        showAppSnackBar(context, '已评 ${result.evaluated.length} 门课');
+      }
       await _loadStatus();
     } on AuthException catch (e) {
       if (!mounted) return;
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      showAppSnackBar(context, '评教失败');
+      DebugLogService.instance
+          .log(DebugLogCategory.error, '评教失败', '$e');
+      showAppSnackBar(context, '评教失败: $e');
     } finally {
       if (mounted) setState(() => _isEvaluating = false);
     }
@@ -274,35 +285,11 @@ class _JpPageState extends ConsumerState<JpPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    task.taskName,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: task.status == '进行中'
-                        ? theme.colorScheme.primaryContainer
-                        : theme.colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    task.status,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: task.status == '进行中'
-                          ? theme.colorScheme.onPrimaryContainer
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
+            Text(
+              task.taskName,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
@@ -337,6 +324,27 @@ class _JpPageState extends ConsumerState<JpPage> {
                     ),
                   )),
             ],
+            Align(
+              alignment: Alignment.bottomRight,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: task.status == '进行中'
+                      ? theme.colorScheme.primaryContainer
+                      : theme.colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  task.status,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: task.status == '进行中'
+                        ? theme.colorScheme.onPrimaryContainer
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
       ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -49,10 +50,18 @@ class ToolsDataManager extends ChangeNotifier {
   static const _powerTtl = Duration(days: 1);
   static const _jpTtl = Duration(hours: 3);
   static const _repairTtl = Duration(hours: 1);
-  static const _refreshCooldown = Duration(minutes: 2);
+  static const _refreshCooldown = Duration(minutes: 10);
 
   DateTime? _lastYktFetch;
   DateTime? _lastExamFetch;
+
+  // ── Connectivity watch ──
+  StreamSubscription<List<ConnectivityResult>>? _connSub;
+  String? _savedStudentId;
+  String? _savedPassword;
+  PreferencesStorage? _savedPrefs;
+  String? _savedRoomId;
+  List<ConnectivityResult> _lastConnectivity = [];
 
   // ── Public API ──
 
@@ -69,6 +78,13 @@ class ToolsDataManager extends ChangeNotifier {
   }
 
   void clear() {
+    _connSub?.cancel();
+    _connSub = null;
+    _savedStudentId = null;
+    _savedPassword = null;
+    _savedPrefs = null;
+    _savedRoomId = null;
+    _lastConnectivity = [];
     power = null;
     powerLoading = false;
     powerError = null;
@@ -94,8 +110,22 @@ class ToolsDataManager extends ChangeNotifier {
     required PreferencesStorage prefs,
     String? roomId,
   }) async {
+    _savedStudentId = studentId;
+    _savedPassword = password;
+    _savedPrefs = prefs;
+    _savedRoomId = roomId;
+    _startConnectivityWatch();
+
     DebugLogService.instance
         .log(DebugLogCategory.action, '后台数据加载', '开始');
+
+    final hasNet = await checkInternetAvailable();
+    if (!hasNet) {
+      DebugLogService.instance
+          .log(DebugLogCategory.action, '后台数据加载', '无网络, 仅加载缓存');
+      _loadAllCaches(prefs);
+      return;
+    }
 
     final campusOk = await checkCampusNetwork();
 
@@ -127,6 +157,9 @@ class ToolsDataManager extends ChangeNotifier {
     required PreferencesStorage prefs,
     String? roomId,
   }) async {
+    final hasNet = await checkInternetAvailable();
+    if (!hasNet) return;
+
     final futures = <Future>[];
 
     if (roomId != null && roomId.isNotEmpty) {
@@ -147,18 +180,13 @@ class ToolsDataManager extends ChangeNotifier {
 
   // ── Campus network check ──
 
+  Future<bool> checkInternetAvailable() async {
+    final result = await Connectivity().checkConnectivity();
+    return !result.contains(ConnectivityResult.none);
+  }
+
   Future<bool> checkCampusNetwork() async {
     try {
-      final connectivity = await Connectivity().checkConnectivity();
-      final hasWifi = connectivity.contains(ConnectivityResult.wifi);
-      if (!hasWifi) {
-        DebugLogService.instance
-            .log(DebugLogCategory.action, '校园网检测', '未连接WiFi');
-        campusNetAvailable = false;
-        notifyListeners();
-        return false;
-      }
-
       final reachable = await _tcpPing('211.87.126.94', 80);
       campusNetAvailable = reachable;
       notifyListeners();
@@ -444,6 +472,87 @@ class ToolsDataManager extends ChangeNotifier {
       jpLoading = false;
       notifyListeners();
     }
+  }
+
+  void _loadAllCaches(PreferencesStorage prefs) {
+    final yktJson = prefs.getYktCache();
+    if (yktJson != null && ykt == null) {
+      ykt = YktDetailResult.fromJson(
+        jsonDecode(yktJson) as Map<String, dynamic>,
+      );
+    }
+    final powerJson = prefs.getPowerCache();
+    if (powerJson != null && power == null) {
+      power = PowerQueryData.fromJson(
+        jsonDecode(powerJson) as Map<String, dynamic>,
+      );
+    }
+    final examJson = prefs.getExamCache();
+    if (examJson != null && exams == null) {
+      exams = ExamResult.fromJson(
+        jsonDecode(examJson) as Map<String, dynamic>,
+      );
+    }
+    final repairJson = prefs.getRepairCache();
+    if (repairJson != null && repair == null) {
+      repair = RepairResult.fromJson(
+        jsonDecode(repairJson) as Map<String, dynamic>,
+      );
+    }
+    final netauthJson = prefs.getNetauthCache();
+    if (netauthJson != null && netAuth == null) {
+      netAuth = NetAuthResult.fromCache(
+        jsonDecode(netauthJson) as Map<String, dynamic>,
+      );
+    }
+    final jpJson = prefs.getJpCache();
+    if (jpJson != null && jp == null) {
+      jp = JpStatusResult.fromJson(
+        jsonDecode(jpJson) as Map<String, dynamic>,
+      );
+    }
+    notifyListeners();
+  }
+
+  // ── Connectivity watch ──
+
+  void _startConnectivityWatch() {
+    if (_connSub != null) return;
+    _connSub = Connectivity().onConnectivityChanged.listen(_onConnectivityChanged);
+  }
+
+  void _onConnectivityChanged(List<ConnectivityResult> current) {
+    final wasOffline = _lastConnectivity.isEmpty ||
+        _lastConnectivity.contains(ConnectivityResult.none);
+    final isOffline = current.contains(ConnectivityResult.none);
+    final changed = current.toSet().difference(_lastConnectivity.toSet()).isNotEmpty ||
+        _lastConnectivity.toSet().difference(current.toSet()).isNotEmpty;
+
+    _lastConnectivity = current;
+
+    if (isOffline || !changed) return;
+
+    final sid = _savedStudentId;
+    final pwd = _savedPassword;
+    final prefs = _savedPrefs;
+    if (sid == null || pwd == null || prefs == null) return;
+
+    DebugLogService.instance.log(
+      DebugLogCategory.action,
+      '网络变化',
+      '${wasOffline ? "恢复连接" : "切换网络"}, 重新加载数据',
+    );
+
+    _lastYktFetch = null;
+    _lastExamFetch = null;
+    campusNetAvailable = null;
+
+    startBackgroundLoading(
+      studentId: sid,
+      password: pwd,
+      prefs: prefs,
+      roomId: _savedRoomId,
+    );
   }
 
   // ── Helpers ──

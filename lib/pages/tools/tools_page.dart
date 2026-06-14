@@ -81,9 +81,25 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     required T? Function() getData,
     required Future<void> Function(String sid, String pwd, PreferencesStorage prefs) load,
     required Widget Function(T data, String sid, String pwd) buildPage,
+    bool requiresCampus = false,
   }) async {
     if (loading) return;
     DebugLogService.instance.log(DebugLogCategory.action, logLabel);
+
+    final hasNet = await _manager.checkInternetAvailable();
+    if (!hasNet) {
+      if (mounted) showAppSnackBar(context, '请连接网络');
+      return;
+    }
+
+    if (requiresCampus) {
+      final campusOk = await _manager.checkCampusNetwork();
+      if (!campusOk) {
+        if (mounted) showAppSnackBar(context, '请连接校园网');
+        return;
+      }
+    }
+
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
 
@@ -140,6 +156,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     logLabel: '打开教师评价',
     getData: () => _manager.jp,
     load: _manager.loadJp,
+    requiresCampus: true,
     buildPage: (data, _, _) => JpPage(result: data),
   );
 
@@ -149,6 +166,12 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
       showAppSnackBar(context, '此功能需登录使用');
+      return;
+    }
+
+    final hasNet = await _manager.checkInternetAvailable();
+    if (!hasNet) {
+      if (mounted) showAppSnackBar(context, '请连接网络');
       return;
     }
 
@@ -440,6 +463,33 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final campusError =
         _manager.campusNetAvailable == false && data == null && hasRoom;
 
+    String statusText;
+    TextStyle? statusStyle;
+    if (!hasRoom) {
+      statusText = '请先在「我的」中设置宿舍号';
+      statusStyle = theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+    } else if (campusError) {
+      statusText = '请连接校园网';
+      statusStyle = theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.error,
+      );
+    } else if (data != null) {
+      statusText = '${data.available} 度';
+      statusStyle = theme.textTheme.titleMedium?.copyWith(
+        fontWeight: FontWeight.w700,
+      );
+    } else if (_manager.powerLoading) {
+      statusText = '';
+      statusStyle = null;
+    } else {
+      statusText = '暂无数据，点击刷新';
+      statusStyle = theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
+      );
+    }
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -452,78 +502,50 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                         PowerQueryPage(result: data, roomId: roomId),
                   ),
                 )
-            : null,
+            : hasRoom && !campusError && !_manager.powerLoading
+                ? _refreshPower
+                : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
               Expanded(
-                child: !hasRoom
-                    ? Text(
-                        '请先在「我的」中设置宿舍号',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '电费查询',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (_manager.powerLoading && hasRoom)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 6),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    : campusError
-                        ? Text(
-                            '请连接校园网',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.error,
-                            ),
-                          )
-                        : data != null
-                            ? Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '电费查询',
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${data.available} 度',
-                                    style:
-                                        theme.textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : _manager.powerLoading
-                                ? Text(
-                                    '电费查询',
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  )
-                                : Text(
-                                    '暂无数据，点击刷新',
-                                    style:
-                                        theme.textTheme.bodyMedium?.copyWith(
-                                      color:
-                                          theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
+                    else if (statusText.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        statusText,
+                        style: statusStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
               ),
-              if (hasRoom && _manager.powerLoading)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (hasRoom && data != null)
+              if (hasRoom && data != null)
                 Icon(
                   Icons.chevron_right,
                   color: theme.colorScheme.onSurfaceVariant,
                 )
-              else if (hasRoom && !campusError)
+              else if (hasRoom && !campusError && !_manager.powerLoading)
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
                   onPressed: _refreshPower,
@@ -536,4 +558,5 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       ),
     );
   }
+
 }

@@ -20,7 +20,7 @@ const hqglSystemId = 'AEC93905F80DCC25';
 
 const netAuthBaseUrl = 'http://211.87.126.147:8080/Self';
 
-const requestTimeout = Duration(seconds: 10);
+const requestTimeout = Duration(seconds: 20);
 
 const kUserAgent =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '

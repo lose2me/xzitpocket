@@ -14,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/upgrade_config.dart';
 import '../models/update_info.dart';
+import 'report_service.dart';
 
 class UpdateCheckResult {
   final bool hasUpdate;
@@ -168,12 +169,19 @@ class UpdateService {
     final targetFile = await _resolveTargetApkFile(updateInfo);
 
     if (!await _isReusableApk(targetFile)) {
-      await _downloadApk(
-        updateInfo,
-        targetFile,
-        onProgress: onProgress,
-        cancelToken: cancelToken,
-      );
+      try {
+        await _downloadApk(
+          updateInfo,
+          targetFile,
+          onProgress: onProgress,
+          cancelToken: cancelToken,
+        );
+        ReportService.reportUpgradeDownload(updateInfo.versionCode, 0);
+      } on UpdateException catch (e) {
+        final code = e.message.contains('超时') ? 1001 : 1;
+        ReportService.reportUpgradeDownload(updateInfo.versionCode, code);
+        rethrow;
+      }
     } else {
       final cachedSize = await targetFile.length();
       onProgress(
@@ -197,12 +205,13 @@ class UpdateService {
       ),
     );
 
-    if (!await _canRequestPackageInstalls()) {
-      await _openInstallUnknownSourcesSettings();
+    if (!await canInstallPackages()) {
+      await requestInstallPermission();
       throw const UpdateException('请允许本应用安装未知应用后重试');
     }
 
     await _installApk(targetFile.path);
+    ReportService.reportUpgradeUpgrade(updateInfo.versionCode, 0);
   }
 
   static Future<void> _downloadApk(
@@ -293,11 +302,6 @@ class UpdateService {
       throw UpdateException(e.message ?? '无法打开安装权限设置');
     }
   }
-
-  static Future<bool> _canRequestPackageInstalls() => canInstallPackages();
-
-  static Future<void> _openInstallUnknownSourcesSettings() =>
-      requestInstallPermission();
 
   static Future<void> _installApk(String filePath) async {
     try {

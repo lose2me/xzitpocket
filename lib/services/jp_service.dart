@@ -1,14 +1,15 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'package:dio/io.dart';
 import 'package:pointycastle/export.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
+import 'debug_log_service.dart';
+import 'dio_factory.dart';
 
 const _aggPublicKeyB64 =
     'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDBKw11ggtOzD1XfvcicMM3EIUg'
@@ -142,6 +143,13 @@ class JpService {
     if (r2.statusCode != 200) throw AuthException('聚合平台登录失败');
   }
 
+  Dio _createZlbzDio() => DioFactory.createNaked(
+        cookieJar: CookieJar(),
+        connectTimeout: requestTimeout,
+        receiveTimeout: requestTimeout,
+        ignoreCertificate: true,
+      );
+
   Future<String> _ssoToZlbz4(String username) async {
     final payload = jsonEncode({
       'userCode': username,
@@ -150,17 +158,7 @@ class JpService {
     });
     final encryptedCode = _pkcs1Encrypt(payload, _aggPublicKeyB64);
 
-    final dio = Dio(BaseOptions(
-      connectTimeout: requestTimeout,
-      receiveTimeout: requestTimeout,
-    ));
-    dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient();
-        client.badCertificateCallback = (_, _, _) => true;
-        return client;
-      },
-    );
+    final dio = _createZlbzDio();
 
     try {
       final r = await dio.get(
@@ -204,15 +202,17 @@ class JpService {
 
   Future<JpStatusResult> queryStatus(String username, String password) async {
     final token = await _jpLogin(username, password);
+    final dio = _createZlbzDio();
 
-    final (sfwc, tasks) = await _getTaskData(token);
-    if (tasks.isEmpty) return const JpStatusResult(tasks: []);
+    try {
+      final (sfwc, tasks) = await _getTaskData(dio, token);
+      if (tasks.isEmpty) return const JpStatusResult(tasks: []);
 
-    final result = <JpTask>[];
-    for (final task in tasks) {
-      final taskId = '${task['taskid'] ?? ''}';
-      final stat = sfwc[taskId] ?? <String, dynamic>{};
-      final courses = await _getStudentCourses(token, taskId);
+      final result = <JpTask>[];
+      for (final task in tasks) {
+        final taskId = '${task['taskid'] ?? ''}';
+        final stat = sfwc[taskId] ?? <String, dynamic>{};
+        final courses = await _getStudentCourses(dio, token, taskId);
       final pending = courses.where((c) => c['hassubmit'] != 1).length;
       final done = courses.where((c) => c['hassubmit'] == 1).length;
 
@@ -236,15 +236,32 @@ class JpService {
       ));
     }
     return JpStatusResult(tasks: result);
+    } finally {
+      dio.close(force: true);
+    }
   }
 
   Future<JpAutoResult> autoEvaluate(String username, String password) async {
+    final logger = DebugLogService.instance;
+    logger.log(DebugLogCategory.action, '评教', '开始自动评教');
+
     final token = await _jpLogin(username, password);
-    final tasks = await _getTaskList(token);
+    logger.log(DebugLogCategory.action, '评教', '登录成功, token长度=${token.length}');
+
+    final dio = _createZlbzDio();
+    try {
+    final (_, tasks) = await _getTaskData(dio, token);
+    logger.log(DebugLogCategory.action, '评教',
+        '获取到 ${tasks.length} 个任务: ${tasks.map((t) => '${t['taskname']}[${t['currentStatus']}]').join(', ')}');
     if (tasks.isEmpty) throw AuthException('没有评教任务');
 
     var active = tasks.where((t) => t['currentStatus'] == '进行中').toList();
-    if (active.isEmpty) active = tasks;
+    if (active.isEmpty) {
+      logger.log(DebugLogCategory.action, '评教', '无进行中任务, 使用全部任务');
+      active = tasks;
+    } else {
+      logger.log(DebugLogCategory.action, '评教', '筛选到 ${active.length} 个进行中任务');
+    }
 
     final evaluated = <String>[];
     final skipped = <String>[];
@@ -252,41 +269,72 @@ class JpService {
     for (final task in active) {
       final taskId = '${task['taskid'] ?? ''}';
       final indexId = '${task['indexid'] ?? ''}';
-      final courses = await _getStudentCourses(token, taskId);
+      logger.log(DebugLogCategory.action, '评教',
+          '处理任务: ${task['taskname']}, taskId=$taskId, indexId=$indexId');
+
+      final courses = await _getStudentCourses(dio, token, taskId);
+      logger.log(DebugLogCategory.action, '评教',
+          '任务 $taskId 获取到 ${courses.length} 门课程');
 
       for (final course in courses) {
         final label =
             '${course['coursename'] ?? ''}(${course['teachername'] ?? ''})';
+        final hassubmit = course['hassubmit'];
+        final zt = course['zt'];
+        logger.log(DebugLogCategory.action, '评教',
+            '课程: $label, hassubmit=$hassubmit(${hassubmit.runtimeType}), zt=$zt');
 
         if (course['hassubmit'] == 1 || course['zt'] == 'yjs') {
           skipped.add(label);
+          logger.log(DebugLogCategory.action, '评教', '跳过(已提交): $label');
           continue;
         }
 
         final pjcoursetype = '${course['pjcoursetype'] ?? ''}';
-        final indexTree = await _getIndexSystem(token, indexId, pjcoursetype);
+        logger.log(DebugLogCategory.action, '评教',
+            '获取指标体系: indexId=$indexId, pjcoursetype=$pjcoursetype');
+        final indexTree = await _getIndexSystem(dio, token, indexId, pjcoursetype);
         if (indexTree.isEmpty) {
           skipped.add('$label(无指标)');
+          logger.log(DebugLogCategory.error, '评教', '跳过(无指标体系): $label');
           continue;
         }
 
         final indicators = _flattenIndicators(indexTree);
+        logger.log(DebugLogCategory.action, '评教',
+            '展开指标: ${indicators.length} 个叶子节点');
         if (indicators.isEmpty) {
           skipped.add('$label(指标为空)');
+          logger.log(DebugLogCategory.error, '评教', '跳过(指标为空): $label');
           continue;
         }
 
-        final ok = await _submitEvaluation(token, task, course, indicators);
-        (ok ? evaluated : skipped).add(ok ? label : '$label(提交失败)');
+        final (ok, serverMsg) = await _submitEvaluation(dio, token, task, course, indicators);
+        logger.log(ok ? DebugLogCategory.action : DebugLogCategory.error,
+            '评教', '提交${ok ? '成功' : '失败'}: $label${serverMsg != null ? ' ($serverMsg)' : ''}');
+        if (ok) {
+          evaluated.add(label);
+        } else {
+          skipped.add('$label(提交失败)');
+          if (serverMsg != null) {
+            throw Exception(serverMsg);
+          }
+        }
       }
     }
 
+    logger.log(DebugLogCategory.action, '评教',
+        '完成: 已评=${evaluated.length}, 跳过=${skipped.length}');
     return JpAutoResult(evaluated: evaluated, skipped: skipped);
+    } finally {
+      dio.close(force: true);
+    }
   }
 
   // ── API helpers ──
 
   Future<Response> _apiPost(
+    Dio dio,
     String token,
     String path, {
     Map<String, dynamic>? queryParams,
@@ -298,18 +346,6 @@ class JpService {
       'Referer': '$zlbzFrontendUrl/',
     };
     if (jsonBody) headers['Content-Type'] = 'application/json;charset=utf-8';
-
-    final dio = Dio(BaseOptions(
-      connectTimeout: requestTimeout,
-      receiveTimeout: requestTimeout,
-    ));
-    dio.httpClientAdapter = IOHttpClientAdapter(
-      createHttpClient: () {
-        final client = HttpClient();
-        client.badCertificateCallback = (_, _, _) => true;
-        return client;
-      },
-    );
 
     return dio.post(
       '$zlbzFrontendUrl/api$path',
@@ -323,10 +359,13 @@ class JpService {
   }
 
   Future<(Map<String, Map<String, dynamic>>, List<Map<String, dynamic>>)>
-      _getTaskData(String token) async {
-    final r = await _apiPost(token, '/xspj/xspj/getXspjtask', queryParams: {});
+      _getTaskData(Dio dio, String token) async {
+    final r = await _apiPost(dio, token, '/xspj/xspj/getXspjtask', queryParams: {});
+    final logger = DebugLogService.instance;
+    logger.log(DebugLogCategory.network, '评教API', 'getXspjtask status=${r.statusCode}');
     if (r.statusCode != 200) return (<String, Map<String, dynamic>>{}, <Map<String, dynamic>>[]);
     final body = r.data as Map<String, dynamic>?;
+    logger.log(DebugLogCategory.network, '评教API', 'getXspjtask code=${body?['code']}, msg=${body?['msg'] ?? ''}');
     if (body == null || body['code'] != 200) return (<String, Map<String, dynamic>>{}, <Map<String, dynamic>>[]);
     final data = (body['data'] as Map<String, dynamic>?) ?? {};
     final sfwcList = (data['taskSfwc'] as List?) ?? [];
@@ -338,42 +377,57 @@ class JpService {
     return (sfwc, tasks);
   }
 
-  Future<List<Map<String, dynamic>>> _getTaskList(String token) async {
-    final (_, tasks) = await _getTaskData(token);
-    return tasks;
-  }
-
   Future<List<Map<String, dynamic>>> _getStudentCourses(
+    Dio dio,
     String token,
     String taskId,
   ) async {
     final r = await _apiPost(
+      dio,
       token,
       '/xspj/xspj/getXspjStudentCourses',
       queryParams: {'taskid': taskId},
     );
+    final logger = DebugLogService.instance;
+    logger.log(DebugLogCategory.network, '评教API',
+        'getStudentCourses($taskId) status=${r.statusCode}');
     if (r.statusCode != 200) return [];
     final body = r.data as Map<String, dynamic>?;
+    logger.log(DebugLogCategory.network, '评教API',
+        'getStudentCourses code=${body?['code']}, msg=${body?['msg'] ?? ''}');
     if (body == null || body['code'] != 200) return [];
-    return ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
+    final list = ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
         .cast<Map<String, dynamic>>();
+    logger.log(DebugLogCategory.network, '评教API',
+        'getStudentCourses 返回 ${list.length} 门课');
+    return list;
   }
 
   Future<List<Map<String, dynamic>>> _getIndexSystem(
+    Dio dio,
     String token,
     String indexId,
     String pjcoursetype,
   ) async {
     final r = await _apiPost(
+      dio,
       token,
       '/xspj/xspj/getXspjTindexSystem',
       queryParams: {'indexid': indexId, 'pjcoursetype': pjcoursetype},
     );
+    final logger = DebugLogService.instance;
+    logger.log(DebugLogCategory.network, '评教API',
+        'getIndexSystem($indexId, $pjcoursetype) status=${r.statusCode}');
     if (r.statusCode != 200) return [];
     final body = r.data as Map<String, dynamic>?;
+    logger.log(DebugLogCategory.network, '评教API',
+        'getIndexSystem code=${body?['code']}, msg=${body?['msg'] ?? ''}');
     if (body == null || body['code'] != 200) return [];
-    return ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
+    final list = ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
         .cast<Map<String, dynamic>>();
+    logger.log(DebugLogCategory.network, '评教API',
+        'getIndexSystem 返回 ${list.length} 个指标节点');
+    return list;
   }
 
   List<Map<String, dynamic>> _flattenIndicators(List<Map<String, dynamic>> tree) {
@@ -457,7 +511,8 @@ class JpService {
     });
   }
 
-  Future<bool> _submitEvaluation(
+  Future<(bool, String?)> _submitEvaluation(
+    Dio dio,
     String token,
     Map<String, dynamic> task,
     Map<String, dynamic> course,
@@ -488,15 +543,28 @@ class JpService {
     };
     if (course['pjjgid'] != null) payload['tevaluateResultid'] = course['pjjgid'];
 
+    final logger = DebugLogService.instance;
+    logger.log(DebugLogCategory.network, '评教API',
+        'submitEvaluation: ${course['coursename']}, totalScore=$totalScore, '
+        'evalResults=${evalResults.length}项');
+
     final r = await _apiPost(
+      dio,
       token,
       '/xspj/xspj/saveStudentComment',
       queryParams: {},
       data: jsonEncode([payload]),
       jsonBody: true,
     );
-    if (r.statusCode != 200) return false;
-    return (r.data as Map<String, dynamic>?)?['code'] == 200;
+
+    final body = r.data as Map<String, dynamic>?;
+    final code = body?['code'];
+    final msg = (body?['message'] ?? body?['msg'] ?? '') as String;
+    logger.log(DebugLogCategory.network, '评教API',
+        'submitEvaluation status=${r.statusCode}, code=$code, msg=$msg');
+    if (r.statusCode != 200) return (false, 'HTTP ${r.statusCode}');
+    if (code == 200) return (true, null);
+    return (false, msg.isNotEmpty ? msg : '服务器错误($code)');
   }
 
   static String _pad(int n) => n.toString().padLeft(2, '0');

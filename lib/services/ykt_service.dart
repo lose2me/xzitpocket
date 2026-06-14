@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
+import 'debug_log_service.dart';
 
 class YktBalanceResult {
   final String balance;
@@ -134,8 +134,8 @@ class YktService {
             validateStatus: (s) => s != null && s < 500,
           ),
         );
-        debugPrint('YKT txn status: ${tr.statusCode}');
-        debugPrint('YKT txn data: ${tr.data}');
+        DebugLogService.instance.log(DebugLogCategory.network, '一卡通流水', 'status=${tr.statusCode}');
+        DebugLogService.instance.log(DebugLogCategory.network, '一卡通流水', 'data=${tr.data}');
         txnError = 'HTTP ${tr.statusCode}: ${tr.data}';
         if (tr.statusCode == 200 && tr.data is Map<String, dynamic>) {
           final trData = tr.data as Map<String, dynamic>;
@@ -155,7 +155,7 @@ class YktService {
           }
         }
       } catch (e) {
-        debugPrint('YKT txn error: $e');
+        DebugLogService.instance.log(DebugLogCategory.error, '一卡通流水异常', '$e');
         txnError = '$e';
       }
 

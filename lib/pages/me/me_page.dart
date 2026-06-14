@@ -134,240 +134,207 @@ class MePageState extends ConsumerState<MePage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 18, 16, 22),
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SectionLabel(title: '用户信息'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SettingsCard(
-              children: [
-                _SettingsTile(
-                  icon: Icons.badge_outlined,
-                  title: '学号',
-                  value: config.studentId ?? '',
-                ),
-                _SettingsTile(
-                  icon: Icons.person_outline,
-                  title: '姓名',
-                  value: config.studentName ?? '',
-                ),
-              ],
-            ),
+          _SectionLabel(title: '用户信息'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.badge_outlined,
+                title: '学号',
+                value: config.studentId ?? '',
+              ),
+              _SettingsTile(
+                icon: Icons.person_outline,
+                title: '姓名',
+                value: config.studentName ?? '',
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SectionLabel(title: '补充信息'),
+          _SectionLabel(title: '补充信息'),
+          _SettingsCard(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.apartment_outlined, size: 23, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: 16),
+                    Text(
+                      '宿舍号',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Spacer(),
+                    SizedBox(
+                      width: 80,
+                      child: TextField(
+                        controller: _roomIdController,
+                        textCapitalization: TextCapitalization.characters,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge,
+                        decoration: InputDecoration(
+                          hintText: '未设置',
+                          hintStyle: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                          ),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.outlineVariant,
+                            ),
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                        ),
+                        onSubmitted: (_) => _submitRoomId(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_isValidatingRoom)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      IconButton(
+                        icon: Icon(
+                          Icons.save_outlined,
+                          size: 20,
+                          color: theme.colorScheme.primary,
+                        ),
+                        onPressed: _submitRoomId,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SettingsCard(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.apartment_outlined, size: 23, color: theme.colorScheme.onSurface),
-                      const SizedBox(width: 16),
-                      Text(
-                        '宿舍号',
+          const SizedBox(height: 16),
+          _SectionLabel(title: '课表'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.do_not_disturb_on_outlined,
+                title: '课堂勿扰',
+                value: _automationLabel(settings.classAutomationMode),
+                onTap: () =>
+                    _openAutomationSheet(settings.classAutomationMode),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.visibility_outlined, size: 23, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        '显示非本周课程',
                         style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w400,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      const Spacer(),
-                      SizedBox(
-                        width: 80,
-                        child: TextField(
-                          controller: _roomIdController,
-                          textCapitalization: TextCapitalization.characters,
-                          textAlign: TextAlign.start,
-                          style: theme.textTheme.bodyLarge,
-                          decoration: InputDecoration(
-                            hintText: '未设置',
-                            hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
-                            ),
-                            enabledBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.outlineVariant,
-                              ),
-                            ),
-                            focusedBorder: UnderlineInputBorder(
-                              borderSide: BorderSide(
-                                color: theme.colorScheme.primary,
-                              ),
-                            ),
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                          ),
-                          onSubmitted: (_) => _submitRoomId(),
+                    ),
+                    Checkbox(
+                      value: showNonCurrentWeekCourses,
+                      onChanged: (v) => _updateShowNonCurrentWeekCourses(v ?? false),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                child: Row(
+                  children: [
+                    Icon(Icons.view_week_outlined, size: 23, color: theme.colorScheme.onSurface),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        '隐藏周末网格',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      if (_isValidatingRoom)
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      else
-                        IconButton(
-                          icon: Icon(
-                            Icons.save_outlined,
-                            size: 20,
-                            color: theme.colorScheme.primary,
-                          ),
-                          onPressed: _submitRoomId,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                    ],
-                  ),
+                    ),
+                    Checkbox(
+                      value: !showWeekendColumns,
+                      onChanged: (v) => ref.read(showWeekendColumnsProvider.notifier).set(!(v ?? false)),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SectionLabel(title: '课表'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SettingsCard(
-              children: [
-                _SettingsTile(
-                  icon: Icons.do_not_disturb_on_outlined,
-                  title: '课堂勿扰',
-                  value: _automationLabel(settings.classAutomationMode),
-                  onTap: () =>
-                      _openAutomationSheet(settings.classAutomationMode),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.visibility_outlined, size: 23, color: theme.colorScheme.onSurface),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          '显示非本周课程',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Checkbox(
-                        value: showNonCurrentWeekCourses,
-                        onChanged: (v) => _updateShowNonCurrentWeekCourses(v ?? false),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                  child: Row(
-                    children: [
-                      Icon(Icons.view_week_outlined, size: 23, color: theme.colorScheme.onSurface),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          '隐藏周末网格',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      Checkbox(
-                        value: !showWeekendColumns,
-                        onChanged: (v) => ref.read(showWeekendColumnsProvider.notifier).set(!(v ?? false)),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _SectionLabel(title: '外观'),
+          _SettingsCard(
+            children: [
+              _SettingsTile(
+                icon: Icons.palette_outlined,
+                title: '主题模式',
+                value: _themeTitle(settings.themePreference),
+                onTap: () => _openThemeSheet(settings.themePreference),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SectionLabel(title: '外观'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SettingsCard(
-              children: [
-                _SettingsTile(
-                  icon: Icons.palette_outlined,
-                  title: '主题模式',
-                  value: _themeTitle(settings.themePreference),
-                  onTap: () => _openThemeSheet(settings.themePreference),
+          _SectionLabel(title: '软件信息'),
+          _SettingsCard(
+            children: [
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snapshot) {
+                  final version = snapshot.data?.version ?? '';
+                  return _SettingsTile(
+                    icon: Icons.system_update_outlined,
+                    title: '版本更新',
+                    value: version,
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const _VersionPage()),
+                    ),
+                  );
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.bug_report_outlined,
+                title: '调试模式',
+                value: DebugLogService.instance.enabled ? '已开启' : '关闭',
+                onTap: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DebugPage()),
+                  );
+                  setState(() {});
+                },
+              ),
+              _SettingsTile(
+                icon: Icons.description_outlined,
+                title: '开源许可证',
+                onTap: () => showLicensePage(
+                  context: context,
+                  applicationName: '掌上徐工',
+                  applicationLegalese: 'GPL-3.0 License',
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SectionLabel(title: '软件信息'),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _SettingsCard(
-              children: [
-                FutureBuilder<PackageInfo>(
-                  future: PackageInfo.fromPlatform(),
-                  builder: (context, snapshot) {
-                    final version = snapshot.data?.version ?? '';
-                    return _SettingsTile(
-                      icon: Icons.system_update_outlined,
-                      title: '版本更新',
-                      value: version,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const _VersionPage()),
-                      ),
-                    );
-                  },
-                ),
-                _SettingsTile(
-                  icon: Icons.bug_report_outlined,
-                  title: '调试模式',
-                  value: DebugLogService.instance.enabled ? '已开启' : '关闭',
-                  onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const DebugPage()),
-                    );
-                    setState(() {});
-                  },
-                ),
-                _SettingsTile(
-                  icon: Icons.description_outlined,
-                  title: '开源许可证',
-                  onTap: () => showLicensePage(
-                    context: context,
-                    applicationName: '掌上徐工',
-                    applicationLegalese: 'GPL-3.0 License',
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: OutlinedButton.icon(
-                onPressed: () => _logout(context),
-                icon: const Icon(Icons.logout, color: Colors.red),
-                label: const Text(
-                  '退出登录',
-                  style: TextStyle(color: Colors.red),
-                ),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: () => _logout(context),
+              icon: const Icon(Icons.logout, color: Colors.red),
+              label: const Text(
+                '退出登录',
+                style: TextStyle(color: Colors.red),
               ),
             ),
           ),
