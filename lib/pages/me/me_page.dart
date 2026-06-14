@@ -1620,35 +1620,6 @@ class _VersionPageState extends State<_VersionPage> {
               label: const Text('重试'),
             ),
           ] else if (hasUpdate) ...[
-            if (updateInfo!.releaseNotes.trim().isNotEmpty) ...[
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '更新说明',
-                  style: theme.textTheme.titleSmall,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                constraints: const BoxConstraints(minHeight: 120),
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest.withAlpha(40),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withAlpha(100),
-                  ),
-                ),
-                child: Text(
-                  updateInfo.releaseNotes.trim(),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-            ],
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
