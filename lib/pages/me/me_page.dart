@@ -28,11 +28,13 @@ import 'debug_page.dart';
 class MePage extends ConsumerStatefulWidget {
   const MePage({super.key});
 
+  static final globalKey = GlobalKey<MePageState>();
+
   @override
-  ConsumerState<MePage> createState() => _MePageState();
+  ConsumerState<MePage> createState() => MePageState();
 }
 
-class _MePageState extends ConsumerState<MePage> {
+class MePageState extends ConsumerState<MePage> {
   final _formKey = GlobalKey<FormState>();
   final _sidCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
@@ -56,6 +58,7 @@ class _MePageState extends ConsumerState<MePage> {
   final _roomIdController = TextEditingController();
   bool _roomIdInitialized = false;
   bool _isValidatingRoom = false;
+  bool _isLoggingIn = false;
 
   @override
   void dispose() {
@@ -71,6 +74,14 @@ class _MePageState extends ConsumerState<MePage> {
     super.dispose();
   }
 
+  void resetUnsavedRoomId() {
+    final saved = ref.read(savedRoomIdProvider) ?? '';
+    if (_roomIdController.text.trim() != saved) {
+      _roomIdController.text = saved;
+    }
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -78,7 +89,7 @@ class _MePageState extends ConsumerState<MePage> {
     final isLoggedIn =
         config.studentId != null && config.studentId!.isNotEmpty;
 
-    if (!isLoggedIn) {
+    if (!isLoggedIn || _isLoggingIn) {
       return Scaffold(
         body: SafeArea(child: _buildLoginForm(theme)),
       );
@@ -172,7 +183,7 @@ class _MePageState extends ConsumerState<MePage> {
                         child: TextField(
                           controller: _roomIdController,
                           textCapitalization: TextCapitalization.characters,
-                          textAlign: TextAlign.end,
+                          textAlign: TextAlign.start,
                           style: theme.textTheme.bodyLarge,
                           decoration: InputDecoration(
                             hintText: '未设置',
@@ -332,6 +343,15 @@ class _MePageState extends ConsumerState<MePage> {
                     setState(() {});
                   },
                 ),
+                _SettingsTile(
+                  icon: Icons.description_outlined,
+                  title: '开源许可证',
+                  onTap: () => showLicensePage(
+                    context: context,
+                    applicationName: '掌上徐工',
+                    applicationLegalese: 'GPL-3.0 License',
+                  ),
+                ),
               ],
             ),
           ),
@@ -360,7 +380,7 @@ class _MePageState extends ConsumerState<MePage> {
 
   Widget _buildLoginForm(ThemeData theme) {
     final authState = ref.watch(authProvider);
-    final isLoading = authState.status == AuthStatus.loading;
+    final isLoading = _isLoggingIn || authState.status == AuthStatus.loading;
     final buttons = _buildSegmentedButtons(theme, authState, isLoading);
 
     return Column(
@@ -822,6 +842,8 @@ class _MePageState extends ConsumerState<MePage> {
     final sid = _sidCtrl.text.trim();
     final pwd = _pwdCtrl.text;
 
+    setState(() => _isLoggingIn = true);
+
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
     _pwdCtrl.clear();
     if (result != null) {
@@ -841,12 +863,14 @@ class _MePageState extends ConsumerState<MePage> {
             );
       } on WidgetSyncException catch (e) {
         if (mounted) {
+          setState(() => _isLoggingIn = false);
           showAppSnackBar(context, '登录成功，但$e');
         }
         return;
       }
 
       if (mounted) {
+        setState(() => _isLoggingIn = false);
         showAppSnackBar(context, '登录成功');
         HomePage.globalKey.currentState?.switchToTimetable();
       }
@@ -859,6 +883,7 @@ class _MePageState extends ConsumerState<MePage> {
         roomId: prefs.getSavedPowerRoomId(),
       );
     } else if (mounted) {
+      setState(() => _isLoggingIn = false);
       final authState = ref.read(authProvider);
       showAppSnackBar(context, authState.errorMessage ?? '登录失败');
     }

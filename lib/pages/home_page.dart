@@ -41,7 +41,7 @@ class HomePageState extends State<HomePage> {
             child: TimetablePage(key: TimetablePage.globalKey),
           ),
           ToolsPage(key: ToolsPage.globalKey),
-          const MePage(),
+          MePage(key: MePage.globalKey),
         ],
       ),
       bottomNavigationBar: Theme(
@@ -78,6 +78,9 @@ class HomePageState extends State<HomePage> {
           labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
           selectedIndex: _currentIndex,
           onDestinationSelected: (i) {
+            if (_currentIndex == 2 && i != 2) {
+              MePage.globalKey.currentState?.resetUnsavedRoomId();
+            }
             setState(() => _currentIndex = i);
             if (i == 1) {
               ToolsPage.globalKey.currentState?.refreshData();
