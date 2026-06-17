@@ -71,7 +71,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void jumpToCurrentWeek() {
-    final week = currentWeek(semesterStartDate).clamp(1, semesterTotalWeeks);
+    final maxWeek = _maxDisplayWeek();
+    final week = currentWeek(semesterStartDate).clamp(1, maxWeek);
     if (_pageController.hasClients) {
       _pageController.jumpToPage(week - 1);
     }
@@ -82,6 +83,17 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     if (mounted) {
       setState(() {});
     }
+  }
+
+  int _maxDisplayWeek() {
+    final courses = ref.read(scheduleProvider).value ?? [];
+    int max = semesterTotalWeeks;
+    for (final c in courses) {
+      for (final w in c.weeks) {
+        if (w > max) max = w;
+      }
+    }
+    return max;
   }
 
   Future<void> _onSync() async {
@@ -189,7 +201,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                   return PageView.builder(
                     controller: _pageController,
                     physics: const _LessSensitivePagePhysics(),
-                    itemCount: semesterTotalWeeks,
+                    itemCount: _maxDisplayWeek(),
                     onPageChanged: (page) {
                       ref.read(selectedWeekProvider.notifier).set(page + 1);
                     },
