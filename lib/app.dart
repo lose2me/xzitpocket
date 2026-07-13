@@ -67,7 +67,6 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       await WidgetService.updateWidget(
         courses: widget.courseStorage.getCourses(),
         semesterStart: semesterStartDate,
-        semesterTotalWeeks: semesterTotalWeeks,
       );
     } on WidgetSyncException catch (e) {
       debugPrint('Widget sync on resume failed: $e');

@@ -1,6 +1,7 @@
 const casBaseUrl = 'https://ca.xzit.edu.cn/cas';
 const casLoginPath = '/login';
 const casPubKeyPath = '/v2/getPubKey';
+const casRestPath = '/v1/tickets';
 
 const imBaseUrl = 'http://ca.xzit.edu.cn:81/im';
 const findPwdUrl = '$imBaseUrl/V3/securitycenter/findPwd/';

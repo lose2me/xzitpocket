@@ -118,9 +118,37 @@ class JpAutoResult {
 
 class JpService {
   Future<String> _jpLogin(String username, String password) async {
-    final session = await CasService().loginCas(username, password);
-    final dio = session.dio;
+    final cas = CasService();
 
+    // REST path: get ST for AGG, skip CAS redirect chain
+    final st = await cas.getServiceTicket(
+      username, password, '$aggBaseUrl8080/loginSSO/',
+    );
+    if (st != null) {
+      final dio = _createZlbzDio();
+      try {
+        final r = await followRedirectsManually(
+          dio, '$aggBaseUrl8080/loginSSO/?ticket=$st',
+        );
+        if (r.statusCode != 200) throw AuthException('聚合平台登录失败');
+
+        final m = RegExp(r"var userCode = '([^']+)'").firstMatch(r.data ?? '');
+        if (m == null) throw AuthException('聚合平台登录失败');
+
+        final r2 = await followRedirectsManually(
+          dio,
+          '$aggBaseUrl8070/loginSSO?code=${Uri.encodeComponent(m.group(1)!)}',
+        );
+        if (r2.statusCode != 200) throw AuthException('聚合平台登录失败');
+      } finally {
+        dio.close(force: true);
+      }
+      return await _ssoToZlbz4(username);
+    }
+
+    // Fallback: HTML CAS login with cookies
+    final session = await cas.loginCas(username, password);
+    final dio = session.dio;
     try {
       await _ssoToAggregation(dio);
       return await _ssoToZlbz4(username);

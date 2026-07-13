@@ -42,7 +42,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     super.initState();
     final initialWeek = currentWeek(
       semesterStartDate,
-    ).clamp(1, semesterTotalWeeks);
+    ).clamp(1, _maxDisplayWeek());
     _pageController = PageController(initialPage: initialWeek - 1);
     _conflictCountdownController = AnimationController(
       vsync: this,
@@ -57,7 +57,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     });
     _conflictCountdownController.repeat();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (initialWeek > 0 && initialWeek <= semesterTotalWeeks) {
+      if (initialWeek > 0) {
         ref.read(selectedWeekProvider.notifier).set(initialWeek);
       }
     });
@@ -87,7 +87,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   int _maxDisplayWeek() {
     final courses = ref.read(scheduleProvider).value ?? [];
-    int max = semesterTotalWeeks;
+    int max = currentWeek(semesterStartDate).clamp(1, 52);
     for (final c in courses) {
       for (final w in c.weeks) {
         if (w > max) max = w;
@@ -207,6 +207,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     },
                     itemBuilder: (context, index) {
                       final week = index + 1;
+                      final hide56 = !courses.any((c) =>
+                          c.sessions.contains(5) || c.sessions.contains(6));
                       return TimetableGrid(
                         courses: courses,
                         week: week,
@@ -214,6 +216,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         showNonCurrentWeekCourses: showNonCurrentWeekCourses,
                         showWeekendColumns: showWeekendColumns,
                         semesterStart: semesterStartDate,
+                        hiddenSlots: hide56 ? const {5, 6} : const {},
                         countdownAnimation: _conflictCountdownController,
                         borderColor: courseBorderColor,
                         borderWidth: 0.5,

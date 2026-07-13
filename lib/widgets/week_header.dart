@@ -23,7 +23,7 @@ class WeekHeader extends StatelessWidget {
     final isBeforeStart = cw <= 0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
         children: [
           Expanded(
@@ -32,7 +32,7 @@ class WeekHeader extends StatelessWidget {
               children: [
                 Text(
                   '${today.year}/${today.month}/${today.day}',
-                  style: theme.textTheme.titleLarge?.copyWith(
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),

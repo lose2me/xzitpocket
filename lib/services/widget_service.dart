@@ -47,16 +47,20 @@ class WidgetService {
   static Future<void> updateWidget({
     required List<Course> courses,
     required DateTime semesterStart,
-    required int semesterTotalWeeks,
   }) async {
     final payloadCourses = <Map<String, dynamic>>[];
+    int maxWeek = 16;
     for (final course in courses) {
       final startSlot = _findTimeSlot(course.startSession);
       final endSlot = _findTimeSlot(course.endSession);
       if (startSlot == null || endSlot == null) {
         throw WidgetSyncException(
-          '课程“${course.title}”的节次无效，小组件和课堂勿扰未同步',
+          '课程”${course.title}”的节次无效，小组件和课堂勿扰未同步',
         );
+      }
+
+      for (final w in course.weeks) {
+        if (w > maxWeek) maxWeek = w;
       }
 
       payloadCourses.add({
@@ -77,7 +81,7 @@ class WidgetService {
       final scheduleJson = jsonEncode({
         'semesterStart':
             '${semesterStart.year}-${semesterStart.month.toString().padLeft(2, '0')}-${semesterStart.day.toString().padLeft(2, '0')}',
-        'totalWeeks': semesterTotalWeeks,
+        'totalWeeks': maxWeek,
         'courses': payloadCourses,
       });
 

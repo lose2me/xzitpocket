@@ -5,11 +5,13 @@ import '../../constants/time_slots.dart';
 class TimeColumn extends StatelessWidget {
   final double cellHeight;
   final int slotCount;
+  final Set<int> hiddenSlots;
 
   const TimeColumn({
     super.key,
     required this.cellHeight,
     this.slotCount = 14,
+    this.hiddenSlots = const {},
   });
 
   @override
@@ -19,6 +21,7 @@ class TimeColumn extends StatelessWidget {
       width: 36,
       child: Column(
         children: List.generate(slotCount, (i) {
+          if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
           final slot = kTimeSlots[i];
           return SizedBox(
             height: cellHeight,

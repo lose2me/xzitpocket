@@ -36,7 +36,6 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     return WidgetService.updateWidget(
       courses: courses,
       semesterStart: semesterStartDate,
-      semesterTotalWeeks: semesterTotalWeeks,
     );
   }
 

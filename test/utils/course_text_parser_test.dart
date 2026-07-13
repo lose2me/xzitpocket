@@ -77,77 +77,70 @@ void main() {
   group('parseWeekRanges', () {
     test('parses ranges with parity markers', () {
       expect(
-        parseWeekRanges('1-8(单),10,12-14(双)', maxWeek: 16),
+        parseWeekRanges('1-8(单),10,12-14(双)'),
         [1, 3, 5, 7, 10, 12, 14],
-      );
-    });
-
-    test('supports empty input as all weeks when enabled', () {
-      expect(
-        parseWeekRanges('', maxWeek: 4, emptyMeansAll: true, allowParity: false),
-        [1, 2, 3, 4],
       );
     });
 
     test('returns null for invalid week token', () {
       expect(
-        parseWeekRanges('1-16,abc', maxWeek: 16, allowParity: false),
+        parseWeekRanges('1-16,abc', allowParity: false),
         isNull,
       );
     });
 
-    test('returns null for empty input when emptyMeansAll is false', () {
+    test('returns null for empty input', () {
       expect(
-        parseWeekRanges('', maxWeek: 16),
+        parseWeekRanges(''),
         isNull,
       );
     });
 
-    test('returns null when exceeding maxWeek', () {
+    test('accepts weeks beyond 16', () {
       expect(
-        parseWeekRanges('1-20', maxWeek: 16),
-        isNull,
+        parseWeekRanges('1-20'),
+        List.generate(20, (i) => i + 1),
       );
     });
 
     test('returns null when parity not allowed', () {
       expect(
-        parseWeekRanges('1-8(单)', maxWeek: 16, allowParity: false),
+        parseWeekRanges('1-8(单)', allowParity: false),
         isNull,
       );
     });
 
     test('handles full-width parentheses', () {
       expect(
-        parseWeekRanges('1-8（单）', maxWeek: 16),
+        parseWeekRanges('1-8（单）'),
         [1, 3, 5, 7],
       );
     });
 
     test('handles even parity', () {
       expect(
-        parseWeekRanges('1-8(双)', maxWeek: 16),
+        parseWeekRanges('1-8(双)'),
         [2, 4, 6, 8],
       );
     });
 
     test('returns null for unknown parity marker', () {
       expect(
-        parseWeekRanges('1-8(奇)', maxWeek: 16),
+        parseWeekRanges('1-8(奇)'),
         isNull,
       );
     });
 
     test('handles single week', () {
       expect(
-        parseWeekRanges('5', maxWeek: 16),
+        parseWeekRanges('5'),
         [5],
       );
     });
 
     test('strips 周 and 周次 prefixes', () {
       expect(
-        parseWeekRanges('周次1-3周', maxWeek: 16),
+        parseWeekRanges('周次1-3周'),
         [1, 2, 3],
       );
     });

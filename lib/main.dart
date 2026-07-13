@@ -27,7 +27,6 @@ void main() async {
     await WidgetService.updateWidget(
       courses: courses,
       semesterStart: semesterStartDate,
-      semesterTotalWeeks: semesterTotalWeeks,
     );
   } on WidgetSyncException catch (e) {
     debugPrint('Initial widget sync failed: $e');

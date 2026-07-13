@@ -14,6 +14,7 @@ class TimetableGrid extends StatelessWidget {
   final DateTime semesterStart;
   final int slotCount;
   final int visibleSlots;
+  final Set<int> hiddenSlots;
   final void Function(Course course, int index)? onCourseTap;
   final void Function(int weekday, int session)? onEmptyTap;
   final void Function(bool hasConflict, bool isMutedConflict)? onConflictComputed;
@@ -33,6 +34,7 @@ class TimetableGrid extends StatelessWidget {
     required this.semesterStart,
     this.slotCount = 14,
     this.visibleSlots = 9,
+    this.hiddenSlots = const {},
     this.onCourseTap,
     this.onEmptyTap,
     this.onConflictComputed,
@@ -181,15 +183,25 @@ class TimetableGrid extends StatelessWidget {
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final visibleSessions = [
+                for (int s = 1; s <= slotCount; s++)
+                  if (!hiddenSlots.contains(s)) s,
+              ];
+              final effectiveSlotCount = visibleSessions.length;
+              final sessionToRow = <int, int>{};
+              for (int i = 0; i < visibleSessions.length; i++) {
+                sessionToRow[visibleSessions[i]] = i;
+              }
+
               final cellHeight = constraints.maxHeight / visibleSlots;
-              final totalHeight = cellHeight * slotCount;
+              final totalHeight = cellHeight * effectiveSlotCount;
 
               return SingleChildScrollView(
                 child: SizedBox(
                   height: totalHeight,
                   child: Row(
                     children: [
-                      TimeColumn(cellHeight: cellHeight, slotCount: slotCount),
+                      TimeColumn(cellHeight: cellHeight, slotCount: slotCount, hiddenSlots: hiddenSlots),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
                         final allDayCourses = <_IndexedCourse>[
@@ -201,10 +213,10 @@ class TimetableGrid extends StatelessWidget {
                           child: GestureDetector(
                             behavior: HitTestBehavior.translucent,
                             onTapUp: (details) {
-                              final session =
-                                  (details.localPosition.dy / cellHeight)
-                                      .floor() +
-                                  1;
+                              final row = (details.localPosition.dy / cellHeight)
+                                  .floor()
+                                  .clamp(0, visibleSessions.length - 1);
+                              final session = visibleSessions[row];
                               final hasHit = allDayCourses.any(
                                 (entry) =>
                                     _indexedCourseHitsSession(entry, session),
@@ -217,7 +229,7 @@ class TimetableGrid extends StatelessWidget {
                               children: [
                                 // Grid lines
                                 Column(
-                                  children: List.generate(slotCount, (i) {
+                                  children: List.generate(effectiveSlotCount, (i) {
                                     return Container(
                                       height: cellHeight,
                                       decoration: BoxDecoration(
@@ -245,10 +257,10 @@ class TimetableGrid extends StatelessWidget {
                                 ...allDisplayCourses.map((display) {
                                   final course = display.course;
                                   final isCurrentWeek = course.isInWeek(week);
-                                  final top =
-                                      (course.startSession - 1) * cellHeight;
-                                  final height =
-                                      course.sessionSpan * cellHeight;
+                                  final startRow = sessionToRow[course.startSession] ?? (course.startSession - 1);
+                                  final endRow = sessionToRow[course.endSession] ?? (course.endSession - 1);
+                                  final top = startRow * cellHeight;
+                                  final height = (endRow - startRow + 1) * cellHeight;
                                   return AnimatedPositioned(
                                     key: ValueKey(display.animationKey),
                                     duration: const Duration(milliseconds: 250),
@@ -294,11 +306,10 @@ class TimetableGrid extends StatelessWidget {
                                   );
                                 }),
                                 ...allDisplayCourses.map((display) {
-                                  final top =
-                                      (display.tapStartSession - 1) *
-                                      cellHeight;
-                                  final height =
-                                      display.tapSessionSpan * cellHeight;
+                                  final tapStartRow = sessionToRow[display.tapStartSession] ?? (display.tapStartSession - 1);
+                                  final tapEndRow = sessionToRow[display.tapStartSession + display.tapSessionSpan - 1] ?? (display.tapStartSession + display.tapSessionSpan - 2);
+                                  final top = tapStartRow * cellHeight;
+                                  final height = (tapEndRow - tapStartRow + 1) * cellHeight;
                                   return Positioned(
                                     top: top,
                                     left: 0,

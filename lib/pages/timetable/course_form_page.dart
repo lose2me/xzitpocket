@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../constants/semester_config.dart';
 import '../../models/course.dart';
 import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
@@ -58,7 +57,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
       _endCtrl.text = c.endSession.toString();
       _currentColor = c.color;
     } else {
-      _weeksCtrl.text = '1-$semesterTotalWeeks';
+      _weeksCtrl.text = '1-20';
       _weekdayCtrl.text = widget.weekday.toString();
       _startCtrl.text = widget.session.toString();
       _endCtrl.text = (widget.session + 1).clamp(1, 14).toString();
@@ -152,12 +151,10 @@ class _CourseFormPageState extends State<CourseFormPage> {
               validator: (v) {
                 return parseWeekRanges(
                           v ?? '',
-                          maxWeek: 30,
-                          emptyMeansAll: true,
                           allowParity: false,
                         ) ==
                         null
-                    ? '格式: 1-16,18 (最大30周)'
+                    ? '格式: 1-16,18'
                     : null;
               },
             ),
@@ -312,8 +309,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
     );
     final weeks = parseWeekRanges(
       _weeksCtrl.text,
-      maxWeek: 30,
-      emptyMeansAll: true,
       allowParity: false,
     );
     if (weeks == null) {

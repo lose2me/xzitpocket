@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:image/image.dart' as img;
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
+import 'dio_factory.dart';
 
 class RepairArea {
   final String id;
@@ -145,13 +147,63 @@ class RepairService {
   }
 
   Future<CasSession> login(String username, String password) async {
-    final session = await CasService().loginCas(username, password);
+    final cas = CasService();
+    final hqglLoginUrl = '$hqglBaseUrl/sys/zflogintoken';
+
+    // REST path: HQGL uses CAS OAuth2, so we break the chain into steps
+    final st1 = await cas.getServiceTicket(username, password, hqglLoginUrl);
+    if (st1 != null) {
+      final jar = CookieJar();
+      final dio = DioFactory.createNaked(
+        cookieJar: jar,
+        connectTimeout: requestTimeout,
+        receiveTimeout: requestTimeout,
+        ignoreCertificate: true,
+      );
+      try {
+        // zflogintoken validates ST → redirects to OAuth2 authorize
+        var resp = await _noFollow(dio, '$hqglLoginUrl?ticket=$st1');
+        final oauthUrl = resp.headers.value('location') ?? '';
+        if (oauthUrl.isEmpty) throw AuthException('HQGL OAuth 重定向失败');
+
+        // OAuth2 authorize stores state → redirects to CAS login
+        resp = await _noFollow(dio, oauthUrl);
+        final casUrl = resp.headers.value('location') ?? '';
+        final cbService =
+            Uri.tryParse(casUrl)?.queryParameters['service'] ?? '';
+        if (cbService.isEmpty) throw AuthException('HQGL OAuth 回调地址获取失败');
+
+        // Get ST for callbackAuthorize and complete the OAuth2 flow
+        final st2 = await cas.getServiceTicket(username, password, cbService);
+        if (st2 == null) throw AuthException('HQGL OAuth ST 获取失败');
+
+        final sep = cbService.contains('?') ? '&' : '?';
+        await followRedirectsManually(dio, '$cbService${sep}ticket=$st2');
+        return CasSession(dio, jar);
+      } catch (e) {
+        dio.close(force: true);
+        if (e is AuthException) rethrow;
+        // Fall through to HTML login
+      }
+    }
+
+    // Fallback: HTML CAS login
+    final session = await cas.loginCas(username, password);
     await followRedirectsManually(
       session.dio,
       '$hqglBaseUrl/sys/transiturl9002?key=xgcas',
     );
     return session;
   }
+
+  Future<Response<String>> _noFollow(Dio dio, String url) => dio.get<String>(
+        url,
+        options: Options(
+          responseType: ResponseType.plain,
+          followRedirects: false,
+          validateStatus: (s) => s != null,
+        ),
+      );
 
   Future<RepairUserInfo> getUserInfo(CasSession session) async {
     final data = await _api(session.dio, 'repair/getUserPhone');

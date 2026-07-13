@@ -9,7 +9,9 @@ import '../../services/preferences_storage.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
+import 'empty_classroom_page.dart';
 import 'exam_query_page.dart';
+import 'grade_query_page.dart';
 import 'jp_page.dart';
 import 'netauth_page.dart';
 import 'power_query_page.dart';
@@ -160,6 +162,38 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     buildPage: (data, _, _) => JpPage(result: data),
   );
 
+  Future<void> _openEmptyClassroom() async {
+    final hasNet = await _manager.checkInternetAvailable();
+    if (!hasNet) {
+      if (mounted) showAppSnackBar(context, '请连接网络');
+      return;
+    }
+    final creds = await _ensureCredentials();
+    if (creds == null || !mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => EmptyClassroomPage(
+        studentId: creds.studentId,
+        password: creds.password,
+      ),
+    ));
+  }
+
+  Future<void> _openGradeQuery() async {
+    final hasNet = await _manager.checkInternetAvailable();
+    if (!hasNet) {
+      if (mounted) showAppSnackBar(context, '请连接网络');
+      return;
+    }
+    final creds = await _ensureCredentials();
+    if (creds == null || !mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => GradeQueryPage(
+        studentId: creds.studentId,
+        password: creds.password,
+      ),
+    ));
+  }
+
   // ── Power refresh (manual) ──
 
   Future<void> _refreshPower() async {
@@ -225,6 +259,20 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
             ),
             const SizedBox(height: 12),
             _buildExamCard(theme),
+            const SizedBox(height: 12),
+            _buildSimpleCard(
+              theme,
+              icon: Icons.meeting_room_outlined,
+              title: '空教室查询',
+              onTap: _openEmptyClassroom,
+            ),
+            const SizedBox(height: 12),
+            _buildSimpleCard(
+              theme,
+              icon: Icons.school_outlined,
+              title: '学业情况',
+              onTap: _openGradeQuery,
+            ),
             const SizedBox(height: 12),
             _buildSimpleCard(
               theme,
@@ -323,7 +371,9 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       final days = DateTime(d.year, d.month, d.day)
           .difference(DateTime(today.year, today.month, today.day))
           .inDays;
-      return days >= 0 ? '${exam.time} [剩 $days 天]' : exam.time;
+      if (days < 0) return exam.time;
+      final tag = switch (days) { 0 => '今天', 1 => '明天', 2 => '后天', _ => '剩 $days 天' };
+      return '${exam.time} [$tag]';
     }
 
     return Card(

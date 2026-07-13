@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../constants/semester_config.dart';
 import '../../services/power_service.dart';
 import '../../utils/snackbar_helper.dart';
-import '../../utils/week_calculator.dart';
 
 class PowerQueryPage extends StatefulWidget {
   final PowerQueryData result;
@@ -19,27 +17,40 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   static const _pageSize = 7;
   int _currentPage = 0;
   bool _isRefreshing = false;
+  late DateTime _selectedMonth;
 
-  late PowerQueryData _result;
-  late List<PowerDailyUsage> _reversed;
+  late PowerQueryData _baseResult;
+  late List<PowerDailyUsage> _displayUsage;
 
   @override
   void initState() {
     super.initState();
-    _result = widget.result;
-    _reversed = _result.dailyUsage.reversed.toList();
+    _baseResult = widget.result;
+    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    _updateDisplayUsage(widget.result.dailyUsage, isCurrentMonth: true);
   }
 
-  Future<void> _refresh() async {
+  void _updateDisplayUsage(List<PowerDailyUsage> usage,
+      {required bool isCurrentMonth}) {
+    if (isCurrentMonth) {
+      _displayUsage = usage.reversed.toList();
+    } else {
+      _displayUsage = List.of(usage);
+    }
+  }
+
+  Future<void> _refresh({String? startDate}) async {
     final roomId = widget.roomId;
     if (roomId == null || roomId.isEmpty) return;
     setState(() => _isRefreshing = true);
     try {
-      final result = await PowerService().queryRoom(roomId);
+      final result =
+          await PowerService().queryRoom(roomId, startDate: startDate);
       if (!mounted) return;
+      final isCurrent = startDate == null;
       setState(() {
-        _result = result;
-        _reversed = result.dailyUsage.reversed.toList();
+        if (isCurrent) _baseResult = result;
+        _updateDisplayUsage(result.dailyUsage, isCurrentMonth: _isCurrentMonth);
         _currentPage = 0;
       });
     } on PowerQueryException catch (e) {
@@ -51,23 +62,47 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     }
   }
 
+  void _changeMonth(int delta) {
+    setState(() {
+      _selectedMonth =
+          DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+    });
+    if (_isCurrentMonth) {
+      _refresh();
+    } else {
+      final formatted =
+          '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}';
+      _refresh(startDate: formatted);
+    }
+  }
+
   int get _totalPages =>
-      (_reversed.length / _pageSize).ceil().clamp(1, 999);
+      (_displayUsage.length / _pageSize).ceil().clamp(1, 999);
 
   List<PowerDailyUsage> _pageItems(int page) {
     final start = page * _pageSize;
-    final end = (start + _pageSize).clamp(0, _reversed.length);
-    return _reversed.sublist(start, end);
+    final end = (start + _pageSize).clamp(0, _displayUsage.length);
+    return _displayUsage.sublist(start, end);
   }
 
-  int _weekForPage(int page) {
-    final week = currentWeek(semesterStartDate);
-    return week - page;
+  bool get _isCurrentMonth {
+    final now = DateTime.now();
+    return _selectedMonth.year == now.year &&
+        _selectedMonth.month == now.month;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final metrics = <_MetricItem>[
+      _MetricItem('剩余电量', '${_baseResult.available} 度'),
+      _MetricItem('电价', '${_baseResult.price} 元/度'),
+      if (_baseResult.monthUsage != null)
+        _MetricItem('本月用电', '${_baseResult.monthUsage} 度'),
+      if (_baseResult.estDays != null)
+        _MetricItem('预计可用', _formatEstDays(_baseResult.estDays!)),
+    ];
 
     return Scaffold(
       appBar: AppBar(
@@ -75,7 +110,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: _isRefreshing ? null : _refresh,
+            onPressed: _isRefreshing ? null : () => _refresh(),
             icon: _isRefreshing
                 ? const SizedBox(
                     width: 18,
@@ -89,92 +124,104 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [_buildResultCard(theme, _result)],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultCard(ThemeData theme, PowerQueryData result) {
-    final metrics = <_MetricItem>[
-      _MetricItem('剩余电量', '${result.available} 度'),
-      _MetricItem('电价', '${result.price} 元/度'),
-      if (result.monthUsage != null)
-        _MetricItem('本月用电', '${result.monthUsage} 度'),
-      if (result.estDays != null)
-        _MetricItem('预计可用', _formatEstDays(result.estDays!)),
-    ];
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            widget.roomId ?? '电费查询',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 14),
-          for (var i = 0; i < metrics.length; i += 2)
+          children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _buildMetricCell(theme, metrics[i])),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: i + 1 < metrics.length
-                        ? _buildMetricCell(theme, metrics[i + 1])
-                        : const SizedBox.shrink(),
+                  Text(
+                    widget.roomId ?? '电费查询',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
+                  const SizedBox(height: 14),
+                  for (var i = 0; i < metrics.length; i += 2)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                              child: _buildMetricCell(theme, metrics[i])),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: i + 1 < metrics.length
+                                ? _buildMetricCell(theme, metrics[i + 1])
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.chevron_left),
+                        iconSize: 22,
+                        onPressed: _isRefreshing
+                            ? null
+                            : () => _changeMonth(-1),
+                      ),
+                      Text(
+                        '${_selectedMonth.year}年${_selectedMonth.month}月',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chevron_right),
+                        iconSize: 22,
+                        onPressed: _isRefreshing || _isCurrentMonth
+                            ? null
+                            : () => _changeMonth(1),
+                      ),
+                      const Spacer(),
+                      if (_displayUsage.length > _pageSize) ...[
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios, size: 14),
+                          iconSize: 22,
+                          onPressed: _currentPage > 0
+                              ? () => setState(() => _currentPage--)
+                              : null,
+                        ),
+                        Text(
+                          '${_currentPage + 1}/$_totalPages',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.arrow_forward_ios, size: 14),
+                          iconSize: 22,
+                          onPressed: _currentPage < _totalPages - 1
+                              ? () => setState(() => _currentPage++)
+                              : null,
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (_isRefreshing)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_displayUsage.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    ..._pageItems(_currentPage)
+                        .map((item) => _buildUsageRow(theme, item)),
+                  ] else ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      '该月暂无用电明细',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-          if (result.dailyUsage.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            Row(
-              children: [
-                Text(
-                  '用电明细 - 第${_weekForPage(_currentPage)}周',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.chevron_left),
-                  iconSize: 22,
-                  onPressed: _currentPage > 0
-                      ? () => setState(() => _currentPage--)
-                      : null,
-                ),
-                Text(
-                  '${_currentPage + 1}/$_totalPages',
-                  style: theme.textTheme.bodyMedium,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chevron_right),
-                  iconSize: 22,
-                  onPressed: _currentPage < _totalPages - 1
-                      ? () => setState(() => _currentPage++)
-                      : null,
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            ..._pageItems(_currentPage).map((item) => _buildUsageRow(theme, item)),
-          ] else ...[
-            const SizedBox(height: 18),
-            Text(
-              '当前房间暂未返回日用量明细。',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }

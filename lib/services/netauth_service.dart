@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
+import 'debug_log_service.dart';
 import 'dio_factory.dart';
 
 class NetAuthInfo {
@@ -295,14 +296,7 @@ class NetAuthService {
     try {
       await _doLogin(dio, account, password);
 
-      final userPage = await dio.get<String>(
-        '$netAuthBaseUrl/service/myMac',
-        options: Options(
-          responseType: ResponseType.plain,
-          validateStatus: (s) => s != null && s < 500,
-        ),
-      );
-      final userJson = _extractUserJson(userPage.data ?? '');
+      final userJson = await _fetchUserInfo(dio);
       if (userJson.isEmpty) throw AuthException('无法获取用户信息');
       final info = NetAuthInfo.fromJson(userJson);
 
@@ -319,6 +313,91 @@ class NetAuthService {
     } finally {
       dio.close(force: true);
     }
+  }
+
+  Future<Map<String, dynamic>> _fetchUserInfo(Dio dio) async {
+    // Try AJAX request for direct JSON response
+    try {
+      final ajaxResp = await dio.get<String>(
+        '$netAuthBaseUrl/service/myMac',
+        options: Options(
+          responseType: ResponseType.plain,
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*',
+          },
+          validateStatus: (s) => s != null && s < 500,
+        ),
+      );
+
+      if (ajaxResp.statusCode == 200) {
+        final body = (ajaxResp.data ?? '').trim();
+        if (body.startsWith('{')) {
+          final json = jsonDecode(body) as Map<String, dynamic>;
+          if (json.containsKey('userName') || json.containsKey('userRealName')) {
+            DebugLogService.instance.log(
+              DebugLogCategory.network, '网络管理AJAX', 'myMac JSON直接获取',
+            );
+            return json;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: extract JSON from embedded JavaScript
+    final userPage = await dio.get<String>(
+      '$netAuthBaseUrl/service/myMac',
+      options: Options(
+        responseType: ResponseType.plain,
+        validateStatus: (s) => s != null && s < 500,
+      ),
+    );
+    return _extractUserJson(userPage.data ?? '');
+  }
+
+  Future<String?> _tryAjaxAction(
+    Dio dio,
+    String method,
+    String url, {
+    Map<String, dynamic>? queryParams,
+    Map<String, dynamic>? bodyData,
+  }) async {
+    try {
+      final opts = Options(
+        responseType: ResponseType.plain,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Accept': 'application/json, text/javascript, */*',
+        },
+        validateStatus: (s) => s != null && s < 500,
+      );
+      if (bodyData != null) {
+        opts.contentType = Headers.formUrlEncodedContentType;
+      }
+
+      final Response<String> resp;
+      if (method == 'POST') {
+        resp = await dio.post<String>(url,
+            data: bodyData, queryParameters: queryParams, options: opts);
+      } else {
+        resp = await dio.get<String>(url,
+            queryParameters: queryParams, options: opts);
+      }
+
+      if (resp.statusCode == 200) {
+        final body = (resp.data ?? '').trim();
+        if (body.startsWith('{')) {
+          final json = jsonDecode(body) as Map<String, dynamic>;
+          final msg = (json['msg'] ?? json['message'] ?? json['info'] ?? '')
+              .toString();
+          DebugLogService.instance.log(
+            DebugLogCategory.network, '网络管理AJAX', '$url → JSON: $msg',
+          );
+          return msg;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<String> unbindMac(
@@ -342,6 +421,22 @@ class NetAuthService {
       final cleanMac =
           mac.replaceAll('-', '').replaceAll(':', '').toUpperCase();
 
+      // Try AJAX JSON response
+      final msg = await _tryAjaxAction(
+        dio,
+        'GET',
+        '$netAuthBaseUrl/service/unbindmac',
+        queryParams: {'mac': cleanMac, 'ajaxCsrfToken': csrf},
+      );
+
+      if (msg != null) {
+        if (msg.isEmpty || msg.contains('失败')) {
+          throw AuthException(msg.isNotEmpty ? msg : '解绑失败');
+        }
+        return msg;
+      }
+
+      // Fallback: HTML swal extraction
       final resp = await dio.get<String>(
         '$netAuthBaseUrl/service/unbindmac',
         queryParameters: {'mac': cleanMac, 'ajaxCsrfToken': csrf},
@@ -351,11 +446,11 @@ class NetAuthService {
         ),
       );
 
-      final msg = _extractSwalMessage(resp.data ?? '');
-      if (msg.isEmpty || msg.contains('失败')) {
-        throw AuthException(msg.isNotEmpty ? msg : '解绑失败');
+      final swalMsg = _extractSwalMessage(resp.data ?? '');
+      if (swalMsg.isEmpty || swalMsg.contains('失败')) {
+        throw AuthException(swalMsg.isNotEmpty ? swalMsg : '解绑失败');
       }
-      return msg;
+      return swalMsg;
     } finally {
       dio.close(force: true);
     }
@@ -399,6 +494,22 @@ class NetAuthService {
       values[fields.$1] = broadbandAccount;
       values[fields.$2] = broadbandPassword;
 
+      // Try AJAX JSON response
+      final msg = await _tryAjaxAction(
+        dio,
+        'POST',
+        '$netAuthBaseUrl/service/bind-operator',
+        bodyData: {'csrftoken': csrf, ...values},
+      );
+
+      if (msg != null) {
+        if (msg.isEmpty || msg.contains('失败')) {
+          throw AuthException(msg.isNotEmpty ? msg : '绑定失败');
+        }
+        return msg;
+      }
+
+      // Fallback: HTML swal extraction
       final resp = await dio.post<String>(
         '$netAuthBaseUrl/service/bind-operator',
         data: {'csrftoken': csrf, ...values},
@@ -410,11 +521,11 @@ class NetAuthService {
         ),
       );
 
-      final msg = _extractSwalMessage(resp.data ?? '');
-      if (msg.isEmpty || msg.contains('失败')) {
-        throw AuthException(msg.isNotEmpty ? msg : '绑定失败');
+      final swalMsg = _extractSwalMessage(resp.data ?? '');
+      if (swalMsg.isEmpty || swalMsg.contains('失败')) {
+        throw AuthException(swalMsg.isNotEmpty ? swalMsg : '绑定失败');
       }
-      return msg;
+      return swalMsg;
     } finally {
       dio.close(force: true);
     }

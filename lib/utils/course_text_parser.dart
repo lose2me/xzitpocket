@@ -47,8 +47,6 @@ List<int>? parseSessionRanges(
 
 List<int>? parseWeekRanges(
   String text, {
-  required int maxWeek,
-  bool emptyMeansAll = false,
   bool allowParity = true,
 }) {
   final normalized = text
@@ -59,9 +57,7 @@ List<int>? parseWeekRanges(
       .replaceAll('周次', '')
       .replaceAll('周', '');
 
-  if (normalized.isEmpty) {
-    return emptyMeansAll ? List.generate(maxWeek, (index) => index + 1) : null;
-  }
+  if (normalized.isEmpty) return null;
 
   final tokens = normalized
       .split(',')
@@ -86,9 +82,7 @@ List<int>? parseWeekRanges(
       start = end;
       end = temp;
     }
-    if (start < 1 || end > maxWeek) {
-      return null;
-    }
+    if (start < 1) return null;
 
     var values = List.generate(end - start + 1, (index) => start + index);
     final parity = (match.group(3) ?? '').trim();
