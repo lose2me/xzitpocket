@@ -9,7 +9,6 @@ import 'providers/config_provider.dart';
 import 'services/course_storage.dart';
 import 'services/debug_log_service.dart';
 import 'services/preferences_storage.dart';
-import 'services/report_service.dart';
 import 'services/widget_service.dart';
 
 void main() async {
@@ -46,6 +45,4 @@ void main() async {
       child: App(courseStorage: courseStorage),
     ),
   );
-
-  ReportService.reportAppStart();
 }

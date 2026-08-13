@@ -49,5 +49,5 @@ flutter build apk --target-platform android-arm64 --split-debug-info=./symbols -
 ## Release
 Android
 ```
-flutter build apk --release --target-platform android-arm64 --dart-define-from-file=tool/upgradelink.local.json
+flutter build apk --release --target-platform android-arm64
 ```
