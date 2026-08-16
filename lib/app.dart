@@ -94,15 +94,11 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         final theme = Theme.of(context).brightness == Brightness.dark
             ? AppTheme.dark
             : AppTheme.light;
-        return MediaQuery.removeViewInsets(
-          context: context,
-          removeBottom: true,
-          child: FTheme(
-            data: theme,
-            child: IconTheme(
-              data: IconThemeData(size: 20, color: theme.colors.foreground),
-              child: FToaster(child: FTooltipGroup(child: child!)),
-            ),
+        return FTheme(
+          data: theme,
+          child: IconTheme(
+            data: IconThemeData(size: 20, color: theme.colors.foreground),
+            child: FToaster(child: FTooltipGroup(child: child!)),
           ),
         );
       },

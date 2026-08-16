@@ -31,7 +31,6 @@ class HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return FScaffold(
       childPad: false,
-      resizeToAvoidBottomInset: false,
       footer: FBottomNavigationBar(
         index: _currentIndex,
         onChange: (i) {

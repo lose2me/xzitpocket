@@ -101,7 +101,6 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
 
     if (!isLoggedIn || _isLoggingIn) {
       return AppPage(
-        resizeToAvoidBottomInset: false,
         child: SafeArea(child: _buildLoginForm(theme)),
       );
     }

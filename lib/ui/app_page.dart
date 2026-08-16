@@ -21,7 +21,7 @@ class AppPage extends StatelessWidget {
     this.footer,
     this.root = false,
     this.childPad = false,
-    this.resizeToAvoidBottomInset = false,
+    this.resizeToAvoidBottomInset = true,
   });
 
   @override
