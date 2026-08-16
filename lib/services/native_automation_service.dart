@@ -43,9 +43,9 @@ class NativeAutomationService {
     if (!_isAndroid) return AutomationPermissionStatus.fallback;
     try {
       final result =
-              await _channel.invokeMapMethod<Object?, Object?>(
-                'getAutomationPermissions',
-              ) ??
+          await _channel.invokeMapMethod<Object?, Object?>(
+            'getAutomationPermissions',
+          ) ??
           const <Object?, Object?>{};
       return AutomationPermissionStatus.fromMap(result);
     } on MissingPluginException {

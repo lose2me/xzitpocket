@@ -10,7 +10,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
-import 'debug_log_service.dart';
+import 'talker.dart';
 import 'dio_factory.dart';
 
 class PowerQueryException implements Exception {
@@ -31,7 +31,10 @@ class PowerDailyUsage {
   Map<String, dynamic> toJson() => {'date': date, 'usage': usage};
 
   factory PowerDailyUsage.fromJson(Map<String, dynamic> json) =>
-      PowerDailyUsage(date: json['date'] as String, usage: json['usage'] as String);
+      PowerDailyUsage(
+        date: json['date'] as String,
+        usage: json['usage'] as String,
+      );
 }
 
 class PowerQueryData {
@@ -50,23 +53,24 @@ class PowerQueryData {
   });
 
   Map<String, dynamic> toJson() => {
-        'price': price,
-        'available': available,
-        if (monthUsage != null) 'monthUsage': monthUsage,
-        if (estDays != null) 'estDays': estDays,
-        'dailyUsage': dailyUsage.map((e) => e.toJson()).toList(),
-      };
+    'price': price,
+    'available': available,
+    if (monthUsage != null) 'monthUsage': monthUsage,
+    if (estDays != null) 'estDays': estDays,
+    'dailyUsage': dailyUsage.map((e) => e.toJson()).toList(),
+  };
 
   factory PowerQueryData.fromJson(Map<String, dynamic> json) => PowerQueryData(
-        price: json['price'] as String,
-        available: json['available'] as String,
-        monthUsage: json['monthUsage'] as String?,
-        estDays: json['estDays'] as String?,
-        dailyUsage: (json['dailyUsage'] as List<dynamic>?)
-                ?.map((e) => PowerDailyUsage.fromJson(e as Map<String, dynamic>))
-                .toList() ??
-            const [],
-      );
+    price: json['price'] as String,
+    available: json['available'] as String,
+    monthUsage: json['monthUsage'] as String?,
+    estDays: json['estDays'] as String?,
+    dailyUsage:
+        (json['dailyUsage'] as List<dynamic>?)
+            ?.map((e) => PowerDailyUsage.fromJson(e as Map<String, dynamic>))
+            .toList() ??
+        const [],
+  );
 }
 
 class PowerService {
@@ -140,23 +144,32 @@ class PowerService {
     );
     try {
       final raw = endpoint.mode == _EndpointMode.dxq
-          ? await _queryDxqRoom(dio, room,
-              startDate: startDate, endDate: endDate)
-          : await _queryLegacyRoom(dio, room, endpoint,
-              startDate: startDate);
+          ? await _queryDxqRoom(
+              dio,
+              room,
+              startDate: startDate,
+              endDate: endDate,
+            )
+          : await _queryLegacyRoom(dio, room, endpoint, startDate: startDate);
       var result = _buildQueryData(raw, endpoint);
 
       if (result.estDays == '样本不足' && startDate == null) {
         final now = DateTime.now();
         final prev = DateTime(now.year, now.month - 1);
-        final prevStart = '${prev.year}-${prev.month.toString().padLeft(2, '0')}';
+        final prevStart =
+            '${prev.year}-${prev.month.toString().padLeft(2, '0')}';
         List<PowerDailyUsage> extraUsage;
         if (endpoint.mode == _EndpointMode.dxq) {
           extraUsage = await _fetchDxqUsageRecords(dio, startDate: prevStart);
         } else {
-          final extraRaw = await _queryLegacyRoom(dio, room, endpoint,
-              startDate: prevStart);
-          extraUsage = (extraRaw['dailyUsage'] as List<PowerDailyUsage>?) ?? const [];
+          final extraRaw = await _queryLegacyRoom(
+            dio,
+            room,
+            endpoint,
+            startDate: prevStart,
+          );
+          extraUsage =
+              (extraRaw['dailyUsage'] as List<PowerDailyUsage>?) ?? const [];
         }
         final combined = [...result.dailyUsage, ...extraUsage];
         final newEst = _estimateDaysLeft(result.available, combined);
@@ -254,8 +267,13 @@ class PowerService {
         ? int.tryParse(startDate.split('-').last) ?? DateTime.now().month
         : DateTime.now().month;
 
-    final ajaxResult = await _tryLegacyAjax(dio, endpoint,
-        dateSuffix: dateSuffix, year: queryYear, month: queryMonth);
+    final ajaxResult = await _tryLegacyAjax(
+      dio,
+      endpoint,
+      dateSuffix: dateSuffix,
+      year: queryYear,
+      month: queryMonth,
+    );
     if (ajaxResult != null) return ajaxResult;
 
     final consumeHtml = await _requestText(dio, 'GET', historyPath);
@@ -293,18 +311,21 @@ class PowerService {
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         final parsed = jsonDecode(trimmed);
         if (parsed is Map<String, dynamic>) {
-          DebugLogService.instance.log(
-            DebugLogCategory.network, '电费AJAX', '获取到JSON数据',
-          );
+          talker.debug('[NET] 电费AJAX\n获取到JSON数据');
           return _parseLegacyAjaxJson(parsed, year, month);
         }
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      talker.debug('电费旧版 AJAX 探测失败，继续回退', e, stackTrace);
+    }
     return null;
   }
 
   Map<String, Object>? _parseLegacyAjaxJson(
-      Map<String, dynamic> json, int year, int month) {
+    Map<String, dynamic> json,
+    int year,
+    int month,
+  ) {
     final available = json['balance'] ?? json['available'] ?? json['ye'];
     final monthUsage = json['monthUsage'] ?? json['byyd'] ?? json['usage'];
     if (available == null) return null;
@@ -315,7 +336,8 @@ class PowerService {
       for (final item in dailyList) {
         if (item is Map<String, dynamic>) {
           var date = '${item['date'] ?? item['rq'] ?? ''}';
-          final usage = '${item['usage'] ?? item['ydl'] ?? item['amount'] ?? ''}';
+          final usage =
+              '${item['usage'] ?? item['ydl'] ?? item['amount'] ?? ''}';
           if (date.isNotEmpty && usage.isNotEmpty) {
             date = _addDateSuffix(date, year, month);
             dailyUsage.add(PowerDailyUsage(date: date, usage: usage));
@@ -337,9 +359,8 @@ class PowerService {
     _EndpointConfig endpoint,
   ) async {
     final loginPage = await _requestText(dio, 'GET', '/');
-    final sessionMatch = RegExp(
-      r'g_pswSession\s*=\s*(\d+)',
-    ).firstMatch(loginPage);
+    final sessionMatch = RegExp(r'g_pswSession\s*=\s*(\d+)')
+        .firstMatch(loginPage);
     final session = sessionMatch?.group(1);
     if (session == null) {
       throw const PowerQueryException('登录页中未找到 g_pswSession');
@@ -383,7 +404,8 @@ class PowerService {
 
     // Try WebMethod JSON API first
     final webMethodResult = await _tryDxqWebMethod(
-      dio, room.roomId,
+      dio,
+      room.roomId,
       startDate: startDate,
       endDate: endDate,
     );
@@ -404,13 +426,18 @@ class PowerService {
       roomId: room.roomId,
     );
     if (singleResult != null) {
-      DebugLogService.instance.log(
-        DebugLogCategory.network, '电费DXQ', '单步查询成功',
+      talker.debug('[NET] 电费DXQ\n单步查询成功');
+      final result = _parseDxqResult(
+        singleResult,
+        startDate: startDate,
+        endDate: endDate,
       );
-      final result = _parseDxqResult(singleResult, startDate: startDate, endDate: endDate);
       if ((result['dailyUsage'] as List?)?.isEmpty ?? true) {
         final usage = await _fetchDxqUsageRecords(
-            dio, startDate: startDate, endDate: endDate);
+          dio,
+          startDate: startDate,
+          endDate: endDate,
+        );
         if (usage.isNotEmpty) result['dailyUsage'] = usage;
       }
       return result;
@@ -447,10 +474,17 @@ class PowerService {
       submit: true,
     );
 
-    final result = _parseDxqResult(resultHtml, startDate: startDate, endDate: endDate);
+    final result = _parseDxqResult(
+      resultHtml,
+      startDate: startDate,
+      endDate: endDate,
+    );
     if ((result['dailyUsage'] as List?)?.isEmpty ?? true) {
       final usage = await _fetchDxqUsageRecords(
-          dio, startDate: startDate, endDate: endDate);
+        dio,
+        startDate: startDate,
+        endDate: endDate,
+      );
       if (usage.isNotEmpty) result['dailyUsage'] = usage;
     }
     return result;
@@ -464,9 +498,16 @@ class PowerService {
     try {
       final html = await _requestText(dio, 'GET', '/allRecord.aspx');
       final doc = html_parser.parse(html);
-      final vs = doc.querySelector('input#__VIEWSTATE')?.attributes['value'] ?? '';
-      final vsg = doc.querySelector('input#__VIEWSTATEGENERATOR')?.attributes['value'] ?? '';
-      final ev = doc.querySelector('input#__EVENTVALIDATION')?.attributes['value'] ?? '';
+      final vs =
+          doc.querySelector('input#__VIEWSTATE')?.attributes['value'] ?? '';
+      final vsg =
+          doc
+              .querySelector('input#__VIEWSTATEGENERATOR')
+              ?.attributes['value'] ??
+          '';
+      final ev =
+          doc.querySelector('input#__EVENTVALIDATION')?.attributes['value'] ??
+          '';
       if (vs.isEmpty || ev.isEmpty) return const [];
 
       final now = DateTime.now();
@@ -491,30 +532,38 @@ class PowerService {
         txtEnd = fmtDate(now);
       }
 
-      final resultHtml = await _requestText(dio, 'POST', '/allRecord.aspx', data: {
-        '__EVENTTARGET': '',
-        '__EVENTARGUMENT': '',
-        '__VIEWSTATE': vs,
-        '__VIEWSTATEGENERATOR': vsg,
-        '__EVENTVALIDATION': ev,
-        'txtstart': txtStart,
-        'txtend': txtEnd,
-        'btnser': '查询',
-      });
+      final resultHtml = await _requestText(
+        dio,
+        'POST',
+        '/allRecord.aspx',
+        data: {
+          '__EVENTTARGET': '',
+          '__EVENTARGUMENT': '',
+          '__VIEWSTATE': vs,
+          '__VIEWSTATEGENERATOR': vsg,
+          '__EVENTVALIDATION': ev,
+          'txtstart': txtStart,
+          'txtend': txtEnd,
+          'btnser': '查询',
+        },
+      );
 
       final records = _parseAllRecordUsage(resultHtml);
 
       final totalPages = _parseAllRecordTotalPages(resultHtml);
       for (var page = 2; page <= totalPages && page <= 6; page++) {
-        final pageHtml = await _requestText(dio, 'GET', '/allRecord.aspx?pu=$page');
+        final pageHtml = await _requestText(
+          dio,
+          'GET',
+          '/allRecord.aspx?pu=$page',
+        );
         records.addAll(_parseAllRecordUsage(pageHtml));
       }
 
-      DebugLogService.instance.log(
-        DebugLogCategory.network, '电费DXQ', 'allRecord 获取${records.length}条用电记录',
-      );
+      talker.debug('[NET] 电费DXQ\nallRecord 获取${records.length}条用电记录');
       return records;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.debug('电费用电记录获取失败', e, stackTrace);
       return const [];
     }
   }
@@ -533,10 +582,9 @@ class PowerService {
         final usage = _normalizeText(cells[2].text);
         if (RegExp(r'\d{4}-\d{1,2}-\d{1,2}').hasMatch(rawDate) &&
             RegExp(r'\d').hasMatch(usage)) {
-          result.add(PowerDailyUsage(
-            date: _formatChineseDate(rawDate),
-            usage: usage,
-          ));
+          result.add(
+            PowerDailyUsage(date: _formatChineseDate(rawDate), usage: usage),
+          );
         }
       }
     }
@@ -545,9 +593,11 @@ class PowerService {
 
   String? _dateSuffix(int year, int month, int day) {
     final today = DateTime.now();
-    final diff = DateTime(today.year, today.month, today.day)
-        .difference(DateTime(year, month, day))
-        .inDays;
+    final diff = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).difference(DateTime(year, month, day)).inDays;
     return switch (diff) {
       1 => '昨天',
       2 => '前天',
@@ -619,16 +669,17 @@ class PowerService {
             final json = jsonDecode(body) as Map<String, dynamic>;
             final d = json['d'];
             final data = d is Map<String, dynamic> ? d : json;
-            final available = data['balance'] ?? data['available'] ?? data['ye'];
+            final available =
+                data['balance'] ?? data['available'] ?? data['ye'];
             if (available != null) {
-              DebugLogService.instance.log(
-                DebugLogCategory.network, '电费DXQ WebMethod', '$method 成功',
-              );
+              talker.debug('[NET] 电费DXQ WebMethod\n$method 成功');
               return _parseDxqJsonResult(data);
             }
           }
         }
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        talker.debug('电费 DXQ WebMethod $method 失败', e, stackTrace);
+      }
     }
     return null;
   }
@@ -643,7 +694,8 @@ class PowerService {
       for (final item in dailyList) {
         if (item is Map<String, dynamic>) {
           final date = '${item['date'] ?? item['rq'] ?? ''}';
-          final usage = '${item['amount'] ?? item['usage'] ?? item['je'] ?? ''}';
+          final usage =
+              '${item['amount'] ?? item['usage'] ?? item['je'] ?? ''}';
           if (date.isNotEmpty && usage.isNotEmpty) {
             dailyUsage.add(PowerDailyUsage(date: date, usage: usage));
           }
@@ -651,10 +703,7 @@ class PowerService {
       }
     }
 
-    return {
-      'available': '$available',
-      'dailyUsage': dailyUsage,
-    };
+    return {'available': '$available', 'dailyUsage': dailyUsage};
   }
 
   Future<String?> _tryDxqSinglePost(
@@ -678,7 +727,9 @@ class PowerService {
       if (html.contains('number orange') || html.contains('剩余')) {
         return html;
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      talker.debug('电费 DXQ 单步查询失败，继续回退', e, stackTrace);
+    }
     return null;
   }
 
@@ -706,7 +757,9 @@ class PowerService {
         final cells = row.querySelectorAll('td');
         if (cells.length >= 2) {
           final dateText = _normalizeText(cells[0].text);
-          final usageText = _normalizeText(cells.length > 2 ? cells[2].text : cells[1].text);
+          final usageText = _normalizeText(
+            cells.length > 2 ? cells[2].text : cells[1].text,
+          );
           if (RegExp(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}').hasMatch(dateText) &&
               RegExp(r'\d').hasMatch(usageText)) {
             result.add(PowerDailyUsage(date: dateText, usage: usageText));
@@ -786,7 +839,7 @@ class PowerService {
           statusCode < 400 &&
           redirectCount < 5) {
         final redirectUri = response.realUri.resolve(location);
-        return _requestText(
+        return await _requestText(
           dio,
           'GET',
           redirectUri.toString(),
@@ -852,7 +905,10 @@ class PowerService {
   }
 
   Map<String, Object> _parseLegacyConsumeHistory(
-      String html, int year, int month) {
+    String html,
+    int year,
+    int month,
+  ) {
     if (html.contains('网络超时或者您还没有登录')) {
       throw const PowerQueryException('读取 consumeHistory 失败，服务端认为当前会话未登录');
     }
@@ -899,9 +955,9 @@ class PowerService {
     }
 
     candidates.sort(
-      (left, right) => _normalizeText(
-        left.text,
-      ).length.compareTo(_normalizeText(right.text).length),
+      (left, right) =>
+          _normalizeText(left.text).length
+              .compareTo(_normalizeText(right.text).length),
     );
     return candidates.first;
   }
@@ -923,7 +979,10 @@ class PowerService {
   }
 
   List<PowerDailyUsage> _parseDailyUsage(
-      Document document, int year, int month) {
+    Document document,
+    int year,
+    int month,
+  ) {
     final table = _findTableContaining(document, '用电明细');
     final result = <PowerDailyUsage>[];
 
@@ -961,9 +1020,9 @@ class PowerService {
 
     final header = document.querySelector('h6');
     if (header != null) {
-      final matches = RegExp(
-        r'([0-9]+(?:\.[0-9]+)?)',
-      ).allMatches(_normalizeText(header.text)).toList();
+      final matches = RegExp(r'([0-9]+(?:\.[0-9]+)?)')
+          .allMatches(_normalizeText(header.text))
+          .toList();
       if (matches.length >= 3) {
         return matches[2].group(1) ?? '-';
       }

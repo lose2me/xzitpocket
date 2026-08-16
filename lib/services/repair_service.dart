@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import '../constants/network_config.dart';
 import 'cas_service.dart';
 import 'dio_factory.dart';
+import 'talker.dart';
 
 class RepairArea {
   final String id;
@@ -16,9 +17,9 @@ class RepairArea {
   const RepairArea({required this.id, required this.name});
 
   factory RepairArea.fromJson(Map<String, dynamic> json) => RepairArea(
-        id: '${json['areauuid'] ?? ''}',
-        name: '${json['areaname'] ?? ''}',
-      );
+    id: '${json['areauuid'] ?? ''}',
+    name: '${json['areaname'] ?? ''}',
+  );
 }
 
 class RepairItem {
@@ -28,9 +29,9 @@ class RepairItem {
   const RepairItem({required this.id, required this.name});
 
   factory RepairItem.fromJson(Map<String, dynamic> json) => RepairItem(
-        id: '${json['itemuuid'] ?? ''}',
-        name: '${json['itemname'] ?? ''}',
-      );
+    id: '${json['itemuuid'] ?? ''}',
+    name: '${json['itemname'] ?? ''}',
+  );
 }
 
 class RepairUserInfo {
@@ -42,9 +43,9 @@ class RepairUserInfo {
   Map<String, dynamic> toJson() => {'username': username, 'phone': phone};
 
   factory RepairUserInfo.fromJson(Map<String, dynamic> json) => RepairUserInfo(
-        username: json['username'] as String,
-        phone: json['phone'] as String,
-      );
+    username: json['username'] as String,
+    phone: json['phone'] as String,
+  );
 }
 
 class RepairRecord {
@@ -67,24 +68,24 @@ class RepairRecord {
   });
 
   factory RepairRecord.fromJson(Map<String, dynamic> json) => RepairRecord(
-        orderId: '${json['orderid'] ?? json['orderId'] ?? ''}',
-        content: '${json['content'] ?? ''}',
-        areaName: '${json['areaname'] ?? json['areaName'] ?? ''}',
-        itemName: '${json['itemname'] ?? json['itemName'] ?? ''}',
-        address: '${json['address'] ?? ''}',
-        status: '${json['nodename'] ?? json['status'] ?? '未知'}',
-        createTime: '${json['createtime'] ?? json['createTime'] ?? ''}',
-      );
+    orderId: '${json['orderid'] ?? json['orderId'] ?? ''}',
+    content: '${json['content'] ?? ''}',
+    areaName: '${json['areaname'] ?? json['areaName'] ?? ''}',
+    itemName: '${json['itemname'] ?? json['itemName'] ?? ''}',
+    address: '${json['address'] ?? ''}',
+    status: '${json['nodename'] ?? json['status'] ?? '未知'}',
+    createTime: '${json['createtime'] ?? json['createTime'] ?? ''}',
+  );
 
   Map<String, dynamic> toJson() => {
-        'orderId': orderId,
-        'content': content,
-        'areaName': areaName,
-        'itemName': itemName,
-        'address': address,
-        'status': status,
-        'createTime': createTime,
-      };
+    'orderId': orderId,
+    'content': content,
+    'areaName': areaName,
+    'itemName': itemName,
+    'address': address,
+    'status': status,
+    'createTime': createTime,
+  };
 }
 
 class RepairResult {
@@ -94,17 +95,16 @@ class RepairResult {
   const RepairResult({required this.userInfo, required this.records});
 
   Map<String, dynamic> toJson() => {
-        'userInfo': userInfo.toJson(),
-        'records': records.map((r) => r.toJson()).toList(),
-      };
+    'userInfo': userInfo.toJson(),
+    'records': records.map((r) => r.toJson()).toList(),
+  };
 
   factory RepairResult.fromJson(Map<String, dynamic> json) => RepairResult(
-        userInfo:
-            RepairUserInfo.fromJson(json['userInfo'] as Map<String, dynamic>),
-        records: (json['records'] as List)
-            .map((r) => RepairRecord.fromJson(r as Map<String, dynamic>))
-            .toList(),
-      );
+    userInfo: RepairUserInfo.fromJson(json['userInfo'] as Map<String, dynamic>),
+    records: (json['records'] as List)
+        .map((r) => RepairRecord.fromJson(r as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class RepairService {
@@ -121,7 +121,9 @@ class RepairService {
     if (raw is String && raw.contains('A')) {
       try {
         return jsonDecode(_decodeA(raw));
-      } catch (_) {}
+      } catch (e, stackTrace) {
+        talker.debug('报修接口编码响应解析失败', e, stackTrace);
+      }
     }
     return body;
   }
@@ -197,13 +199,13 @@ class RepairService {
   }
 
   Future<Response<String>> _noFollow(Dio dio, String url) => dio.get<String>(
-        url,
-        options: Options(
-          responseType: ResponseType.plain,
-          followRedirects: false,
-          validateStatus: (s) => s != null,
-        ),
-      );
+    url,
+    options: Options(
+      responseType: ResponseType.plain,
+      followRedirects: false,
+      validateStatus: (s) => s != null,
+    ),
+  );
 
   Future<RepairUserInfo> getUserInfo(CasSession session) async {
     final data = await _api(session.dio, 'repair/getUserPhone');
@@ -215,60 +217,41 @@ class RepairService {
   }
 
   Future<List<RepairArea>> getAreas(CasSession session) async {
-    final data = await _api(session.dio, 'repair/getParentArea', {'status': '0'});
+    final data = await _api(session.dio, 'repair/getParentArea', {
+      'status': '0',
+    });
     final list = (data['data'] as List?) ?? [];
-    return list
-        .cast<Map<String, dynamic>>()
-        .map(RepairArea.fromJson)
-        .toList();
+    return list.cast<Map<String, dynamic>>().map(RepairArea.fromJson).toList();
   }
 
   Future<List<RepairArea>> getChildAreas(
     CasSession session,
     String parentId,
   ) async {
-    final data = await _api(
-      session.dio,
-      'repair/getAreaListByParent',
-      {'parentid': parentId},
-    );
+    final data = await _api(session.dio, 'repair/getAreaListByParent', {
+      'parentid': parentId,
+    });
     final list = (data['data'] as List?) ?? [];
-    return list
-        .cast<Map<String, dynamic>>()
-        .map(RepairArea.fromJson)
-        .toList();
+    return list.cast<Map<String, dynamic>>().map(RepairArea.fromJson).toList();
   }
 
-  Future<List<RepairItem>> getItems(
-    CasSession session,
-    String areaId,
-  ) async {
-    final data = await _api(
-      session.dio,
-      'repair/getParentItem',
-      {'areaid': areaId},
-    );
+  Future<List<RepairItem>> getItems(CasSession session, String areaId) async {
+    final data = await _api(session.dio, 'repair/getParentItem', {
+      'areaid': areaId,
+    });
     final list = (data['data'] as List?) ?? [];
-    return list
-        .cast<Map<String, dynamic>>()
-        .map(RepairItem.fromJson)
-        .toList();
+    return list.cast<Map<String, dynamic>>().map(RepairItem.fromJson).toList();
   }
 
   Future<List<RepairItem>> getChildItems(
     CasSession session,
     String parentId,
   ) async {
-    final data = await _api(
-      session.dio,
-      'repair/getChildItem',
-      {'parentid': parentId},
-    );
+    final data = await _api(session.dio, 'repair/getChildItem', {
+      'parentid': parentId,
+    });
     final list = (data['data'] as List?) ?? [];
-    return list
-        .cast<Map<String, dynamic>>()
-        .map(RepairItem.fromJson)
-        .toList();
+    return list.cast<Map<String, dynamic>>().map(RepairItem.fromJson).toList();
   }
 
   Future<List<RepairRecord>> queryRepairs(CasSession session) async {
@@ -309,10 +292,7 @@ class RepairService {
     CasSession session,
   ) async {
     final data = await _api(session.dio, 'process/getuploadtoken');
-    return (
-      token: '${data['msg'] ?? ''}',
-      url: '${data['url'] ?? ''}',
-    );
+    return (token: '${data['msg'] ?? ''}', url: '${data['url'] ?? ''}');
   }
 
   Future<String> uploadImage(
@@ -385,20 +365,16 @@ class RepairService {
     String remark = '',
     List<String> images = const [],
   }) async {
-    final procData = await _api(
-      session.dio,
-      'process/getProcess',
-      {'systemid': hqglSystemId},
-    );
+    final procData = await _api(session.dio, 'process/getProcess', {
+      'systemid': hqglSystemId,
+    });
     final procs = (procData['data'] as List?) ?? [];
     if (procs.isEmpty) throw AuthException('无法获取流程');
     final processId = '${(procs[0] as Map<String, dynamic>)['uuid'] ?? ''}';
 
-    final btnData = await _api(
-      session.dio,
-      'process/getOneBtn',
-      {'processid': processId},
-    );
+    final btnData = await _api(session.dio, 'process/getOneBtn', {
+      'processid': processId,
+    });
     final nodes = (btnData['data'] as List?) ?? [];
     if (nodes.isEmpty) throw AuthException('无法获取提交按钮');
     final node = nodes[0] as Map<String, dynamic>;
@@ -429,11 +405,9 @@ class RepairService {
         '${(formResp['map'] as Map<String, dynamic>?)?['orderid'] ?? ''}';
     if (orderId.isEmpty) throw AuthException('未获取到报修单号');
 
-    final detail = await _api(
-      session.dio,
-      'repair/getRepairFormById',
-      {'fid': orderId},
-    );
+    final detail = await _api(session.dio, 'repair/getRepairFormById', {
+      'fid': orderId,
+    });
     final formList = (detail['data'] as List?) ?? [];
     if (formList.isEmpty) throw AuthException('获取报修单详情失败');
     final proObj = jsonEncode(formList[0]);
@@ -460,11 +434,10 @@ class RepairService {
         '${(subResp['map'] as Map<String, dynamic>?)?['ischange'] ?? ''}';
 
     if (isChange == '1') {
-      final changeResp = await _api(
-        session.dio,
-        'process/changeprocess',
-        {'busid': orderId, 'proobj': proObj},
-      );
+      final changeResp = await _api(session.dio, 'process/changeprocess', {
+        'busid': orderId,
+        'proobj': proObj,
+      });
       if (changeResp['code'] == 0) {
         final cv =
             '${(changeResp['map'] as Map<String, dynamic>?)?['visibman'] ?? ''}';

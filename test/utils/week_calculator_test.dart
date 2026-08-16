@@ -32,6 +32,14 @@ void main() {
       expect(currentWeek(semesterStart, reference: DateTime(2026, 7, 1)), 18);
     });
 
+    test('handles semester start that is not a Monday', () {
+      final start = DateTime(2026, 9, 1); // Tuesday
+      expect(currentWeek(start, reference: DateTime(2026, 8, 31)), 1);
+      expect(currentWeek(start, reference: DateTime(2026, 9, 6)), 1);
+      expect(currentWeek(start, reference: DateTime(2026, 9, 7)), 2);
+      expect(currentWeek(start, reference: DateTime(2026, 8, 30)), 0);
+    });
+
     test('returns 0 long before semester', () {
       expect(currentWeek(semesterStart, reference: DateTime(2025, 1, 1)), 0);
     });
@@ -51,6 +59,13 @@ void main() {
       expect(monday, DateTime(2026, 3, 9));
       expect(sunday, DateTime(2026, 3, 15));
     });
+
+    test('anchors week 1 to Monday of the week containing start', () {
+      final start = DateTime(2026, 9, 1); // Tuesday
+      final (monday, sunday) = weekDateRange(start, 1);
+      expect(monday, DateTime(2026, 8, 31));
+      expect(sunday, DateTime(2026, 9, 6));
+    });
   });
 
   group('weekDates', () {
@@ -69,28 +84,20 @@ void main() {
   });
 
   group('getCurrentSchoolTerm', () {
-    test('uses autumn semester for September to December', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 10, 1)), (2026, 1));
+    test('February to August is term 1', () {
+      expect(getCurrentSchoolTerm(reference: DateTime(2026, 2, 1)), (2026, 1));
+      expect(getCurrentSchoolTerm(reference: DateTime(2026, 3, 1)), (2026, 1));
+      expect(getCurrentSchoolTerm(reference: DateTime(2026, 8, 31)), (2026, 1));
     });
 
-    test('uses spring semester for January to August', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 3, 1)), (2025, 2));
+    test('September to December is term 2 of current year', () {
+      expect(getCurrentSchoolTerm(reference: DateTime(2026, 9, 1)), (2026, 2));
+      expect(getCurrentSchoolTerm(reference: DateTime(2026, 10, 1)), (2026, 2));
+      expect(getCurrentSchoolTerm(reference: DateTime(2026, 12, 31)), (2026, 2));
     });
 
-    test('September is autumn semester', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 9, 1)), (2026, 1));
-    });
-
-    test('December is autumn semester', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 12, 31)), (2026, 1));
-    });
-
-    test('January is spring semester of previous year', () {
+    test('January is term 2 of previous year', () {
       expect(getCurrentSchoolTerm(reference: DateTime(2026, 1, 1)), (2025, 2));
-    });
-
-    test('August is spring semester', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 8, 31)), (2025, 2));
     });
   });
 }

@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
-import 'debug_log_service.dart';
+import 'talker.dart';
 import 'dio_factory.dart';
 
 class NetAuthInfo {
@@ -51,30 +51,30 @@ class NetAuthInfo {
   }
 
   Map<String, dynamic> toJson() => {
-        'name': name,
-        'account': account,
-        'className': className,
-        'group': group,
-        'status': status,
-        'usedHours': usedHours,
-        'usedFlowGb': usedFlowGb,
-        'downFlowGb': downFlowGb,
-        'upFlowGb': upFlowGb,
-        'maxDevices': maxDevices,
-      };
+    'name': name,
+    'account': account,
+    'className': className,
+    'group': group,
+    'status': status,
+    'usedHours': usedHours,
+    'usedFlowGb': usedFlowGb,
+    'downFlowGb': downFlowGb,
+    'upFlowGb': upFlowGb,
+    'maxDevices': maxDevices,
+  };
 
   factory NetAuthInfo.fromCache(Map<String, dynamic> j) => NetAuthInfo(
-        name: j['name'] as String,
-        account: j['account'] as String,
-        className: j['className'] as String,
-        group: j['group'] as String,
-        status: j['status'] as String,
-        usedHours: (j['usedHours'] as num).toDouble(),
-        usedFlowGb: (j['usedFlowGb'] as num).toDouble(),
-        downFlowGb: (j['downFlowGb'] as num).toDouble(),
-        upFlowGb: (j['upFlowGb'] as num).toDouble(),
-        maxDevices: j['maxDevices'] as int,
-      );
+    name: j['name'] as String,
+    account: j['account'] as String,
+    className: j['className'] as String,
+    group: j['group'] as String,
+    status: j['status'] as String,
+    usedHours: (j['usedHours'] as num).toDouble(),
+    usedFlowGb: (j['usedFlowGb'] as num).toDouble(),
+    downFlowGb: (j['downFlowGb'] as num).toDouble(),
+    upFlowGb: (j['upFlowGb'] as num).toDouble(),
+    maxDevices: j['maxDevices'] as int,
+  );
 }
 
 class NetAuthDevice {
@@ -93,20 +93,20 @@ class NetAuthDevice {
   });
 
   Map<String, dynamic> toJson() => {
-        'online': online,
-        'mac': mac,
-        'type': type,
-        'lastTime': lastTime,
-        'ip': ip,
-      };
+    'online': online,
+    'mac': mac,
+    'type': type,
+    'lastTime': lastTime,
+    'ip': ip,
+  };
 
   factory NetAuthDevice.fromCache(Map<String, dynamic> j) => NetAuthDevice(
-        online: j['online'] as bool,
-        mac: j['mac'] as String,
-        type: j['type'] as String,
-        lastTime: j['lastTime'] as String,
-        ip: j['ip'] as String,
-      );
+    online: j['online'] as bool,
+    mac: j['mac'] as String,
+    type: j['type'] as String,
+    lastTime: j['lastTime'] as String,
+    ip: j['ip'] as String,
+  );
 }
 
 class NetAuthResult {
@@ -116,16 +116,16 @@ class NetAuthResult {
   const NetAuthResult({required this.info, required this.devices});
 
   Map<String, dynamic> toJson() => {
-        'info': info.toJson(),
-        'devices': devices.map((d) => d.toJson()).toList(),
-      };
+    'info': info.toJson(),
+    'devices': devices.map((d) => d.toJson()).toList(),
+  };
 
   factory NetAuthResult.fromCache(Map<String, dynamic> j) => NetAuthResult(
-        info: NetAuthInfo.fromCache(j['info'] as Map<String, dynamic>),
-        devices: (j['devices'] as List)
-            .map((d) => NetAuthDevice.fromCache(d as Map<String, dynamic>))
-            .toList(),
-      );
+    info: NetAuthInfo.fromCache(j['info'] as Map<String, dynamic>),
+    devices: (j['devices'] as List)
+        .map((d) => NetAuthDevice.fromCache(d as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class NetAuthService {
@@ -162,14 +162,15 @@ class NetAuthService {
     if (depth != 0) return {};
     try {
       return jsonDecode(html.substring(start, end)) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.debug('网络管理用户 JSON 解析失败', e, stackTrace);
       return {};
     }
   }
 
   static String _extractAjaxCsrf(String html) {
-    final match =
-        RegExp(r'ajaxCsrfToken.*?["\x27]([a-f0-9-]{36})["\x27]').firstMatch(html);
+    final match = RegExp(r'ajaxCsrfToken.*?["\x27]([a-f0-9-]{36})["\x27]')
+        .firstMatch(html);
     if (match == null) throw AuthException('ajaxCsrfToken not found');
     return match.group(1)!;
   }
@@ -186,8 +187,12 @@ class NetAuthService {
   static Map<String, String> _extractOperatorValues(String html) {
     final values = <String, String>{};
     for (final field in [
-      'FLDEXTRA1', 'FLDEXTRA2', 'FLDEXTRA3',
-      'FLDEXTRA4', 'FLDEXTRA5', 'FLDEXTRA6',
+      'FLDEXTRA1',
+      'FLDEXTRA2',
+      'FLDEXTRA3',
+      'FLDEXTRA4',
+      'FLDEXTRA5',
+      'FLDEXTRA6',
     ]) {
       final match = RegExp(
         'name=["\x27]$field["\x27][^>]*value=["\x27]([^"\x27]*)',
@@ -212,13 +217,15 @@ class NetAuthService {
     final rows = (data['rows'] as List?) ?? [];
     return rows
         .where((row) => row is List && row.length >= 5)
-        .map((row) => NetAuthDevice(
-              online: row[0] == '1',
-              mac: '${row[1]}',
-              type: '${row[2]}',
-              lastTime: '${row[3]}',
-              ip: '${row[4]}',
-            ))
+        .map(
+          (row) => NetAuthDevice(
+            online: row[0] == '1',
+            mac: '${row[1]}',
+            type: '${row[2]}',
+            lastTime: '${row[3]}',
+            ip: '${row[4]}',
+          ),
+        )
         .toList();
   }
 
@@ -334,15 +341,16 @@ class NetAuthService {
         final body = (ajaxResp.data ?? '').trim();
         if (body.startsWith('{')) {
           final json = jsonDecode(body) as Map<String, dynamic>;
-          if (json.containsKey('userName') || json.containsKey('userRealName')) {
-            DebugLogService.instance.log(
-              DebugLogCategory.network, '网络管理AJAX', 'myMac JSON直接获取',
-            );
+          if (json.containsKey('userName') ||
+              json.containsKey('userRealName')) {
+            talker.debug('[NET] 网络管理AJAX\nmyMac JSON直接获取');
             return json;
           }
         }
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      talker.debug('网络管理 AJAX 用户信息获取失败，继续回退', e, stackTrace);
+    }
 
     // Fallback: extract JSON from embedded JavaScript
     final userPage = await dio.get<String>(
@@ -377,11 +385,18 @@ class NetAuthService {
 
       final Response<String> resp;
       if (method == 'POST') {
-        resp = await dio.post<String>(url,
-            data: bodyData, queryParameters: queryParams, options: opts);
+        resp = await dio.post<String>(
+          url,
+          data: bodyData,
+          queryParameters: queryParams,
+          options: opts,
+        );
       } else {
-        resp = await dio.get<String>(url,
-            queryParameters: queryParams, options: opts);
+        resp = await dio.get<String>(
+          url,
+          queryParameters: queryParams,
+          options: opts,
+        );
       }
 
       if (resp.statusCode == 200) {
@@ -390,21 +405,17 @@ class NetAuthService {
           final json = jsonDecode(body) as Map<String, dynamic>;
           final msg = (json['msg'] ?? json['message'] ?? json['info'] ?? '')
               .toString();
-          DebugLogService.instance.log(
-            DebugLogCategory.network, '网络管理AJAX', '$url → JSON: $msg',
-          );
+          talker.debug('[NET] 网络管理AJAX\n$url → JSON: $msg');
           return msg;
         }
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      talker.debug('网络管理 AJAX 操作失败', e, stackTrace);
+    }
     return null;
   }
 
-  Future<String> unbindMac(
-    String account,
-    String password,
-    String mac,
-  ) async {
+  Future<String> unbindMac(String account, String password, String mac) async {
     final dio = _createDio();
     try {
       await _doLogin(dio, account, password);
@@ -418,8 +429,10 @@ class NetAuthService {
       );
       final csrf = _extractAjaxCsrf(macPage.data ?? '');
 
-      final cleanMac =
-          mac.replaceAll('-', '').replaceAll(':', '').toUpperCase();
+      final cleanMac = mac
+          .replaceAll('-', '')
+          .replaceAll(':', '')
+          .toUpperCase();
 
       // Try AJAX JSON response
       final msg = await _tryAjaxAction(

@@ -1,12 +1,14 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/repair_service.dart';
+import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 
 class RepairFormPage extends StatefulWidget {
@@ -43,16 +45,13 @@ class _RepairFormPageState extends State<RepairFormPage> {
   @override
   void initState() {
     super.initState();
-    _loadTutorial();
-    _createSession();
+    unawaited(_loadTutorial());
+    unawaited(_createSession());
   }
 
   Future<void> _createSession() async {
     try {
-      final session = await _service.login(
-        widget.studentId,
-        widget.password,
-      );
+      final session = await _service.login(widget.studentId, widget.password);
       if (!mounted) {
         session.close();
         return;
@@ -61,11 +60,13 @@ class _RepairFormPageState extends State<RepairFormPage> {
         _session = session;
         _sessionLoading = false;
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('报修会话创建失败', e, stackTrace);
       if (!mounted) return;
       setState(() => _sessionLoading = false);
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('报修会话创建异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _sessionLoading = false);
       showAppSnackBar(context, '会话创建失败');
@@ -73,8 +74,9 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _loadTutorial() async {
-    final content =
-        await rootBundle.loadString('assets/tutorials/repair_guide.md');
+    final content = await rootBundle.loadString(
+      'assets/tutorials/repair_guide.md',
+    );
     if (mounted) setState(() => _tutorial = content);
   }
 
@@ -146,7 +148,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
     List<RepairArea> items;
     try {
       items = await _service.getAreas(_session!);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('报修区域获取失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, '获取区域失败');
       return null;
     }
@@ -165,14 +168,18 @@ class _RepairFormPageState extends State<RepairFormPage> {
     RepairArea? chosen;
     while (true) {
       if (!mounted) return null;
-      chosen = await _showPickerSheet('选择区域', items,
-          selectedId: _selectedArea?.id);
+      chosen = await _showPickerSheet(
+        '选择区域',
+        items,
+        selectedId: _selectedArea?.id,
+      );
       if (chosen == null) return null;
 
       List<RepairArea> children;
       try {
         children = await _service.getChildAreas(_session!, chosen.id);
-      } catch (_) {
+      } catch (e, stackTrace) {
+        talker.debug('报修子区域获取失败，按叶子节点处理', e, stackTrace);
         return chosen;
       }
       if (children.isEmpty) return chosen;
@@ -196,7 +203,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
     List<RepairItem> items;
     try {
       items = await _service.getItems(_session!, _selectedArea!.id);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('报修项目获取失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, '获取项目失败');
       return null;
     }
@@ -218,7 +226,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
       List<RepairItem> children;
       try {
         children = await _service.getChildItems(_session!, chosen.id);
-      } catch (_) {
+      } catch (e, stackTrace) {
+        talker.debug('报修子项目获取失败，按叶子节点处理', e, stackTrace);
         return RepairItem(id: chosen.id, name: chosen.name);
       }
       if (children.isEmpty) {
@@ -292,8 +301,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Material(
                           color: selected
-                              ? theme.colorScheme.primaryContainer
-                                  .withAlpha(72)
+                              ? theme.colorScheme.primaryContainer.withAlpha(72)
                               : theme.colorScheme.surfaceContainerLowest,
                           borderRadius: BorderRadius.circular(28),
                           child: InkWell(
@@ -311,8 +319,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
                                       item.name,
                                       style: theme.textTheme.titleMedium
                                           ?.copyWith(
-                                        fontWeight: FontWeight.w400,
-                                      ),
+                                            fontWeight: FontWeight.w400,
+                                          ),
                                     ),
                                   ),
                                   const SizedBox(width: 10),
@@ -377,10 +385,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
       if (!mounted) return;
       showAppSnackBar(context, '提交成功');
       Navigator.of(context).pop(true);
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('报修提交失败', e, stackTrace);
       if (!mounted) return;
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('报修提交异常', e, stackTrace);
       if (!mounted) return;
       showAppSnackBar(context, '提交失败');
     } finally {
@@ -568,9 +578,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: theme.colorScheme.outline.withAlpha(60),
-          ),
+          border: Border.all(color: theme.colorScheme.outline.withAlpha(60)),
         ),
         child: Icon(
           Icons.add_photo_alternate_outlined,

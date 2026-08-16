@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../services/cas_service.dart';
+import '../../services/preferences_storage.dart';
+import '../../services/talker.dart';
+import '../../services/tools_data_manager.dart';
 import '../../services/ykt_service.dart';
 import '../../utils/snackbar_helper.dart';
 
@@ -8,12 +11,14 @@ class YktPage extends StatefulWidget {
   final YktDetailResult result;
   final String studentId;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const YktPage({
     super.key,
     required this.result,
     required this.studentId,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -38,19 +43,26 @@ class _YktPageState extends State<YktPage> {
   Future<void> _refresh() async {
     setState(() => _isRefreshing = true);
     try {
-      final result = await YktService().getDetail(
+      final result = await ToolsDataManager.instance.refreshYkt(
         widget.studentId,
         widget.password,
+        widget.preferencesStorage,
       );
       if (!mounted) return;
+      if (result == null) {
+        showAppSnackBar(context, '刷新失败');
+        return;
+      }
       setState(() {
         _result = result;
         _txns = result.transactions.reversed.toList();
         _currentPage = 0;
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('一卡通详情刷新失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('一卡通详情刷新异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '刷新失败');
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
@@ -110,7 +122,11 @@ class _YktPageState extends State<YktPage> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildMetricCell(theme, '余额', '${bal.balance} 元'),
+                        child: _buildMetricCell(
+                          theme,
+                          '余额',
+                          '${bal.balance} 元',
+                        ),
                       ),
                     ],
                   ),
@@ -230,9 +246,7 @@ class _YktPageState extends State<YktPage> {
                   '${isNeg ? '' : '+'}${t.amount}',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: isNeg
-                        ? theme.colorScheme.error
-                        : Colors.green,
+                    color: isNeg ? theme.colorScheme.error : Colors.green,
                   ),
                 ),
                 if (t.balance.isNotEmpty)

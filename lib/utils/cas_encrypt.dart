@@ -1,4 +1,8 @@
-String casEncryptPassword(String password, String modulusHex, String exponentHex) {
+String casEncryptPassword(
+  String password,
+  String modulusHex,
+  String exponentHex,
+) {
   return _rsaEncrypt(
     String.fromCharCodes(password.runes.toList().reversed),
     exponentHex,

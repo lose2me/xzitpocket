@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/netauth_service.dart';
+import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 
 class OperatorBindPage extends StatefulWidget {
@@ -37,7 +40,7 @@ class _OperatorBindPageState extends State<OperatorBindPage> {
   @override
   void initState() {
     super.initState();
-    _loadTutorial(_selectedIndex);
+    unawaited(_loadTutorial(_selectedIndex));
   }
 
   Future<void> _loadTutorial(int index) async {
@@ -60,7 +63,7 @@ class _OperatorBindPageState extends State<OperatorBindPage> {
       _acctCtrl.clear();
       _pwdCtrl.clear();
     });
-    _loadTutorial(index);
+    unawaited(_loadTutorial(index));
   }
 
   Future<void> _submit() async {
@@ -83,9 +86,11 @@ class _OperatorBindPageState extends State<OperatorBindPage> {
       if (!mounted) return;
       showAppSnackBar(context, msg);
       Navigator.of(context).pop();
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('运营商绑定失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('运营商绑定异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '绑定失败');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -122,7 +127,7 @@ class _OperatorBindPageState extends State<OperatorBindPage> {
                 obscureText: true,
                 textInputAction: TextInputAction.done,
                 onSubmitted: (_) {
-                  if (!_loading) _submit();
+                  if (!_loading) unawaited(_submit());
                 },
                 decoration: const InputDecoration(
                   labelText: '宽带密码',

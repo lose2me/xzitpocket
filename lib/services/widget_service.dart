@@ -5,6 +5,7 @@ import 'package:home_widget/home_widget.dart';
 
 import '../constants/time_slots.dart';
 import '../models/course.dart';
+import 'talker.dart';
 
 const _appGroupId = 'live.xuda.xzitpocket';
 const _channel = MethodChannel('live.xuda.xzitpocket/widget_bridge');
@@ -24,8 +25,8 @@ class WidgetService {
   static Future<void> init() async {
     try {
       await HomeWidget.setAppGroupId(_appGroupId);
-    } catch (_) {
-      // Ignore widget init failures to avoid blocking app startup.
+    } catch (e, stackTrace) {
+      talker.warning('小组件初始化失败', e, stackTrace);
     }
   }
 
@@ -54,9 +55,7 @@ class WidgetService {
       final startSlot = _findTimeSlot(course.startSession);
       final endSlot = _findTimeSlot(course.endSession);
       if (startSlot == null || endSlot == null) {
-        throw WidgetSyncException(
-          '课程”${course.title}”的节次无效，小组件和课堂勿扰未同步',
-        );
+        throw WidgetSyncException('课程”${course.title}”的节次无效，小组件和课堂勿扰未同步');
       }
 
       for (final w in course.weeks) {

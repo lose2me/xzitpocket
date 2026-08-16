@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import 'course.dart';
 
 class CourseAdapter extends TypeAdapter<Course> {

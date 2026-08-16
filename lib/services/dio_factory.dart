@@ -6,7 +6,7 @@ import 'package:dio/io.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
 import '../constants/network_config.dart';
-import 'debug_log_service.dart';
+import 'talker.dart';
 
 class DioFactory {
   DioFactory._();
@@ -43,8 +43,8 @@ class DioFactory {
         },
       );
     }
-    dio.interceptors.add(DebugLogService.instance.dioInterceptor);
     dio.interceptors.add(_LenientCookieManager(cookieJar));
+    dio.interceptors.add(talkerDioLogger);
     return dio;
   }
 
@@ -74,8 +74,8 @@ class DioFactory {
         },
       );
     }
-    dio.interceptors.add(DebugLogService.instance.dioInterceptor);
     dio.interceptors.add(_LenientCookieManager(cookieJar));
+    dio.interceptors.add(talkerDioLogger);
     return dio;
   }
 }
@@ -84,7 +84,10 @@ class _LenientCookieManager extends CookieManager {
   _LenientCookieManager(super.cookieJar);
 
   @override
-  Future<void> onResponse(Response response, ResponseInterceptorHandler handler) async {
+  Future<void> onResponse(
+    Response response,
+    ResponseInterceptorHandler handler,
+  ) async {
     await _saveCookiesLenient(response);
     handler.next(response);
   }
@@ -98,14 +101,15 @@ class _LenientCookieManager extends CookieManager {
       for (final raw in setCookies) {
         try {
           cookies.add(Cookie.fromSetCookieValue(raw));
-        } catch (_) {}
+        } catch (e, stackTrace) {
+          talker.warning('Set-Cookie 解析失败\n$raw', e, stackTrace);
+        }
       }
       if (cookies.isNotEmpty) {
-        await cookieJar.saveFromResponse(
-          response.requestOptions.uri,
-          cookies,
-        );
+        await cookieJar.saveFromResponse(response.requestOptions.uri, cookies);
       }
-    } catch (_) {}
+    } catch (e, stackTrace) {
+      talker.warning('响应 Cookie 保存失败', e, stackTrace);
+    }
   }
 }

@@ -2,14 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 
 import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
 import 'services/course_storage.dart';
-import 'services/debug_log_service.dart';
-import 'services/debug_navigator_observer.dart';
+import 'services/talker.dart';
 import 'services/widget_service.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -38,23 +38,23 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   void didChangePlatformBrightness() {
     // Delay to let the system apply the configuration change before
     // the native widget re-reads uiMode.
-    Future.delayed(const Duration(milliseconds: 500), () async {
-      if (mounted) {
-        try {
-          await WidgetService.refreshWidget();
-        } on WidgetSyncException catch (e) {
-          debugPrint('Widget refresh skipped after theme change: $e');
+    unawaited(
+      Future.delayed(const Duration(milliseconds: 500), () async {
+        if (mounted) {
+          try {
+            await WidgetService.refreshWidget();
+          } on WidgetSyncException catch (e) {
+            talker.warning('Widget refresh skipped after theme change', e);
+          }
         }
-      }
-    });
+      }),
+    );
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    DebugLogService.instance.log(
-      DebugLogCategory.lifecycle,
-      state == AppLifecycleState.resumed ? '回到前台' : '进入后台',
-      state.name,
+    talker.info(
+      '[LIFECYCLE] ${state == AppLifecycleState.resumed ? '回到前台' : '进入后台'}\n${state.name}',
     );
     if (state == AppLifecycleState.resumed) {
       TimetablePage.globalKey.currentState?.refreshForResume();
@@ -69,7 +69,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         semesterStart: semesterStartDate,
       );
     } on WidgetSyncException catch (e) {
-      debugPrint('Widget sync on resume failed: $e');
+      talker.warning('Widget sync on resume failed', e);
     }
   }
 
@@ -100,7 +100,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
           ),
         ),
         themeMode: themePreference.themeMode,
-        navigatorObservers: [DebugNavigatorObserver()],
+        navigatorObservers: [TalkerRouteObserver(talker)],
         home: HomePage(key: HomePage.globalKey),
       ),
     );

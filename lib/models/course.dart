@@ -23,8 +23,10 @@ class Course {
     this.courseId = '',
   });
 
-  int get startSession => sessions.isEmpty ? 1 : sessions.reduce((a, b) => a < b ? a : b);
-  int get endSession => sessions.isEmpty ? 1 : sessions.reduce((a, b) => a > b ? a : b);
+  int get startSession =>
+      sessions.isEmpty ? 1 : sessions.reduce((a, b) => a < b ? a : b);
+  int get endSession =>
+      sessions.isEmpty ? 1 : sessions.reduce((a, b) => a > b ? a : b);
   int get sessionSpan => endSession - startSession + 1;
 
   bool isInWeek(int week) => weeks.contains(week);

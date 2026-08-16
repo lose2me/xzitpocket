@@ -38,7 +38,7 @@ class WeekHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  isBeforeStart ? '第$selectedWeek周 · 未开学' : '第$selectedWeek周',
+                  isBeforeStart ? '未开学' : '第$selectedWeek周',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

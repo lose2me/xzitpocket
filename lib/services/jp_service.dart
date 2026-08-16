@@ -8,7 +8,7 @@ import 'package:pointycastle/export.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
-import 'debug_log_service.dart';
+import 'talker.dart';
 import 'dio_factory.dart';
 
 const _aggPublicKeyB64 =
@@ -31,18 +31,18 @@ class JpTaskCourse {
   });
 
   Map<String, dynamic> toJson() => {
-        'pjjgid': pjjgid,
-        'courseName': courseName,
-        'teacherName': teacherName,
-        'done': done,
-      };
+    'pjjgid': pjjgid,
+    'courseName': courseName,
+    'teacherName': teacherName,
+    'done': done,
+  };
 
   factory JpTaskCourse.fromJson(Map<String, dynamic> json) => JpTaskCourse(
-        pjjgid: json['pjjgid'] as String,
-        courseName: json['courseName'] as String,
-        teacherName: json['teacherName'] as String,
-        done: json['done'] as bool,
-      );
+    pjjgid: json['pjjgid'] as String,
+    courseName: json['courseName'] as String,
+    teacherName: json['teacherName'] as String,
+    done: json['done'] as bool,
+  );
 }
 
 class JpTask {
@@ -69,30 +69,30 @@ class JpTask {
   });
 
   Map<String, dynamic> toJson() => {
-        'taskId': taskId,
-        'taskName': taskName,
-        'status': status,
-        'startTime': startTime,
-        'endTime': endTime,
-        'total': total,
-        'completed': completed,
-        'pending': pending,
-        'courses': courses.map((c) => c.toJson()).toList(),
-      };
+    'taskId': taskId,
+    'taskName': taskName,
+    'status': status,
+    'startTime': startTime,
+    'endTime': endTime,
+    'total': total,
+    'completed': completed,
+    'pending': pending,
+    'courses': courses.map((c) => c.toJson()).toList(),
+  };
 
   factory JpTask.fromJson(Map<String, dynamic> json) => JpTask(
-        taskId: json['taskId'] as String,
-        taskName: json['taskName'] as String,
-        status: json['status'] as String,
-        startTime: json['startTime'] as String,
-        endTime: json['endTime'] as String,
-        total: json['total'] as int,
-        completed: json['completed'] as int,
-        pending: json['pending'] as int,
-        courses: (json['courses'] as List)
-            .map((c) => JpTaskCourse.fromJson(c as Map<String, dynamic>))
-            .toList(),
-      );
+    taskId: json['taskId'] as String,
+    taskName: json['taskName'] as String,
+    status: json['status'] as String,
+    startTime: json['startTime'] as String,
+    endTime: json['endTime'] as String,
+    total: json['total'] as int,
+    completed: json['completed'] as int,
+    pending: json['pending'] as int,
+    courses: (json['courses'] as List)
+        .map((c) => JpTaskCourse.fromJson(c as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class JpStatusResult {
@@ -100,14 +100,14 @@ class JpStatusResult {
   const JpStatusResult({required this.tasks});
 
   Map<String, dynamic> toJson() => {
-        'tasks': tasks.map((t) => t.toJson()).toList(),
-      };
+    'tasks': tasks.map((t) => t.toJson()).toList(),
+  };
 
   factory JpStatusResult.fromJson(Map<String, dynamic> json) => JpStatusResult(
-        tasks: (json['tasks'] as List)
-            .map((t) => JpTask.fromJson(t as Map<String, dynamic>))
-            .toList(),
-      );
+    tasks: (json['tasks'] as List)
+        .map((t) => JpTask.fromJson(t as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class JpAutoResult {
@@ -122,13 +122,16 @@ class JpService {
 
     // REST path: get ST for AGG, skip CAS redirect chain
     final st = await cas.getServiceTicket(
-      username, password, '$aggBaseUrl8080/loginSSO/',
+      username,
+      password,
+      '$aggBaseUrl8080/loginSSO/',
     );
     if (st != null) {
       final dio = _createZlbzDio();
       try {
         final r = await followRedirectsManually(
-          dio, '$aggBaseUrl8080/loginSSO/?ticket=$st',
+          dio,
+          '$aggBaseUrl8080/loginSSO/?ticket=$st',
         );
         if (r.statusCode != 200) throw AuthException('聚合平台登录失败');
 
@@ -172,11 +175,11 @@ class JpService {
   }
 
   Dio _createZlbzDio() => DioFactory.createNaked(
-        cookieJar: CookieJar(),
-        connectTimeout: requestTimeout,
-        receiveTimeout: requestTimeout,
-        ignoreCertificate: true,
-      );
+    cookieJar: CookieJar(),
+    connectTimeout: requestTimeout,
+    receiveTimeout: requestTimeout,
+    ignoreCertificate: true,
+  );
 
   Future<String> _ssoToZlbz4(String username) async {
     final payload = jsonEncode({
@@ -241,119 +244,146 @@ class JpService {
         final taskId = '${task['taskid'] ?? ''}';
         final stat = sfwc[taskId] ?? <String, dynamic>{};
         final courses = await _getStudentCourses(dio, token, taskId);
-      final pending = courses.where((c) => c['hassubmit'] != 1).length;
-      final done = courses.where((c) => c['hassubmit'] == 1).length;
+        final pending = courses.where((c) => c['hassubmit'] != 1).length;
+        final done = courses.where((c) => c['hassubmit'] == 1).length;
 
-      result.add(JpTask(
-        taskId: taskId,
-        taskName: '${task['taskname'] ?? ''}',
-        status: '${task['currentStatus'] ?? ''}',
-        startTime: '${task['starttime'] ?? ''}',
-        endTime: '${task['endtime'] ?? ''}',
-        total: (stat['yprs'] as int?) ?? courses.length,
-        completed: (stat['sprs'] as int?) ?? done,
-        pending: (stat['wprs'] as int?) ?? pending,
-        courses: courses
-            .map((c) => JpTaskCourse(
-                  pjjgid: '${c['pjjgid'] ?? ''}',
-                  courseName: '${c['coursename'] ?? ''}',
-                  teacherName: '${c['teachername'] ?? ''}',
-                  done: c['hassubmit'] == 1,
-                ))
-            .toList(),
-      ));
-    }
-    return JpStatusResult(tasks: result);
+        result.add(
+          JpTask(
+            taskId: taskId,
+            taskName: '${task['taskname'] ?? ''}',
+            status: '${task['currentStatus'] ?? ''}',
+            startTime: '${task['starttime'] ?? ''}',
+            endTime: '${task['endtime'] ?? ''}',
+            total: (stat['yprs'] as int?) ?? courses.length,
+            completed: (stat['sprs'] as int?) ?? done,
+            pending: (stat['wprs'] as int?) ?? pending,
+            courses: courses
+                .map(
+                  (c) => JpTaskCourse(
+                    pjjgid: '${c['pjjgid'] ?? ''}',
+                    courseName: '${c['coursename'] ?? ''}',
+                    teacherName: '${c['teachername'] ?? ''}',
+                    done: c['hassubmit'] == 1,
+                  ),
+                )
+                .toList(),
+          ),
+        );
+      }
+      return JpStatusResult(tasks: result);
     } finally {
       dio.close(force: true);
     }
   }
 
   Future<JpAutoResult> autoEvaluate(String username, String password) async {
-    final logger = DebugLogService.instance;
-    logger.log(DebugLogCategory.action, '评教', '开始自动评教');
+    talker.info('[ACTION] 评教\n开始自动评教');
 
     final token = await _jpLogin(username, password);
-    logger.log(DebugLogCategory.action, '评教', '登录成功, token长度=${token.length}');
+    talker.info('[ACTION] 评教\n登录成功, token长度=${token.length}');
 
     final dio = _createZlbzDio();
     try {
-    final (_, tasks) = await _getTaskData(dio, token);
-    logger.log(DebugLogCategory.action, '评教',
-        '获取到 ${tasks.length} 个任务: ${tasks.map((t) => '${t['taskname']}[${t['currentStatus']}]').join(', ')}');
-    if (tasks.isEmpty) throw AuthException('没有评教任务');
+      final (_, tasks) = await _getTaskData(dio, token);
+      talker.info(
+        '[ACTION] 评教\n获取到 ${tasks.length} 个任务: '
+        '${tasks.map((t) => '${t['taskname']}[${t['currentStatus']}]').join(', ')}',
+      );
+      if (tasks.isEmpty) throw AuthException('没有评教任务');
 
-    var active = tasks.where((t) => t['currentStatus'] == '进行中').toList();
-    if (active.isEmpty) {
-      logger.log(DebugLogCategory.action, '评教', '无进行中任务, 使用全部任务');
-      active = tasks;
-    } else {
-      logger.log(DebugLogCategory.action, '评教', '筛选到 ${active.length} 个进行中任务');
-    }
+      var active = tasks.where((t) => t['currentStatus'] == '进行中').toList();
+      if (active.isEmpty) {
+        talker.info('[ACTION] 评教\n无进行中任务, 使用全部任务');
+        active = tasks;
+      } else {
+        talker.info('[ACTION] 评教\n筛选到 ${active.length} 个进行中任务');
+      }
 
-    final evaluated = <String>[];
-    final skipped = <String>[];
+      final evaluated = <String>[];
+      final skipped = <String>[];
 
-    for (final task in active) {
-      final taskId = '${task['taskid'] ?? ''}';
-      final indexId = '${task['indexid'] ?? ''}';
-      logger.log(DebugLogCategory.action, '评教',
-          '处理任务: ${task['taskname']}, taskId=$taskId, indexId=$indexId');
+      for (final task in active) {
+        final taskId = '${task['taskid'] ?? ''}';
+        final indexId = '${task['indexid'] ?? ''}';
+        talker.info(
+          '[ACTION] 评教\n处理任务: ${task['taskname']}, '
+          'taskId=$taskId, indexId=$indexId',
+        );
 
-      final courses = await _getStudentCourses(dio, token, taskId);
-      logger.log(DebugLogCategory.action, '评教',
-          '任务 $taskId 获取到 ${courses.length} 门课程');
+        final courses = await _getStudentCourses(dio, token, taskId);
+        talker.info('[ACTION] 评教\n任务 $taskId 获取到 ${courses.length} 门课程');
 
-      for (final course in courses) {
-        final label =
-            '${course['coursename'] ?? ''}(${course['teachername'] ?? ''})';
-        final hassubmit = course['hassubmit'];
-        final zt = course['zt'];
-        logger.log(DebugLogCategory.action, '评教',
-            '课程: $label, hassubmit=$hassubmit(${hassubmit.runtimeType}), zt=$zt');
+        for (final course in courses) {
+          final label =
+              '${course['coursename'] ?? ''}(${course['teachername'] ?? ''})';
+          final hassubmit = course['hassubmit'];
+          final zt = course['zt'];
+          talker.info(
+            '[ACTION] 评教\n课程: $label, '
+            'hassubmit=$hassubmit(${hassubmit.runtimeType}), zt=$zt',
+          );
 
-        if (course['hassubmit'] == 1 || course['zt'] == 'yjs') {
-          skipped.add(label);
-          logger.log(DebugLogCategory.action, '评教', '跳过(已提交): $label');
-          continue;
-        }
+          if (course['hassubmit'] == 1 || course['zt'] == 'yjs') {
+            skipped.add(label);
+            talker.info('[ACTION] 评教\n跳过(已提交): $label');
+            continue;
+          }
 
-        final pjcoursetype = '${course['pjcoursetype'] ?? ''}';
-        logger.log(DebugLogCategory.action, '评教',
-            '获取指标体系: indexId=$indexId, pjcoursetype=$pjcoursetype');
-        final indexTree = await _getIndexSystem(dio, token, indexId, pjcoursetype);
-        if (indexTree.isEmpty) {
-          skipped.add('$label(无指标)');
-          logger.log(DebugLogCategory.error, '评教', '跳过(无指标体系): $label');
-          continue;
-        }
+          final pjcoursetype = '${course['pjcoursetype'] ?? ''}';
+          talker.info(
+            '[ACTION] 评教\n获取指标体系: '
+            'indexId=$indexId, pjcoursetype=$pjcoursetype',
+          );
+          final indexTree = await _getIndexSystem(
+            dio,
+            token,
+            indexId,
+            pjcoursetype,
+          );
+          if (indexTree.isEmpty) {
+            skipped.add('$label(无指标)');
+            talker.error('评教\n跳过(无指标体系): $label');
+            continue;
+          }
 
-        final indicators = _flattenIndicators(indexTree);
-        logger.log(DebugLogCategory.action, '评教',
-            '展开指标: ${indicators.length} 个叶子节点');
-        if (indicators.isEmpty) {
-          skipped.add('$label(指标为空)');
-          logger.log(DebugLogCategory.error, '评教', '跳过(指标为空): $label');
-          continue;
-        }
+          final indicators = _flattenIndicators(indexTree);
+          talker.info('[ACTION] 评教\n展开指标: ${indicators.length} 个叶子节点');
+          if (indicators.isEmpty) {
+            skipped.add('$label(指标为空)');
+            talker.error('评教\n跳过(指标为空): $label');
+            continue;
+          }
 
-        final (ok, serverMsg) = await _submitEvaluation(dio, token, task, course, indicators);
-        logger.log(ok ? DebugLogCategory.action : DebugLogCategory.error,
-            '评教', '提交${ok ? '成功' : '失败'}: $label${serverMsg != null ? ' ($serverMsg)' : ''}');
-        if (ok) {
-          evaluated.add(label);
-        } else {
-          skipped.add('$label(提交失败)');
-          if (serverMsg != null) {
-            throw Exception(serverMsg);
+          final (ok, serverMsg) = await _submitEvaluation(
+            dio,
+            token,
+            task,
+            course,
+            indicators,
+          );
+          final submitMessage =
+              '评教\n提交${ok ? '成功' : '失败'}: $label'
+              '${serverMsg != null ? ' ($serverMsg)' : ''}';
+          if (ok) {
+            talker.info('[ACTION] $submitMessage');
+          } else {
+            talker.error(submitMessage);
+          }
+          if (ok) {
+            evaluated.add(label);
+          } else {
+            skipped.add('$label(提交失败)');
+            if (serverMsg != null) {
+              throw Exception(serverMsg);
+            }
           }
         }
       }
-    }
 
-    logger.log(DebugLogCategory.action, '评教',
-        '完成: 已评=${evaluated.length}, 跳过=${skipped.length}');
-    return JpAutoResult(evaluated: evaluated, skipped: skipped);
+      talker.info(
+        '[ACTION] 评教\n完成: 已评=${evaluated.length}, 跳过=${skipped.length}',
+      );
+      return JpAutoResult(evaluated: evaluated, skipped: skipped);
     } finally {
       dio.close(force: true);
     }
@@ -387,21 +417,33 @@ class JpService {
   }
 
   Future<(Map<String, Map<String, dynamic>>, List<Map<String, dynamic>>)>
-      _getTaskData(Dio dio, String token) async {
-    final r = await _apiPost(dio, token, '/xspj/xspj/getXspjtask', queryParams: {});
-    final logger = DebugLogService.instance;
-    logger.log(DebugLogCategory.network, '评教API', 'getXspjtask status=${r.statusCode}');
-    if (r.statusCode != 200) return (<String, Map<String, dynamic>>{}, <Map<String, dynamic>>[]);
+  _getTaskData(Dio dio, String token) async {
+    final r = await _apiPost(
+      dio,
+      token,
+      '/xspj/xspj/getXspjtask',
+      queryParams: {},
+    );
+    talker.debug('[NET] 评教API\ngetXspjtask status=${r.statusCode}');
+    if (r.statusCode != 200) {
+      return (<String, Map<String, dynamic>>{}, <Map<String, dynamic>>[]);
+    }
     final body = r.data as Map<String, dynamic>?;
-    logger.log(DebugLogCategory.network, '评教API', 'getXspjtask code=${body?['code']}, msg=${body?['msg'] ?? ''}');
-    if (body == null || body['code'] != 200) return (<String, Map<String, dynamic>>{}, <Map<String, dynamic>>[]);
+    talker.debug(
+      '[NET] 评教API\ngetXspjtask code=${body?['code']}, '
+      'msg=${body?['msg'] ?? ''}',
+    );
+    if (body == null || body['code'] != 200) {
+      return (<String, Map<String, dynamic>>{}, <Map<String, dynamic>>[]);
+    }
     final data = (body['data'] as Map<String, dynamic>?) ?? {};
     final sfwcList = (data['taskSfwc'] as List?) ?? [];
     final sfwc = <String, Map<String, dynamic>>{};
     for (final s in sfwcList) {
       sfwc['${(s as Map<String, dynamic>)['taskid'] ?? ''}'] = s;
     }
-    final tasks = ((data['pageData'] as List?) ?? []).cast<Map<String, dynamic>>();
+    final tasks = ((data['pageData'] as List?) ?? [])
+        .cast<Map<String, dynamic>>();
     return (sfwc, tasks);
   }
 
@@ -416,18 +458,20 @@ class JpService {
       '/xspj/xspj/getXspjStudentCourses',
       queryParams: {'taskid': taskId},
     );
-    final logger = DebugLogService.instance;
-    logger.log(DebugLogCategory.network, '评教API',
-        'getStudentCourses($taskId) status=${r.statusCode}');
+    talker.debug(
+      '[NET] 评教API\ngetStudentCourses($taskId) status=${r.statusCode}',
+    );
     if (r.statusCode != 200) return [];
     final body = r.data as Map<String, dynamic>?;
-    logger.log(DebugLogCategory.network, '评教API',
-        'getStudentCourses code=${body?['code']}, msg=${body?['msg'] ?? ''}');
+    talker.debug(
+      '[NET] 评教API\ngetStudentCourses code=${body?['code']}, '
+      'msg=${body?['msg'] ?? ''}',
+    );
     if (body == null || body['code'] != 200) return [];
-    final list = ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
-        .cast<Map<String, dynamic>>();
-    logger.log(DebugLogCategory.network, '评教API',
-        'getStudentCourses 返回 ${list.length} 门课');
+    final list =
+        ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
+            .cast<Map<String, dynamic>>();
+    talker.debug('[NET] 评教API\ngetStudentCourses 返回 ${list.length} 门课');
     return list;
   }
 
@@ -443,22 +487,27 @@ class JpService {
       '/xspj/xspj/getXspjTindexSystem',
       queryParams: {'indexid': indexId, 'pjcoursetype': pjcoursetype},
     );
-    final logger = DebugLogService.instance;
-    logger.log(DebugLogCategory.network, '评教API',
-        'getIndexSystem($indexId, $pjcoursetype) status=${r.statusCode}');
+    talker.debug(
+      '[NET] 评教API\ngetIndexSystem($indexId, $pjcoursetype) '
+      'status=${r.statusCode}',
+    );
     if (r.statusCode != 200) return [];
     final body = r.data as Map<String, dynamic>?;
-    logger.log(DebugLogCategory.network, '评教API',
-        'getIndexSystem code=${body?['code']}, msg=${body?['msg'] ?? ''}');
+    talker.debug(
+      '[NET] 评教API\ngetIndexSystem code=${body?['code']}, '
+      'msg=${body?['msg'] ?? ''}',
+    );
     if (body == null || body['code'] != 200) return [];
-    final list = ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
-        .cast<Map<String, dynamic>>();
-    logger.log(DebugLogCategory.network, '评教API',
-        'getIndexSystem 返回 ${list.length} 个指标节点');
+    final list =
+        ((body['data'] as Map<String, dynamic>?)?['pageData'] as List? ?? [])
+            .cast<Map<String, dynamic>>();
+    talker.debug('[NET] 评教API\ngetIndexSystem 返回 ${list.length} 个指标节点');
     return list;
   }
 
-  List<Map<String, dynamic>> _flattenIndicators(List<Map<String, dynamic>> tree) {
+  List<Map<String, dynamic>> _flattenIndicators(
+    List<Map<String, dynamic>> tree,
+  ) {
     final flat = <Map<String, dynamic>>[];
     for (final node in tree) {
       final sub = (node['subList'] as List?)?.cast<Map<String, dynamic>>();
@@ -502,10 +551,12 @@ class JpService {
         result['option_id'] = best['id'] ?? 0;
         if (isScored) totalScore += score;
       } else if (itemType == '打分题') {
-        final maxScore = (double.tryParse('${ind['score'] ?? 0}') ?? 0) *
+        final maxScore =
+            (double.tryParse('${ind['score'] ?? 0}') ?? 0) *
             (double.tryParse('${ind['weight'] ?? 1}') ?? 1);
-        result['index_title'] =
-            maxScore == maxScore.toInt() ? '${maxScore.toInt()}' : '$maxScore';
+        result['index_title'] = maxScore == maxScore.toInt()
+            ? '${maxScore.toInt()}'
+            : '$maxScore';
         result['index_score'] = maxScore;
         if (isScored) totalScore += maxScore;
       } else if (itemType == '问答题' || itemType == '填空题') {
@@ -569,12 +620,14 @@ class JpService {
       'evaluateResult': evalResults,
       'commit_time': commitTime,
     };
-    if (course['pjjgid'] != null) payload['tevaluateResultid'] = course['pjjgid'];
+    if (course['pjjgid'] != null) {
+      payload['tevaluateResultid'] = course['pjjgid'];
+    }
 
-    final logger = DebugLogService.instance;
-    logger.log(DebugLogCategory.network, '评教API',
-        'submitEvaluation: ${course['coursename']}, totalScore=$totalScore, '
-        'evalResults=${evalResults.length}项');
+    talker.debug(
+      '[NET] 评教API\nsubmitEvaluation: ${course['coursename']}, '
+      'totalScore=$totalScore, evalResults=${evalResults.length}项',
+    );
 
     final r = await _apiPost(
       dio,
@@ -588,8 +641,10 @@ class JpService {
     final body = r.data as Map<String, dynamic>?;
     final code = body?['code'];
     final msg = (body?['message'] ?? body?['msg'] ?? '') as String;
-    logger.log(DebugLogCategory.network, '评教API',
-        'submitEvaluation status=${r.statusCode}, code=$code, msg=$msg');
+    talker.debug(
+      '[NET] 评教API\nsubmitEvaluation status=${r.statusCode}, '
+      'code=$code, msg=$msg',
+    );
     if (r.statusCode != 200) return (false, 'HTTP ${r.statusCode}');
     if (code == 200) return (true, null);
     return (false, msg.isNotEmpty ? msg : '服务器错误($code)');
@@ -621,8 +676,9 @@ class JpService {
     final chunks = <int>[];
 
     for (var i = 0; i < inputBytes.length; i += maxChunk) {
-      final end =
-          (i + maxChunk > inputBytes.length) ? inputBytes.length : i + maxChunk;
+      final end = (i + maxChunk > inputBytes.length)
+          ? inputBytes.length
+          : i + maxChunk;
       final block = Uint8List.fromList(inputBytes.sublist(i, end));
       chunks.addAll(encryptor.process(block));
     }

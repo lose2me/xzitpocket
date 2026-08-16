@@ -53,9 +53,7 @@ class PasswordResetService {
 
     final result = resp.data as Map<String, dynamic>;
     if (result['code'] != '0') {
-      throw AuthException(
-        (result['content'] as String?) ?? '发送失败',
-      );
+      throw AuthException((result['content'] as String?) ?? '发送失败');
     }
   }
 
@@ -70,17 +68,17 @@ class PasswordResetService {
 
     final result = resp.data as Map<String, dynamic>;
     if (result['code'] != '0') {
-      throw AuthException(
-        (result['content'] as String?) ?? '验证失败',
-      );
+      throw AuthException((result['content'] as String?) ?? '验证失败');
     }
 
     final list = (result['multipleAccountList'] as List?) ?? [];
     final accounts = list
-        .map((a) => ResetAccount(
-              sid: (a['zgh'] ?? '') as String,
-              info: (a['jsxx'] ?? '') as String,
-            ))
+        .map(
+          (a) => ResetAccount(
+            sid: (a['zgh'] ?? '') as String,
+            info: (a['jsxx'] ?? '') as String,
+          ),
+        )
         .toList();
 
     return VerifyResult(
@@ -123,9 +121,7 @@ class PasswordResetService {
 
     final result = resp.data as Map<String, dynamic>;
     if (result['code'] != '0') {
-      throw AuthException(
-        (result['content'] as String?) ?? '重置失败',
-      );
+      throw AuthException((result['content'] as String?) ?? '重置失败');
     }
   }
 

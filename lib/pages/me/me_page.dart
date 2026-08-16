@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
@@ -8,17 +11,16 @@ import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/credential_storage.dart';
-import '../../services/debug_log_service.dart';
 import '../../services/native_automation_service.dart';
+import '../../services/password_reset_service.dart';
 import '../../services/power_service.dart';
+import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../services/cas_service.dart';
-import '../../services/password_reset_service.dart';
 import '../home_page.dart';
 import '../timetable/timetable_providers.dart';
-import 'debug_page.dart';
 
 class MePage extends ConsumerStatefulWidget {
   const MePage({super.key});
@@ -81,18 +83,16 @@ class MePageState extends ConsumerState<MePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final config = ref.watch(configProvider);
-    final isLoggedIn =
-        config.studentId != null && config.studentId!.isNotEmpty;
+    final isLoggedIn = config.studentId != null && config.studentId!.isNotEmpty;
 
     if (!isLoggedIn || _isLoggingIn) {
-      return Scaffold(
-        body: SafeArea(child: _buildLoginForm(theme)),
-      );
+      return Scaffold(body: SafeArea(child: _buildLoginForm(theme)));
     }
 
     final settings = ref.watch(appSettingsProvider);
-    final showNonCurrentWeekCourses =
-        ref.watch(showNonCurrentWeekCoursesProvider);
+    final showNonCurrentWeekCourses = ref.watch(
+      showNonCurrentWeekCoursesProvider,
+    );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final savedRoomId = ref.watch(savedRoomIdProvider);
 
@@ -147,10 +147,17 @@ class MePageState extends ConsumerState<MePage> {
           _SettingsCard(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.apartment_outlined, size: 23, color: theme.colorScheme.onSurface),
+                    Icon(
+                      Icons.apartment_outlined,
+                      size: 23,
+                      color: theme.colorScheme.onSurface,
+                    ),
                     const SizedBox(width: 16),
                     Text(
                       '宿舍号',
@@ -170,7 +177,9 @@ class MePageState extends ConsumerState<MePage> {
                         decoration: InputDecoration(
                           hintText: '未设置',
                           hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withAlpha(150),
+                            color: theme.colorScheme.onSurfaceVariant.withAlpha(
+                              150,
+                            ),
                           ),
                           enabledBorder: UnderlineInputBorder(
                             borderSide: BorderSide(
@@ -183,7 +192,9 @@ class MePageState extends ConsumerState<MePage> {
                             ),
                           ),
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
                         ),
                         onSubmitted: (_) => _submitRoomId(),
                       ),
@@ -219,14 +230,20 @@ class MePageState extends ConsumerState<MePage> {
                 icon: Icons.do_not_disturb_on_outlined,
                 title: '课堂勿扰',
                 value: _automationLabel(settings.classAutomationMode),
-                onTap: () =>
-                    _openAutomationSheet(settings.classAutomationMode),
+                onTap: () => _openAutomationSheet(settings.classAutomationMode),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.visibility_outlined, size: 23, color: theme.colorScheme.onSurface),
+                    Icon(
+                      Icons.visibility_outlined,
+                      size: 23,
+                      color: theme.colorScheme.onSurface,
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
@@ -238,16 +255,24 @@ class MePageState extends ConsumerState<MePage> {
                     ),
                     Checkbox(
                       value: showNonCurrentWeekCourses,
-                      onChanged: (v) => _updateShowNonCurrentWeekCourses(v ?? false),
+                      onChanged: (v) =>
+                          _updateShowNonCurrentWeekCourses(v ?? false),
                     ),
                   ],
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 6,
+                ),
                 child: Row(
                   children: [
-                    Icon(Icons.view_week_outlined, size: 23, color: theme.colorScheme.onSurface),
+                    Icon(
+                      Icons.view_week_outlined,
+                      size: 23,
+                      color: theme.colorScheme.onSurface,
+                    ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
@@ -259,7 +284,9 @@ class MePageState extends ConsumerState<MePage> {
                     ),
                     Checkbox(
                       value: !showWeekendColumns,
-                      onChanged: (v) => ref.read(showWeekendColumnsProvider.notifier).set(!(v ?? false)),
+                      onChanged: (v) => ref
+                          .read(showWeekendColumnsProvider.notifier)
+                          .set(!(v ?? false)),
                     ),
                   ],
                 ),
@@ -285,10 +312,18 @@ class MePageState extends ConsumerState<MePage> {
               _SettingsTile(
                 icon: Icons.bug_report_outlined,
                 title: '调试模式',
-                value: DebugLogService.instance.enabled ? '已开启' : '关闭',
+                value: talker.settings.enabled ? '已开启' : '关闭',
                 onTap: () async {
                   await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DebugPage()),
+                    MaterialPageRoute(
+                      builder: (context) => TalkerScreen(
+                        talker: talker,
+                        appBarTitle: '调试模式',
+                        theme: TalkerScreenTheme.fromTheme(Theme.of(context)),
+                        isLogsExpanded: true,
+                        isLogOrderReversed: true,
+                      ),
+                    ),
                   );
                   setState(() {});
                 },
@@ -311,10 +346,7 @@ class MePageState extends ConsumerState<MePage> {
             child: OutlinedButton.icon(
               onPressed: () => _logout(context),
               icon: const Icon(Icons.logout, color: Colors.red),
-              label: const Text(
-                '退出登录',
-                style: TextStyle(color: Colors.red),
-              ),
+              label: const Text('退出登录', style: TextStyle(color: Colors.red)),
             ),
           ),
         ],
@@ -354,7 +386,10 @@ class MePageState extends ConsumerState<MePage> {
   }
 
   Widget _buildSegmentedButtons(
-      ThemeData theme, dynamic authState, bool isLoading) {
+    ThemeData theme,
+    dynamic authState,
+    bool isLoading,
+  ) {
     const dur = Duration(milliseconds: 350);
     const curve = Curves.easeInOutCubic;
     final primary = theme.colorScheme.primary;
@@ -362,8 +397,9 @@ class MePageState extends ConsumerState<MePage> {
     final surfaceVariant = theme.colorScheme.surfaceContainerHighest;
     final onReset = _currentPage > 0;
 
-    final rightLabel =
-        _currentPage == 0 ? '找回密码' : (_currentPage == 1 ? '验证' : '确定');
+    final rightLabel = _currentPage == 0
+        ? '找回密码'
+        : (_currentPage == 1 ? '验证' : '确定');
     final leftLoading = !onReset && isLoading;
     final rightLoading = onReset && _resetLoading;
 
@@ -469,7 +505,11 @@ class MePageState extends ConsumerState<MePage> {
   }
 
   Widget _buildLoginPanel(
-      ThemeData theme, dynamic authState, bool isLoading, Widget buttons) {
+    ThemeData theme,
+    dynamic authState,
+    bool isLoading,
+    Widget buttons,
+  ) {
     return Align(
       alignment: const Alignment(0, -0.3),
       child: SingleChildScrollView(
@@ -499,7 +539,7 @@ class MePageState extends ConsumerState<MePage> {
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) {
-                  if (!isLoading) _login();
+                  if (!isLoading) unawaited(_login());
                 },
                 decoration: InputDecoration(
                   labelText: '密码',
@@ -549,8 +589,9 @@ class MePageState extends ConsumerState<MePage> {
                 suffixIcon: Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: TextButton(
-                    onPressed:
-                        _resetLoading || _codeSent ? null : _sendResetCode,
+                    onPressed: _resetLoading || _codeSent
+                        ? null
+                        : _sendResetCode,
                     child: Text(_codeSent ? '已发送' : '发送验证码'),
                   ),
                 ),
@@ -598,11 +639,12 @@ class MePageState extends ConsumerState<MePage> {
                 prefixIcon: const Icon(Icons.lock_outline),
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureNew1
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined),
-                  onPressed: () =>
-                      setState(() => _obscureNew1 = !_obscureNew1),
+                  icon: Icon(
+                    _obscureNew1
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  onPressed: () => setState(() => _obscureNew1 = !_obscureNew1),
                 ),
               ),
             ),
@@ -618,11 +660,12 @@ class MePageState extends ConsumerState<MePage> {
                 prefixIcon: const Icon(Icons.lock_outline),
                 border: const OutlineInputBorder(),
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureNew2
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined),
-                  onPressed: () =>
-                      setState(() => _obscureNew2 = !_obscureNew2),
+                  icon: Icon(
+                    _obscureNew2
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                  ),
+                  onPressed: () => setState(() => _obscureNew2 = !_obscureNew2),
                 ),
               ),
             ),
@@ -654,7 +697,8 @@ class MePageState extends ConsumerState<MePage> {
       if (!mounted) return;
       setState(() => _resetLoading = false);
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('密码重置验证码发送异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _resetLoading = false);
       showAppSnackBar(context, '发送失败');
@@ -693,12 +737,14 @@ class MePageState extends ConsumerState<MePage> {
           builder: (ctx) => SimpleDialog(
             title: const Text('选择账号'),
             children: accounts
-                .map((a) => SimpleDialogOption(
-                      onPressed: () => Navigator.pop(ctx, a.sid),
-                      child: Text(a.info.isNotEmpty
-                          ? '${a.sid} (${a.info})'
-                          : a.sid),
-                    ))
+                .map(
+                  (a) => SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, a.sid),
+                    child: Text(
+                      a.info.isNotEmpty ? '${a.sid} (${a.info})' : a.sid,
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         );
@@ -718,7 +764,8 @@ class MePageState extends ConsumerState<MePage> {
       if (!mounted) return;
       setState(() => _resetLoading = false);
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('密码重置身份验证异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _resetLoading = false);
       showAppSnackBar(context, '验证失败');
@@ -751,7 +798,11 @@ class MePageState extends ConsumerState<MePage> {
     setState(() => _resetLoading = true);
     try {
       await _resetService.resetPassword(
-          phone, pwd, _selectedSid!, _verifyValidateId!);
+        phone,
+        pwd,
+        _selectedSid!,
+        _verifyValidateId!,
+      );
       if (!mounted) return;
       showAppSnackBar(context, '密码重置成功，正在登录...');
       _phoneCtrl.clear();
@@ -770,12 +821,13 @@ class MePageState extends ConsumerState<MePage> {
       _switchPage(0);
       await Future.delayed(const Duration(milliseconds: 450));
       if (!mounted) return;
-      _login();
+      await _login();
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _resetLoading = false);
       showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('密码重置异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _resetLoading = false);
       showAppSnackBar(context, '重置失败');
@@ -796,9 +848,6 @@ class MePageState extends ConsumerState<MePage> {
       final (loginResult, examResult) = result;
       await CredentialStorage.setSavedPassword(pwd);
 
-      ToolsDataManager.instance.setExams(examResult,
-          ref.read(preferencesStorageProvider));
-
       try {
         await ref
             .read(scheduleProvider.notifier)
@@ -815,6 +864,11 @@ class MePageState extends ConsumerState<MePage> {
         return;
       }
 
+      await ToolsDataManager.instance.setExams(
+        examResult,
+        ref.read(preferencesStorageProvider),
+      );
+
       if (mounted) {
         setState(() => _isLoggingIn = false);
         showAppSnackBar(context, '登录成功');
@@ -822,11 +876,13 @@ class MePageState extends ConsumerState<MePage> {
       }
 
       final prefs = ref.read(preferencesStorageProvider);
-      ToolsDataManager.instance.startBackgroundLoading(
-        studentId: sid,
-        password: pwd,
-        prefs: prefs,
-        roomId: prefs.getSavedPowerRoomId(),
+      unawaited(
+        ToolsDataManager.instance.startBackgroundLoading(
+          studentId: sid,
+          password: pwd,
+          prefs: prefs,
+          roomId: prefs.getSavedPowerRoomId(),
+        ),
       );
     } else if (mounted) {
       setState(() => _isLoggingIn = false);
@@ -901,6 +957,19 @@ class MePageState extends ConsumerState<MePage> {
       await prefs.clearPowerCache();
       ref.read(savedRoomIdProvider.notifier).set(null);
       if (mounted) showAppSnackBar(context, '已清除宿舍号');
+      return;
+    }
+
+    final toolsManager = ToolsDataManager.instance;
+    if (!toolsManager.isCampusNetworkAvailable) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          toolsManager.campusNetworkStatus == CampusNetworkStatus.checking
+              ? '正在检测校园网，请稍后再试'
+              : '请连接校园网',
+        );
+      }
       return;
     }
 
@@ -1000,35 +1069,36 @@ class MePageState extends ConsumerState<MePage> {
   // ── Logout ──
 
   void _logout(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('退出登录'),
-        content: const Text('退出将清除本地课表数据，确定继续吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ref.read(scheduleProvider.notifier).clearAll();
-              } on WidgetSyncException catch (e) {
-                if (!mounted) return;
-                showAppSnackBar(this.context, '已退出登录，但$e');
-              }
-              await ref.read(configProvider.notifier).logout();
-              ref.read(authProvider.notifier).reset();
-            },
-            child: const Text('退出', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('退出登录'),
+          content: const Text('退出将清除本地课表数据，确定继续吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                try {
+                  await ref.read(scheduleProvider.notifier).clearAll();
+                } on WidgetSyncException catch (e) {
+                  if (!mounted) return;
+                  showAppSnackBar(this.context, '已退出登录，但$e');
+                }
+                await ref.read(configProvider.notifier).logout();
+                ref.read(authProvider.notifier).reset();
+              },
+              child: const Text('退出', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
       ),
     );
   }
-
 }
 
 // ── Settings widgets ──
@@ -1108,8 +1178,9 @@ class _SettingsTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final effectiveValueColor =
-        theme.colorScheme.onSurfaceVariant.withAlpha(200);
+    final effectiveValueColor = theme.colorScheme.onSurfaceVariant.withAlpha(
+      200,
+    );
 
     return InkWell(
       borderRadius: BorderRadius.circular(24),
@@ -1273,4 +1344,3 @@ class _OptionSheet<T> extends StatelessWidget {
     );
   }
 }
-

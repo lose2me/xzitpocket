@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/netauth_service.dart';
+import '../../services/preferences_storage.dart';
+import '../../services/talker.dart';
+import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 import 'operator_bind_page.dart';
 
@@ -9,12 +12,14 @@ class NetAuthPage extends StatefulWidget {
   final NetAuthResult result;
   final String account;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const NetAuthPage({
     super.key,
     required this.result,
     required this.account,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -32,24 +37,30 @@ class _NetAuthPageState extends State<NetAuthPage> {
     super.initState();
     _info = widget.result.info;
     _devices = widget.result.devices;
-    _refresh();
   }
 
   Future<void> _refresh() async {
     setState(() => _isRefreshing = true);
     try {
-      final result = await NetAuthService().login(
+      final result = await ToolsDataManager.instance.refreshNetAuth(
         widget.account,
         widget.password,
+        widget.preferencesStorage,
       );
       if (!mounted) return;
+      if (result == null) {
+        showAppSnackBar(context, '刷新失败');
+        return;
+      }
       setState(() {
         _info = result.info;
         _devices = result.devices;
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('网络管理详情刷新失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('网络管理详情况刷新异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '刷新失败');
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
@@ -85,10 +96,12 @@ class _NetAuthPageState extends State<NetAuthPage> {
       );
       if (!mounted) return;
       showAppSnackBar(context, msg);
-      _refresh();
-    } on AuthException catch (e) {
+      await _refresh();
+    } on AuthException catch (e, stackTrace) {
+      talker.error('网络管理设备解绑失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('网络管理设备解绑异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '解绑失败');
     } finally {
       if (mounted) setState(() => _unbindingMac = null);
@@ -136,9 +149,13 @@ class _NetAuthPageState extends State<NetAuthPage> {
                     const SizedBox(height: 14),
                     Row(
                       children: [
-                        Expanded(child: _buildMetricCell(theme, '套餐', _info.group)),
+                        Expanded(
+                          child: _buildMetricCell(theme, '套餐', _info.group),
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: _buildMetricCell(theme, '状态', _info.status)),
+                        Expanded(
+                          child: _buildMetricCell(theme, '状态', _info.status),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -257,7 +274,9 @@ class _NetAuthPageState extends State<NetAuthPage> {
           children: [
             Icon(
               device.online ? Icons.wifi : Icons.wifi_off,
-              color: device.online ? Colors.green : theme.colorScheme.onSurfaceVariant,
+              color: device.online
+                  ? Colors.green
+                  : theme.colorScheme.onSurfaceVariant,
               size: 20,
             ),
             const SizedBox(width: 12),

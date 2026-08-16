@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/course.dart';
 import '../services/auth_service.dart';
 import '../services/cas_service.dart';
+import '../services/talker.dart';
 
 enum AuthStatus { idle, loading, success, error }
 
@@ -33,8 +34,10 @@ class AuthNotifier extends Notifier<AuthState> {
     state = const AuthState(status: AuthStatus.loading);
     try {
       final authService = AuthService();
-      final (login, exams) =
-          await authService.loginAndFetchAll(studentId, password);
+      final (login, exams) = await authService.loginAndFetchAll(
+        studentId,
+        password,
+      );
       state = AuthState(
         status: AuthStatus.success,
         courses: login.courses,
@@ -42,10 +45,12 @@ class AuthNotifier extends Notifier<AuthState> {
         studentName: login.studentName,
       );
       return (login, exams);
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('登录失败', e, stackTrace);
       state = AuthState(status: AuthStatus.error, errorMessage: e.message);
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      talker.error('登录异常', e, stackTrace);
       state = AuthState(status: AuthStatus.error, errorMessage: '登录失败: $e');
       return null;
     }
@@ -56,5 +61,6 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 }
 
-final authProvider =
-    NotifierProvider<AuthNotifier, AuthState>(AuthNotifier.new);
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);

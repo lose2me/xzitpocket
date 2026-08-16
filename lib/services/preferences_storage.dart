@@ -27,8 +27,7 @@ class PreferencesStorage {
   Future<void> setThemePreference(String value) =>
       _prefs.setString('theme_preference', value);
 
-  String? getClassAutomationMode() =>
-      _prefs.getString('class_automation_mode');
+  String? getClassAutomationMode() => _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
 
@@ -45,15 +44,16 @@ class PreferencesStorage {
     await _prefs.setString('saved_power_room_id', value);
   }
 
-  // ── Power cache (has extra date field) ──
+  // ── Power cache ──
 
   String? getPowerCache() => _prefs.getString('saved_power_cache');
-  String? getPowerCacheDate() => _prefs.getString('saved_power_cache_date');
+  String? getPowerCacheRoomId() =>
+      _prefs.getString('saved_power_cache_room_id');
   int? getPowerCacheTime() => _prefs.getInt('saved_power_cache_time');
 
-  Future<void> setPowerCache(String json, String date) async {
+  Future<void> setPowerCache(String json, {required String roomId}) async {
     await _prefs.setString('saved_power_cache', json);
-    await _prefs.setString('saved_power_cache_date', date);
+    await _prefs.setString('saved_power_cache_room_id', roomId);
     await _prefs.setInt(
       'saved_power_cache_time',
       DateTime.now().millisecondsSinceEpoch,
@@ -62,8 +62,9 @@ class PreferencesStorage {
 
   Future<void> clearPowerCache() async {
     await _prefs.remove('saved_power_cache');
-    await _prefs.remove('saved_power_cache_date');
+    await _prefs.remove('saved_power_cache_room_id');
     await _prefs.remove('saved_power_cache_time');
+    await _prefs.remove('saved_power_cache_date');
   }
 
   // ── Generic cache helpers ──
@@ -82,43 +83,57 @@ class PreferencesStorage {
 
   String? getJpCache() => _prefs.getString('jp_cache');
   int? getJpCacheTime() => _prefs.getInt('jp_cache_time');
-  Future<void> setJpCache(String json) => _setCache('jp_cache', 'jp_cache_time', json);
+  Future<void> setJpCache(String json) =>
+      _setCache('jp_cache', 'jp_cache_time', json);
   Future<void> clearJpCache() => _clearCache('jp_cache', 'jp_cache_time');
 
   // ── Repair cache ──
 
   String? getRepairCache() => _prefs.getString('repair_cache');
   int? getRepairCacheTime() => _prefs.getInt('repair_cache_time');
-  Future<void> setRepairCache(String json) => _setCache('repair_cache', 'repair_cache_time', json);
-  Future<void> clearRepairCache() => _clearCache('repair_cache', 'repair_cache_time');
+  Future<void> setRepairCache(String json) =>
+      _setCache('repair_cache', 'repair_cache_time', json);
+  Future<void> clearRepairCache() =>
+      _clearCache('repair_cache', 'repair_cache_time');
 
   // ── Exam cache ──
 
   String? getExamCache() => _prefs.getString('exam_cache');
   int? getExamCacheTime() => _prefs.getInt('exam_cache_time');
-  Future<void> setExamCache(String json) => _setCache('exam_cache', 'exam_cache_time', json);
+  Future<void> setExamCache(String json) =>
+      _setCache('exam_cache', 'exam_cache_time', json);
 
   // ── YKT cache ──
 
   String? getYktCache() => _prefs.getString('ykt_cache');
   int? getYktCacheTime() => _prefs.getInt('ykt_cache_time');
-  Future<void> setYktCache(String json) => _setCache('ykt_cache', 'ykt_cache_time', json);
+  Future<void> setYktCache(String json) =>
+      _setCache('ykt_cache', 'ykt_cache_time', json);
 
   // ── NetAuth cache ──
 
   String? getNetauthCache() => _prefs.getString('netauth_cache');
   int? getNetauthCacheTime() => _prefs.getInt('netauth_cache_time');
-  Future<void> setNetauthCache(String json) => _setCache('netauth_cache', 'netauth_cache_time', json);
+  Future<void> setNetauthCache(String json) =>
+      _setCache('netauth_cache', 'netauth_cache_time', json);
+
+  Future<void> clearUserToolCaches() async {
+    await Future.wait([
+      _clearCache('jp_cache', 'jp_cache_time'),
+      _clearCache('repair_cache', 'repair_cache_time'),
+      _clearCache('exam_cache', 'exam_cache_time'),
+      _clearCache('ykt_cache', 'ykt_cache_time'),
+      _clearCache('netauth_cache', 'netauth_cache_time'),
+    ]);
+  }
 
   // ── Cache validity ──
 
-  static bool isCacheValid(int? cacheTimeMs, Duration ttl) {
+  static bool isCacheValid(int? cacheTimeMs, Duration ttl, {DateTime? now}) {
     if (cacheTimeMs == null) return false;
     final cacheTime = DateTime.fromMillisecondsSinceEpoch(cacheTimeMs);
-    final now = DateTime.now();
-    if (now.difference(cacheTime) > ttl) return false;
-    final today3am = DateTime(now.year, now.month, now.day, 3);
-    if (cacheTime.isBefore(today3am) && now.isAfter(today3am)) return false;
-    return true;
+    final currentTime = now ?? DateTime.now();
+    if (cacheTime.isAfter(currentTime)) return false;
+    return currentTime.difference(cacheTime) < ttl;
   }
 }

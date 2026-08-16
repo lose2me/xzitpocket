@@ -1,1 +1,1 @@
-final semesterStartDate = DateTime(2026, 3, 2);
+final semesterStartDate = DateTime(2026, 9, 1);

@@ -49,38 +49,38 @@ class ExamItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'courseId': courseId,
-        'title': title,
-        'time': time,
-        'location': location,
-        'campus': campus,
-        'seat': seat,
-        'examName': examName,
-        'teacher': teacher,
-        'className': className,
-        'college': college,
-        'credit': credit,
-        'examType': examType,
-        'note': note,
-        'isResit': isResit,
-      };
+    'courseId': courseId,
+    'title': title,
+    'time': time,
+    'location': location,
+    'campus': campus,
+    'seat': seat,
+    'examName': examName,
+    'teacher': teacher,
+    'className': className,
+    'college': college,
+    'credit': credit,
+    'examType': examType,
+    'note': note,
+    'isResit': isResit,
+  };
 
   factory ExamItem.fromJson(Map<String, dynamic> j) => ExamItem(
-        courseId: j['courseId'] as String,
-        title: j['title'] as String,
-        time: j['time'] as String,
-        location: j['location'] as String,
-        campus: j['campus'] as String,
-        seat: j['seat'] as String,
-        examName: j['examName'] as String,
-        teacher: j['teacher'] as String,
-        className: j['className'] as String,
-        college: j['college'] as String,
-        credit: j['credit'] as String,
-        examType: j['examType'] as String,
-        note: j['note'] as String,
-        isResit: j['isResit'] as bool,
-      );
+    courseId: j['courseId'] as String,
+    title: j['title'] as String,
+    time: j['time'] as String,
+    location: j['location'] as String,
+    campus: j['campus'] as String,
+    seat: j['seat'] as String,
+    examName: j['examName'] as String,
+    teacher: j['teacher'] as String,
+    className: j['className'] as String,
+    college: j['college'] as String,
+    credit: j['credit'] as String,
+    examType: j['examType'] as String,
+    note: j['note'] as String,
+    isResit: j['isResit'] as bool,
+  );
 }
 
 class ExamResult {
@@ -91,18 +91,18 @@ class ExamResult {
   ExamResult({this.studentId, this.studentName, required this.exams});
 
   Map<String, dynamic> toJson() => {
-        'studentId': studentId,
-        'studentName': studentName,
-        'exams': exams.map((e) => e.toJson()).toList(),
-      };
+    'studentId': studentId,
+    'studentName': studentName,
+    'exams': exams.map((e) => e.toJson()).toList(),
+  };
 
   factory ExamResult.fromJson(Map<String, dynamic> j) => ExamResult(
-        studentId: j['studentId'] as String?,
-        studentName: j['studentName'] as String?,
-        exams: (j['exams'] as List)
-            .map((e) => ExamItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-      );
+    studentId: j['studentId'] as String?,
+    studentName: j['studentName'] as String?,
+    exams: (j['exams'] as List)
+        .map((e) => ExamItem.fromJson(e as Map<String, dynamic>))
+        .toList(),
+  );
 }
 
 class Classroom {
@@ -245,8 +245,12 @@ class AuthService {
   }) async {
     final session = await _casService.loginJw(studentId, password);
     try {
-      return await _fetchClassrooms(session.dio,
-          week: week, weekday: weekday, sessions: sessions);
+      return await _fetchClassrooms(
+        session.dio,
+        week: week,
+        weekday: weekday,
+        sessions: sessions,
+      );
     } finally {
       session.close();
     }
@@ -320,9 +324,7 @@ class AuthService {
         throw AuthException('解析课程"$title"失败：节次信息无效');
       }
 
-      final weeks = parseWeekRanges(
-        c['zcd']?.toString() ?? '',
-      );
+      final weeks = parseWeekRanges(c['zcd']?.toString() ?? '');
       if (weeks == null) {
         throw AuthException('解析课程"$title"失败：周次信息无效');
       }
@@ -386,8 +388,9 @@ class AuthService {
       final credit = i['xf'];
       String creditStr;
       if (credit is num) {
-        creditStr =
-            credit == credit.toInt() ? credit.toInt().toString() : '$credit';
+        creditStr = credit == credit.toInt()
+            ? credit.toInt().toString()
+            : '$credit';
       } else {
         creditStr = credit?.toString() ?? '';
       }
@@ -463,13 +466,7 @@ class AuthService {
     final data = payload as Map<String, dynamic>;
     final items = (data['items'] as List?) ?? [];
 
-    const usefulTypes = {
-      '一般教室',
-      '多媒体教室',
-      '智慧教室',
-      '录播教室',
-      '俄语教室',
-    };
+    const usefulTypes = {'一般教室', '多媒体教室', '智慧教室', '录播教室', '俄语教室'};
 
     final classrooms = <Classroom>[];
     final campusSet = <String>{};
@@ -485,13 +482,15 @@ class AuthService {
       campusSet.add(campus);
       (buildingsByCampus[campus] ??= <String>{}).add(building);
 
-      classrooms.add(Classroom(
-        name: (item['cdmc'] ?? '') as String,
-        type: type,
-        seats: int.tryParse('${item['zws']}') ?? 0,
-        campus: campus,
-        building: building,
-      ));
+      classrooms.add(
+        Classroom(
+          name: (item['cdmc'] ?? '') as String,
+          type: type,
+          seats: int.tryParse('${item['zws']}') ?? 0,
+          campus: campus,
+          building: building,
+        ),
+      );
     }
 
     classrooms.sort((a, b) => a.name.compareTo(b.name));
@@ -550,24 +549,26 @@ class AuthService {
       final credit = i['xf'];
       final jd = i['jd'];
 
-      grades.add(GradeItem(
-        name: (i['kcmc'] ?? '') as String,
-        score: '${i['cj'] ?? ''}',
-        credit: (credit is num) ? credit.toDouble() : double.tryParse('$credit') ?? 0,
-        gradePoint: (jd is num) ? jd.toDouble() : double.tryParse('$jd') ?? 0,
-        type: (i['kcxzmc'] ?? '') as String,
-        category: (i['kclbmc'] ?? '') as String,
-        teacher: (i['jsxm'] ?? '') as String,
-        examMethod: (i['khfsmc'] ?? '') as String,
-        year: year,
-        term: term,
-      ));
+      grades.add(
+        GradeItem(
+          name: (i['kcmc'] ?? '') as String,
+          score: '${i['cj'] ?? ''}',
+          credit: (credit is num)
+              ? credit.toDouble()
+              : double.tryParse('$credit') ?? 0,
+          gradePoint: (jd is num) ? jd.toDouble() : double.tryParse('$jd') ?? 0,
+          type: (i['kcxzmc'] ?? '') as String,
+          category: (i['kclbmc'] ?? '') as String,
+          teacher: (i['jsxm'] ?? '') as String,
+          examMethod: (i['khfsmc'] ?? '') as String,
+          year: year,
+          term: term,
+        ),
+      );
     }
 
     final years = yearSet.toList()..sort((a, b) => b.compareTo(a));
-    final termsMap = termsByYear.map(
-      (k, v) => MapEntry(k, v.toList()..sort()),
-    );
+    final termsMap = termsByYear.map((k, v) => MapEntry(k, v.toList()..sort()));
 
     return GradeResult(grades: grades, years: years, termsByYear: termsMap);
   }
@@ -607,12 +608,14 @@ class AuthService {
       if (seen.contains(key)) continue;
       if (req == totalRequired && got == totalEarned) continue;
       seen.add(key);
-      categories.add(AcademicCategory(
-        name: name,
-        reqCredits: req,
-        earnedCredits: got,
-        missingCredits: miss,
-      ));
+      categories.add(
+        AcademicCategory(
+          name: name,
+          reqCredits: req,
+          earnedCredits: got,
+          missingCredits: miss,
+        ),
+      );
     }
 
     return AcademicStatus(

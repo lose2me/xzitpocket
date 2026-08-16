@@ -45,10 +45,7 @@ List<int>? parseSessionRanges(
   return sessions.toList()..sort();
 }
 
-List<int>? parseWeekRanges(
-  String text, {
-  bool allowParity = true,
-}) {
+List<int>? parseWeekRanges(String text, {bool allowParity = true}) {
   final normalized = text
       .trim()
       .replaceAll('（', '(')
@@ -67,9 +64,7 @@ List<int>? parseWeekRanges(
   if (tokens.isEmpty) return null;
 
   final weeks = <int>{};
-  final tokenPattern = RegExp(
-    r'^(\d+)(?:\s*-\s*(\d+))?(?:\(([^()]*)\))?$',
-  );
+  final tokenPattern = RegExp(r'^(\d+)(?:\s*-\s*(\d+))?(?:\(([^()]*)\))?$');
 
   for (final token in tokens) {
     final match = tokenPattern.firstMatch(token);

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 
 class GradeQueryPage extends StatefulWidget {
@@ -32,7 +35,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _load();
+    unawaited(_load());
   }
 
   @override
@@ -55,9 +58,11 @@ class _GradeQueryPageState extends State<GradeQueryPage>
         _yearIndex = 0;
         _termIndex = 0;
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('学业情况查询失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('学业情况查询异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '加载失败');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -123,10 +128,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
       body: SafeArea(
         child: TabBarView(
           controller: _tabController,
-          children: [
-            _buildGradeTab(theme),
-            _buildAcademicTab(theme),
-          ],
+          children: [_buildGradeTab(theme), _buildAcademicTab(theme)],
         ),
       ),
     );
@@ -171,12 +173,18 @@ class _GradeQueryPageState extends State<GradeQueryPage>
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text('该学期学分', style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                )),
+                Text(
+                  '该学期学分',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: theme.colorScheme.outlineVariant),
                     borderRadius: BorderRadius.circular(6),
@@ -189,18 +197,24 @@ class _GradeQueryPageState extends State<GradeQueryPage>
                   ),
                 ),
                 const SizedBox(width: 10),
-                Text('该学期绩点', style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                )),
+                Text(
+                  '该学期绩点',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(color: theme.colorScheme.outlineVariant),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    gpa.toStringAsFixed(2) + ' / 5.0',
+                    '${gpa.toStringAsFixed(2)} / 5.0',
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -289,8 +303,11 @@ class _GradeQueryPageState extends State<GradeQueryPage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.school_outlined,
-                size: 48, color: theme.colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.school_outlined,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
             Text(
               '暂无成绩',
@@ -383,7 +400,9 @@ class _GradeQueryPageState extends State<GradeQueryPage>
       children: [
         Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: _buildGpaRow(theme, status),
@@ -392,7 +411,9 @@ class _GradeQueryPageState extends State<GradeQueryPage>
         const SizedBox(height: 12),
         Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
@@ -403,9 +424,12 @@ class _GradeQueryPageState extends State<GradeQueryPage>
                     children: [
                       Row(
                         children: [
-                          Text('总学分进度 ${(progress * 100).toStringAsFixed(1)}%', style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          )),
+                          Text(
+                            '总学分进度 ${(progress * 100).toStringAsFixed(1)}%',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
                           const Spacer(),
                           Text(
                             '${status.totalEarned} / ${status.totalRequired}',
@@ -421,14 +445,16 @@ class _GradeQueryPageState extends State<GradeQueryPage>
                         child: LinearProgressIndicator(
                           value: progress.clamp(0.0, 1.0),
                           minHeight: 8,
-                          backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                          backgroundColor:
+                              theme.colorScheme.surfaceContainerHighest,
                         ),
                       ),
                     ],
                   ),
                 ),
                 for (var i = 0; i < status.categories.length; i++) ...[
-                  if (i > 0) Divider(height: 1, color: theme.colorScheme.outlineVariant),
+                  if (i > 0)
+                    Divider(height: 1, color: theme.colorScheme.outlineVariant),
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: _buildCategoryRow(theme, status.categories[i]),
@@ -532,9 +558,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
                 value: progress,
                 strokeWidth: 3,
                 backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                color: cat.missingCredits <= 0
-                    ? Colors.green
-                    : Colors.amber,
+                color: cat.missingCredits <= 0 ? Colors.green : Colors.amber,
               ),
               Text(
                 '$pct%',

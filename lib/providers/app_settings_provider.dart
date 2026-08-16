@@ -8,8 +8,9 @@ import '../services/preferences_storage.dart';
 import '../services/widget_service.dart';
 import 'config_provider.dart';
 
-final appSettingsProvider =
-    NotifierProvider<AppSettingsNotifier, AppSettings>(AppSettingsNotifier.new);
+final appSettingsProvider = NotifierProvider<AppSettingsNotifier, AppSettings>(
+  AppSettingsNotifier.new,
+);
 
 class AppSettingsNotifier extends Notifier<AppSettings> {
   late PreferencesStorage _storage;

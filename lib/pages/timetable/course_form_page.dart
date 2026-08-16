@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../models/course.dart';
@@ -149,11 +151,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 border: OutlineInputBorder(),
               ),
               validator: (v) {
-                return parseWeekRanges(
-                          v ?? '',
-                          allowParity: false,
-                        ) ==
-                        null
+                return parseWeekRanges(v ?? '', allowParity: false) == null
                     ? '格式: 1-16,18'
                     : null;
               },
@@ -307,10 +305,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
       endSession - startSession + 1,
       (i) => startSession + i,
     );
-    final weeks = parseWeekRanges(
-      _weeksCtrl.text,
-      allowParity: false,
-    );
+    final weeks = parseWeekRanges(_weeksCtrl.text, allowParity: false);
     if (weeks == null) {
       showAppSnackBar(context, '请输入有效周次');
       return;
@@ -335,26 +330,28 @@ class _CourseFormPageState extends State<CourseFormPage> {
   }
 
   void _confirmDelete() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除课程'),
-        content: const Text('确定要删除这门课程吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await widget.onDelete!();
-              if (!mounted) return;
-              Navigator.pop(context);
-            },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('删除课程'),
+          content: const Text('确定要删除这门课程吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await widget.onDelete!();
+                if (!mounted) return;
+                Navigator.pop(context);
+              },
+              child: const Text('删除', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
       ),
     );
   }

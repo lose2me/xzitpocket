@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../constants/semester_config.dart';
 import '../../constants/time_slots.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 
@@ -55,7 +58,7 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
     _week = currentWeek(semesterStartDate).clamp(1, 20);
     _weekday = now.weekday;
     _selectedGroup = _currentSessionGroup(now);
-    _load();
+    unawaited(_load());
   }
 
   int _currentSessionGroup(DateTime now) {
@@ -90,9 +93,11 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
           _selectedCampus = result.campuses.first;
         }
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('空教室查询失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('空教室查询异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '加载失败');
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -108,8 +113,9 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
       }
       if (_selectedType != null && c.type != _selectedType) return false;
       if (_minSeats > 0 && c.seats < _minSeats) return false;
-      if (_searchName.isNotEmpty &&
-          !c.name.contains(_searchName)) return false;
+      if (_searchName.isNotEmpty && !c.name.contains(_searchName)) {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -126,10 +132,7 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      appBar: AppBar(
-        title: const Text('空教室查询'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('空教室查询'), centerTitle: true),
       body: SafeArea(
         child: Column(
           children: [
@@ -189,7 +192,7 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
           onChanged: (v) {
             if (v == null || v == _week) return;
             setState(() => _week = v);
-            _load();
+            unawaited(_load());
           },
         ),
       ),
@@ -202,13 +205,16 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: 7,
-        separatorBuilder: (_, __) => const SizedBox(width: 4),
+        separatorBuilder: (_, _) => const SizedBox(width: 4),
         itemBuilder: (_, i) {
           final selected = _weekday == i + 1;
           return ChoiceChip(
             label: Text(
               _weekdayLabels[i],
-              style: TextStyle(fontSize: 12, color: selected ? theme.colorScheme.onPrimary : null),
+              style: TextStyle(
+                fontSize: 12,
+                color: selected ? theme.colorScheme.onPrimary : null,
+              ),
             ),
             selected: selected,
             selectedColor: theme.colorScheme.primary,
@@ -219,7 +225,7 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
             showCheckmark: false,
             onSelected: (_) {
               setState(() => _weekday = i + 1);
-              _load();
+              unawaited(_load());
             },
           );
         },
@@ -235,7 +241,10 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
         return ChoiceChip(
           label: Text(
             _sessionGroups[i].label,
-            style: TextStyle(fontSize: 12, color: selected ? theme.colorScheme.onPrimary : null),
+            style: TextStyle(
+              fontSize: 12,
+              color: selected ? theme.colorScheme.onPrimary : null,
+            ),
           ),
           selected: selected,
           selectedColor: theme.colorScheme.primary,
@@ -246,7 +255,7 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
           showCheckmark: false,
           onSelected: (_) {
             setState(() => _selectedGroup = i);
-            _load();
+            unawaited(_load());
           },
         );
       }),
@@ -350,10 +359,15 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
               decoration: InputDecoration(
                 hintText: '搜索教室名称',
                 hintStyle: const TextStyle(fontSize: 14),
-                prefixIcon: Icon(Icons.search, size: 18,
-                    color: theme.colorScheme.onSurfaceVariant),
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 18,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 prefixIconConstraints: const BoxConstraints(
-                    minWidth: 36, minHeight: 0),
+                  minWidth: 36,
+                  minHeight: 0,
+                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -393,9 +407,7 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
           items: [
             if (showAll)
               DropdownMenuItem<String>(value: null, child: Text(hint)),
-            ...items.map(
-              (e) => DropdownMenuItem(value: e, child: Text(e)),
-            ),
+            ...items.map((e) => DropdownMenuItem(value: e, child: Text(e))),
           ],
           onChanged: onChanged,
         ),
@@ -409,8 +421,11 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.meeting_room_outlined,
-                size: 48, color: theme.colorScheme.onSurfaceVariant),
+            Icon(
+              Icons.meeting_room_outlined,
+              size: 48,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             const SizedBox(height: 12),
             Text(
               '暂无空教室',
@@ -527,8 +542,11 @@ class _EmptyClassroomPageState extends State<EmptyClassroomPage> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.event_seat_outlined,
-                    size: 14, color: theme.colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.event_seat_outlined,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 2),
                 Text(
                   '${room.seats}',

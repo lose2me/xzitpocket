@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 
 import '../constants/network_config.dart';
 import '../utils/cas_encrypt.dart';
-import 'debug_log_service.dart';
+import 'talker.dart';
 import 'dio_factory.dart';
 
 class CasSession {
@@ -38,7 +38,8 @@ class CasService {
       return null;
     } on AuthException {
       rethrow;
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.warning('CAS REST Service Ticket 获取异常', e, stackTrace);
       return null;
     } finally {
       dio.close(force: true);
@@ -55,9 +56,7 @@ class CasService {
         return await _restLogin(username, password, serviceUrl: serviceUrl);
       } on _RestUnavailableException {
         _restAvailable = false;
-        DebugLogService.instance.log(
-          DebugLogCategory.auth, 'CAS REST', '不可用, 回退HTML',
-        );
+        talker.info('[AUTH] CAS REST\n不可用, 回退HTML');
       }
     }
     return _performCasLogin(username, password, serviceUrl: serviceUrl);
@@ -69,9 +68,7 @@ class CasService {
         return await _restLoginJw(username, password);
       } on _RestUnavailableException {
         _restAvailable = false;
-        DebugLogService.instance.log(
-          DebugLogCategory.auth, 'CAS REST', '不可用, 回退HTML',
-        );
+        talker.info('[AUTH] CAS REST\n不可用, 回退HTML');
       }
     }
     return _htmlLoginJw(username, password);
@@ -84,10 +81,7 @@ class CasService {
     String password, {
     required String serviceUrl,
   }) async {
-    DebugLogService.instance.log(
-      DebugLogCategory.auth, 'CAS REST',
-      '用户: $username, 服务: $serviceUrl',
-    );
+    talker.info('[AUTH] CAS REST\n用户: $username, 服务: $serviceUrl');
     final jar = CookieJar();
     final dio = _createDio(jar);
 
@@ -97,9 +91,7 @@ class CasService {
       final sep = serviceUrl.contains('?') ? '&' : '?';
       await followRedirectsManually(dio, '$serviceUrl${sep}ticket=$st');
       _restAvailable = true;
-      DebugLogService.instance.log(
-        DebugLogCategory.auth, 'CAS REST', '登录成功: $username',
-      );
+      talker.info('[AUTH] CAS REST\n登录成功: $username');
       return CasSession(dio, jar);
     } on _RestUnavailableException {
       dio.close(force: true);
@@ -107,16 +99,15 @@ class CasService {
     } on AuthException {
       dio.close(force: true);
       rethrow;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      talker.warning('CAS REST 登录异常，回退 HTML', e, stackTrace);
       dio.close(force: true);
       throw _RestUnavailableException();
     }
   }
 
   Future<CasSession> _restLoginJw(String username, String password) async {
-    DebugLogService.instance.log(
-      DebugLogCategory.auth, 'CAS REST JW', '用户: $username',
-    );
+    talker.info('[AUTH] CAS REST JW\n用户: $username');
     final jar = CookieJar();
     final dio = _createDio(jar);
 
@@ -151,9 +142,7 @@ class CasService {
             !body.contains('用户登录') &&
             !resp.realUri.toString().contains('cas/login')) {
           _restAvailable = true;
-          DebugLogService.instance.log(
-            DebugLogCategory.auth, 'CAS REST JW', '登录成功: $username',
-          );
+          talker.info('[AUTH] CAS REST JW\n登录成功: $username');
           return CasSession(dio, jar);
         }
         break;
@@ -167,17 +156,14 @@ class CasService {
     } on AuthException {
       dio.close(force: true);
       rethrow;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      talker.warning('CAS REST JW 登录异常，回退 HTML', e, stackTrace);
       dio.close(force: true);
       throw _RestUnavailableException();
     }
   }
 
-  Future<String> _restGetTgt(
-    Dio dio,
-    String username,
-    String password,
-  ) async {
+  Future<String> _restGetTgt(Dio dio, String username, String password) async {
     final resp = await dio.post(
       '$casBaseUrl$casRestPath',
       data: {'username': username, 'password': password},
@@ -209,11 +195,7 @@ class CasService {
     throw _RestUnavailableException();
   }
 
-  Future<String> _restGetSt(
-    Dio dio,
-    String tgtUrl,
-    String serviceUrl,
-  ) async {
+  Future<String> _restGetSt(Dio dio, String tgtUrl, String serviceUrl) async {
     final resp = await dio.post(
       tgtUrl,
       data: {'service': serviceUrl},
@@ -248,8 +230,7 @@ class CasService {
         options: Options(
           responseType: ResponseType.plain,
           followRedirects: false,
-          validateStatus: (s) =>
-              s != null && (s < 400 || s == 302 || s == 301),
+          validateStatus: (s) => s != null && (s < 400 || s == 302 || s == 301),
         ),
       );
 
@@ -266,18 +247,14 @@ class CasService {
       if (resp.statusCode == 200 &&
           !body.contains('用户登录') &&
           !resp.realUri.toString().contains('cas/login')) {
-        DebugLogService.instance.log(
-          DebugLogCategory.auth, 'JW SSO 登录成功', username,
-        );
+        talker.info('[AUTH] JW SSO 登录成功\n$username');
         return session;
       }
       break;
     }
 
     session.close();
-    DebugLogService.instance.log(
-      DebugLogCategory.error, 'JW SSO 登录失败', username,
-    );
+    talker.error('JW SSO 登录失败\n$username');
     throw AuthException('教务系统 SSO 登录失败');
   }
 
@@ -289,9 +266,8 @@ class CasService {
   }) async {
     const maxAttempts = 3;
     for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      DebugLogService.instance.log(
-        DebugLogCategory.auth,
-        '$logLabel 登录${attempt > 1 ? ' (重试$attempt/$maxAttempts)' : ''}',
+      talker.info(
+        '[AUTH] $logLabel 登录${attempt > 1 ? ' (重试$attempt/$maxAttempts)' : ''}\n'
         '用户: $username${serviceUrl != null ? ', 服务: $serviceUrl' : ''}',
       );
       final jar = CookieJar();
@@ -340,30 +316,24 @@ class CasService {
         if (loc != null && loc.isNotEmpty) {
           await followRedirectsManually(dio, loc);
         }
-        DebugLogService.instance.log(
-          DebugLogCategory.auth, '$logLabel 登录成功', username,
-        );
+        talker.info('[AUTH] $logLabel 登录成功\n$username');
         return CasSession(dio, jar);
       }
 
       final errMsg = _extractErrorMsg(resp.data as String? ?? '');
       dio.close(force: true);
 
-      final isCredentialErr =
-          errMsg.contains('密码') || errMsg.contains('用户名');
+      final isCredentialErr = errMsg.contains('密码') || errMsg.contains('用户名');
       if (isCredentialErr && attempt < maxAttempts) {
-        DebugLogService.instance.log(
-          DebugLogCategory.auth,
-          '$logLabel 登录重试',
+        talker.info(
+          '[AUTH] $logLabel 登录重试\n'
           '第$attempt次失败(服务端偶发)，${500 * attempt}ms 后重试',
         );
         await Future.delayed(Duration(milliseconds: 500 * attempt));
         continue;
       }
 
-      DebugLogService.instance.log(
-        DebugLogCategory.error, '$logLabel 登录失败', errMsg,
-      );
+      talker.error('$logLabel 登录失败\n$errMsg');
       if (isCredentialErr) {
         throw AuthException('用户名或密码不正确');
       }

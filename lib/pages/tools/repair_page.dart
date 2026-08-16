@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../services/cas_service.dart';
+import '../../services/preferences_storage.dart';
 import '../../services/repair_service.dart';
+import '../../services/talker.dart';
+import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 import 'repair_form_page.dart';
 
@@ -9,12 +12,14 @@ class RepairPage extends StatefulWidget {
   final RepairResult initialResult;
   final String studentId;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const RepairPage({
     super.key,
     required this.initialResult,
     required this.studentId,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -36,18 +41,25 @@ class _RepairPageState extends State<RepairPage> {
   Future<void> _refresh() async {
     setState(() => _isRefreshing = true);
     try {
-      final result = await RepairService().fetchAll(
+      final result = await ToolsDataManager.instance.refreshRepair(
         widget.studentId,
         widget.password,
+        widget.preferencesStorage,
       );
       if (!mounted) return;
+      if (result == null) {
+        showAppSnackBar(context, '刷新失败');
+        return;
+      }
       setState(() {
         _records = result.records;
         _userInfo = result.userInfo;
       });
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('报修详情刷新失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('报修详情刷新异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '刷新失败');
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
@@ -65,21 +77,28 @@ class _RepairPageState extends State<RepairPage> {
       ),
     );
     if (submitted == true) {
-      _refresh();
+      await _refresh();
     }
   }
 
   static const _knownStatuses = {
-    '已完工', '已关闭', '已评价',
-    '已接单', '已转单', '处理中', '维修中',
-    '已上报', '已上传照片',
+    '已完工',
+    '已关闭',
+    '已评价',
+    '已接单',
+    '已转单',
+    '处理中',
+    '维修中',
+    '已上报',
+    '已上传照片',
   };
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final visible =
-        _records.where((r) => _knownStatuses.contains(r.status)).toList();
+    final visible = _records
+        .where((r) => _knownStatuses.contains(r.status))
+        .toList();
 
     return Scaffold(
       appBar: AppBar(

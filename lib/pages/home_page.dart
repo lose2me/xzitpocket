@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'tools/tools_page.dart';
@@ -83,7 +85,8 @@ class HomePageState extends State<HomePage> {
             }
             setState(() => _currentIndex = i);
             if (i == 1) {
-              ToolsPage.globalKey.currentState?.refreshData();
+              final refresh = ToolsPage.globalKey.currentState?.refreshData();
+              if (refresh != null) unawaited(refresh);
             }
           },
           destinations: const [

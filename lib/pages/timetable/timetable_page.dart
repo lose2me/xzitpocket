@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,9 +42,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   @override
   void initState() {
     super.initState();
-    final initialWeek = currentWeek(
-      semesterStartDate,
-    ).clamp(1, _maxDisplayWeek());
+    final initialWeek = currentWeek(semesterStartDate)
+        .clamp(1, _maxDisplayWeek());
     _pageController = PageController(initialPage: initialWeek - 1);
     _conflictCountdownController = AnimationController(
       vsync: this,
@@ -122,8 +123,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       final result = await ref.read(authProvider.notifier).login(sid, pwd);
       if (result != null) {
         final (loginResult, examResult) = result;
-        ToolsDataManager.instance.setExams(examResult,
-            ref.read(preferencesStorageProvider));
         try {
           await ref
               .read(scheduleProvider.notifier)
@@ -138,6 +137,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           }
           return;
         }
+        await ToolsDataManager.instance.setExams(
+          examResult,
+          ref.read(preferencesStorageProvider),
+        );
         if (mounted) {
           showAppSnackBar(context, '同步成功');
         }
@@ -150,6 +153,44 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
+  }
+
+  Widget _buildEmptyView() {
+    final isLoggedIn = ref.watch(configProvider).studentId != null;
+    final semesterNotStarted = currentWeek(semesterStartDate) == 0;
+
+    IconData icon;
+    String title;
+    String subtitle;
+    if (!isLoggedIn) {
+      icon = Icons.calendar_today_outlined;
+      title = '暂无课程';
+      subtitle = '请在"我的"页面登录后同步课表';
+    } else if (semesterNotStarted) {
+      icon = Icons.hourglass_empty;
+      title = '未开学';
+      subtitle = '教务系统可能还未发布本学期课表\n开学后下拉刷新或点击右上角重新同步';
+    } else {
+      icon = Icons.event_busy_outlined;
+      title = '暂无课程';
+      subtitle = '本学期暂无课程，可点击右上角重新同步';
+    }
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(title, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -178,25 +219,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               child: coursesAsync.when(
                 data: (courses) {
                   if (courses.isEmpty) {
-                    return const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.calendar_today_outlined,
-                            size: 64,
-                            color: Colors.grey,
-                          ),
-                          SizedBox(height: 16),
-                          Text('暂无课程', style: TextStyle(color: Colors.grey)),
-                          SizedBox(height: 8),
-                          Text(
-                            '请在"我的"页面登录后同步课表',
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    );
+                    return _buildEmptyView();
                   }
                   return PageView.builder(
                     controller: _pageController,
@@ -207,8 +230,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     },
                     itemBuilder: (context, index) {
                       final week = index + 1;
-                      final hide56 = !courses.any((c) =>
-                          c.sessions.contains(5) || c.sessions.contains(6));
+                      final hide56 = !courses.any(
+                        (c) => c.sessions.contains(5) || c.sessions.contains(6),
+                      );
                       return TimetableGrid(
                         courses: courses,
                         week: week,
@@ -223,7 +247,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         courseOpacity: courseOpacity,
                         courseBorderOpacity: courseBorderOpacity,
                         onConflictComputed: (hasConflict, isMuted) {
-                          if (_hasConflict != hasConflict || _isMutedConflict != isMuted) {
+                          if (_hasConflict != hasConflict ||
+                              _isMutedConflict != isMuted) {
                             setState(() {
                               _hasConflict = hasConflict;
                               _isMutedConflict = isMuted;
@@ -269,81 +294,83 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _showCourseDetail(BuildContext context, Course course, int key) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: course.color,
-                        borderRadius: BorderRadius.circular(3),
+    unawaited(
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        builder: (ctx) {
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: course.color,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        course.title,
-                        style: Theme.of(context).textTheme.titleMedium,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          course.title,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _detailRow(Icons.person_outline, '教师', course.teacher),
-                _detailRow(Icons.location_on_outlined, '地点', course.place),
-                _detailRow(Icons.domain_outlined, '校区', course.campus),
-                _detailRow(
-                  Icons.access_time,
-                  '节次',
-                  '第${course.startSession}-${course.endSession}节',
-                ),
-                _detailRow(
-                  Icons.date_range,
-                  '周次',
-                  '${formatWeekRanges(course.weeks)}周',
-                ),
-                _detailRow(Icons.tag, '编号', course.courseId),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red,
-                        side: const BorderSide(color: Colors.red),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _detailRow(Icons.person_outline, '教师', course.teacher),
+                  _detailRow(Icons.location_on_outlined, '地点', course.place),
+                  _detailRow(Icons.domain_outlined, '校区', course.campus),
+                  _detailRow(
+                    Icons.access_time,
+                    '节次',
+                    '第${course.startSession}-${course.endSession}节',
+                  ),
+                  _detailRow(
+                    Icons.date_range,
+                    '周次',
+                    '${formatWeekRanges(course.weeks)}周',
+                  ),
+                  _detailRow(Icons.tag, '编号', course.courseId),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _confirmDelete(context, key);
+                        },
+                        child: const Text('删除'),
                       ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _confirmDelete(context, key);
-                      },
-                      child: const Text('删除'),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _editCourse(context, course, key);
-                      },
-                      child: const Text('编辑'),
-                    ),
-                  ],
-                ),
-              ],
+                      const SizedBox(width: 8),
+                      FilledButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _editCourse(context, course, key);
+                        },
+                        child: const Text('编辑'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -363,31 +390,33 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _confirmDelete(BuildContext context, int key) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除课程'),
-        content: const Text('确定要删除这门课程吗？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await ref.read(scheduleProvider.notifier).deleteCourse(key);
-              } on WidgetSyncException catch (e) {
-                if (mounted) {
-                  showAppSnackBar(this.context, '课程已删除，但$e');
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('删除课程'),
+          content: const Text('确定要删除这门课程吗？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () async {
+                try {
+                  await ref.read(scheduleProvider.notifier).deleteCourse(key);
+                } on WidgetSyncException catch (e) {
+                  if (mounted) {
+                    showAppSnackBar(this.context, '课程已删除，但$e');
+                  }
                 }
-              }
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx);
-            },
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+              },
+              child: const Text('删除', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
       ),
     );
   }

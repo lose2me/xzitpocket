@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../services/preferences_storage.dart';
+import '../../services/talker.dart';
+import '../../services/tools_data_manager.dart';
 import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
 
@@ -9,12 +12,14 @@ class ExamQueryPage extends StatefulWidget {
   final ExamResult result;
   final String studentId;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const ExamQueryPage({
     super.key,
     required this.result,
     required this.studentId,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -34,15 +39,22 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
   Future<void> _refresh() async {
     setState(() => _isRefreshing = true);
     try {
-      final result = await AuthService().fetchExams(
+      final result = await ToolsDataManager.instance.refreshExam(
         widget.studentId,
         widget.password,
+        widget.preferencesStorage,
       );
       if (!mounted) return;
+      if (result == null) {
+        showAppSnackBar(context, '刷新失败');
+        return;
+      }
       setState(() => _result = result);
-    } on AuthException catch (e) {
+    } on AuthException catch (e, stackTrace) {
+      talker.error('考试详情刷新失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('考试详情况刷新异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '刷新失败');
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
@@ -53,29 +65,29 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
     final d = parseExamDate(time);
     if (d == null) return null;
     final today = DateTime.now();
-    return DateTime(d.year, d.month, d.day)
-        .difference(DateTime(today.year, today.month, today.day))
-        .inDays;
+    return DateTime(
+      d.year,
+      d.month,
+      d.day,
+    ).difference(DateTime(today.year, today.month, today.day)).inDays;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final now = DateTime.now();
-    final exams = _result.exams
-        .where((e) {
+    final exams =
+        _result.exams.where((e) {
           final d = parseExamDate(e.time);
           return d == null || !d.isBefore(now);
-        })
-        .toList()
-      ..sort((a, b) {
-        final da = parseExamDate(a.time);
-        final db = parseExamDate(b.time);
-        if (da == null && db == null) return 0;
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return da.compareTo(db);
-      });
+        }).toList()..sort((a, b) {
+          final da = parseExamDate(a.time);
+          final db = parseExamDate(b.time);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
 
     return Scaffold(
       appBar: AppBar(
@@ -100,9 +112,11 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.event_available,
-                        size: 48,
-                        color: theme.colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.event_available,
+                      size: 48,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       '暂无考试安排',
@@ -158,8 +172,11 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                 ),
                 if (exam.location.isNotEmpty) ...[
                   const SizedBox(width: 8),
-                  Icon(Icons.location_on_outlined,
-                      size: 16, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.location_on_outlined,
+                    size: 16,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(width: 2),
                   Text(
                     exam.location,
@@ -171,8 +188,10 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                 if (exam.isResit) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: theme.colorScheme.errorContainer,
                       borderRadius: BorderRadius.circular(8),
@@ -194,8 +213,11 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   children: [
-                    Icon(Icons.access_time,
-                        size: 16, color: theme.colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(

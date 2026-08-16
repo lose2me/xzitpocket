@@ -1,10 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/config_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/credential_storage.dart';
-import '../../services/debug_log_service.dart';
+import '../../services/talker.dart';
 import '../../services/preferences_storage.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/exam_utils.dart';
@@ -53,7 +55,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     if (password == null || password.isEmpty) return;
 
     final prefs = ref.read(preferencesStorageProvider);
-    _manager.refreshOnTabSwitch(
+    await _manager.refreshOnTabSwitch(
       studentId: config.studentId!,
       password: password,
       prefs: prefs,
@@ -81,12 +83,17 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     required bool loading,
     required String logLabel,
     required T? Function() getData,
-    required Future<void> Function(String sid, String pwd, PreferencesStorage prefs) load,
+    required Future<void> Function(
+      String sid,
+      String pwd,
+      PreferencesStorage prefs,
+    )
+    load,
     required Widget Function(T data, String sid, String pwd) buildPage,
     bool requiresCampus = false,
   }) async {
     if (loading) return;
-    DebugLogService.instance.log(DebugLogCategory.action, logLabel);
+    talker.info('[ACTION] $logLabel');
 
     final hasNet = await _manager.checkInternetAvailable();
     if (!hasNet) {
@@ -112,7 +119,8 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => buildPage(getData() as T, creds.studentId, creds.password),
+        builder: (_) =>
+            buildPage(getData() as T, creds.studentId, creds.password),
       ),
     );
   }
@@ -122,8 +130,12 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     logLabel: '打开考试查询',
     getData: () => _manager.exams,
     load: _manager.loadExam,
-    buildPage: (data, sid, pwd) =>
-        ExamQueryPage(result: data, studentId: sid, password: pwd),
+    buildPage: (data, sid, pwd) => ExamQueryPage(
+      result: data,
+      studentId: sid,
+      password: pwd,
+      preferencesStorage: ref.read(preferencesStorageProvider),
+    ),
   );
 
   Future<void> _openYkt() => _openTool(
@@ -131,8 +143,12 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     logLabel: '打开一卡通查询',
     getData: () => _manager.ykt,
     load: _manager.loadYkt,
-    buildPage: (data, sid, pwd) =>
-        YktPage(result: data, studentId: sid, password: pwd),
+    buildPage: (data, sid, pwd) => YktPage(
+      result: data,
+      studentId: sid,
+      password: pwd,
+      preferencesStorage: ref.read(preferencesStorageProvider),
+    ),
   );
 
   Future<void> _openRepair() => _openTool(
@@ -140,8 +156,12 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     logLabel: '打开极速报修',
     getData: () => _manager.repair,
     load: _manager.loadRepair,
-    buildPage: (data, sid, pwd) =>
-        RepairPage(initialResult: data, studentId: sid, password: pwd),
+    buildPage: (data, sid, pwd) => RepairPage(
+      initialResult: data,
+      studentId: sid,
+      password: pwd,
+      preferencesStorage: ref.read(preferencesStorageProvider),
+    ),
   );
 
   Future<void> _openNetAuth() => _openTool(
@@ -149,18 +169,25 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     logLabel: '打开网络管理',
     getData: () => _manager.netAuth,
     load: _manager.loadNetAuth,
-    buildPage: (data, sid, pwd) =>
-        NetAuthPage(result: data, account: sid, password: pwd),
+    buildPage: (data, sid, pwd) => NetAuthPage(
+      result: data,
+      account: sid,
+      password: pwd,
+      preferencesStorage: ref.read(preferencesStorageProvider),
+    ),
   );
 
-  Future<void> _openJp() => _openTool(
-    loading: _manager.jpLoading,
-    logLabel: '打开教师评价',
-    getData: () => _manager.jp,
-    load: _manager.loadJp,
-    requiresCampus: true,
-    buildPage: (data, _, _) => JpPage(result: data),
-  );
+  Future<void> _openJp() async {
+    if (!_manager.isCampusNetworkAvailable) return;
+    await _openTool(
+      loading: _manager.jpLoading,
+      logLabel: '打开教师评价',
+      getData: () => _manager.jp,
+      load: _manager.loadJp,
+      requiresCampus: true,
+      buildPage: (data, _, _) => JpPage(result: data),
+    );
+  }
 
   Future<void> _openEmptyClassroom() async {
     final hasNet = await _manager.checkInternetAvailable();
@@ -170,12 +197,14 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     }
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => EmptyClassroomPage(
-        studentId: creds.studentId,
-        password: creds.password,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => EmptyClassroomPage(
+          studentId: creds.studentId,
+          password: creds.password,
+        ),
       ),
-    ));
+    );
   }
 
   Future<void> _openGradeQuery() async {
@@ -186,12 +215,14 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     }
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => GradeQueryPage(
-        studentId: creds.studentId,
-        password: creds.password,
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => GradeQueryPage(
+          studentId: creds.studentId,
+          password: creds.password,
+        ),
       ),
-    ));
+    );
   }
 
   // ── Power refresh (manual) ──
@@ -200,6 +231,11 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
       showAppSnackBar(context, '此功能需登录使用');
+      return;
+    }
+
+    if (!_manager.isCampusNetworkAvailable) {
+      showAppSnackBar(context, '请连接校园网');
       return;
     }
 
@@ -213,12 +249,6 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final roomId = prefs.getSavedPowerRoomId();
     if (roomId == null || roomId.isEmpty) return;
 
-    final campusOk = await _manager.checkCampusNetwork();
-    if (!campusOk) {
-      if (mounted) showAppSnackBar(context, '请连接校园网');
-      return;
-    }
-
     await _manager.loadPower(roomId, prefs);
     if (!mounted) return;
     if (_manager.powerError != null) {
@@ -231,13 +261,18 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final theme = Theme.of(context);
     final roomId = ref.watch(savedRoomIdProvider);
     final hasRoom = roomId != null && roomId.isNotEmpty;
+    final campusAvailable = _manager.isCampusNetworkAvailable;
+    final campusStatusText = switch (_manager.campusNetworkStatus) {
+      CampusNetworkStatus.checking => '正在检测校园网',
+      CampusNetworkStatus.available => null,
+      CampusNetworkStatus.unavailable => '请连接校园网',
+    };
 
     ref.listen(savedRoomIdProvider, (prev, next) {
+      _manager.clearPower();
       if (next != null && next.isNotEmpty) {
         final prefs = ref.read(preferencesStorageProvider);
-        _manager.loadPower(next, prefs);
-      } else {
-        _manager.clearPower();
+        unawaited(_manager.loadPower(next, prefs));
       }
     });
 
@@ -294,8 +329,9 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
               theme,
               icon: Icons.rate_review_outlined,
               title: '教师评价',
-              loading: _manager.jpLoading,
-              onTap: _openJp,
+              subtitle: campusStatusText,
+              loading: campusAvailable && _manager.jpLoading,
+              onTap: campusAvailable ? _openJp : null,
             ),
           ],
         ),
@@ -307,25 +343,42 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     ThemeData theme, {
     required IconData icon,
     required String title,
+    String? subtitle,
     bool loading = false,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
+    final enabled = onTap != null && !loading;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: loading ? null : onTap,
+        onTap: enabled ? onTap : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
             children: [
-              Icon(icon, color: theme.colorScheme.primary, size: 22),
+              Icon(
+                icon,
+                color: enabled
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.onSurfaceVariant,
+                size: 22,
+              ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.bodyLarge,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.bodyLarge),
+                    if (subtitle != null)
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (loading)
@@ -334,7 +387,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              else
+              else if (enabled)
                 Icon(
                   Icons.chevron_right,
                   color: theme.colorScheme.onSurfaceVariant,
@@ -348,31 +401,36 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
   Widget _buildExamCard(ThemeData theme) {
     final now = DateTime.now();
-    final exams = _manager.exams?.exams
-        .where((e) {
+    final exams =
+        _manager.exams?.exams.where((e) {
           final d = parseExamDate(e.time);
           return d == null || !d.isBefore(now);
-        })
-        .toList()
-      ?..sort((a, b) {
-        final da = parseExamDate(a.time);
-        final db = parseExamDate(b.time);
-        if (da == null && db == null) return 0;
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return da.compareTo(db);
-      });
+        }).toList()?..sort((a, b) {
+          final da = parseExamDate(a.time);
+          final db = parseExamDate(b.time);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
     final nextExam = exams != null && exams.isNotEmpty ? exams.first : null;
 
     String examTimeLabel(ExamItem exam) {
       final d = parseExamDate(exam.time);
       if (d == null) return exam.time;
       final today = DateTime.now();
-      final days = DateTime(d.year, d.month, d.day)
-          .difference(DateTime(today.year, today.month, today.day))
-          .inDays;
+      final days = DateTime(
+        d.year,
+        d.month,
+        d.day,
+      ).difference(DateTime(today.year, today.month, today.day)).inDays;
       if (days < 0) return exam.time;
-      final tag = switch (days) { 0 => '今天', 1 => '明天', 2 => '后天', _ => '剩 $days 天' };
+      final tag = switch (days) {
+        0 => '今天',
+        1 => '明天',
+        2 => '后天',
+        _ => '剩 $days 天',
+      };
       return '${exam.time} [$tag]';
     }
 
@@ -393,8 +451,11 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.quiz_outlined,
-                                  color: theme.colorScheme.primary, size: 18),
+                              Icon(
+                                Icons.quiz_outlined,
+                                color: theme.colorScheme.primary,
+                                size: 18,
+                              ),
                               const SizedBox(width: 6),
                               Text(
                                 '考试查询',
@@ -424,13 +485,13 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                       )
                     : Row(
                         children: [
-                          Icon(Icons.quiz_outlined,
-                              color: theme.colorScheme.primary, size: 22),
-                          const SizedBox(width: 12),
-                          Text(
-                            '考试查询',
-                            style: theme.textTheme.bodyLarge,
+                          Icon(
+                            Icons.quiz_outlined,
+                            color: theme.colorScheme.primary,
+                            size: 22,
                           ),
+                          const SizedBox(width: 12),
+                          Text('考试查询', style: theme.textTheme.bodyLarge),
                         ],
                       ),
               ),
@@ -485,10 +546,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                           ),
                         ],
                       )
-                    : Text(
-                        '一卡通查询',
-                        style: theme.textTheme.bodyLarge,
-                      ),
+                    : Text('一卡通查询', style: theme.textTheme.bodyLarge),
               ),
               if (_manager.yktLoading)
                 const SizedBox(
@@ -510,8 +568,9 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
   Widget _buildPowerCard(ThemeData theme, bool hasRoom, String? roomId) {
     final data = _manager.power;
-    final campusError =
-        _manager.campusNetAvailable == false && data == null && hasRoom;
+    final campusAvailable = _manager.isCampusNetworkAvailable;
+    final campusChecking =
+        _manager.campusNetworkStatus == CampusNetworkStatus.checking;
 
     String statusText;
     TextStyle? statusStyle;
@@ -520,15 +579,19 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       statusStyle = theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
       );
-    } else if (campusError) {
-      statusText = '请连接校园网';
-      statusStyle = theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.error,
-      );
     } else if (data != null) {
-      statusText = '${data.available} 度';
+      statusText = campusAvailable
+          ? '${data.available} 度'
+          : '${data.available} 度（缓存）';
       statusStyle = theme.textTheme.titleMedium?.copyWith(
         fontWeight: FontWeight.w700,
+      );
+    } else if (!campusAvailable) {
+      statusText = campusChecking ? '正在检测校园网' : '请连接校园网';
+      statusStyle = theme.textTheme.bodySmall?.copyWith(
+        color: campusChecking
+            ? theme.colorScheme.onSurfaceVariant
+            : theme.colorScheme.error,
       );
     } else if (_manager.powerLoading) {
       statusText = '';
@@ -547,14 +610,17 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
         borderRadius: BorderRadius.circular(20),
         onTap: hasRoom && data != null
             ? () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        PowerQueryPage(result: data, roomId: roomId),
+                MaterialPageRoute(
+                  builder: (_) => PowerQueryPage(
+                    result: data,
+                    roomId: roomId,
+                    preferencesStorage: ref.read(preferencesStorageProvider),
                   ),
-                )
-            : hasRoom && !campusError && !_manager.powerLoading
-                ? _refreshPower
-                : null,
+                ),
+              )
+            : hasRoom && campusAvailable && !_manager.powerLoading
+            ? _refreshPower
+            : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           child: Row(
@@ -569,7 +635,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    if (_manager.powerLoading && hasRoom)
+                    if (_manager.powerLoading && hasRoom && data == null)
                       const Padding(
                         padding: EdgeInsets.only(top: 6),
                         child: SizedBox(
@@ -595,7 +661,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                   Icons.chevron_right,
                   color: theme.colorScheme.onSurfaceVariant,
                 )
-              else if (hasRoom && !campusError && !_manager.powerLoading)
+              else if (hasRoom && campusAvailable && !_manager.powerLoading)
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 20),
                   onPressed: _refreshPower,
@@ -608,5 +674,4 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       ),
     );
   }
-
 }

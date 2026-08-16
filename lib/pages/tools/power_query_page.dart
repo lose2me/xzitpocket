@@ -1,19 +1,31 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../services/power_service.dart';
+import '../../services/preferences_storage.dart';
+import '../../services/talker.dart';
+import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 
 class PowerQueryPage extends StatefulWidget {
   final PowerQueryData result;
   final String? roomId;
+  final PreferencesStorage preferencesStorage;
 
-  const PowerQueryPage({super.key, required this.result, this.roomId});
+  const PowerQueryPage({
+    super.key,
+    required this.result,
+    required this.preferencesStorage,
+    this.roomId,
+  });
 
   @override
   State<PowerQueryPage> createState() => _PowerQueryPageState();
 }
 
 class _PowerQueryPageState extends State<PowerQueryPage> {
+  final _manager = ToolsDataManager.instance;
   static const _pageSize = 7;
   int _currentPage = 0;
   bool _isRefreshing = false;
@@ -25,13 +37,28 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   @override
   void initState() {
     super.initState();
+    _manager.addListener(_onCampusNetworkChanged);
     _baseResult = widget.result;
     _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _updateDisplayUsage(widget.result.dailyUsage, isCurrentMonth: true);
   }
 
-  void _updateDisplayUsage(List<PowerDailyUsage> usage,
-      {required bool isCurrentMonth}) {
+  @override
+  void dispose() {
+    _manager.removeListener(_onCampusNetworkChanged);
+    super.dispose();
+  }
+
+  void _onCampusNetworkChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool get _canRefresh => _manager.isCampusNetworkAvailable;
+
+  void _updateDisplayUsage(
+    List<PowerDailyUsage> usage, {
+    required bool isCurrentMonth,
+  }) {
     if (isCurrentMonth) {
       _displayUsage = usage.reversed.toList();
     } else {
@@ -42,20 +69,38 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   Future<void> _refresh({String? startDate}) async {
     final roomId = widget.roomId;
     if (roomId == null || roomId.isEmpty) return;
+    if (!_canRefresh) {
+      showAppSnackBar(context, '请连接校园网');
+      return;
+    }
     setState(() => _isRefreshing = true);
     try {
-      final result =
-          await PowerService().queryRoom(roomId, startDate: startDate);
+      final PowerQueryData? result;
+      if (startDate == null) {
+        result = await _manager.refreshPower(roomId, widget.preferencesStorage);
+      } else {
+        result = await PowerService().queryRoom(roomId, startDate: startDate);
+      }
       if (!mounted) return;
+      if (result == null) {
+        showAppSnackBar(context, _manager.powerError ?? '刷新失败');
+        return;
+      }
+      final loadedResult = result;
       final isCurrent = startDate == null;
       setState(() {
-        if (isCurrent) _baseResult = result;
-        _updateDisplayUsage(result.dailyUsage, isCurrentMonth: _isCurrentMonth);
+        if (isCurrent) _baseResult = loadedResult;
+        _updateDisplayUsage(
+          loadedResult.dailyUsage,
+          isCurrentMonth: _isCurrentMonth,
+        );
         _currentPage = 0;
       });
-    } on PowerQueryException catch (e) {
+    } on PowerQueryException catch (e, stackTrace) {
+      talker.error('电费详情刷新失败', e, stackTrace);
       if (mounted) showAppSnackBar(context, e.message);
-    } catch (_) {
+    } catch (e, stackTrace) {
+      talker.error('电费详情刷新异常', e, stackTrace);
       if (mounted) showAppSnackBar(context, '刷新失败');
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
@@ -64,15 +109,17 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
   void _changeMonth(int delta) {
     setState(() {
-      _selectedMonth =
-          DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+      _selectedMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month + delta,
+      );
     });
     if (_isCurrentMonth) {
-      _refresh();
+      unawaited(_refresh());
     } else {
       final formatted =
           '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}';
-      _refresh(startDate: formatted);
+      unawaited(_refresh(startDate: formatted));
     }
   }
 
@@ -87,8 +134,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
   bool get _isCurrentMonth {
     final now = DateTime.now();
-    return _selectedMonth.year == now.year &&
-        _selectedMonth.month == now.month;
+    return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
   }
 
   @override
@@ -110,7 +156,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: _isRefreshing ? null : () => _refresh(),
+            onPressed: _isRefreshing || !_canRefresh ? null : () => _refresh(),
             icon: _isRefreshing
                 ? const SizedBox(
                     width: 18,
@@ -125,6 +171,30 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
+            if (!_canRefresh) ...[
+              Row(
+                children: [
+                  Icon(
+                    Icons.wifi_off,
+                    size: 18,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _manager.campusNetworkStatus ==
+                              CampusNetworkStatus.checking
+                          ? '正在检测校园网，当前显示缓存数据'
+                          : '未连接校园网，当前显示缓存数据',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
@@ -142,8 +212,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
                         children: [
-                          Expanded(
-                              child: _buildMetricCell(theme, metrics[i])),
+                          Expanded(child: _buildMetricCell(theme, metrics[i])),
                           const SizedBox(width: 10),
                           Expanded(
                             child: i + 1 < metrics.length
@@ -159,7 +228,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                       IconButton(
                         icon: const Icon(Icons.chevron_left),
                         iconSize: 22,
-                        onPressed: _isRefreshing
+                        onPressed: _isRefreshing || !_canRefresh
                             ? null
                             : () => _changeMonth(-1),
                       ),
@@ -172,7 +241,8 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                       IconButton(
                         icon: const Icon(Icons.chevron_right),
                         iconSize: 22,
-                        onPressed: _isRefreshing || _isCurrentMonth
+                        onPressed:
+                            _isRefreshing || _isCurrentMonth || !_canRefresh
                             ? null
                             : () => _changeMonth(1),
                       ),

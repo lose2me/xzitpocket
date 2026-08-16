@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
-import 'debug_log_service.dart';
+import 'talker.dart';
 
 class YktBalanceResult {
   final String balance;
@@ -12,8 +12,10 @@ class YktBalanceResult {
 
   Map<String, dynamic> toJson() => {'balance': balance, 'cardNo': cardNo};
 
-  factory YktBalanceResult.fromJson(Map<String, dynamic> j) =>
-      YktBalanceResult(balance: j['balance'] as String, cardNo: j['cardNo'] as String);
+  factory YktBalanceResult.fromJson(Map<String, dynamic> j) => YktBalanceResult(
+    balance: j['balance'] as String,
+    cardNo: j['cardNo'] as String,
+  );
 }
 
 class YktTransaction {
@@ -32,20 +34,20 @@ class YktTransaction {
   });
 
   Map<String, dynamic> toJson() => {
-        'time': time,
-        'location': location,
-        'amount': amount,
-        'balance': balance,
-        'type': type,
-      };
+    'time': time,
+    'location': location,
+    'amount': amount,
+    'balance': balance,
+    'type': type,
+  };
 
   factory YktTransaction.fromJson(Map<String, dynamic> j) => YktTransaction(
-        time: j['time'] as String,
-        location: j['location'] as String,
-        amount: j['amount'] as String,
-        balance: j['balance'] as String,
-        type: j['type'] as String,
-      );
+    time: j['time'] as String,
+    location: j['location'] as String,
+    amount: j['amount'] as String,
+    balance: j['balance'] as String,
+    type: j['type'] as String,
+  );
 }
 
 class YktDetailResult {
@@ -53,21 +55,25 @@ class YktDetailResult {
   final List<YktTransaction> transactions;
   final String? txnError;
 
-  const YktDetailResult({required this.balance, required this.transactions, this.txnError});
+  const YktDetailResult({
+    required this.balance,
+    required this.transactions,
+    this.txnError,
+  });
 
   Map<String, dynamic> toJson() => {
-        'balance': balance.toJson(),
-        'transactions': transactions.map((t) => t.toJson()).toList(),
-        'txnError': txnError,
-      };
+    'balance': balance.toJson(),
+    'transactions': transactions.map((t) => t.toJson()).toList(),
+    'txnError': txnError,
+  };
 
   factory YktDetailResult.fromJson(Map<String, dynamic> j) => YktDetailResult(
-        balance: YktBalanceResult.fromJson(j['balance'] as Map<String, dynamic>),
-        transactions: (j['transactions'] as List)
-            .map((t) => YktTransaction.fromJson(t as Map<String, dynamic>))
-            .toList(),
-        txnError: j['txnError'] as String?,
-      );
+    balance: YktBalanceResult.fromJson(j['balance'] as Map<String, dynamic>),
+    transactions: (j['transactions'] as List)
+        .map((t) => YktTransaction.fromJson(t as Map<String, dynamic>))
+        .toList(),
+    txnError: j['txnError'] as String?,
+  );
 }
 
 class YktService {
@@ -134,8 +140,8 @@ class YktService {
             validateStatus: (s) => s != null && s < 500,
           ),
         );
-        DebugLogService.instance.log(DebugLogCategory.network, '一卡通流水', 'status=${tr.statusCode}');
-        DebugLogService.instance.log(DebugLogCategory.network, '一卡通流水', 'data=${tr.data}');
+        talker.debug('[NET] 一卡通流水\nstatus=${tr.statusCode}');
+        talker.debug('[NET] 一卡通流水\ndata=${tr.data}');
         txnError = 'HTTP ${tr.statusCode}: ${tr.data}';
         if (tr.statusCode == 200 && tr.data is Map<String, dynamic>) {
           final trData = tr.data as Map<String, dynamic>;
@@ -144,22 +150,28 @@ class YktService {
           if (trItems.isNotEmpty) txnError = null;
           for (final item in trItems) {
             if (item is Map<String, dynamic>) {
-              transactions.add(YktTransaction(
-                time: '${item['jysj'] ?? ''}',
-                location: '${item['zd'] ?? ''}',
-                amount: '${item['jye'] ?? ''}',
-                balance: '${item['ye'] ?? ''}',
-                type: '${item['jylxm'] ?? ''}',
-              ));
+              transactions.add(
+                YktTransaction(
+                  time: '${item['jysj'] ?? ''}',
+                  location: '${item['zd'] ?? ''}',
+                  amount: '${item['jye'] ?? ''}',
+                  balance: '${item['ye'] ?? ''}',
+                  type: '${item['jylxm'] ?? ''}',
+                ),
+              );
             }
           }
         }
-      } catch (e) {
-        DebugLogService.instance.log(DebugLogCategory.error, '一卡通流水异常', '$e');
+      } catch (e, stackTrace) {
+        talker.error('一卡通流水异常', e, stackTrace);
         txnError = '$e';
       }
 
-      return YktDetailResult(balance: balance, transactions: transactions, txnError: txnError);
+      return YktDetailResult(
+        balance: balance,
+        transactions: transactions,
+        txnError: txnError,
+      );
     } finally {
       session.close();
     }
