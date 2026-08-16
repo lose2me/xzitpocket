@@ -218,6 +218,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     const courseBorderOpacity = 0.9;
 
     return AppPage(
+      root: true,
       child: SafeArea(
         child: Column(
           children: [

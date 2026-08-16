@@ -11,7 +11,6 @@ class AppPage extends StatelessWidget {
   final Widget? footer;
   final bool root;
   final bool childPad;
-  final bool resizeToAvoidBottomInset;
 
   const AppPage({
     super.key,
@@ -21,7 +20,6 @@ class AppPage extends StatelessWidget {
     this.footer,
     this.root = false,
     this.childPad = false,
-    this.resizeToAvoidBottomInset = true,
   });
 
   @override
@@ -56,7 +54,7 @@ class AppPage extends StatelessWidget {
         header: header,
         footer: footer,
         childPad: childPad,
-        resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+        resizeToAvoidBottomInset: !root,
         child: content,
       ),
     );

@@ -101,6 +101,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
 
     if (!isLoggedIn || _isLoggingIn) {
       return AppPage(
+        root: true,
         child: SafeArea(child: _buildLoginForm(theme)),
       );
     }
@@ -165,9 +166,6 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
                       style: FTextFieldStyleDelta.delta(
                         constraints: const BoxConstraints.tightFor(height: 24),
                         contentPadding: const EdgeInsetsGeometryDelta.value(
-                          EdgeInsets.zero,
-                        ),
-                        scrollPadding: const EdgeInsetsDelta.value(
                           EdgeInsets.zero,
                         ),
                         border: FVariantsValueDelta.delta([
