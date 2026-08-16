@@ -287,25 +287,28 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
               double.infinity,
             ),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildOpenSourceInfo(theme),
-              const SizedBox(height: AppSpacing.xxl),
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: AppLayout.formMaxWidth,
+          child: Transform.translate(
+            offset: const Offset(0, -40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildOpenSourceInfo(theme),
+                const SizedBox(height: AppSpacing.xxl),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: AppLayout.formMaxWidth,
+                  ),
+                  child: IndexedStack(
+                    index: _currentPage,
+                    children: [
+                      _buildLoginPanel(theme, isLoading, buttons),
+                      _buildVerifyPanel(theme, buttons),
+                      _buildPasswordPanel(theme, buttons),
+                    ],
+                  ),
                 ),
-                child: IndexedStack(
-                  index: _currentPage,
-                  children: [
-                    _buildLoginPanel(theme, isLoading, buttons),
-                    _buildVerifyPanel(theme, buttons),
-                    _buildPasswordPanel(theme, buttons),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
