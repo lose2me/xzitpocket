@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
@@ -7,6 +8,7 @@ import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../ui/app_components.dart';
 
 class ExamQueryPage extends StatefulWidget {
   final ExamResult result;
@@ -74,7 +76,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
     final now = DateTime.now();
     final exams =
         _result.exams.where((e) {
@@ -89,74 +91,49 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
           return da.compareTo(db);
         });
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('考试查询'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _isRefreshing ? null : _refresh,
-            icon: _isRefreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.sync),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: exams.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.event_available,
-                      size: 48,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      '暂无考试安排',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                itemCount: exams.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        '还剩 ${exams.length} 门考试，比格咬它',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    );
-                  }
-                  return _buildExamCard(theme, exams[index - 1]);
-                },
+    return AppPage(
+      title: '考试查询',
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.refreshCw,
+          onPress: _isRefreshing ? null : _refresh,
+          tooltip: '刷新考试',
+          loading: _isRefreshing,
+        ),
+      ],
+      child: exams.isEmpty
+          ? const AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
+              child: AppStateView(
+                icon: FLucideIcons.calendarCheck,
+                title: '暂无考试安排',
               ),
-      ),
+            )
+          : AppPageListView(
+              maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.lg,
+              bottomPadding: AppSpacing.xxl,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Text(
+                    '还剩 ${exams.length} 门考试，比格咬它',
+                    textAlign: TextAlign.center,
+                    style: theme.typography.bodySmall.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
+                  ),
+                ),
+                for (final exam in exams) _buildExamCard(theme, exam),
+              ],
+            ),
     );
   }
 
-  Widget _buildExamCard(ThemeData theme, ExamItem exam) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+  Widget _buildExamCard(FThemeData theme, ExamItem exam) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -165,7 +142,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                 Expanded(
                   child: Text(
                     exam.title,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.typography.tileTitle.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -173,65 +150,52 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                 if (exam.location.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   Icon(
-                    Icons.location_on_outlined,
+                    FLucideIcons.mapPin,
                     size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: theme.colors.mutedForeground,
                   ),
                   const SizedBox(width: 2),
                   Text(
                     exam.location,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    style: theme.typography.body.sm.copyWith(
+                      color: theme.colors.mutedForeground,
                     ),
                   ),
                 ],
                 if (exam.isResit) ...[
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '补考',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: theme.colorScheme.error,
-                      ),
-                    ),
+                  FBadge(
+                    variant: FBadgeVariant.destructive,
+                    child: const Text('补考'),
                   ),
                 ],
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             if (exam.time.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   children: [
                     Icon(
-                      Icons.access_time,
+                      FLucideIcons.clock3,
                       size: 16,
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: theme.colors.mutedForeground,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         exam.time,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        style: theme.typography.body.md.copyWith(
+                          color: theme.colors.mutedForeground,
                         ),
                       ),
                     ),
                     if (_daysUntil(exam.time) case final days? when days >= 0)
                       Text(
                         '$days 天',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        style: theme.typography.body.md.copyWith(
+                          color: theme.colors.mutedForeground,
                         ),
                       ),
                   ],

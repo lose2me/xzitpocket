@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../models/course.dart';
+import '../../ui/app_tokens.dart';
 import '../../utils/week_calculator.dart';
 import 'course_card.dart';
 import 'time_column.dart';
@@ -40,7 +42,7 @@ class TimetableGrid extends StatelessWidget {
     this.onEmptyTap,
     this.onConflictComputed,
     this.countdownAnimation,
-    this.borderColor = Colors.grey,
+    required this.borderColor,
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
@@ -48,7 +50,7 @@ class TimetableGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
     final indexedCourses = courses
         .asMap()
         .entries
@@ -112,7 +114,7 @@ class TimetableGrid extends StatelessWidget {
         Row(
           children: [
             SizedBox(
-              width: 36,
+              width: 40,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: '${dates[0].month}月'
@@ -120,10 +122,10 @@ class TimetableGrid extends StatelessWidget {
                     .map(
                       (c) => Text(
                         c,
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.typography.caption.copyWith(
                           fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                          color: theme.colors.mutedForeground,
                         ),
                       ),
                     )
@@ -141,34 +143,32 @@ class TimetableGrid extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   decoration: isToday
                       ? BoxDecoration(
-                          color: theme.colorScheme.primaryContainer.withAlpha(
-                            128,
-                          ),
+                          color: theme.colors.secondary.withAlpha(128),
                         )
                       : null,
                   child: Column(
                     children: [
                       Text(
                         weekdays[i],
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.typography.caption.copyWith(
                           fontWeight: isToday
-                              ? FontWeight.w800
+                              ? FontWeight.w700
                               : FontWeight.normal,
                           color: isToday
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
+                              ? theme.colors.primary
+                              : theme.colors.mutedForeground,
                           fontSize: 12,
                         ),
                       ),
                       Text(
                         '${date.day}',
-                        style: theme.textTheme.bodySmall?.copyWith(
+                        style: theme.typography.caption.copyWith(
                           fontWeight: isToday
-                              ? FontWeight.w800
+                              ? FontWeight.w700
                               : FontWeight.normal,
                           color: isToday
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurfaceVariant,
+                              ? theme.colors.primary
+                              : theme.colors.mutedForeground,
                           fontSize: 12,
                         ),
                       ),
@@ -179,7 +179,12 @@ class TimetableGrid extends StatelessWidget {
             }),
           ],
         ),
-        const Divider(height: 1),
+        FDivider(
+          style: FDividerStyleDelta.delta(
+            color: theme.colors.border,
+            padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
+          ),
+        ),
         // Timetable grid
         Expanded(
           child: LayoutBuilder(
@@ -247,16 +252,12 @@ class TimetableGrid extends StatelessWidget {
                                       decoration: BoxDecoration(
                                         border: Border(
                                           bottom: BorderSide(
-                                            color: theme
-                                                .colorScheme
-                                                .outlineVariant
+                                            color: theme.colors.border
                                                 .withAlpha(76),
                                             width: 0.5,
                                           ),
                                           right: BorderSide(
-                                            color: theme
-                                                .colorScheme
-                                                .outlineVariant
+                                            color: theme.colors.border
                                                 .withAlpha(76),
                                             width: 0.5,
                                           ),

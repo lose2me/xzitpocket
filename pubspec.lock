@@ -278,6 +278,11 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "6.0.0"
+  flutter_localizations:
+    dependency: transitive
+    description: flutter
+    source: sdk
+    version: "0.0.0"
   flutter_markdown_plus:
     dependency: "direct main"
     description:
@@ -360,6 +365,22 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  forui:
+    dependency: "direct main"
+    description:
+      name: forui
+      sha256: bf2a76293044ec8fbe8869032a67e79b6dfb12a471c9c3ecacb45626e69744d2
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.25.0"
+  forui_assets:
+    dependency: transitive
+    description:
+      name: forui_assets
+      sha256: "43b219f28399786b8ac51c01048f583b3155c0e39ac163845b1e73c959240139"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.25.0"
   frontend_server_client:
     dependency: transitive
     description:
@@ -520,6 +541,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "0.2.2"
+  intl:
+    dependency: transitive
+    description:
+      name: intl
+      sha256: "1ca20c894b1717686a2319b8548763d812bc0aabdac580420a44c5178c57a867"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "0.20.3"
   io:
     dependency: transitive
     description:
@@ -1021,6 +1050,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.4.1"
+  sugar:
+    dependency: transitive
+    description:
+      name: sugar
+      sha256: a0a97f1d3552a3ef4cbec7c6e62c7b52c151cd5c11e984e8311700a918f73dc5
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "4.0.0"
   synchronized:
     dependency: transitive
     description:

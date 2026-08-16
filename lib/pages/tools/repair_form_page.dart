@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:forui/forui.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/repair_service.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../ui/app_components.dart';
 
 class RepairFormPage extends StatefulWidget {
   final String studentId;
@@ -32,6 +34,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
   final _picker = ImagePicker();
   final _addressCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
+  final _areaCtrl = TextEditingController();
+  final _itemCtrl = TextEditingController();
   final _images = <XFile>[];
   String? _tutorial;
 
@@ -81,21 +85,26 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _pickImage() async {
-    final source = await showModalBottomSheet<ImageSource>(
+    final source = await showAppSheet<ImageSource>(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('拍照'),
-              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+        child: FSelectTileGroup<ImageSource>(
+          control: FMultiValueControl.managedRadio(
+            onChange: (values) {
+              if (values.isNotEmpty) Navigator.pop(ctx, values.first);
+            },
+          ),
+          children: const [
+            FSelectTile<ImageSource>.suffix(
+              prefix: Icon(FLucideIcons.camera),
+              title: Text('拍照'),
+              value: ImageSource.camera,
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('从相册选择'),
-              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            FSelectTile<ImageSource>.suffix(
+              prefix: Icon(FLucideIcons.image),
+              title: Text('从相册选择'),
+              value: ImageSource.gallery,
             ),
           ],
         ),
@@ -117,6 +126,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
     _session?.close();
     _addressCtrl.dispose();
     _contentCtrl.dispose();
+    _areaCtrl.dispose();
+    _itemCtrl.dispose();
     super.dispose();
   }
 
@@ -127,6 +138,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
       setState(() {
         _selectedArea = result;
         _selectedItem = null;
+        _areaCtrl.text = result.name;
+        _itemCtrl.clear();
       });
     }
   }
@@ -168,11 +181,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     RepairArea? chosen;
     while (true) {
       if (!mounted) return null;
-      chosen = await _showPickerSheet(
-        '选择区域',
-        items,
-        selectedId: _selectedArea?.id,
-      );
+      chosen = await _showPickerSheet(items, selectedId: _selectedArea?.id);
       if (chosen == null) return null;
 
       List<RepairArea> children;
@@ -195,7 +204,10 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
     final result = await _drillDownItems();
     if (result != null && mounted) {
-      setState(() => _selectedItem = result);
+      setState(() {
+        _selectedItem = result;
+        _itemCtrl.text = result.name;
+      });
     }
   }
 
@@ -217,7 +229,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
     while (true) {
       if (!mounted) return null;
       chosen = await _showPickerSheet(
-        '选择项目',
         items.map((i) => RepairArea(id: i.id, name: i.name)).toList(),
         selectedId: _selectedItem?.id,
       );
@@ -238,111 +249,34 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<RepairArea?> _showPickerSheet(
-    String title,
     List<RepairArea> items, {
     String? selectedId,
   }) {
-    return showModalBottomSheet<RepairArea>(
+    return showAppSheet<RepairArea>(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
+      maxHeightRatio: 0.6,
       builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final maxH = MediaQuery.of(ctx).size.height * 0.6;
-        return SafeArea(
-          top: false,
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-            constraints: BoxConstraints(maxHeight: maxH),
-            clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface,
-              borderRadius: BorderRadius.circular(28),
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          child: FSelectTileGroup<String>(
+            control: FMultiValueControl.managedRadio(
+              initial: selectedId,
+              onChange: (values) {
+                if (values.isEmpty) return;
+                final selected = items.firstWhere(
+                  (item) => item.id == values.first,
+                );
+                Navigator.pop(ctx, selected);
+              },
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
-                  child: Column(
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 42,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.outlineVariant,
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: Text(
-                          title,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                    ],
-                  ),
+            maxHeight: 360,
+            children: [
+              for (final item in items)
+                FSelectTile<String>.suffix(
+                  title: Text(item.name),
+                  value: item.id,
                 ),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
-                    itemCount: items.length,
-                    itemBuilder: (ctx, i) {
-                      final item = items[i];
-                      final selected = item.id == selectedId;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Material(
-                          color: selected
-                              ? theme.colorScheme.primaryContainer.withAlpha(72)
-                              : theme.colorScheme.surfaceContainerLowest,
-                          borderRadius: BorderRadius.circular(28),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(28),
-                            onTap: () => Navigator.pop(ctx, item),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 15,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      item.name,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w400,
-                                          ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Icon(
-                                    selected
-                                        ? Icons.check_circle_rounded
-                                        : Icons.radio_button_unchecked_rounded,
-                                    color: selected
-                                        ? theme.colorScheme.primary
-                                        : theme.colorScheme.outline,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
         );
       },
@@ -402,146 +336,130 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('新建报修'),
-        centerTitle: true,
-        actions: [
-          if (_sessionLoading)
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+    return AppPage(
+      title: '新建报修',
+      actions: [
+        if (_sessionLoading)
+          const FHeaderAction(
+            icon: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+            onPress: null,
+          ),
+      ],
+      child: AppPageListView(
+        maxWidth: AppLayout.formMaxWidth,
+        topPadding: AppSpacing.lg,
+        bottomPadding: AppSpacing.xxl,
+        children: [
+          _buildPickerField(
+            label: '报修区域',
+            controller: _areaCtrl,
+            onTap: _pickArea,
+          ),
+          const SizedBox(height: 12),
+          _buildPickerField(
+            label: '报修项目',
+            controller: _itemCtrl,
+            onTap: _pickItem,
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: 140,
+            child: AppTextField(
+              controller: _addressCtrl,
+              label: '宿舍号',
+              hint: '7B216',
+              enabled: !_formDisabled,
+            ),
+          ),
+          const SizedBox(height: 12),
+          AppTextField(
+            controller: _contentCtrl,
+            label: '故障描述',
+            enabled: !_formDisabled,
+            minLines: 3,
+            maxLines: null,
+            keyboardType: TextInputType.multiline,
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < _images.length; i++)
+                _buildImageTile(theme, i),
+              if (_images.length < 9) _buildAddImageTile(theme),
+            ],
+          ),
+          const SizedBox(height: 24),
+          FButton(
+            onPress: _formDisabled ? null : _submit,
+            prefix: _submitting
+                ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+                : const Icon(FLucideIcons.send),
+            child: const Text('提交报修'),
+          ),
+          if (_tutorial != null && _tutorial!.trim().isNotEmpty) ...[
+            const SizedBox(height: 28),
+            const FDivider(),
+            const SizedBox(height: 16),
+            MarkdownBody(
+              data: _tutorial!,
+              selectable: true,
+              styleSheet: MarkdownStyleSheet(
+                p: theme.typography.bodyText.copyWith(
+                  color: theme.colors.foreground,
+                ),
+                h1: theme.typography.pageTitle.copyWith(
+                  color: theme.colors.foreground,
+                  fontWeight: FontWeight.w700,
+                ),
+                h2: theme.typography.tileTitle.copyWith(
+                  color: theme.colors.foreground,
+                  fontWeight: FontWeight.w700,
+                ),
+                h3: theme.typography.sectionTitle.copyWith(
+                  color: theme.colors.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
+                code: theme.typography.body.sm.copyWith(
+                  color: theme.colors.foreground,
+                  fontFamily: 'monospace',
+                  backgroundColor: theme.colors.muted,
+                ),
               ),
             ),
+          ],
         ],
       ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
-            _buildPickerField(
-              theme,
-              label: '报修区域',
-              value: _selectedArea?.name,
-              onTap: _pickArea,
-            ),
-            const SizedBox(height: 12),
-            _buildPickerField(
-              theme,
-              label: '报修项目',
-              value: _selectedItem?.name,
-              onTap: _pickItem,
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: 140,
-              child: TextField(
-                controller: _addressCtrl,
-                enabled: !_formDisabled,
-                decoration: const InputDecoration(
-                  labelText: '宿舍号',
-                  hintText: '7B216',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _contentCtrl,
-              enabled: !_formDisabled,
-              decoration: const InputDecoration(
-                labelText: '故障描述',
-                border: OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-              minLines: 3,
-              maxLines: null,
-              keyboardType: TextInputType.multiline,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (var i = 0; i < _images.length; i++)
-                  _buildImageTile(theme, i),
-                if (_images.length < 9) _buildAddImageTile(theme),
-              ],
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _formDisabled ? null : _submit,
-              child: _submitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('提交报修'),
-            ),
-            if (_tutorial != null && _tutorial!.trim().isNotEmpty) ...[
-              const SizedBox(height: 28),
-              const Divider(),
-              const SizedBox(height: 16),
-              MarkdownBody(
-                data: _tutorial!,
-                selectable: true,
-                styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-                  p: theme.textTheme.bodyMedium,
-                  h1: theme.textTheme.titleLarge,
-                  h2: theme.textTheme.titleMedium,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
-  Widget _buildPickerField(
-    ThemeData theme, {
+  Widget _buildPickerField({
     required String label,
-    String? value,
+    required TextEditingController controller,
     required VoidCallback onTap,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: _formDisabled ? null : onTap,
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          suffixIcon: const Icon(Icons.arrow_drop_down),
-        ),
-        child: Text(
-          value ?? '请选择',
-          style: value == null
-              ? theme.textTheme.bodyLarge?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                )
-              : theme.textTheme.bodyLarge,
-        ),
-      ),
+    return AppTextField(
+      controller: controller,
+      label: label,
+      hint: '请选择',
+      readOnly: true,
+      enabled: !_formDisabled,
+      onTap: onTap,
+      suffix: const Icon(FLucideIcons.chevronDown),
     );
   }
 
-  Widget _buildImageTile(ThemeData theme, int index) {
+  Widget _buildImageTile(FThemeData theme, int index) {
     return SizedBox(
       width: 90,
       height: 90,
       child: Stack(
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             child: Image.file(
               File(_images[index].path),
               width: 90,
@@ -552,16 +470,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
           Positioned(
             top: 2,
             right: 2,
-            child: GestureDetector(
-              onTap: () => setState(() => _images.removeAt(index)),
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                padding: const EdgeInsets.all(3),
-                child: const Icon(Icons.close, size: 14, color: Colors.white),
-              ),
+            child: AppIconButton(
+              icon: FLucideIcons.x,
+              onPress: () => setState(() => _images.removeAt(index)),
+              tooltip: '删除图片',
+              variant: FButtonVariant.destructive,
+              size: FButtonSizeVariant.xs,
             ),
           ),
         ],
@@ -569,21 +483,18 @@ class _RepairFormPageState extends State<RepairFormPage> {
     );
   }
 
-  Widget _buildAddImageTile(ThemeData theme) {
-    return GestureDetector(
-      onTap: _formDisabled ? null : _pickImage,
-      child: Container(
+  Widget _buildAddImageTile(FThemeData theme) {
+    return FTappable(
+      onPress: _formDisabled ? null : _pickImage,
+      child: SizedBox(
         width: 90,
         height: 90,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: theme.colorScheme.outline.withAlpha(60)),
-        ),
-        child: Icon(
-          Icons.add_photo_alternate_outlined,
-          size: 32,
-          color: theme.colorScheme.onSurfaceVariant,
+        child: FCard(
+          child: Icon(
+            FLucideIcons.imagePlus,
+            size: 32,
+            color: theme.colors.mutedForeground,
+          ),
         ),
       ),
     );

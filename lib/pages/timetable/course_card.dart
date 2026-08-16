@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../models/course.dart';
+import '../../ui/app_components.dart';
 
 class CourseCard extends StatelessWidget {
   final Course course;
@@ -18,7 +20,7 @@ class CourseCard extends StatelessWidget {
     this.muted = false,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
-    this.borderColor = Colors.grey,
+    required this.borderColor,
     this.borderWidth = 0.5,
   });
 
@@ -26,17 +28,19 @@ class CourseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bgColor = course.color.withAlpha((255 * courseOpacity).round());
     final borderRadius = BorderRadius.circular(6);
-    final textColor = muted ? Colors.black45 : Colors.black87;
+    final textColor = muted
+        ? context.theme.colors.mutedForeground
+        : context.theme.colors.semantic.timetableForeground;
     final secondaryTextColor = muted
-        ? Colors.black38
-        : textColor.withAlpha(200);
+        ? context.theme.colors.mutedForeground
+        : context.theme.colors.semantic.timetableMutedForeground;
     final effectiveBorderColor = borderColor.withAlpha(
       (255 * courseBorderOpacity).round(),
     );
 
     return Container(
-      margin: const EdgeInsets.all(1.8),
-      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
+      margin: const EdgeInsets.all(2),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: borderRadius,
@@ -65,7 +69,8 @@ class CourseCard extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: textColor,
-                        height: 1.2,
+                        height: 4 / 3,
+                        letterSpacing: 0,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -75,7 +80,8 @@ class CourseCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: secondaryTextColor,
-                          height: 1.2,
+                          height: 14 / 11,
+                          letterSpacing: 0,
                         ),
                       ),
                     if (course.campus.isNotEmpty)
@@ -84,7 +90,8 @@ class CourseCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           color: secondaryTextColor,
-                          height: 1.2,
+                          height: 14 / 11,
+                          letterSpacing: 0,
                         ),
                       ),
                   ],
@@ -109,7 +116,12 @@ class CourseCard extends StatelessWidget {
                             .clamp(0.0, 1.0)
                             .toDouble();
                         return CustomPaint(
-                          painter: _CountdownBarPainter(progress: remaining),
+                          painter: _CountdownBarPainter(
+                            progress: remaining,
+                            backgroundColor:
+                                context.theme.colors.semantic.warningContainer,
+                            progressColor: context.theme.colors.destructive,
+                          ),
                         );
                       },
                     ),
@@ -125,8 +137,14 @@ class CourseCard extends StatelessWidget {
 
 class _CountdownBarPainter extends CustomPainter {
   final double progress;
+  final Color backgroundColor;
+  final Color progressColor;
 
-  const _CountdownBarPainter({required this.progress});
+  const _CountdownBarPainter({
+    required this.progress,
+    required this.backgroundColor,
+    required this.progressColor,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -137,7 +155,7 @@ class _CountdownBarPainter extends CustomPainter {
     if (endX <= startX) return;
 
     final backgroundPaint = Paint()
-      ..color = const Color(0xFFF6C9C9)
+      ..color = backgroundColor
       ..strokeWidth = size.height
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
@@ -151,7 +169,7 @@ class _CountdownBarPainter extends CustomPainter {
     if (progress <= 0) return;
 
     final progressPaint = Paint()
-      ..color = const Color(0xFFE57373)
+      ..color = progressColor
       ..strokeWidth = size.height
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
@@ -166,6 +184,8 @@ class _CountdownBarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _CountdownBarPainter oldDelegate) {
-    return oldDelegate.progress != progress;
+    return oldDelegate.progress != progress ||
+        oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.progressColor != progressColor;
   }
 }

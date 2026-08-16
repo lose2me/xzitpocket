@@ -5,13 +5,19 @@ import 'package:xzitpocket/models/app_settings.dart';
 void main() {
   group('AppThemePreference', () {
     test('fromStorage returns correct values', () {
-      expect(AppThemePreference.fromStorage('system'), AppThemePreference.system);
+      expect(
+        AppThemePreference.fromStorage('system'),
+        AppThemePreference.system,
+      );
       expect(AppThemePreference.fromStorage('light'), AppThemePreference.light);
       expect(AppThemePreference.fromStorage('dark'), AppThemePreference.dark);
     });
 
     test('fromStorage returns system for unknown value', () {
-      expect(AppThemePreference.fromStorage('invalid'), AppThemePreference.system);
+      expect(
+        AppThemePreference.fromStorage('invalid'),
+        AppThemePreference.system,
+      );
       expect(AppThemePreference.fromStorage(null), AppThemePreference.system);
     });
 
@@ -32,11 +38,17 @@ void main() {
     test('fromStorage returns correct values', () {
       expect(ClassAutomationMode.fromStorage('off'), ClassAutomationMode.off);
       expect(ClassAutomationMode.fromStorage('dnd'), ClassAutomationMode.dnd);
-      expect(ClassAutomationMode.fromStorage('dnd_keep'), ClassAutomationMode.dndKeep);
+      expect(
+        ClassAutomationMode.fromStorage('dnd_keep'),
+        ClassAutomationMode.dndKeep,
+      );
     });
 
     test('fromStorage returns off for unknown value', () {
-      expect(ClassAutomationMode.fromStorage('invalid'), ClassAutomationMode.off);
+      expect(
+        ClassAutomationMode.fromStorage('invalid'),
+        ClassAutomationMode.off,
+      );
       expect(ClassAutomationMode.fromStorage(null), ClassAutomationMode.off);
     });
 

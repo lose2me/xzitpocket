@@ -1,11 +1,15 @@
 import 'dart:async';
+import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../models/course.dart';
 import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
-import 'color_picker_sheet.dart';
+import '../../ui/app_components.dart';
+import 'course_picker_sheet.dart';
 
 class CourseFormPage extends StatefulWidget {
   final int weekday;
@@ -32,6 +36,16 @@ class CourseFormPage extends StatefulWidget {
 }
 
 class _CourseFormPageState extends State<CourseFormPage> {
+  static const _weekdayLabels = [
+    '星期一',
+    '星期二',
+    '星期三',
+    '星期四',
+    '星期五',
+    '星期六',
+    '星期日',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final _titleCtrl = TextEditingController();
   final _teacherCtrl = TextEditingController();
@@ -40,9 +54,11 @@ class _CourseFormPageState extends State<CourseFormPage> {
   final _weeksCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
   final _weekdayCtrl = TextEditingController();
-  final _startCtrl = TextEditingController();
-  final _endCtrl = TextEditingController();
-  Color _currentColor = Course.colors[0];
+  final _sessionCtrl = TextEditingController();
+  late List<int> _weeks;
+  late int _weekday;
+  late int _startSession;
+  late int _endSession;
 
   @override
   void initState() {
@@ -53,25 +69,24 @@ class _CourseFormPageState extends State<CourseFormPage> {
       _teacherCtrl.text = c.teacher;
       _placeCtrl.text = c.place;
       _campusCtrl.text = c.campus;
-      _weeksCtrl.text = formatWeekRanges(c.weeks);
-      _weekdayCtrl.text = c.weekday.toString();
-      _startCtrl.text = c.startSession.toString();
-      _endCtrl.text = c.endSession.toString();
-      _currentColor = c.color;
+      _weeks = _sortedUnique(c.weeks.isEmpty ? const [1] : c.weeks);
+      _weekday = c.weekday.clamp(1, 7);
+      _startSession = c.startSession.clamp(1, 14);
+      _endSession = c.endSession.clamp(_startSession, 14);
+      _colorCtrl.text = _colorToHex(c.color);
     } else {
-      _weeksCtrl.text = '1-20';
-      _weekdayCtrl.text = widget.weekday.toString();
-      _startCtrl.text = widget.session.toString();
-      _endCtrl.text = (widget.session + 1).clamp(1, 14).toString();
-      if (widget.defaultColor != null) {
-        _currentColor = widget.defaultColor!;
-      }
+      _weeks = [for (var week = 1; week <= 20; week++) week];
+      _weekday = widget.weekday.clamp(1, 7);
+      _startSession = widget.session.clamp(1, 14);
+      _endSession = (widget.session + 1).clamp(_startSession, 14);
+      _colorCtrl.text = _colorToHex(widget.defaultColor ?? Course.colors.first);
     }
-    _colorCtrl.text = _colorToHex(_currentColor);
+    _syncPickerText();
   }
 
   String _colorToHex(Color color) {
-    return color.toARGB32().toRadixString(16).substring(2).toUpperCase();
+    final argb = color.toARGB32().toRadixString(16).padLeft(8, '0');
+    return '#${argb.substring(2).toUpperCase()}';
   }
 
   @override
@@ -83,245 +98,250 @@ class _CourseFormPageState extends State<CourseFormPage> {
     _weeksCtrl.dispose();
     _colorCtrl.dispose();
     _weekdayCtrl.dispose();
-    _startCtrl.dispose();
-    _endCtrl.dispose();
+    _sessionCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isEditing ? '编辑课程' : '添加课程'),
-        actions: [TextButton(onPressed: _save, child: const Text('保存'))],
-      ),
-      body: Form(
+    return AppPage(
+      title: widget.isEditing ? '编辑课程' : '添加课程',
+      actions: [
+        FHeaderAction(
+          icon: const Icon(FLucideIcons.check),
+          semanticsLabel: '保存',
+          onPress: _save,
+        ),
+      ],
+      footer: widget.onDelete != null
+          ? SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppLayout.pageGutter(context),
+                  AppSpacing.sm,
+                  AppLayout.pageGutter(context),
+                  AppSpacing.md,
+                ),
+                child: Align(
+                  heightFactor: 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: AppLayout.formMaxWidth,
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FButton(
+                        variant: FButtonVariant.destructive,
+                        onPress: _confirmDelete,
+                        child: const Text('删除课程'),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : null,
+      child: Form(
         key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+        child: AppPageListView(
+          maxWidth: AppLayout.formMaxWidth,
+          topPadding: AppSpacing.lg,
+          bottomPadding: AppSpacing.xxl,
           children: [
             if (widget.existingCourse?.courseId.isNotEmpty == true)
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
                   '编号: ${widget.existingCourse!.courseId}',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    fontSize: 13,
+                  style: context.theme.typography.caption.copyWith(
+                    color: context.theme.colors.mutedForeground,
                   ),
                 ),
               ),
-            TextFormField(
+            AppTextFormField(
               controller: _titleCtrl,
-              decoration: const InputDecoration(
-                labelText: '课程名称',
-                border: OutlineInputBorder(),
-              ),
+              label: '课程名称',
               validator: (v) => v == null || v.isEmpty ? '请输入课程名称' : null,
             ),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _teacherCtrl,
-              decoration: const InputDecoration(
-                labelText: '教师',
-                border: OutlineInputBorder(),
-              ),
-            ),
+            AppTextFormField(controller: _teacherCtrl, label: '教师'),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _placeCtrl,
-              decoration: const InputDecoration(
-                labelText: '地点',
-                border: OutlineInputBorder(),
-              ),
-            ),
+            AppTextFormField(controller: _placeCtrl, label: '地点'),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _campusCtrl,
-              decoration: const InputDecoration(
-                labelText: '校区',
-                border: OutlineInputBorder(),
-              ),
-            ),
+            AppTextFormField(controller: _campusCtrl, label: '校区'),
             const SizedBox(height: 12),
-            TextFormField(
+            AppTextField(
+              key: const ValueKey('course-weeks-field'),
               controller: _weeksCtrl,
-              decoration: InputDecoration(
-                labelText: '周次 (例: 1-16,18)',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) {
-                return parseWeekRanges(v ?? '', allowParity: false) == null
-                    ? '格式: 1-16,18'
-                    : null;
-              },
+              label: '周次',
+              readOnly: true,
+              onTap: _openWeekPicker,
+              suffix: const Icon(FLucideIcons.chevronDown),
             ),
             const SizedBox(height: 12),
-            TextFormField(
+            AppTextField(
+              key: const ValueKey('course-weekday-field'),
               controller: _weekdayCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: '星期 (1-7)',
-                border: OutlineInputBorder(),
-              ),
-              validator: (v) {
-                final n = int.tryParse(v ?? '');
-                if (n == null || n < 1 || n > 7) return '请输入1-7';
+              label: '星期',
+              readOnly: true,
+              onTap: _openWeekdayPicker,
+              suffix: const Icon(FLucideIcons.chevronDown),
+            ),
+            const SizedBox(height: 12),
+            AppTextField(
+              key: const ValueKey('course-session-field'),
+              controller: _sessionCtrl,
+              label: '节次',
+              readOnly: true,
+              onTap: _openSessionPicker,
+              suffix: const Icon(FLucideIcons.chevronDown),
+            ),
+            const SizedBox(height: 12),
+            AppTextFormField(
+              key: const ValueKey('course-color-field'),
+              controller: _colorCtrl,
+              label: '颜色 (HEX)',
+              hint: '#FF8800',
+              inputFormatters: const [_HexColorInputFormatter()],
+              textCapitalization: TextCapitalization.characters,
+              validator: (value) {
+                if (value == null || value.isEmpty) return '请输入颜色值';
+                if (!RegExp(r'^#[0-9A-F]{6}$').hasMatch(value)) {
+                  return '请输入 #RRGGBB 格式的颜色值';
+                }
                 return null;
               },
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _startCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '开始节次 (1-14)',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      final n = int.tryParse(v ?? '');
-                      if (n == null || n < 1 || n > 14) return '请输入1-14';
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _endCtrl,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: '结束节次 (1-14)',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (v) {
-                      final n = int.tryParse(v ?? '');
-                      if (n == null || n < 1 || n > 14) return '请输入1-14';
-                      return null;
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _colorCtrl,
-                    decoration: const InputDecoration(
-                      labelText: '颜色 (HEX)',
-                      hintText: 'FF8800',
-                      prefixText: '#',
-                      border: OutlineInputBorder(),
-                    ),
-                    textCapitalization: TextCapitalization.characters,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return '请输入颜色值';
-                      final hex = v.replaceAll('#', '').trim();
-                      if (!RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(hex)) {
-                        return '请输入6位HEX颜色值';
-                      }
-                      return null;
-                    },
-                    onChanged: (v) {
-                      final hex = v.replaceAll('#', '').trim();
-                      if (RegExp(r'^[0-9A-Fa-f]{6}$').hasMatch(hex)) {
-                        setState(() {
-                          _currentColor = Color(int.parse('FF$hex', radix: 16));
-                        });
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                GestureDetector(
-                  onTap: _openColorPicker,
-                  child: Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: _currentColor,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
       ),
-      bottomNavigationBar: widget.onDelete != null
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
-                    ),
-                    onPressed: _confirmDelete,
-                    child: const Text('删除'),
-                  ),
-                ),
-              ),
-            )
-          : null,
     );
   }
 
-  void _openColorPicker() async {
-    final picked = await showModalBottomSheet<Color>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => ColorPickerSheet(initialColor: _currentColor),
-    );
-    if (picked != null) {
-      setState(() {
-        _currentColor = picked;
-        _colorCtrl.text = _colorToHex(picked);
-      });
-    }
+  void _syncPickerText() {
+    _weeksCtrl.text = _formatWeekSelection(_weeks);
+    _weekdayCtrl.text = _weekdayLabels[_weekday - 1];
+    _sessionCtrl.text = _formatSessionSelection();
   }
+
+  String _formatSessionSelection() => _startSession == _endSession
+      ? '第$_startSession节'
+      : '第$_startSession-$_endSession节';
+
+  Future<void> _openWeekPicker() async {
+    final maxWeek = math.max(20, _weeks.last);
+    final selected = await showAppSheet<List<int>>(
+      context: context,
+      maxHeightRatio: 0.82,
+      builder: (_) =>
+          CourseWeekPickerSheet(initialWeeks: _weeks, maxWeek: maxWeek),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _weeks = _sortedUnique(selected);
+      _weeksCtrl.text = _formatWeekSelection(_weeks);
+    });
+  }
+
+  Future<void> _openWeekdayPicker() async {
+    final selected = await showAppSheet<List<int>>(
+      context: context,
+      builder: (_) => CourseWheelPickerSheet(
+        title: '选择星期',
+        columns: const [
+          CoursePickerColumn(label: '星期', options: _weekdayLabels),
+        ],
+        initialIndexes: [_weekday - 1],
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _weekday = selected.first + 1;
+      _weekdayCtrl.text = _weekdayLabels[_weekday - 1];
+    });
+  }
+
+  Future<void> _openSessionPicker() async {
+    final options = [
+      for (var session = 1; session <= 14; session++) '第$session节',
+    ];
+    final selected = await showAppSheet<List<int>>(
+      context: context,
+      builder: (_) => CourseWheelPickerSheet(
+        title: '选择节次',
+        columns: [
+          CoursePickerColumn(label: '开始节次', options: options),
+          CoursePickerColumn(label: '结束节次', options: options),
+        ],
+        initialIndexes: [_startSession - 1, _endSession - 1],
+        isValid: (indexes) => indexes[0] <= indexes[1],
+        invalidMessage: '开始节次不能大于结束节次',
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _startSession = selected[0] + 1;
+      _endSession = selected[1] + 1;
+      _sessionCtrl.text = _formatSessionSelection();
+    });
+  }
+
+  String _formatWeekSelection(List<int> values) {
+    final weeks = _sortedUnique(values);
+    if (weeks.isEmpty) return '请选择';
+
+    final start = weeks.first;
+    final end = weeks.last;
+    final range = start == end ? '第$start周' : '第$start-$end周';
+    if (_hasStep(weeks, 1)) return range;
+    if (_hasStep(weeks, 2) && weeks.every((week) => week.isOdd)) {
+      return '$range（单周）';
+    }
+    if (_hasStep(weeks, 2) && weeks.every((week) => week.isEven)) {
+      return '$range（双周）';
+    }
+    return '${formatWeekRanges(weeks)}周';
+  }
+
+  bool _hasStep(List<int> values, int step) {
+    for (var index = 1; index < values.length; index++) {
+      if (values[index] != values[index - 1] + step) return false;
+    }
+    return true;
+  }
+
+  List<int> _sortedUnique(Iterable<int> values) =>
+      values.toSet().toList()..sort();
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    final weekday = int.parse(_weekdayCtrl.text);
-    final startSession = int.parse(_startCtrl.text);
-    final endSession = int.parse(_endCtrl.text);
 
-    if (startSession > endSession) {
+    if (_startSession > _endSession) {
       showAppSnackBar(context, '开始节次不能大于结束节次');
       return;
     }
 
     final sessions = List.generate(
-      endSession - startSession + 1,
-      (i) => startSession + i,
+      _endSession - _startSession + 1,
+      (i) => _startSession + i,
     );
-    final weeks = parseWeekRanges(_weeksCtrl.text, allowParity: false);
-    if (weeks == null) {
-      showAppSnackBar(context, '请输入有效周次');
+    if (_weeks.isEmpty) {
+      showAppSnackBar(context, '请选择周次');
       return;
     }
+    final hex = _colorCtrl.text.substring(1);
     final existing = widget.existingCourse;
 
     await widget.onSave(
       Course(
         title: _titleCtrl.text,
         teacher: _teacherCtrl.text,
-        weekday: weekday,
+        weekday: _weekday,
         sessions: sessions,
-        weeks: weeks,
+        weeks: _weeks,
         campus: _campusCtrl.text,
         place: _placeCtrl.text,
-        colorIndex: _currentColor.toARGB32(),
+        colorIndex: Color(int.parse('FF$hex', radix: 16)).toARGB32(),
         courseId: existing?.courseId ?? '',
       ),
     );
@@ -330,29 +350,44 @@ class _CourseFormPageState extends State<CourseFormPage> {
   }
 
   void _confirmDelete() {
-    unawaited(
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('删除课程'),
-          content: const Text('确定要删除这门课程吗？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await widget.onDelete!();
-                if (!mounted) return;
-                Navigator.pop(context);
-              },
-              child: const Text('删除', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      ),
+    unawaited(_deleteAfterConfirmation());
+  }
+
+  Future<void> _deleteAfterConfirmation() async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '删除课程',
+      message: '确定要删除这门课程吗？',
+      confirmLabel: '删除',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await widget.onDelete!();
+    if (!mounted) return;
+    Navigator.pop(context);
+  }
+}
+
+class _HexColorInputFormatter extends TextInputFormatter {
+  const _HexColorInputFormatter();
+
+  static final _pattern = RegExp(r'^#[0-9A-Fa-f]{0,6}$');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return const TextEditingValue(
+        text: '#',
+        selection: TextSelection.collapsed(offset: 1),
+      );
+    }
+    if (!_pattern.hasMatch(newValue.text)) return oldValue;
+    return newValue.copyWith(
+      text: newValue.text.toUpperCase(),
+      composing: TextRange.empty,
     );
   }
 }

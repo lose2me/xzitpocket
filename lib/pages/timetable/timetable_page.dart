@@ -1,8 +1,9 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forui/forui.dart';
 
 import '../../constants/semester_config.dart';
 import '../../models/course.dart';
@@ -17,6 +18,7 @@ import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../utils/week_calculator.dart';
 import '../../widgets/week_header.dart';
+import '../../ui/app_components.dart';
 import 'course_form_page.dart';
 import 'timetable_grid.dart';
 
@@ -163,32 +165,42 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     String title;
     String subtitle;
     if (!isLoggedIn) {
-      icon = Icons.calendar_today_outlined;
+      icon = FLucideIcons.calendarDays;
       title = '暂无课程';
       subtitle = '请在"我的"页面登录后同步课表';
     } else if (semesterNotStarted) {
-      icon = Icons.hourglass_empty;
+      icon = FLucideIcons.hourglass;
       title = '未开学';
       subtitle = '教务系统可能还未发布本学期课表\n开学后下拉刷新或点击右上角重新同步';
     } else {
-      icon = Icons.event_busy_outlined;
+      icon = FLucideIcons.calendarX;
       title = '暂无课程';
       subtitle = '本学期暂无课程，可点击右上角重新同步';
     }
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 64, color: Colors.grey),
-          const SizedBox(height: 16),
-          Text(title, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey, fontSize: 12),
-          ),
-        ],
+      child: Padding(
+        padding: AppLayout.pagePadding(context),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 48, color: context.theme.colors.mutedForeground),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              style: context.theme.typography.tileTitle.copyWith(
+                color: context.theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: context.theme.typography.bodySmall.copyWith(
+                color: context.theme.colors.mutedForeground,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -201,13 +213,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       showNonCurrentWeekCoursesProvider,
     );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final courseBorderColor = isDark ? Colors.white : Colors.black;
-    final courseOpacity = isDark ? 0.95 : 0.85;
-    final courseBorderOpacity = isDark ? 1.0 : 0.85;
+    final courseBorderColor = context.theme.colors.border;
+    const courseOpacity = 0.9;
+    const courseBorderOpacity = 0.9;
 
-    return Scaffold(
-      body: SafeArea(
+    return AppPage(
+      child: SafeArea(
         child: Column(
           children: [
             WeekHeader(
@@ -267,22 +278,13 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     },
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: FCircularProgress()),
                 error: (e, _) => Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.red,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '加载失败: $e',
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ],
+                  child: AppStateView(
+                    icon: FLucideIcons.triangleAlert,
+                    title: '加载失败',
+                    description: '$e',
+                    destructive: true,
                   ),
                 ),
               ),
@@ -295,13 +297,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   void _showCourseDetail(BuildContext context, Course course, int key) {
     unawaited(
-      showModalBottomSheet(
+      showAppSheet(
         context: context,
-        isScrollControlled: true,
         builder: (ctx) {
           return SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,44 +321,45 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                       Expanded(
                         child: Text(
                           course.title,
-                          style: Theme.of(context).textTheme.titleMedium,
+                          style: context.theme.typography.pageTitle,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  _detailRow(Icons.person_outline, '教师', course.teacher),
-                  _detailRow(Icons.location_on_outlined, '地点', course.place),
-                  _detailRow(Icons.domain_outlined, '校区', course.campus),
+                  const SizedBox(height: AppSpacing.lg),
+                  _detailRow(FLucideIcons.userRound, '教师', course.teacher),
+                  _detailRow(FLucideIcons.mapPin, '地点', course.place),
+                  _detailRow(FLucideIcons.building2, '校区', course.campus),
                   _detailRow(
-                    Icons.access_time,
+                    FLucideIcons.clock3,
                     '节次',
                     '第${course.startSession}-${course.endSession}节',
                   ),
                   _detailRow(
-                    Icons.date_range,
+                    FLucideIcons.calendarRange,
                     '周次',
                     '${formatWeekRanges(course.weeks)}周',
                   ),
-                  _detailRow(Icons.tag, '编号', course.courseId),
-                  const SizedBox(height: 16),
+                  _detailRow(FLucideIcons.tag, '编号', course.courseId),
+                  const SizedBox(height: AppSpacing.lg),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          side: const BorderSide(color: Colors.red),
-                        ),
-                        onPressed: () {
+                      FButton(
+                        variant: FButtonVariant.destructive,
+                        size: FButtonSizeVariant.md,
+                        mainAxisSize: MainAxisSize.min,
+                        onPress: () {
                           Navigator.pop(ctx);
                           _confirmDelete(context, key);
                         },
                         child: const Text('删除'),
                       ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        onPressed: () {
+                      const SizedBox(width: AppSpacing.sm),
+                      FButton(
+                        size: FButtonSizeVariant.md,
+                        mainAxisSize: MainAxisSize.min,
+                        onPress: () {
                           Navigator.pop(ctx);
                           _editCourse(context, course, key);
                         },
@@ -377,12 +379,17 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   Widget _detailRow(IconData icon, String label, String value) {
     if (value.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey),
+          Icon(icon, size: 18, color: context.theme.colors.mutedForeground),
           const SizedBox(width: 8),
-          Text('$label: ', style: const TextStyle(color: Colors.grey)),
+          Text(
+            '$label: ',
+            style: context.theme.typography.bodySmall.copyWith(
+              color: context.theme.colors.mutedForeground,
+            ),
+          ),
           Expanded(child: Text(value)),
         ],
       ),
@@ -390,35 +397,26 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _confirmDelete(BuildContext context, int key) {
-    unawaited(
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('删除课程'),
-          content: const Text('确定要删除这门课程吗？'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () async {
-                try {
-                  await ref.read(scheduleProvider.notifier).deleteCourse(key);
-                } on WidgetSyncException catch (e) {
-                  if (mounted) {
-                    showAppSnackBar(this.context, '课程已删除，但$e');
-                  }
-                }
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-              },
-              child: const Text('删除', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      ),
+    unawaited(_deleteCourseAfterConfirmation(context, key));
+  }
+
+  Future<void> _deleteCourseAfterConfirmation(
+    BuildContext context,
+    int key,
+  ) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '删除课程',
+      message: '确定要删除这门课程吗？',
+      confirmLabel: '删除',
+      destructive: true,
     );
+    if (!confirmed) return;
+    try {
+      await ref.read(scheduleProvider.notifier).deleteCourse(key);
+    } on WidgetSyncException catch (e) {
+      if (mounted) showAppSnackBar(this.context, '课程已删除，但$e');
+    }
   }
 
   void _onEmptySlotTap(BuildContext context, int weekday, int session) {
@@ -437,7 +435,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final defaultColor = Course.colors[nextIndex % Course.colors.length];
 
     Navigator.of(context).push(
-      MaterialPageRoute(
+      appRoute(
+        name: AppRouteNames.addCourse,
         builder: (_) => CourseFormPage(
           weekday: weekday,
           session: session,
@@ -457,7 +456,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   void _editCourse(BuildContext context, Course course, int key) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      appRoute(
+        name: AppRouteNames.editCourse,
         builder: (_) => CourseFormPage(
           weekday: course.weekday,
           session: course.startSession,

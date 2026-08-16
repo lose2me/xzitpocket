@@ -1,7 +1,8 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forui/forui.dart';
 
 import '../../providers/config_provider.dart';
 import '../../services/auth_service.dart';
@@ -11,14 +12,14 @@ import '../../services/preferences_storage.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
-import 'empty_classroom_page.dart';
+import '../../ui/app_components.dart';
 import 'exam_query_page.dart';
 import 'grade_query_page.dart';
-import 'jp_page.dart';
-import 'netauth_page.dart';
+import 'campus_card_page.dart';
+import 'network_management_page.dart';
 import 'power_query_page.dart';
 import 'repair_page.dart';
-import 'ykt_page.dart';
+import 'teacher_evaluation_page.dart';
 
 class ToolsPage extends ConsumerStatefulWidget {
   const ToolsPage({super.key});
@@ -82,6 +83,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _openTool<T>({
     required bool loading,
     required String logLabel,
+    required String routeName,
     required T? Function() getData,
     required Future<void> Function(
       String sid,
@@ -118,7 +120,8 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       if (!mounted || getData() == null) return;
     }
     Navigator.of(context).push(
-      MaterialPageRoute(
+      appRoute(
+        name: routeName,
         builder: (_) =>
             buildPage(getData() as T, creds.studentId, creds.password),
       ),
@@ -128,6 +131,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _openExamQuery() => _openTool(
     loading: _manager.examLoading,
     logLabel: '打开考试查询',
+    routeName: AppRouteNames.exams,
     getData: () => _manager.exams,
     load: _manager.loadExam,
     buildPage: (data, sid, pwd) => ExamQueryPage(
@@ -141,9 +145,10 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _openYkt() => _openTool(
     loading: _manager.yktLoading,
     logLabel: '打开一卡通查询',
+    routeName: AppRouteNames.campusCard,
     getData: () => _manager.ykt,
     load: _manager.loadYkt,
-    buildPage: (data, sid, pwd) => YktPage(
+    buildPage: (data, sid, pwd) => CampusCardPage(
       result: data,
       studentId: sid,
       password: pwd,
@@ -154,6 +159,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _openRepair() => _openTool(
     loading: _manager.repairLoading,
     logLabel: '打开极速报修',
+    routeName: AppRouteNames.repair,
     getData: () => _manager.repair,
     load: _manager.loadRepair,
     buildPage: (data, sid, pwd) => RepairPage(
@@ -167,9 +173,10 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _openNetAuth() => _openTool(
     loading: _manager.netAuthLoading,
     logLabel: '打开网络管理',
+    routeName: AppRouteNames.networkManagement,
     getData: () => _manager.netAuth,
     load: _manager.loadNetAuth,
-    buildPage: (data, sid, pwd) => NetAuthPage(
+    buildPage: (data, sid, pwd) => NetworkManagementPage(
       result: data,
       account: sid,
       password: pwd,
@@ -182,28 +189,11 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     await _openTool(
       loading: _manager.jpLoading,
       logLabel: '打开教师评价',
+      routeName: AppRouteNames.teacherEvaluation,
       getData: () => _manager.jp,
       load: _manager.loadJp,
       requiresCampus: true,
-      buildPage: (data, _, _) => JpPage(result: data),
-    );
-  }
-
-  Future<void> _openEmptyClassroom() async {
-    final hasNet = await _manager.checkInternetAvailable();
-    if (!hasNet) {
-      if (mounted) showAppSnackBar(context, '请连接网络');
-      return;
-    }
-    final creds = await _ensureCredentials();
-    if (creds == null || !mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => EmptyClassroomPage(
-          studentId: creds.studentId,
-          password: creds.password,
-        ),
-      ),
+      buildPage: (data, _, _) => TeacherEvaluationPage(result: data),
     );
   }
 
@@ -216,7 +206,8 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
     Navigator.of(context).push(
-      MaterialPageRoute(
+      appRoute(
+        name: AppRouteNames.academic,
         builder: (_) => GradeQueryPage(
           studentId: creds.studentId,
           password: creds.password,
@@ -258,7 +249,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
     final roomId = ref.watch(savedRoomIdProvider);
     final hasRoom = roomId != null && roomId.isNotEmpty;
     final campusAvailable = _manager.isCampusNetworkAvailable;
@@ -276,71 +267,65 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       }
     });
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('邪恶比格叫叫叫'), centerTitle: true),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
-            IntrinsicHeight(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(child: _buildYktCard(theme)),
-                  const SizedBox(width: 8),
-                  Expanded(child: _buildPowerCard(theme, hasRoom, roomId)),
-                ],
-              ),
+    return AppPage(
+      title: '邪恶比格叫叫叫',
+      root: true,
+      child: AppPageListView(
+        maxWidth: AppLayout.resultMaxWidth,
+        topPadding: AppSpacing.lg,
+        bottomPadding: AppSpacing.xxl,
+        children: [
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _buildYktCard(theme)),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: _buildPowerCard(theme, hasRoom, roomId)),
+              ],
             ),
-            const SizedBox(height: 12),
-            _buildExamCard(theme),
-            const SizedBox(height: 12),
-            _buildSimpleCard(
-              theme,
-              icon: Icons.meeting_room_outlined,
-              title: '空教室查询',
-              onTap: _openEmptyClassroom,
-            ),
-            const SizedBox(height: 12),
-            _buildSimpleCard(
-              theme,
-              icon: Icons.school_outlined,
-              title: '学业情况',
-              onTap: _openGradeQuery,
-            ),
-            const SizedBox(height: 12),
-            _buildSimpleCard(
-              theme,
-              icon: Icons.wifi_outlined,
-              title: '网络管理',
-              loading: _manager.netAuthLoading,
-              onTap: _openNetAuth,
-            ),
-            const SizedBox(height: 12),
-            _buildSimpleCard(
-              theme,
-              icon: Icons.build_outlined,
-              title: '极速报修',
-              loading: _manager.repairLoading,
-              onTap: _openRepair,
-            ),
-            const SizedBox(height: 12),
-            _buildSimpleCard(
-              theme,
-              icon: Icons.rate_review_outlined,
-              title: '教师评价',
-              subtitle: campusStatusText,
-              loading: campusAvailable && _manager.jpLoading,
-              onTap: campusAvailable ? _openJp : null,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildExamCard(theme),
+          const SizedBox(height: AppSpacing.md),
+          _buildSimpleCard(
+            theme,
+            icon: FLucideIcons.graduationCap,
+            title: '学业情况',
+            onTap: _openGradeQuery,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildSimpleCard(
+            theme,
+            icon: FLucideIcons.wifi,
+            title: '网络管理',
+            loading: _manager.netAuthLoading,
+            onTap: _openNetAuth,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildSimpleCard(
+            theme,
+            icon: FLucideIcons.wrench,
+            title: '极速报修',
+            loading: _manager.repairLoading,
+            onTap: _openRepair,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildSimpleCard(
+            theme,
+            icon: FLucideIcons.messageSquareMore,
+            title: '教师评价',
+            subtitle: campusStatusText,
+            loading: campusAvailable && _manager.jpLoading,
+            onTap: campusAvailable ? _openJp : null,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSimpleCard(
-    ThemeData theme, {
+    FThemeData theme, {
     required IconData icon,
     required String title,
     String? subtitle,
@@ -348,58 +333,54 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     required VoidCallback? onTap,
   }) {
     final enabled = onTap != null && !loading;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: enabled ? onTap : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: enabled
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurfaceVariant,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: theme.textTheme.bodyLarge),
-                    if (subtitle != null)
-                      Text(
-                        subtitle,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (loading)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else if (enabled)
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      onPress: enabled ? onTap : null,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: enabled
+                ? theme.colors.primary
+                : theme.colors.mutedForeground,
+            size: 22,
           ),
-        ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: theme.typography.tileTitle),
+                if (subtitle != null)
+                  Text(
+                    subtitle,
+                    style: theme.typography.bodySmall.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          if (loading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+            )
+          else if (enabled)
+            Icon(
+              FLucideIcons.chevronRight,
+              color: theme.colors.mutedForeground,
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildExamCard(ThemeData theme) {
+  Widget _buildExamCard(FThemeData theme) {
     final now = DateTime.now();
     final exams =
         _manager.exams?.exams.where((e) {
@@ -434,139 +415,129 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       return '${exam.time} [$tag]';
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: _manager.examLoading ? null : _openExamQuery,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: nextExam != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.quiz_outlined,
-                                color: theme.colorScheme.primary,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '考试查询',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            nextExam.title,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (nextExam.time.isNotEmpty)
-                            Text(
-                              examTimeLabel(nextExam),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                        ],
-                      )
-                    : Row(
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      onPress: _manager.examLoading ? null : _openExamQuery,
+      child: Row(
+        children: [
+          Expanded(
+            child: nextExam != null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
                           Icon(
-                            Icons.quiz_outlined,
-                            color: theme.colorScheme.primary,
-                            size: 22,
+                            FLucideIcons.fileQuestion,
+                            color: theme.colors.primary,
+                            size: 18,
                           ),
-                          const SizedBox(width: 12),
-                          Text('考试查询', style: theme.textTheme.bodyLarge),
+                          const SizedBox(width: AppSpacing.sm),
+                          Text(
+                            '考试查询',
+                            style: theme.typography.bodySmall.copyWith(
+                              color: theme.colors.mutedForeground,
+                            ),
+                          ),
                         ],
                       ),
-              ),
-              if (_manager.examLoading)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        nextExam.title,
+                        style: theme.typography.tileTitle.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (nextExam.time.isNotEmpty)
+                        Text(
+                          examTimeLabel(nextExam),
+                          style: theme.typography.bodySmall.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
+                        ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        FLucideIcons.fileQuestion,
+                        color: theme.colors.primary,
+                        size: 22,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Text('考试查询', style: theme.typography.tileTitle),
+                    ],
+                  ),
           ),
-        ),
+          if (_manager.examLoading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+            )
+          else
+            Icon(
+              FLucideIcons.chevronRight,
+              color: theme.colors.mutedForeground,
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildYktCard(ThemeData theme) {
+  Widget _buildYktCard(FThemeData theme) {
     final balance = _manager.ykt?.balance;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: _manager.yktLoading ? null : _openYkt,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: balance != null
-                    ? Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '一卡通查询',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${balance.balance} 元',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      )
-                    : Text('一卡通查询', style: theme.textTheme.bodyLarge),
-              ),
-              if (_manager.yktLoading)
-                const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-            ],
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      onPress: _manager.yktLoading ? null : _openYkt,
+      child: Row(
+        children: [
+          Expanded(
+            child: balance != null
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '一卡通查询',
+                        style: theme.typography.bodySmall.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        '${balance.balance} 元',
+                        style: theme.typography.metric,
+                      ),
+                    ],
+                  )
+                : Text('一卡通查询', style: theme.typography.tileTitle),
           ),
-        ),
+          if (_manager.yktLoading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+            )
+          else
+            Icon(
+              FLucideIcons.chevronRight,
+              color: theme.colors.mutedForeground,
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildPowerCard(ThemeData theme, bool hasRoom, String? roomId) {
+  Widget _buildPowerCard(FThemeData theme, bool hasRoom, String? roomId) {
     final data = _manager.power;
     final campusAvailable = _manager.isCampusNetworkAvailable;
     final campusChecking =
@@ -576,101 +547,95 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     TextStyle? statusStyle;
     if (!hasRoom) {
       statusText = '请先在「我的」中设置宿舍号';
-      statusStyle = theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
+      statusStyle = theme.typography.bodySmall.copyWith(
+        color: theme.colors.mutedForeground,
       );
     } else if (data != null) {
       statusText = campusAvailable
           ? '${data.available} 度'
           : '${data.available} 度（缓存）';
-      statusStyle = theme.textTheme.titleMedium?.copyWith(
-        fontWeight: FontWeight.w700,
-      );
+      statusStyle = theme.typography.metric;
     } else if (!campusAvailable) {
       statusText = campusChecking ? '正在检测校园网' : '请连接校园网';
-      statusStyle = theme.textTheme.bodySmall?.copyWith(
+      statusStyle = theme.typography.bodySmall.copyWith(
         color: campusChecking
-            ? theme.colorScheme.onSurfaceVariant
-            : theme.colorScheme.error,
+            ? theme.colors.mutedForeground
+            : theme.colors.semantic.warning,
       );
     } else if (_manager.powerLoading) {
       statusText = '';
       statusStyle = null;
     } else {
       statusText = '暂无数据，点击刷新';
-      statusStyle = theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
+      statusStyle = theme.typography.bodySmall.copyWith(
+        color: theme.colors.mutedForeground,
       );
     }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: hasRoom && data != null
-            ? () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => PowerQueryPage(
-                    result: data,
-                    roomId: roomId,
-                    preferencesStorage: ref.read(preferencesStorageProvider),
-                  ),
-                ),
-              )
-            : hasRoom && campusAvailable && !_manager.powerLoading
-            ? _refreshPower
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '电费查询',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (_manager.powerLoading && hasRoom && data == null)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 6),
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else if (statusText.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        statusText,
-                        style: statusStyle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
+      ),
+      onPress: hasRoom && data != null
+          ? () => Navigator.of(context).push(
+              appRoute(
+                name: AppRouteNames.electricity,
+                builder: (_) => PowerQueryPage(
+                  result: data,
+                  roomId: roomId,
+                  preferencesStorage: ref.read(preferencesStorageProvider),
                 ),
               ),
-              if (hasRoom && data != null)
-                Icon(
-                  Icons.chevron_right,
-                  color: theme.colorScheme.onSurfaceVariant,
-                )
-              else if (hasRoom && campusAvailable && !_manager.powerLoading)
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 20),
-                  onPressed: _refreshPower,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+            )
+          : hasRoom && campusAvailable && !_manager.powerLoading
+          ? _refreshPower
+          : null,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '电费查询',
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.mutedForeground,
+                  ),
                 ),
-            ],
+                if (_manager.powerLoading && hasRoom && data == null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: AppSpacing.sm),
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: FCircularProgress(
+                        size: FCircularProgressSizeVariant.sm,
+                      ),
+                    ),
+                  )
+                else if (statusText.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    statusText,
+                    style: statusStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+          if (hasRoom && data != null)
+            Icon(FLucideIcons.chevronRight, color: theme.colors.mutedForeground)
+          else if (hasRoom && campusAvailable && !_manager.powerLoading)
+            AppIconButton(
+              icon: FLucideIcons.refreshCw,
+              onPress: _refreshPower,
+              tooltip: '刷新电费',
+              size: FButtonSizeVariant.xs,
+            ),
+        ],
       ),
     );
   }

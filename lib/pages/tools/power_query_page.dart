@@ -1,12 +1,14 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../services/power_service.dart';
 import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../ui/app_components.dart';
 
 class PowerQueryPage extends StatefulWidget {
   final PowerQueryData result;
@@ -139,7 +141,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
 
     final metrics = <_MetricItem>[
       _MetricItem('剩余电量', '${_baseResult.available} 度'),
@@ -150,148 +152,130 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         _MetricItem('预计可用', _formatEstDays(_baseResult.estDays!)),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('电费查询'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _isRefreshing || !_canRefresh ? null : () => _refresh(),
-            icon: _isRefreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.sync),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          children: [
-            if (!_canRefresh) ...[
-              Row(
-                children: [
-                  Icon(
-                    Icons.wifi_off,
-                    size: 18,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _manager.campusNetworkStatus ==
-                              CampusNetworkStatus.checking
-                          ? '正在检测校园网，当前显示缓存数据'
-                          : '未连接校园网，当前显示缓存数据',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+    return AppPage(
+      title: '电费查询',
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.refreshCw,
+          onPress: _isRefreshing || !_canRefresh ? null : () => _refresh(),
+          tooltip: '刷新电费',
+          loading: _isRefreshing,
+        ),
+      ],
+      child: AppPageListView(
+        maxWidth: AppLayout.resultMaxWidth,
+        topPadding: AppSpacing.lg,
+        bottomPadding: AppSpacing.xxl,
+        children: [
+          if (!_canRefresh) ...[
+            Row(
+              children: [
+                Icon(
+                  FLucideIcons.wifiOff,
+                  size: 18,
+                  color: theme.colors.mutedForeground,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _manager.campusNetworkStatus == CampusNetworkStatus.checking
+                        ? '正在检测校园网，当前显示缓存数据'
+                        : '未连接校园网，当前显示缓存数据',
+                    style: theme.typography.body.sm.copyWith(
+                      color: theme.colors.mutedForeground,
                     ),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                widget.roomId ?? '电费查询',
+                style: theme.typography.pageTitle.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              AppAdaptiveGrid(
+                children: [
+                  for (final metric in metrics) _buildMetricCell(theme, metric),
                 ],
               ),
-              const SizedBox(height: 16),
-            ],
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(height: AppSpacing.xl),
+              Row(
                 children: [
+                  AppIconButton(
+                    icon: FLucideIcons.chevronLeft,
+                    onPress: _isRefreshing || !_canRefresh
+                        ? null
+                        : () => _changeMonth(-1),
+                    tooltip: '上个月',
+                    size: FButtonSizeVariant.xs,
+                  ),
                   Text(
-                    widget.roomId ?? '电费查询',
-                    style: theme.textTheme.titleLarge?.copyWith(
+                    '${_selectedMonth.year}年${_selectedMonth.month}月',
+                    style: theme.typography.tileTitle.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  for (var i = 0; i < metrics.length; i += 2)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: Row(
-                        children: [
-                          Expanded(child: _buildMetricCell(theme, metrics[i])),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: i + 1 < metrics.length
-                                ? _buildMetricCell(theme, metrics[i + 1])
-                                : const SizedBox.shrink(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 18),
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left),
-                        iconSize: 22,
-                        onPressed: _isRefreshing || !_canRefresh
-                            ? null
-                            : () => _changeMonth(-1),
-                      ),
-                      Text(
-                        '${_selectedMonth.year}年${_selectedMonth.month}月',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right),
-                        iconSize: 22,
-                        onPressed:
-                            _isRefreshing || _isCurrentMonth || !_canRefresh
-                            ? null
-                            : () => _changeMonth(1),
-                      ),
-                      const Spacer(),
-                      if (_displayUsage.length > _pageSize) ...[
-                        IconButton(
-                          icon: const Icon(Icons.arrow_back_ios, size: 14),
-                          iconSize: 22,
-                          onPressed: _currentPage > 0
-                              ? () => setState(() => _currentPage--)
-                              : null,
-                        ),
-                        Text(
-                          '${_currentPage + 1}/$_totalPages',
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.arrow_forward_ios, size: 14),
-                          iconSize: 22,
-                          onPressed: _currentPage < _totalPages - 1
-                              ? () => setState(() => _currentPage++)
-                              : null,
-                        ),
-                      ],
-                    ],
+                  AppIconButton(
+                    icon: FLucideIcons.chevronRight,
+                    onPress: _isRefreshing || _isCurrentMonth || !_canRefresh
+                        ? null
+                        : () => _changeMonth(1),
+                    tooltip: '下个月',
+                    size: FButtonSizeVariant.xs,
                   ),
-                  if (_isRefreshing)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (_displayUsage.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    ..._pageItems(_currentPage)
-                        .map((item) => _buildUsageRow(theme, item)),
-                  ] else ...[
-                    const SizedBox(height: 18),
+                  const Spacer(),
+                  if (_displayUsage.length > _pageSize) ...[
+                    AppIconButton(
+                      icon: FLucideIcons.chevronLeft,
+                      onPress: _currentPage > 0
+                          ? () => setState(() => _currentPage--)
+                          : null,
+                      tooltip: '上一页',
+                      size: FButtonSizeVariant.xs,
+                    ),
                     Text(
-                      '该月暂无用电明细',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      '${_currentPage + 1}/$_totalPages',
+                      style: theme.typography.body.md,
+                    ),
+                    AppIconButton(
+                      icon: FLucideIcons.chevronRight,
+                      onPress: _currentPage < _totalPages - 1
+                          ? () => setState(() => _currentPage++)
+                          : null,
+                      tooltip: '下一页',
+                      size: FButtonSizeVariant.xs,
                     ),
                   ],
                 ],
               ),
-            ),
-          ],
-        ),
+              if (_isRefreshing)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: FCircularProgress()),
+                )
+              else if (_displayUsage.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.md),
+                ..._pageItems(_currentPage)
+                    .map((item) => _buildUsageRow(theme, item)),
+              ] else ...[
+                const SizedBox(height: AppSpacing.xl),
+                Text(
+                  '该月暂无用电明细',
+                  style: theme.typography.body.md.copyWith(
+                    color: theme.colors.mutedForeground,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -303,52 +287,47 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     return value;
   }
 
-  Widget _buildMetricCell(ThemeData theme, _MetricItem item) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withAlpha(110),
-        borderRadius: BorderRadius.circular(14),
+  Widget _buildMetricCell(FThemeData theme, _MetricItem item) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.md,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             item.label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: theme.typography.bodySmall.copyWith(
+              color: theme.colors.mutedForeground,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            item.value,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text(item.value, style: theme.typography.metric),
         ],
       ),
     );
   }
 
-  Widget _buildUsageRow(ThemeData theme, PowerDailyUsage item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: Text(item.date, style: theme.textTheme.bodyMedium)),
-          Text(
-            '${item.usage} 度',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+  Widget _buildUsageRow(FThemeData theme, PowerDailyUsage item) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Expanded(child: Text(item.date, style: theme.typography.body.md)),
+            Text(
+              '${item.usage} 度',
+              style: theme.typography.body.md.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

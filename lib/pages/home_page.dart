@@ -1,10 +1,11 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import 'tools/tools_page.dart';
 import 'timetable/timetable_page.dart';
-import 'me/me_page.dart';
+import 'profile/profile_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -26,16 +27,39 @@ class HomePageState extends State<HomePage> {
     TimetablePage.globalKey.currentState?.jumpToCurrentWeek();
   }
 
-  void switchToMe() {
-    if (_currentIndex != 2) {
-      setState(() => _currentIndex = 2);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
+    return FScaffold(
+      childPad: false,
+      resizeToAvoidBottomInset: false,
+      footer: FBottomNavigationBar(
+        index: _currentIndex,
+        onChange: (i) {
+          if (_currentIndex == 2 && i != 2) {
+            ProfilePage.globalKey.currentState?.finishRoomIdEditing();
+          }
+          setState(() => _currentIndex = i);
+          if (i == 1) {
+            final refresh = ToolsPage.globalKey.currentState?.refreshData();
+            if (refresh != null) unawaited(refresh);
+          }
+        },
+        children: const [
+          FBottomNavigationBarItem(
+            icon: Icon(FLucideIcons.calendarDays),
+            label: Text('课表'),
+          ),
+          FBottomNavigationBarItem(
+            icon: Icon(FLucideIcons.megaphone),
+            label: Text('比格'),
+          ),
+          FBottomNavigationBarItem(
+            icon: Icon(FLucideIcons.userRound),
+            label: Text('我的'),
+          ),
+        ],
+      ),
+      child: IndexedStack(
         index: _currentIndex,
         children: [
           TickerMode(
@@ -43,70 +67,8 @@ class HomePageState extends State<HomePage> {
             child: TimetablePage(key: TimetablePage.globalKey),
           ),
           ToolsPage(key: ToolsPage.globalKey),
-          MePage(key: MePage.globalKey),
+          ProfilePage(key: ProfilePage.globalKey),
         ],
-      ),
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          navigationBarTheme: NavigationBarThemeData(
-            indicatorColor: Colors.transparent,
-            overlayColor: WidgetStateProperty.all(Colors.transparent),
-            iconTheme: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return IconThemeData(
-                  color: Theme.of(context).colorScheme.primary,
-                );
-              }
-              return IconThemeData(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              );
-            }),
-            labelTextStyle: WidgetStateProperty.resolveWith((states) {
-              if (states.contains(WidgetState.selected)) {
-                return TextStyle(
-                  fontSize: 12,
-                  color: Theme.of(context).colorScheme.primary,
-                );
-              }
-              return TextStyle(
-                fontSize: 12,
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              );
-            }),
-          ),
-        ),
-        child: NavigationBar(
-          height: 64,
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          selectedIndex: _currentIndex,
-          onDestinationSelected: (i) {
-            if (_currentIndex == 2 && i != 2) {
-              MePage.globalKey.currentState?.resetUnsavedRoomId();
-            }
-            setState(() => _currentIndex = i);
-            if (i == 1) {
-              final refresh = ToolsPage.globalKey.currentState?.refreshData();
-              if (refresh != null) unawaited(refresh);
-            }
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.calendar_today_outlined),
-              selectedIcon: Icon(Icons.calendar_today),
-              label: '课表',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.campaign_outlined),
-              selectedIcon: Icon(Icons.campaign),
-              label: '比格',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.person_outline),
-              selectedIcon: Icon(Icons.person),
-              label: '我的',
-            ),
-          ],
-        ),
       ),
     );
   }

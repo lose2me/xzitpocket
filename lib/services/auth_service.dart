@@ -105,34 +105,6 @@ class ExamResult {
   );
 }
 
-class Classroom {
-  final String name;
-  final String type;
-  final int seats;
-  final String campus;
-  final String building;
-
-  const Classroom({
-    required this.name,
-    required this.type,
-    required this.seats,
-    required this.campus,
-    required this.building,
-  });
-}
-
-class ClassroomResult {
-  final List<Classroom> classrooms;
-  final List<String> campuses;
-  final Map<String, List<String>> buildingsByCampus;
-
-  const ClassroomResult({
-    required this.classrooms,
-    required this.campuses,
-    required this.buildingsByCampus,
-  });
-}
-
 class GradeItem {
   final String name;
   final String score;
@@ -231,26 +203,6 @@ class AuthService {
         _fetchExams(session.dio),
       ]);
       return (results[0] as LoginResult, results[1] as ExamResult);
-    } finally {
-      session.close();
-    }
-  }
-
-  Future<ClassroomResult> fetchClassrooms(
-    String studentId,
-    String password, {
-    required int week,
-    required int weekday,
-    required List<int> sessions,
-  }) async {
-    final session = await _casService.loginJw(studentId, password);
-    try {
-      return await _fetchClassrooms(
-        session.dio,
-        week: week,
-        weekday: weekday,
-        sessions: sessions,
-      );
     } finally {
       session.close();
     }
@@ -417,93 +369,6 @@ class AuthService {
       studentId: (items.first['xh'] ?? '') as String?,
       studentName: (items.first['xm'] ?? '') as String?,
       exams: exams,
-    );
-  }
-
-  Future<ClassroomResult> _fetchClassrooms(
-    Dio dio, {
-    required int week,
-    required int weekday,
-    required List<int> sessions,
-  }) async {
-    final (year, term) = getCurrentSchoolTerm();
-    final xqm = term * term * 3;
-    final zcd = (1 << (week - 1)).toString();
-    var jcd = 0;
-    for (final s in sessions) {
-      jcd += 1 << (s - 1);
-    }
-
-    await dio.get(
-      '$jwBaseUrl/cdjy/cdjy_cxKxcdlb.html?gnmkdm=N2155',
-      options: Options(responseType: ResponseType.plain),
-    );
-
-    final resp = await dio.post(
-      '$jwBaseUrl/cdjy/cdjy_cxKxcdlb.html?doType=query&gnmkdm=N2155',
-      data: {
-        'xnm': year.toString(),
-        'xqm': xqm.toString(),
-        'jyfs': '0',
-        'zcd': zcd,
-        'xqj': weekday.toString(),
-        'jcd': jcd.toString(),
-        '_search': 'false',
-        'queryModel.showCount': '1000',
-        'queryModel.currentPage': '1',
-        'queryModel.sortName': '',
-        'queryModel.sortOrder': 'asc',
-        'time': '0',
-      },
-      options: Options(contentType: Headers.formUrlEncodedContentType),
-    );
-
-    final payload = resp.data;
-    if (payload is String && payload.contains('用户登录')) {
-      throw AuthException('会话已过期');
-    }
-
-    final data = payload as Map<String, dynamic>;
-    final items = (data['items'] as List?) ?? [];
-
-    const usefulTypes = {'一般教室', '多媒体教室', '智慧教室', '录播教室', '俄语教室'};
-
-    final classrooms = <Classroom>[];
-    final campusSet = <String>{};
-    final buildingsByCampus = <String, Set<String>>{};
-
-    for (final item in items) {
-      final type = (item['cdlbmc'] ?? '') as String;
-      if (!usefulTypes.contains(type)) continue;
-
-      final campus = (item['xqmc'] ?? '') as String;
-      final building = (item['jxlmc'] ?? '') as String;
-
-      campusSet.add(campus);
-      (buildingsByCampus[campus] ??= <String>{}).add(building);
-
-      classrooms.add(
-        Classroom(
-          name: (item['cdmc'] ?? '') as String,
-          type: type,
-          seats: int.tryParse('${item['zws']}') ?? 0,
-          campus: campus,
-          building: building,
-        ),
-      );
-    }
-
-    classrooms.sort((a, b) => a.name.compareTo(b.name));
-
-    final campuses = campusSet.toList()..sort();
-    final buildingsMap = buildingsByCampus.map(
-      (k, v) => MapEntry(k, v.toList()..sort()),
-    );
-
-    return ClassroomResult(
-      classrooms: classrooms,
-      campuses: campuses,
-      buildingsByCampus: buildingsMap,
     );
   }
 

@@ -32,17 +32,19 @@ List<DateTime> weekDates(DateTime semesterStart, int week) {
 }
 
 /// Auto-detect current school term: (year, termIndex).
-/// 第一学期 (term=1): 2月-8月 (春季学期, 含暑假)
-/// 第二学期 (term=2): 9月-次年2月 (秋季学期, 跨年: 9-12月当年, 1月属上学年)
+/// Follows zfsoft (正方教务) semantics: the academic year starts in autumn.
+///   第1学期 (term=1, xqm=3): 秋季 9月开学 ~ 次年1月
+///   第2学期 (term=2, xqm=12): 春季 2/3月开学 ~ 8月
+/// 9-12月 -> (year, 1); 1月 -> (year-1, 1); 2-8月 -> (year-1, 2)
 (int, int) getCurrentSchoolTerm({DateTime? reference}) {
   final now = reference ?? DateTime.now();
-  if (now.month >= 2 && now.month <= 8) {
+  if (now.month >= 9 && now.month <= 12) {
     return (now.year, 1);
   }
-  if (now.month >= 9 && now.month <= 12) {
-    return (now.year, 2);
+  if (now.month == 1) {
+    return (now.year - 1, 1);
   }
-  // 1月 → 上学年第二学期
+  // 2-8月: 春季学期, 属上学年
   return (now.year - 1, 2);
 }
 

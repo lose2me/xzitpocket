@@ -1,11 +1,13 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../ui/app_components.dart';
 
 class GradeQueryPage extends StatefulWidget {
   final String studentId;
@@ -21,10 +23,7 @@ class GradeQueryPage extends StatefulWidget {
   State<GradeQueryPage> createState() => _GradeQueryPageState();
 }
 
-class _GradeQueryPageState extends State<GradeQueryPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
+class _GradeQueryPageState extends State<GradeQueryPage> {
   GradeResult? _result;
   AcademicStatus? _academic;
   bool _loading = false;
@@ -34,13 +33,11 @@ class _GradeQueryPageState extends State<GradeQueryPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     unawaited(_load());
   }
 
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -99,36 +96,29 @@ class _GradeQueryPageState extends State<GradeQueryPage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('学业情况'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.sync),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '学科成绩'),
-            Tab(text: '学业详细'),
-          ],
+    return AppPage(
+      title: '学业情况',
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.refreshCw,
+          onPress: _loading ? null : _load,
+          tooltip: '刷新成绩',
+          loading: _loading,
         ),
-      ),
-      body: SafeArea(
-        child: TabBarView(
-          controller: _tabController,
-          children: [_buildGradeTab(theme), _buildAcademicTab(theme)],
+      ],
+      child: AppPageBody(
+        maxWidth: AppLayout.contentMaxWidth,
+        child: FTabs(
+          expands: true,
+          children: [
+            FTabEntry(label: const Text('学科成绩'), child: _buildGradeTab(theme)),
+            FTabEntry(
+              label: const Text('学业详细'),
+              child: _buildAcademicTab(theme),
+            ),
+          ],
         ),
       ),
     );
@@ -136,20 +126,24 @@ class _GradeQueryPageState extends State<GradeQueryPage>
 
   // ── Grade Tab ──
 
-  Widget _buildGradeTab(ThemeData theme) {
+  Widget _buildGradeTab(FThemeData theme) {
     final grades = _filtered;
     if (_loading && _result == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: FCircularProgress());
     }
-    return Column(
-      children: [
-        _buildHeader(theme, grades),
-        Expanded(child: _buildList(theme, grades)),
-      ],
+    return AppPageBody(
+      maxWidth: AppLayout.resultMaxWidth,
+      safeArea: false,
+      child: Column(
+        children: [
+          _buildHeader(theme, grades),
+          Expanded(child: _buildList(theme, grades)),
+        ],
+      ),
     );
   }
 
-  Widget _buildHeader(ThemeData theme, List<GradeItem> grades) {
+  Widget _buildHeader(FThemeData theme, List<GradeItem> grades) {
     final years = _result?.years ?? [];
     final terms = _terms;
     final yi = _yearIndex.clamp(0, years.length - 1);
@@ -166,7 +160,12 @@ class _GradeQueryPageState extends State<GradeQueryPage>
     final gpa = totalCredit > 0 ? weightedSum / totalCredit : 0.0;
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+      padding: EdgeInsets.fromLTRB(
+        AppLayout.pageGutter(context),
+        AppSpacing.xs,
+        AppLayout.pageGutter(context),
+        AppSpacing.sm,
+      ),
       child: Column(
         children: [
           if (grades.isNotEmpty)
@@ -175,50 +174,26 @@ class _GradeQueryPageState extends State<GradeQueryPage>
               children: [
                 Text(
                   '该学期学分',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: theme.typography.body.sm.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    totalCredit.toStringAsFixed(1),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                FBadge(
+                  variant: FBadgeVariant.outline,
+                  child: Text(totalCredit.toStringAsFixed(1)),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.sm),
                 Text(
                   '该学期绩点',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: theme.typography.body.sm.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
                 const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '${gpa.toStringAsFixed(2)} / 5.0',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                FBadge(
+                  variant: FBadgeVariant.outline,
+                  child: Text('${gpa.toStringAsFixed(2)} / 5.0'),
                 ),
               ],
             ),
@@ -257,7 +232,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
   }
 
   Widget _pager(
-    ThemeData theme, {
+    FThemeData theme, {
     required String label,
     required bool canPrev,
     required bool canNext,
@@ -267,52 +242,42 @@ class _GradeQueryPageState extends State<GradeQueryPage>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 24,
-          height: 24,
-          child: IconButton(
-            onPressed: canPrev ? onPrev : null,
-            icon: const Icon(Icons.chevron_left, size: 18),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
+        AppIconButton(
+          icon: FLucideIcons.chevronLeft,
+          onPress: canPrev ? onPrev : null,
+          tooltip: '上一项',
+          size: FButtonSizeVariant.xs,
         ),
         Text(
           label,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+          style: theme.typography.body.md.copyWith(fontWeight: FontWeight.w600),
         ),
-        SizedBox(
-          width: 24,
-          height: 24,
-          child: IconButton(
-            onPressed: canNext ? onNext : null,
-            icon: const Icon(Icons.chevron_right, size: 18),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
+        AppIconButton(
+          icon: FLucideIcons.chevronRight,
+          onPress: canNext ? onNext : null,
+          tooltip: '下一项',
+          size: FButtonSizeVariant.xs,
         ),
       ],
     );
   }
 
-  Widget _buildList(ThemeData theme, List<GradeItem> grades) {
+  Widget _buildList(FThemeData theme, List<GradeItem> grades) {
     if (grades.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.school_outlined,
+              FLucideIcons.graduationCap,
               size: 48,
-              color: theme.colorScheme.onSurfaceVariant,
+              color: theme.colors.mutedForeground,
             ),
             const SizedBox(height: 12),
             Text(
               '暂无成绩',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              style: theme.typography.tileTitle.copyWith(
+                color: theme.colors.mutedForeground,
               ),
             ),
           ],
@@ -321,19 +286,25 @@ class _GradeQueryPageState extends State<GradeQueryPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      padding: EdgeInsets.fromLTRB(
+        AppLayout.pageGutter(context),
+        AppSpacing.xs,
+        AppLayout.pageGutter(context),
+        AppSpacing.xxl,
+      ),
       itemCount: grades.length,
       itemBuilder: (_, i) => _buildGradeTile(theme, grades[i]),
     );
   }
 
-  Widget _buildGradeTile(ThemeData theme, GradeItem grade) {
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+  Widget _buildGradeTile(FThemeData theme, GradeItem grade) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.sm,
+        ),
         child: Row(
           children: [
             Expanded(
@@ -342,7 +313,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
                 children: [
                   Text(
                     grade.name,
-                    style: theme.textTheme.titleSmall?.copyWith(
+                    style: theme.typography.body.md.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
@@ -351,8 +322,8 @@ class _GradeQueryPageState extends State<GradeQueryPage>
                   const SizedBox(height: 2),
                   Text(
                     '${grade.type} · ${grade.credit}学分 · 绩点${grade.gradePoint}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    style: theme.typography.body.sm.copyWith(
+                      color: theme.colors.mutedForeground,
                     ),
                   ),
                 ],
@@ -361,7 +332,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
             const SizedBox(width: 8),
             Text(
               grade.score,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.typography.metric.copyWith(
                 fontWeight: FontWeight.w700,
                 color: _scoreColor(theme, grade.score),
               ),
@@ -372,19 +343,19 @@ class _GradeQueryPageState extends State<GradeQueryPage>
     );
   }
 
-  Color _scoreColor(ThemeData theme, String score) {
+  Color _scoreColor(FThemeData theme, String score) {
     final n = double.tryParse(score);
-    if (n == null) return theme.colorScheme.onSurface;
-    if (n >= 90) return Colors.green;
-    if (n >= 60) return theme.colorScheme.onSurface;
-    return theme.colorScheme.error;
+    if (n == null) return theme.colors.foreground;
+    if (n >= 90) return theme.colors.primary;
+    if (n >= 60) return theme.colors.foreground;
+    return theme.colors.destructive;
   }
 
   // ── Academic Tab ──
 
-  Widget _buildAcademicTab(ThemeData theme) {
+  Widget _buildAcademicTab(FThemeData theme) {
     if (_loading && _academic == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: FCircularProgress());
     }
     final status = _academic;
     if (status == null) {
@@ -395,80 +366,73 @@ class _GradeQueryPageState extends State<GradeQueryPage>
         ? status.totalEarned / status.totalRequired
         : 0.0;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      safeArea: false,
+      topPadding: AppSpacing.lg,
+      bottomPadding: AppSpacing.xxl,
       children: [
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        AppCard(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: _buildGpaRow(theme, status),
-          ),
+          child: _buildGpaRow(theme, status),
         ),
         const SizedBox(height: 12),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        AppCard(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.md,
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '总学分进度 ${(progress * 100).toStringAsFixed(1)}%',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '总学分进度 ${(progress * 100).toStringAsFixed(1)}%',
+                          style: theme.typography.body.sm.copyWith(
+                            color: theme.colors.mutedForeground,
                           ),
-                          const Spacer(),
-                          Text(
-                            '${status.totalEarned} / ${status.totalRequired}',
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: progress.clamp(0.0, 1.0),
-                          minHeight: 8,
-                          backgroundColor:
-                              theme.colorScheme.surfaceContainerHighest,
                         ),
+                        const Spacer(),
+                        Text(
+                          '${status.totalEarned} / ${status.totalRequired}',
+                          style: theme.typography.body.md.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: FDeterminateProgress(
+                        value: progress.clamp(0.0, 1.0),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                for (var i = 0; i < status.categories.length; i++) ...[
-                  if (i > 0)
-                    Divider(height: 1, color: theme.colorScheme.outlineVariant),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: _buildCategoryRow(theme, status.categories[i]),
-                  ),
-                ],
+              ),
+              for (var i = 0; i < status.categories.length; i++) ...[
+                if (i > 0) const FDivider(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: _buildCategoryRow(theme, status.categories[i]),
+                ),
               ],
-            ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildGpaRow(ThemeData theme, AcademicStatus status) {
+  Widget _buildGpaRow(FThemeData theme, AcademicStatus status) {
     final progress = (status.gpa / 5.0).clamp(0.0, 1.0);
     final pct = (progress * 100).toInt();
 
@@ -480,15 +444,15 @@ class _GradeQueryPageState extends State<GradeQueryPage>
             children: [
               Text(
                 'GPA',
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: theme.typography.body.md.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 '${status.gpa.toStringAsFixed(2)} / 5.0',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                style: theme.typography.body.sm.copyWith(
+                  color: theme.colors.mutedForeground,
                 ),
               ),
             ],
@@ -500,15 +464,10 @@ class _GradeQueryPageState extends State<GradeQueryPage>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              CircularProgressIndicator(
-                value: progress,
-                strokeWidth: 3,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                color: status.gpa >= 4.0 ? Colors.green : Colors.amber,
-              ),
+              SizedBox(width: 36, child: FDeterminateProgress(value: progress)),
               Text(
                 '$pct%',
-                style: theme.textTheme.labelSmall?.copyWith(
+                style: theme.typography.body.xs.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: 9,
                 ),
@@ -520,7 +479,7 @@ class _GradeQueryPageState extends State<GradeQueryPage>
     );
   }
 
-  Widget _buildCategoryRow(ThemeData theme, AcademicCategory cat) {
+  Widget _buildCategoryRow(FThemeData theme, AcademicCategory cat) {
     final progress = cat.reqCredits > 0
         ? (cat.earnedCredits / cat.reqCredits).clamp(0.0, 1.0)
         : 0.0;
@@ -534,15 +493,15 @@ class _GradeQueryPageState extends State<GradeQueryPage>
             children: [
               Text(
                 cat.name,
-                style: theme.textTheme.titleSmall?.copyWith(
+                style: theme.typography.body.md.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 '${cat.earnedCredits} / ${cat.reqCredits}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                style: theme.typography.body.sm.copyWith(
+                  color: theme.colors.mutedForeground,
                 ),
               ),
             ],
@@ -554,15 +513,10 @@ class _GradeQueryPageState extends State<GradeQueryPage>
           child: Stack(
             alignment: Alignment.center,
             children: [
-              CircularProgressIndicator(
-                value: progress,
-                strokeWidth: 3,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                color: cat.missingCredits <= 0 ? Colors.green : Colors.amber,
-              ),
+              SizedBox(width: 36, child: FDeterminateProgress(value: progress)),
               Text(
                 '$pct%',
-                style: theme.textTheme.labelSmall?.copyWith(
+                style: theme.typography.body.xs.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: 9,
                 ),

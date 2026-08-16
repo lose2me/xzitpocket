@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:forui/forui.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import 'constants/semester_config.dart';
@@ -11,6 +12,7 @@ import 'providers/app_settings_provider.dart';
 import 'services/course_storage.dart';
 import 'services/talker.dart';
 import 'services/widget_service.dart';
+import 'ui/app_theme.dart';
 
 class App extends ConsumerStatefulWidget {
   final CourseStorage courseStorage;
@@ -79,30 +81,32 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       appSettingsProvider.select((state) => state.themePreference),
     );
 
-    return MediaQuery.withClampedTextScaling(
-      minScaleFactor: 1.0,
-      maxScaleFactor: 1.0,
-      child: MaterialApp(
-        title: '掌上徐工',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorSchemeSeed: const Color(0xFF7EC8E8),
-          useMaterial3: true,
-          brightness: Brightness.light,
-        ),
-        darkTheme: ThemeData(
-          colorSchemeSeed: const Color(0xFF7EC8E8),
-          useMaterial3: true,
-          brightness: Brightness.dark,
-          snackBarTheme: const SnackBarThemeData(
-            backgroundColor: Color(0xFF303040),
-            contentTextStyle: TextStyle(color: Color(0xFFE0E0E0)),
+    return MaterialApp(
+      title: '掌上徐工',
+      debugShowCheckedModeBanner: false,
+      localizationsDelegates: FLocalizations.localizationsDelegates,
+      supportedLocales: FLocalizations.supportedLocales,
+      theme: AppTheme.light.toApproximateMaterialTheme(),
+      darkTheme: AppTheme.dark.toApproximateMaterialTheme(),
+      themeMode: themePreference.themeMode,
+      navigatorObservers: [TalkerRouteObserver(talker)],
+      builder: (context, child) {
+        final theme = Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.dark
+            : AppTheme.light;
+        return MediaQuery.removeViewInsets(
+          context: context,
+          removeBottom: true,
+          child: FTheme(
+            data: theme,
+            child: IconTheme(
+              data: IconThemeData(size: 20, color: theme.colors.foreground),
+              child: FToaster(child: FTooltipGroup(child: child!)),
+            ),
           ),
-        ),
-        themeMode: themePreference.themeMode,
-        navigatorObservers: [TalkerRouteObserver(talker)],
-        home: HomePage(key: HomePage.globalKey),
-      ),
+        );
+      },
+      home: HomePage(key: HomePage.globalKey),
     );
   }
 }

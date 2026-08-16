@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
+import '../ui/app_components.dart';
 import '../utils/week_calculator.dart';
 
 class WeekHeader extends StatelessWidget {
@@ -17,13 +19,15 @@ class WeekHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
-    final theme = Theme.of(context);
+    final theme = context.theme;
 
     final cw = currentWeek(semesterStart);
     final isBeforeStart = cw <= 0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    return AppContentFrame(
+      safeArea: false,
+      topPadding: AppSpacing.xs,
+      bottomPadding: AppSpacing.xs,
       child: Row(
         children: [
           Expanded(
@@ -32,26 +36,24 @@ class WeekHeader extends StatelessWidget {
               children: [
                 Text(
                   '${today.year}/${today.month}/${today.day}',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                  style: theme.typography.pageTitle.copyWith(
+                    color: theme.colors.foreground,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.micro),
                 Text(
                   isBeforeStart ? '未开学' : '第$selectedWeek周',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: theme.typography.caption.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.sync, size: 22),
-            onPressed: onSync,
+          AppIconButton(
+            icon: FLucideIcons.refreshCw,
+            onPress: onSync,
             tooltip: '同步课表',
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
           ),
         ],
       ),

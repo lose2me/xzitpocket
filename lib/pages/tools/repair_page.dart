@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/preferences_storage.dart';
@@ -6,6 +7,7 @@ import '../../services/repair_service.dart';
 import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../ui/app_components.dart';
 import 'repair_form_page.dart';
 
 class RepairPage extends StatefulWidget {
@@ -68,7 +70,8 @@ class _RepairPageState extends State<RepairPage> {
 
   Future<void> _openForm() async {
     final submitted = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      appRoute(
+        name: AppRouteNames.newRepair,
         builder: (_) => RepairFormPage(
           studentId: widget.studentId,
           password: widget.password,
@@ -95,98 +98,61 @@ class _RepairPageState extends State<RepairPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
     final visible = _records
         .where((r) => _knownStatuses.contains(r.status))
         .toList();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('我的报修'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            onPressed: _isRefreshing ? null : _refresh,
-            icon: _isRefreshing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.sync),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _openForm,
-        child: const Icon(Icons.add),
-      ),
-      body: SafeArea(
-        child: visible.isEmpty
-            ? Center(
-                child: Text(
-                  '暂无报修记录',
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              )
-            : RefreshIndicator(
-                onRefresh: _refresh,
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) =>
-                      _buildRecordCard(theme, visible[index]),
-                ),
-              ),
-      ),
+    return AppPage(
+      title: '我的报修',
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.refreshCw,
+          onPress: _isRefreshing ? null : _refresh,
+          tooltip: '刷新报修',
+          loading: _isRefreshing,
+        ),
+        FHeaderAction(
+          icon: const Icon(FLucideIcons.plus),
+          semanticsLabel: '新建报修',
+          onPress: _openForm,
+        ),
+      ],
+      child: visible.isEmpty
+          ? const AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
+              child: AppStateView(icon: FLucideIcons.wrench, title: '暂无报修记录'),
+            )
+          : AppPageListView(
+              maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.lg,
+              bottomPadding: AppSpacing.xxl,
+              children: [
+                for (final record in visible) _buildRecordCard(theme, record),
+              ],
+            ),
     );
   }
 
-  Widget _buildRecordCard(ThemeData theme, RepairRecord record) {
-    final statusColor = switch (record.status) {
-      '已完工' || '已关闭' || '已评价' => Colors.green,
-      '已接单' || '已转单' || '处理中' || '维修中' => Colors.orange,
-      '已上报' || '已上传照片' => Colors.blue,
-      _ => theme.colorScheme.onSurfaceVariant,
-    };
-
+  Widget _buildRecordCard(FThemeData theme, RepairRecord record) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceContainerHighest.withAlpha(80),
-          borderRadius: BorderRadius.circular(14),
-        ),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: AppCard(
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor.withAlpha(30),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    record.status,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: statusColor,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                FBadge(
+                  variant: _statusBadgeVariant(record.status),
+                  child: Text(record.status),
                 ),
                 const Spacer(),
                 Text(
                   record.createTime,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  style: theme.typography.body.sm.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
               ],
@@ -194,19 +160,19 @@ class _RepairPageState extends State<RepairPage> {
             const SizedBox(height: 8),
             Text(
               record.content,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: theme.typography.body.md.copyWith(
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.xs),
             Text(
               record.address.isNotEmpty
                   ? '${record.areaName}(${record.address})  ${record.itemName}'
                   : '${record.areaName}  ${record.itemName}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              style: theme.typography.body.sm.copyWith(
+                color: theme.colors.mutedForeground,
               ),
             ),
           ],
@@ -214,4 +180,11 @@ class _RepairPageState extends State<RepairPage> {
       ),
     );
   }
+
+  FBadgeVariant _statusBadgeVariant(String status) => switch (status) {
+    '已完工' || '已关闭' || '已评价' => FBadgeVariant.primary,
+    '已接单' || '已转单' || '处理中' || '维修中' => FBadgeVariant.destructive,
+    '已上报' || '已上传照片' => FBadgeVariant.secondary,
+    _ => FBadgeVariant.outline,
+  };
 }

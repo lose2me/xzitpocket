@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:forui/forui.dart';
 
 import '../../constants/time_slots.dart';
+import '../../ui/app_tokens.dart';
 
 class TimeColumn extends StatelessWidget {
   final double cellHeight;
@@ -16,9 +18,9 @@ class TimeColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final theme = context.theme;
     return SizedBox(
-      width: 36,
+      width: 40,
       child: Column(
         children: List.generate(slotCount, (i) {
           if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
@@ -30,24 +32,27 @@ class TimeColumn extends StatelessWidget {
               children: [
                 Text(
                   '${slot.index}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 10,
+                  style: theme.typography.caption.copyWith(
+                    fontSize: 12,
+                    height: 4 / 3,
                     fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
                 Text(
                   slot.start,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 8,
-                    color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
+                  style: theme.typography.caption.copyWith(
+                    fontSize: 11,
+                    height: 14 / 11,
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
                 Text(
                   slot.end,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontSize: 8,
-                    color: theme.colorScheme.onSurfaceVariant.withAlpha(153),
+                  style: theme.typography.caption.copyWith(
+                    fontSize: 11,
+                    height: 14 / 11,
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
               ],

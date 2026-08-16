@@ -651,10 +651,8 @@ class PowerService {
           '/$method',
           data: jsonEncode({
             'roomId': roomId,
-            // ignore: use_null_aware_elements
-            if (startDate != null) 'startDate': startDate,
-            // ignore: use_null_aware_elements
-            if (endDate != null) 'endDate': endDate,
+            'startDate': ?startDate,
+            'endDate': ?endDate,
           }),
           options: Options(
             contentType: 'application/json; charset=utf-8',
