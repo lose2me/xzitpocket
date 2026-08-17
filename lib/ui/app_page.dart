@@ -12,6 +12,9 @@ class AppPage extends StatelessWidget {
   final bool root;
   final bool childPad;
 
+  /// 自定义标题栏样式（默认跟随主题）。
+  final FHeaderStyleDelta? headerStyle;
+
   const AppPage({
     super.key,
     required this.child,
@@ -20,6 +23,7 @@ class AppPage extends StatelessWidget {
     this.footer,
     this.root = false,
     this.childPad = false,
+    this.headerStyle,
   });
 
   @override
@@ -29,6 +33,7 @@ class AppPage extends StatelessWidget {
         : root
         ? FHeader(
             title: Center(child: Text(title!)),
+            style: headerStyle ?? FHeaderStyleDelta.context(),
             suffixes: actions,
           )
         : FHeader.nested(

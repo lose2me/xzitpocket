@@ -272,10 +272,12 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
       root: true,
       // 与「通知公告」等 tab 页统一为小号标题（display.xl）。
       headerStyle: FHeaderStyleDelta.delta(
-        titleTextStyle: context.theme.typography.display.xl.copyWith(
-          color: context.theme.colors.foreground,
-          fontWeight: FontWeight.w600,
-          height: 1,
+        titleTextStyle: TextStyleDelta.value(
+          context.theme.typography.display.xl.copyWith(
+            color: context.theme.colors.foreground,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
         ),
       ),
       child: AppPageListView(

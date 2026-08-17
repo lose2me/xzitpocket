@@ -104,22 +104,16 @@ class NoticePageState extends State<NoticePage> {
     return AppPage(
       title: '通知公告',
       root: true,
-      // root 无返回键；统一为小号标题（display.xl）。
+      // root 无返回键；统一为小号标题（display.xl），居中显示。
       headerStyle: FHeaderStyleDelta.delta(
-        titleTextStyle: context.theme.typography.display.xl.copyWith(
-          color: context.theme.colors.foreground,
-          fontWeight: FontWeight.w600,
-          height: 1,
+        titleTextStyle: TextStyleDelta.value(
+          context.theme.typography.display.xl.copyWith(
+            color: context.theme.colors.foreground,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
         ),
       ),
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _refreshing ? null : _refresh,
-          tooltip: '刷新公告',
-          loading: _refreshing,
-        ),
-      ],
       child: _items.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
