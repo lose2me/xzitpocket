@@ -1093,10 +1093,9 @@ packages:
   talker_flutter:
     dependency: "direct main"
     description:
-      name: talker_flutter
-      sha256: "9be092f9661d217edcfb3e2d7e3581a290a69ecfbbd2e19e582ff9d49e7f0e97"
-      url: "https://pub.flutter-io.cn"
-    source: hosted
+      path: "third_party/talker_flutter"
+      relative: true
+    source: path
     version: "5.1.20"
   talker_logger:
     dependency: transitive
