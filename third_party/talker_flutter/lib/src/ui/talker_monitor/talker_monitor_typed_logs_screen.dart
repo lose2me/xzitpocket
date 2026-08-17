@@ -19,7 +19,12 @@ class TalkerMonitorTypedLogsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       appBar: AppBar(
-        title: Text('日志监控 $typeName'),
+        backgroundColor: theme.backgroundColor,
+        iconTheme: IconThemeData(color: theme.textColor),
+        title: Text(
+          '日志监控 $typeName',
+          style: TextStyle(color: theme.textColor),
+        ),
       ),
       body: CustomScrollView(
         slivers: [
@@ -30,6 +35,7 @@ class TalkerMonitorTypedLogsScreen extends StatelessWidget {
                 final data = exceptions[index];
                 return TalkerDataCard(
                   data: data,
+                  expanded: false,
                   onCopyTap: () => _copyTalkerDataItemText(context, data),
                   color: data.getFlutterColor(theme),
                   backgroundColor: theme.cardColor,

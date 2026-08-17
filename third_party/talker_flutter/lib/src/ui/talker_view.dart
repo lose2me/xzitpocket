@@ -241,6 +241,9 @@ class _TalkerViewState extends State<TalkerView> {
 
   void _cleanHistory() {
     widget.talker.cleanHistory();
+    // talker 核心的 cleanHistory 受「保存日志历史(useHistory)」设置限制，
+    // 关闭该设置后清空会失效；用户主动清空历史应始终生效，直接清空内部列表。
+    widget.talker.history.clear();
     _controller.update();
   }
 

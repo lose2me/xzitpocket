@@ -21,9 +21,14 @@ class TalkerMonitor extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.backgroundColor,
       appBar: AppBar(
-        title: const FittedBox(
+        backgroundColor: theme.backgroundColor,
+        iconTheme: IconThemeData(color: theme.textColor),
+        title: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text('日志监控'),
+          child: Text(
+            '日志监控',
+            style: TextStyle(color: theme.textColor),
+          ),
         ),
       ),
       body: TalkerBuilder(

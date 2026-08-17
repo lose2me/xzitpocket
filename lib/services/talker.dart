@@ -8,7 +8,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 /// device.
 final talker = TalkerFlutter.init(
   settings: TalkerSettings(
-    enabled: true,
+    enabled: false,
     useHistory: true,
     useConsoleLogs: true,
     maxHistoryItems: 5000,
@@ -34,35 +34,3 @@ final talkerDioLogger = TalkerDioLogger(
     hiddenHeaders: <String>{},
   ),
 );
-
-/// Enables or disables both Talker's history/console output and Dio request
-/// logging. The logger settings are immutable, so rebuild them while
-/// preserving the full-payload diagnostics configuration.
-void setTalkerLoggingEnabled(bool enabled) {
-  talker.settings.enabled = enabled;
-  final current = talkerDioLogger.settings;
-  talkerDioLogger.settings = TalkerDioLoggerSettings(
-    enabled: enabled,
-    logLevel: current.logLevel,
-    printRequestData: current.printRequestData,
-    printRequestHeaders: current.printRequestHeaders,
-    printRequestExtra: current.printRequestExtra,
-    printResponseData: current.printResponseData,
-    printResponseHeaders: current.printResponseHeaders,
-    printResponseMessage: current.printResponseMessage,
-    printResponseRedirects: current.printResponseRedirects,
-    printResponseTime: current.printResponseTime,
-    printErrorData: current.printErrorData,
-    printErrorHeaders: current.printErrorHeaders,
-    printErrorMessage: current.printErrorMessage,
-    hiddenHeaders: current.hiddenHeaders,
-    jsonFormatter: current.jsonFormatter,
-    responseDataConverter: current.responseDataConverter,
-    requestPen: current.requestPen,
-    responsePen: current.responsePen,
-    errorPen: current.errorPen,
-    requestFilter: current.requestFilter,
-    responseFilter: current.responseFilter,
-    errorFilter: current.errorFilter,
-  );
-}

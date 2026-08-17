@@ -47,6 +47,7 @@ class _TalkerViewAppBarState extends State<TalkerViewAppBar>
   final _bcontroller = GroupButtonController();
 
   double? _spaceBarHeight;
+  bool _heightCalculationScheduled = false;
 
   final double _defaultSpaceBarHeight = 50;
 
@@ -56,40 +57,61 @@ class _TalkerViewAppBarState extends State<TalkerViewAppBar>
 
   @override
   void initState() {
-    WidgetsBinding.instance
-      ..addObserver(this)
-      ..addPostFrameCallback(_addPostFrameCallback);
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _scheduleHeightCalculation();
     final indexes = widget.talker.filter.enabledKeys
         .map((e) => widget.keys.indexOf(e))
         .where((index) => index >= 0)
         .toList();
     _bcontroller.selectIndexes(indexes);
-    super.initState();
   }
 
   @override
   void didChangeMetrics() {
-    _calculateHeight();
     super.didChangeMetrics();
+    _scheduleHeightCalculation();
   }
 
-  void _addPostFrameCallback(Duration timestamp) => _calculateHeight();
+  @override
+  void didUpdateWidget(covariant TalkerViewAppBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _scheduleHeightCalculation();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _bcontroller.dispose();
+    super.dispose();
+  }
+
+  void _scheduleHeightCalculation() {
+    if (_heightCalculationScheduled) return;
+    _heightCalculationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _heightCalculationScheduled = false;
+      if (mounted) _calculateHeight();
+    });
+  }
 
   void _calculateHeight() {
-    final groupBtnRenderBox =
+    final groupButtonBox =
         _groupButtonKey.currentContext?.findRenderObject() as RenderBox?;
-    if (groupBtnRenderBox == null) return;
-
-    final searchFieldRenderBox =
+    final searchFieldBox =
         _searchTextFieldKey.currentContext?.findRenderObject() as RenderBox?;
-    if (searchFieldRenderBox == null) return;
+    if (groupButtonBox == null || searchFieldBox == null) return;
 
-    setState(() {
-      _spaceBarHeight = searchFieldRenderBox.size.height +
-          groupBtnRenderBox.size.height +
-          _defaultToolbarHeight +
-          _padding;
-    });
+    // Measure the fixed-height children rather than their parent. The parent is
+    // constrained by expandedHeight, so feeding its size back into the app bar
+    // causes the height to grow on every frame and pushes the log list away.
+    final height = _defaultToolbarHeight +
+        groupButtonBox.size.height +
+        searchFieldBox.size.height +
+        _padding;
+    if (_spaceBarHeight == null || (_spaceBarHeight! - height).abs() > 0.5) {
+      setState(() => _spaceBarHeight = height);
+    }
   }
 
   @override
@@ -148,6 +170,7 @@ class _TalkerViewAppBarState extends State<TalkerViewAppBar>
           child: Padding(
             padding: const EdgeInsets.only(top: 60),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,

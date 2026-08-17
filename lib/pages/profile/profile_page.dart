@@ -228,20 +228,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
                 icon: FLucideIcons.bug,
                 title: '调试模式',
                 value: talker.settings.enabled ? '已开启' : '关闭',
-                onTap: () async {
-                  await Navigator.of(context).push(
-                    appRoute(
-                      name: AppRouteNames.debugLogs,
-                      builder: (context) => TalkerScreen(
-                        talker: talker,
-                        appBarTitle: '调试日志',
-                        isLogOrderReversed: true,
-                        isLogsExpanded: true,
-                      ),
-                    ),
-                  );
-                  setState(() {});
-                },
+                onTap: _openDebugLogs,
               ),
               ProfileSettingsTile(
                 icon: FLucideIcons.fileText,
@@ -314,6 +301,35 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: AppSpacing.xl),
+                // 登录页底部的低调调试入口。
+                FTappable(
+                  onPress: _openDebugLogs,
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          FLucideIcons.bug,
+                          size: 14,
+                          color: theme.colors.mutedForeground,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          '调试模式',
+                          style: theme.typography.body.sm.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -324,6 +340,21 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
 
   void _switchPage(int page) {
     setState(() => _currentPage = page);
+  }
+
+  Future<void> _openDebugLogs() async {
+    await Navigator.of(context).push(
+      appRoute(
+        name: AppRouteNames.debugLogs,
+        builder: (context) => TalkerScreen(
+          talker: talker,
+          appBarTitle: '调试日志',
+          isLogOrderReversed: true,
+          isLogsExpanded: false,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   Widget _buildAccessActions(bool isLoading) {
