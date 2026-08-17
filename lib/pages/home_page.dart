@@ -6,6 +6,7 @@ import 'package:forui/forui.dart';
 import 'tools/tools_page.dart';
 import 'timetable/timetable_page.dart';
 import 'profile/profile_page.dart';
+import 'notices/notice_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,12 +35,15 @@ class HomePageState extends State<HomePage> {
       footer: FBottomNavigationBar(
         index: _currentIndex,
         onChange: (i) {
-          if (_currentIndex == 2 && i != 2) {
+          if (_currentIndex == 3 && i != 3) {
             ProfilePage.globalKey.currentState?.finishRoomIdEditing();
           }
           setState(() => _currentIndex = i);
           if (i == 1) {
             final refresh = ToolsPage.globalKey.currentState?.refreshData();
+            if (refresh != null) unawaited(refresh);
+          } else if (i == 2) {
+            final refresh = NoticePage.globalKey.currentState?.refreshData();
             if (refresh != null) unawaited(refresh);
           }
         },
@@ -49,8 +53,12 @@ class HomePageState extends State<HomePage> {
             label: Text('课表'),
           ),
           FBottomNavigationBarItem(
+            icon: Icon(FLucideIcons.layoutGrid),
+            label: Text('服务'),
+          ),
+          FBottomNavigationBarItem(
             icon: Icon(FLucideIcons.megaphone),
-            label: Text('比格'),
+            label: Text('通知'),
           ),
           FBottomNavigationBarItem(
             icon: Icon(FLucideIcons.userRound),
@@ -58,16 +66,23 @@ class HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      child: IndexedStack(
-        index: _currentIndex,
-        children: [
-          TickerMode(
-            enabled: _currentIndex == 0,
-            child: TimetablePage(key: TimetablePage.globalKey),
-          ),
-          ToolsPage(key: ToolsPage.globalKey),
-          ProfilePage(key: ProfilePage.globalKey),
-        ],
+      child: MediaQuery.removePadding(
+        // 外层 FScaffold 的 footer 已包含底部手势条区域，
+        // 移除内层页面的底部安全区，避免导航栏上方出现多余空白。
+        context: context,
+        removeBottom: true,
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            TickerMode(
+              enabled: _currentIndex == 0,
+              child: TimetablePage(key: TimetablePage.globalKey),
+            ),
+            ToolsPage(key: ToolsPage.globalKey),
+            NoticePage(key: NoticePage.globalKey),
+            ProfilePage(key: ProfilePage.globalKey),
+          ],
+        ),
       ),
     );
   }

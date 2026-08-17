@@ -268,8 +268,16 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     });
 
     return AppPage(
-      title: '邪恶比格叫叫叫',
+      title: '服务',
       root: true,
+      // 与「通知公告」等 tab 页统一为小号标题（display.xl）。
+      headerStyle: FHeaderStyleDelta.delta(
+        titleTextStyle: context.theme.typography.display.xl.copyWith(
+          color: context.theme.colors.foreground,
+          fontWeight: FontWeight.w600,
+          height: 1,
+        ),
+      ),
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,

@@ -51,7 +51,8 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
   final _codeFocusNode = FocusNode();
   final _resetService = PasswordResetService();
   bool _resetLoading = false;
-  bool _codeSent = false;
+  int _codeCountdown = 0;
+  Timer? _codeTimer;
   bool _obscureNew1 = true;
   bool _obscureNew2 = true;
   int _currentPage = 0;
@@ -79,6 +80,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
     _newPwdCtrl.dispose();
     _newPwd2Ctrl.dispose();
     _codeFocusNode.dispose();
+    _codeTimer?.cancel();
     _resetService.dispose();
     _roomIdController.dispose();
     _roomIdFocusNode.dispose();
@@ -421,14 +423,16 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
           keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.next,
           label: '手机号',
-          hint: '请输入绑定的手机号',
+          hint: '输入手机号码',
           prefix: const Icon(FLucideIcons.phone),
           suffix: FButton(
             variant: FButtonVariant.ghost,
             size: FButtonSizeVariant.md,
             mainAxisSize: MainAxisSize.min,
-            onPress: _resetLoading || _codeSent ? null : _sendResetCode,
-            child: Text(_codeSent ? '已发送' : '发送验证码'),
+            onPress: _resetLoading || _codeCountdown > 0 ? null : _sendResetCode,
+            child: Text(
+              _codeCountdown > 0 ? '${_codeCountdown}s' : '发送验证码',
+            ),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -439,7 +443,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _submitVerify(),
           label: '验证码',
-          hint: '请输入短信验证码',
+          hint: '输入六位验证码',
           prefix: const Icon(FLucideIcons.messageSquare),
         ),
         const SizedBox(height: AppSpacing.xxl),
@@ -501,8 +505,22 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       await _resetService.sendCode(phone);
       if (!mounted) return;
       setState(() {
-        _codeSent = true;
+        _codeCountdown = 60;
         _resetLoading = false;
+      });
+      _codeTimer?.cancel();
+      _codeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _codeCountdown--;
+          if (_codeCountdown <= 0) {
+            _codeCountdown = 0;
+            timer.cancel();
+          }
+        });
       });
       showAppSnackBar(context, '验证码已发送');
       _codeFocusNode.requestFocus();
@@ -627,7 +645,8 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       _newPwdCtrl.clear();
       _newPwd2Ctrl.clear();
       setState(() {
-        _codeSent = false;
+        _codeCountdown = 0;
+        _codeTimer?.cancel();
         _resetLoading = false;
         _verifyValidateId = null;
       });
