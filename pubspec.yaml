@@ -29,7 +29,8 @@ dependencies:
   flutter_markdown_plus: ^1.0.12
   image_picker: ^1.2.3
   image: ^4.9.1
-  talker_flutter: ^5.1.20
+  talker_flutter:
+    path: third_party/talker_flutter
   talker_dio_logger: ^5.1.20
   forui: 0.25.0
   url_launcher: ^6.3.2

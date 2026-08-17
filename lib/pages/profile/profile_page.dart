@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
@@ -21,7 +22,6 @@ import '../../services/tools_data_manager.dart';
 import '../../services/widget_service.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
-import '../about/debug_log_page.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
 import '../home_page.dart';
@@ -232,7 +232,12 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
                   await Navigator.of(context).push(
                     appRoute(
                       name: AppRouteNames.debugLogs,
-                      builder: (context) => const DebugLogPage(),
+                      builder: (context) => TalkerScreen(
+                        talker: talker,
+                        appBarTitle: '调试日志',
+                        isLogOrderReversed: true,
+                        isLogsExpanded: true,
+                      ),
                     ),
                   );
                   setState(() {});
