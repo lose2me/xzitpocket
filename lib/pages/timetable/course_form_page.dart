@@ -152,7 +152,8 @@ class _CourseFormPageState extends State<CourseFormPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  '编号: ${widget.existingCourse!.courseId}',
+                  '课程编号: ${widget.existingCourse!.courseId}',
+                  textAlign: TextAlign.center,
                   style: context.theme.typography.caption.copyWith(
                     color: context.theme.colors.mutedForeground,
                   ),
@@ -317,7 +318,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
     if (!_formKey.currentState!.validate()) return;
 
     if (_startSession > _endSession) {
-      showAppSnackBar(context, '开始节次不能大于结束节次');
+      showAppSnackBar(context, '开始节次不能大于结束节次', severity: ToastSeverity.warning);
       return;
     }
 
@@ -326,7 +327,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
       (i) => _startSession + i,
     );
     if (_weeks.isEmpty) {
-      showAppSnackBar(context, '请选择周次');
+      showAppSnackBar(context, '请选择周次', severity: ToastSeverity.warning);
       return;
     }
     final hex = _colorCtrl.text.substring(1);

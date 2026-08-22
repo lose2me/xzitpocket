@@ -465,10 +465,10 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
             variant: FButtonVariant.ghost,
             size: FButtonSizeVariant.md,
             mainAxisSize: MainAxisSize.min,
-            onPress: _resetLoading || _codeCountdown > 0 ? null : _sendResetCode,
-            child: Text(
-              _codeCountdown > 0 ? '${_codeCountdown}s' : '发送验证码',
-            ),
+            onPress: _resetLoading || _codeCountdown > 0
+                ? null
+                : _sendResetCode,
+            child: Text(_codeCountdown > 0 ? '${_codeCountdown}s' : '发送验证码'),
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -533,7 +533,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _sendResetCode() async {
     final phone = _phoneCtrl.text.trim();
     if (phone.isEmpty) {
-      showAppSnackBar(context, '请输入手机号');
+      showAppSnackBar(context, '请输入手机号', severity: ToastSeverity.warning);
       return;
     }
     setState(() => _resetLoading = true);
@@ -558,17 +558,17 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
           }
         });
       });
-      showAppSnackBar(context, '验证码已发送');
+      showAppSnackBar(context, '验证码已发送', severity: ToastSeverity.success);
       _codeFocusNode.requestFocus();
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _resetLoading = false);
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       talker.error('密码重置验证码发送异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _resetLoading = false);
-      showAppSnackBar(context, '发送失败');
+      showAppSnackBar(context, '发送失败', severity: ToastSeverity.error);
     }
   }
 
@@ -577,11 +577,11 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
     final code = _codeCtrl.text.trim();
 
     if (phone.isEmpty) {
-      showAppSnackBar(context, '请输入手机号');
+      showAppSnackBar(context, '请输入手机号', severity: ToastSeverity.warning);
       return;
     }
     if (code.isEmpty) {
-      showAppSnackBar(context, '请输入验证码');
+      showAppSnackBar(context, '请输入验证码', severity: ToastSeverity.warning);
       return;
     }
 
@@ -593,7 +593,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       String? selectedSid;
       final accounts = verifyResult.accounts;
       if (accounts.isEmpty) {
-        showAppSnackBar(context, '未找到关联账号');
+        showAppSnackBar(context, '未找到关联账号', severity: ToastSeverity.error);
         setState(() => _resetLoading = false);
         return;
       } else if (accounts.length == 1) {
@@ -634,12 +634,12 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _resetLoading = false);
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       talker.error('密码重置身份验证异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _resetLoading = false);
-      showAppSnackBar(context, '验证失败');
+      showAppSnackBar(context, '验证失败', severity: ToastSeverity.error);
     }
   }
 
@@ -649,20 +649,20 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
     final pwd2 = _newPwd2Ctrl.text;
 
     if (pwd.isEmpty) {
-      showAppSnackBar(context, '请输入新密码');
+      showAppSnackBar(context, '请输入新密码', severity: ToastSeverity.warning);
       return;
     }
     if (pwd != pwd2) {
-      showAppSnackBar(context, '两次密码不一致');
+      showAppSnackBar(context, '两次密码不一致', severity: ToastSeverity.warning);
       return;
     }
     final valErr = PasswordResetService.validatePassword(pwd);
     if (valErr.isNotEmpty) {
-      showAppSnackBar(context, valErr);
+      showAppSnackBar(context, valErr, severity: ToastSeverity.warning);
       return;
     }
     if (_selectedSid == null || _verifyValidateId == null) {
-      showAppSnackBar(context, '请先完成验证');
+      showAppSnackBar(context, '请先完成验证', severity: ToastSeverity.warning);
       return;
     }
 
@@ -675,7 +675,11 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
         _verifyValidateId!,
       );
       if (!mounted) return;
-      showAppSnackBar(context, '密码重置成功，正在登录...');
+      showAppSnackBar(
+        context,
+        '密码重置成功，正在登录...',
+        severity: ToastSeverity.success,
+      );
       _phoneCtrl.clear();
       _codeCtrl.clear();
       _newPwdCtrl.clear();
@@ -697,12 +701,12 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _resetLoading = false);
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       talker.error('密码重置异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _resetLoading = false);
-      showAppSnackBar(context, '重置失败');
+      showAppSnackBar(context, '重置失败', severity: ToastSeverity.error);
     }
   }
 
@@ -731,7 +735,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       } on WidgetSyncException catch (e) {
         if (mounted) {
           setState(() => _isLoggingIn = false);
-          showAppSnackBar(context, '登录成功，但$e');
+          showAppSnackBar(context, '登录成功，但$e', severity: ToastSeverity.warning);
         }
         return;
       }
@@ -743,7 +747,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
 
       if (mounted) {
         setState(() => _isLoggingIn = false);
-        showAppSnackBar(context, '登录成功');
+        showAppSnackBar(context, '登录成功', severity: ToastSeverity.success);
         HomePage.globalKey.currentState?.switchToTimetable();
       }
 
@@ -759,7 +763,11 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
     } else if (mounted) {
       setState(() => _isLoggingIn = false);
       final authState = ref.read(authProvider);
-      showAppSnackBar(context, authState.errorMessage ?? '登录失败');
+      showAppSnackBar(
+        context,
+        authState.errorMessage ?? '登录失败',
+        severity: ToastSeverity.error,
+      );
     }
   }
 
@@ -827,7 +835,11 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       final missing = <String>[];
       if (!status.hasDndPermission) missing.add('勿扰');
       if (!status.hasExactAlarmPermission) missing.add('精确闹钟');
-      showAppSnackBar(context, '需要开启${missing.join('和')}权限');
+      showAppSnackBar(
+        context,
+        '需要开启${missing.join('和')}权限',
+        severity: ToastSeverity.warning,
+      );
     }
   }
 
@@ -847,7 +859,9 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       await prefs.setSavedPowerRoomId('');
       await prefs.clearPowerCache();
       ref.read(savedRoomIdProvider.notifier).set(null);
-      if (mounted) showAppSnackBar(context, '已清除宿舍号');
+      if (mounted) {
+        showAppSnackBar(context, '已清除宿舍号', severity: ToastSeverity.info);
+      }
       return;
     }
 
@@ -857,7 +871,9 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       valid = await PowerService().validateRoom(input);
     } catch (error, stackTrace) {
       talker.error('宿舍号本地校验失败', error, stackTrace);
-      if (mounted) showAppSnackBar(context, '宿舍号校验失败');
+      if (mounted) {
+        showAppSnackBar(context, '宿舍号校验失败', severity: ToastSeverity.error);
+      }
       return;
     } finally {
       _isSavingRoom = false;
@@ -872,9 +888,9 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       await prefs.clearPowerCache();
       ref.read(savedRoomIdProvider.notifier).set(input);
       if (!mounted) return;
-      showAppSnackBar(context, '保存成功');
+      showAppSnackBar(context, '保存成功', severity: ToastSeverity.success);
     } else {
-      showAppSnackBar(context, '无此房间号');
+      showAppSnackBar(context, '无此房间号', severity: ToastSeverity.error);
     }
   }
 
@@ -965,7 +981,11 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       await ref.read(scheduleProvider.notifier).clearAll();
     } on WidgetSyncException catch (e) {
       if (!mounted) return;
-      showAppSnackBar(this.context, '已退出登录，但$e');
+      showAppSnackBar(
+        this.context,
+        '已退出登录，但$e',
+        severity: ToastSeverity.warning,
+      );
     }
     await ref.read(configProvider.notifier).logout();
     ref.read(authProvider.notifier).reset();

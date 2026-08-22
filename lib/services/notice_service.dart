@@ -13,7 +13,11 @@ class NoticeItem {
   final String url;
   final String date;
 
-  const NoticeItem({required this.title, required this.url, required this.date});
+  const NoticeItem({
+    required this.title,
+    required this.url,
+    required this.date,
+  });
 }
 
 /// 一页公告列表的解析结果。
@@ -89,13 +93,12 @@ class NoticeService {
 
   Dio? _dio;
 
-  Dio _client() =>
-      _dio ??= DioFactory.createNaked(
-        cookieJar: CookieJar(),
-        connectTimeout: requestTimeout,
-        receiveTimeout: requestTimeout,
-        userAgent: kUserAgent,
-      );
+  Dio _client() => _dio ??= DioFactory.createNaked(
+    cookieJar: CookieJar(),
+    connectTimeout: requestTimeout,
+    receiveTimeout: requestTimeout,
+    userAgent: kUserAgent,
+  );
 
   /// 抓取指定页码的公告列表（页码从 1 开始）。
   Future<NoticePage> fetchList({int page = 1}) async {
@@ -148,10 +151,10 @@ class NoticeService {
     final doc = html_parser.parse(html);
     final title =
         doc.querySelector('title')?.text.trim() ??
-        RegExp(r'<title>\s*(.*?)\s*</title>', dotAll: true)
-            .firstMatch(html)
-            ?.group(1)
-            ?.trim() ??
+        RegExp(
+          r'<title>\s*(.*?)\s*</title>',
+          dotAll: true,
+        ).firstMatch(html)?.group(1)?.trim() ??
         '';
 
     final date =
@@ -159,7 +162,8 @@ class NoticeService {
 
     // 正文容器：优先 wp_articlecontent，回退 .content
     final root =
-        doc.querySelector('.wp_articlecontent') ?? doc.querySelector('.content');
+        doc.querySelector('.wp_articlecontent') ??
+        doc.querySelector('.content');
 
     final attachments = <NoticeAttachment>[];
     if (root != null) {
@@ -179,8 +183,7 @@ class NoticeService {
       }
     }
 
-    final markdown =
-        root == null ? '' : _htmlToMarkdown(root, attachments);
+    final markdown = root == null ? '' : _htmlToMarkdown(root, attachments);
     final (cleanedMarkdown, documentNo) = _extractDocumentNo(markdown);
 
     return NoticeDetail(
@@ -199,8 +202,10 @@ class NoticeService {
     for (final paragraph in paragraphs) {
       final match = docNoReg.firstMatch(paragraph);
       if (match != null) {
-        return (paragraphs.where((p) => p != paragraph).join('\n\n'),
-            match.group(0));
+        return (
+          paragraphs.where((p) => p != paragraph).join('\n\n'),
+          match.group(0),
+        );
       }
     }
     return (markdown, null);
@@ -209,11 +214,7 @@ class NoticeService {
   /// 下载附件到本地指定路径。
   Future<void> downloadAttachment(String url, String savePath) async {
     talker.debug('[NET] 公告附件下载\n$url');
-    await _client().download(
-      url,
-      savePath,
-      deleteOnError: true,
-    );
+    await _client().download(url, savePath, deleteOnError: true);
   }
 
   /// 附件名格式化：从头数，找到第一个点（.）或冒号（: 或 ：）
@@ -340,16 +341,15 @@ class NoticeService {
     return lines.join('\n');
   }
 
-
   static final _emailReg = RegExp(
     r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
   );
 
   /// 将文本中的邮箱地址的 @ 转义为 \@，避免被 Markdown 渲染成超链接。
   String _escapeEmails(String text) => text.replaceAllMapped(
-        _emailReg,
-        (m) => m.group(0)!.replaceAll('@', r'\@'),
-      );
+    _emailReg,
+    (m) => m.group(0)!.replaceAll('@', r'\@'),
+  );
 
   /// 提取元素的纯文本（清理空白，并转义邮箱避免渲染为链接）。
   String _nodePlainText(html_dom.Element element) => _escapeEmails(
@@ -359,7 +359,6 @@ class NoticeService {
         .replaceAll(RegExp(r'\n{2,}'), '\n')
         .trim(),
   );
-
 }
 
 class NoticeException implements Exception {

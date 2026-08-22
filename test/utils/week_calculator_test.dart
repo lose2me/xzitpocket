@@ -84,20 +84,39 @@ void main() {
   });
 
   group('getCurrentSchoolTerm', () {
-    test('September to December is term 1 of current year', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 9, 1)), (2026, 1));
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 10, 1)), (2026, 1));
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 12, 31)), (2026, 1));
+    test('fall start (>=Sept) is term 1 of that year', () {
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 9, 1)), (
+        2026,
+        1,
+      ));
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 10, 1)), (
+        2026,
+        1,
+      ));
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 12, 31)), (
+        2026,
+        1,
+      ));
     });
 
-    test('January is term 1 of previous year', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 1, 1)), (2025, 1));
+    test('spring start (2-8月) is term 2 of previous academic year', () {
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 2, 1)), (
+        2025,
+        2,
+      ));
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 3, 1)), (
+        2025,
+        2,
+      ));
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 8, 31)), (
+        2025,
+        2,
+      ));
     });
 
-    test('February to August is term 2 of previous year', () {
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 2, 1)), (2025, 2));
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 3, 1)), (2025, 2));
-      expect(getCurrentSchoolTerm(reference: DateTime(2026, 8, 31)), (2025, 2));
+    test('uses the configured semester start when no argument is given', () {
+      // semester_config.semesterStartDate = 2026-09-01 (fall) -> (2026, 1)
+      expect(getCurrentSchoolTerm(), (2026, 1));
     });
   });
 }

@@ -75,6 +75,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
         _manager.campusNetworkStatus == CampusNetworkStatus.checking
             ? '正在检测校园网，请稍后再试'
             : '请连接校园网',
+        severity: ToastSeverity.warning,
       );
     }
     return false;
@@ -99,7 +100,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
       );
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(context, '查询失败');
+        showAppSnackBar(context, '查询失败', severity: ToastSeverity.error);
         return;
       }
       setState(() {
@@ -112,11 +113,11 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     } on AuthException catch (e, stackTrace) {
       talker.error('教师评价详情刷新失败', e, stackTrace);
       if (!mounted) return;
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       if (!mounted) return;
       talker.error('教师评价查询异常', e, stackTrace);
-      showAppSnackBar(context, '查询失败: $e');
+      showAppSnackBar(context, '查询失败: $e', severity: ToastSeverity.error);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -159,19 +160,23 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
           '[ACTION] 评教结果\n已评=0, 跳过=${result.skipped.length}: '
           '${result.skipped.join(', ')}',
         );
-        showAppSnackBar(context, detail);
+        showAppSnackBar(context, detail, severity: ToastSeverity.info);
       } else {
-        showAppSnackBar(context, '已评 ${result.evaluated.length} 门课');
+        showAppSnackBar(
+          context,
+          '已评 ${result.evaluated.length} 门课',
+          severity: ToastSeverity.success,
+        );
       }
       await _loadStatus();
     } on AuthException catch (e, stackTrace) {
       talker.error('教师评价自动评教失败', e, stackTrace);
       if (!mounted) return;
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       if (!mounted) return;
       talker.error('教师评价自动评教异常', e, stackTrace);
-      showAppSnackBar(context, '评教失败: $e');
+      showAppSnackBar(context, '评教失败: $e', severity: ToastSeverity.error);
     } finally {
       if (mounted) setState(() => _isEvaluating = false);
     }

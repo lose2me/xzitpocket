@@ -48,16 +48,20 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
       );
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(context, '刷新失败');
+        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
         return;
       }
       setState(() => _result = result);
     } on AuthException catch (e, stackTrace) {
       talker.error('考试详情刷新失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, e.message);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
     } catch (e, stackTrace) {
       talker.error('考试详情况刷新异常', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '刷新失败');
+      if (mounted) {
+        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }

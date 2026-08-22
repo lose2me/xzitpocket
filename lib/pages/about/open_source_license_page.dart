@@ -175,10 +175,7 @@ class _PackageLicensePage extends StatelessWidget {
   final String packageName;
   final List<LicenseEntry> entries;
 
-  const _PackageLicensePage({
-    required this.packageName,
-    required this.entries,
-  });
+  const _PackageLicensePage({required this.packageName, required this.entries});
 
   @override
   Widget build(BuildContext context) {

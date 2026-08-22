@@ -12,6 +12,7 @@ import '../../services/repair_service.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import 'repair_picker_sheet.dart';
 
 class RepairFormPage extends StatefulWidget {
   final String studentId;
@@ -68,12 +69,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
       talker.error('报修会话创建失败', e, stackTrace);
       if (!mounted) return;
       setState(() => _sessionLoading = false);
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       talker.error('报修会话创建异常', e, stackTrace);
       if (!mounted) return;
       setState(() => _sessionLoading = false);
-      showAppSnackBar(context, '会话创建失败');
+      showAppSnackBar(context, '会话创建失败', severity: ToastSeverity.error);
     }
   }
 
@@ -133,12 +134,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
   Future<void> _pickArea() async {
     if (_session == null) return;
-    final result = await _drillDownAreas();
-    if (result != null && mounted) {
+    final choice = await _pickAreaByScroll();
+    if (choice != null && mounted) {
       setState(() {
-        _selectedArea = result;
+        _selectedArea = choice.value;
         _selectedItem = null;
-        _areaCtrl.text = result.name;
+        _areaCtrl.text = choice.label;
         _itemCtrl.clear();
       });
     }
@@ -157,145 +158,171 @@ class _RepairFormPageState extends State<RepairFormPage> {
     return 3;
   }
 
-  Future<RepairArea?> _drillDownAreas() async {
+  /// 加载并排序一级区域。
+  Future<List<RepairArea>> _fetchTopAreas() async {
     List<RepairArea> items;
     try {
       items = await _service.getAreas(_session!);
     } catch (e, stackTrace) {
       talker.error('报修区域获取失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '获取区域失败');
-      return null;
+      if (mounted) {
+        showAppSnackBar(context, '获取区域失败', severity: ToastSeverity.error);
+      }
+      return const [];
     }
-
     items = items.where((a) => !a.name.contains('城南校区')).toList();
     items.sort((a, b) {
       final cmp = _areaSortKey(a.name).compareTo(_areaSortKey(b.name));
       if (cmp != 0) return cmp;
       return _areaSubSortKey(a.name).compareTo(_areaSubSortKey(b.name));
     });
-    if (items.isEmpty) {
-      if (mounted) showAppSnackBar(context, '没有可选区域');
+    return items;
+  }
+
+  /// 把报修区域整棵树扁平化，生成「一级 > 二级 > …」的完整路径列表。
+  Future<List<WheelChoice<RepairArea>>> _loadAreaChoices() async {
+    final top = await _fetchTopAreas();
+    final result = <WheelChoice<RepairArea>>[];
+    for (final area in top) {
+      await _collectAreaChoices(area, [area.name], result);
+    }
+    return result;
+  }
+
+  Future<void> _collectAreaChoices(
+    RepairArea area,
+    List<String> path,
+    List<WheelChoice<RepairArea>> out,
+  ) async {
+    final children = await _loadChildAreasSafe(area.id);
+    if (children.isEmpty) {
+      out.add(WheelChoice(label: path.join(' > '), value: area));
+      return;
+    }
+    for (final child in children) {
+      await _collectAreaChoices(child, [...path, child.name], out);
+    }
+  }
+
+  Future<List<RepairArea>> _loadChildAreasSafe(String areaId) async {
+    try {
+      return await _service.getChildAreas(_session!, areaId);
+    } catch (e, stackTrace) {
+      talker.debug('报修子区域获取失败，按叶子节点处理', e, stackTrace);
+      return const [];
+    }
+  }
+
+  /// 单列滚轮选择：把整棵树合并成一个输入框，一次滚动选中最终地点。
+  Future<WheelChoice<RepairArea>?> _pickAreaByScroll() async {
+    final choices = await _loadAreaChoices();
+    if (choices.isEmpty) {
+      if (mounted) {
+        showAppSnackBar(context, '没有可选区域', severity: ToastSeverity.warning);
+      }
       return null;
     }
-
-    RepairArea? chosen;
-    while (true) {
-      if (!mounted) return null;
-      chosen = await _showPickerSheet(items, selectedId: _selectedArea?.id);
-      if (chosen == null) return null;
-
-      List<RepairArea> children;
-      try {
-        children = await _service.getChildAreas(_session!, chosen.id);
-      } catch (e, stackTrace) {
-        talker.debug('报修子区域获取失败，按叶子节点处理', e, stackTrace);
-        return chosen;
-      }
-      if (children.isEmpty) return chosen;
-      items = children;
-    }
+    if (!mounted) return null;
+    return showAppSheet<WheelChoice<RepairArea>>(
+      context: context,
+      maxHeightRatio: 0.5,
+      builder: (ctx) =>
+          SingleWheelSheet<RepairArea>(title: '选择区域', choices: choices),
+    );
   }
 
   Future<void> _pickItem() async {
     if (_session == null) return;
     if (_selectedArea == null) {
-      showAppSnackBar(context, '请先选择区域');
+      showAppSnackBar(context, '请先选择区域', severity: ToastSeverity.warning);
       return;
     }
-    final result = await _drillDownItems();
-    if (result != null && mounted) {
+    final choice = await _pickItemByScroll();
+    if (choice != null && mounted) {
       setState(() {
-        _selectedItem = result;
-        _itemCtrl.text = result.name;
+        _selectedItem = choice.value;
+        _itemCtrl.text = choice.label;
       });
     }
   }
 
-  Future<RepairItem?> _drillDownItems() async {
-    List<RepairItem> items;
+  /// 把报修项目整棵树扁平化，生成「一级 > 二级 > …」的完整路径列表。
+  Future<List<WheelChoice<RepairItem>>> _loadItemChoices() async {
+    final rootItems = await _loadRootItemsSafe();
+    final result = <WheelChoice<RepairItem>>[];
+    for (final item in rootItems) {
+      await _collectItemChoices(item, [item.name], result);
+    }
+    return result;
+  }
+
+  Future<List<RepairItem>> _loadRootItemsSafe() async {
     try {
-      items = await _service.getItems(_session!, _selectedArea!.id);
+      return await _service.getItems(_session!, _selectedArea!.id);
     } catch (e, stackTrace) {
       talker.error('报修项目获取失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '获取项目失败');
-      return null;
-    }
-    if (items.isEmpty) {
-      if (mounted) showAppSnackBar(context, '没有可选项目');
-      return null;
-    }
-
-    RepairArea? chosen;
-    while (true) {
-      if (!mounted) return null;
-      chosen = await _showPickerSheet(
-        items.map((i) => RepairArea(id: i.id, name: i.name)).toList(),
-        selectedId: _selectedItem?.id,
-      );
-      if (chosen == null) return null;
-
-      List<RepairItem> children;
-      try {
-        children = await _service.getChildItems(_session!, chosen.id);
-      } catch (e, stackTrace) {
-        talker.debug('报修子项目获取失败，按叶子节点处理', e, stackTrace);
-        return RepairItem(id: chosen.id, name: chosen.name);
+      if (mounted) {
+        showAppSnackBar(context, '获取项目失败', severity: ToastSeverity.error);
       }
-      if (children.isEmpty) {
-        return RepairItem(id: chosen.id, name: chosen.name);
-      }
-      items = children;
+      return const [];
     }
   }
 
-  Future<RepairArea?> _showPickerSheet(
-    List<RepairArea> items, {
-    String? selectedId,
-  }) {
-    return showAppSheet<RepairArea>(
+  Future<void> _collectItemChoices(
+    RepairItem item,
+    List<String> path,
+    List<WheelChoice<RepairItem>> out,
+  ) async {
+    final children = await _loadChildItemsSafe(item.id);
+    if (children.isEmpty) {
+      out.add(WheelChoice(label: path.join(' > '), value: item));
+      return;
+    }
+    for (final child in children) {
+      await _collectItemChoices(child, [...path, child.name], out);
+    }
+  }
+
+  Future<List<RepairItem>> _loadChildItemsSafe(String itemId) async {
+    try {
+      return await _service.getChildItems(_session!, itemId);
+    } catch (e, stackTrace) {
+      talker.debug('报修子项目获取失败，按叶子节点处理', e, stackTrace);
+      return const [];
+    }
+  }
+
+  /// 单列滚轮选择：把报修项目整棵树合并成一个输入框，一次滚动选中。
+  Future<WheelChoice<RepairItem>?> _pickItemByScroll() async {
+    final choices = await _loadItemChoices();
+    if (choices.isEmpty) {
+      if (mounted) {
+        showAppSnackBar(context, '没有可选项目', severity: ToastSeverity.warning);
+      }
+      return null;
+    }
+    if (!mounted) return null;
+    return showAppSheet<WheelChoice<RepairItem>>(
       context: context,
-      maxHeightRatio: 0.6,
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-          child: FSelectTileGroup<String>(
-            control: FMultiValueControl.managedRadio(
-              initial: selectedId,
-              onChange: (values) {
-                if (values.isEmpty) return;
-                final selected = items.firstWhere(
-                  (item) => item.id == values.first,
-                );
-                Navigator.pop(ctx, selected);
-              },
-            ),
-            maxHeight: 360,
-            children: [
-              for (final item in items)
-                FSelectTile<String>.suffix(
-                  title: Text(item.name),
-                  value: item.id,
-                ),
-            ],
-          ),
-        );
-      },
+      maxHeightRatio: 0.5,
+      builder: (ctx) =>
+          SingleWheelSheet<RepairItem>(title: '选择项目', choices: choices),
     );
   }
 
   Future<void> _submit() async {
     if (_session == null) return;
     if (_selectedArea == null) {
-      showAppSnackBar(context, '请选择区域');
+      showAppSnackBar(context, '请选择区域', severity: ToastSeverity.warning);
       return;
     }
     if (_selectedItem == null) {
-      showAppSnackBar(context, '请选择报修项目');
+      showAppSnackBar(context, '请选择报修项目', severity: ToastSeverity.warning);
       return;
     }
     final content = _contentCtrl.text.trim();
     if (content.isEmpty) {
-      showAppSnackBar(context, '请填写故障描述');
+      showAppSnackBar(context, '请填写故障描述', severity: ToastSeverity.warning);
       return;
     }
 
@@ -317,16 +344,16 @@ class _RepairFormPageState extends State<RepairFormPage> {
         images: imagePaths,
       );
       if (!mounted) return;
-      showAppSnackBar(context, '提交成功');
+      showAppSnackBar(context, '提交成功', severity: ToastSeverity.success);
       Navigator.of(context).pop(true);
     } on AuthException catch (e, stackTrace) {
       talker.error('报修提交失败', e, stackTrace);
       if (!mounted) return;
-      showAppSnackBar(context, e.message);
+      showAppSnackBar(context, e.message, severity: ToastSeverity.error);
     } catch (e, stackTrace) {
       talker.error('报修提交异常', e, stackTrace);
       if (!mounted) return;
-      showAppSnackBar(context, '提交失败');
+      showAppSnackBar(context, '提交失败', severity: ToastSeverity.error);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -368,7 +395,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
             width: 140,
             child: AppTextField(
               controller: _addressCtrl,
-              label: '宿舍号',
+              label: '详细地址',
               hint: '7B216',
               enabled: !_formDisabled,
             ),

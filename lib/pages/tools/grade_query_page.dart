@@ -57,10 +57,14 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('学业情况查询失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, e.message);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
     } catch (e, stackTrace) {
       talker.error('学业情况查询异常', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '加载失败');
+      if (mounted) {
+        showAppSnackBar(context, '加载失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }

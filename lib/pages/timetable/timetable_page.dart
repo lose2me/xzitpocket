@@ -109,7 +109,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       final pwd = await CredentialStorage.getSavedPassword();
       if (sid == null || pwd == null) {
         if (mounted) {
-          showAppSnackBar(context, '请先在"我的"页面登录');
+          showAppSnackBar(
+            context,
+            '请先在"我的"页面登录',
+            severity: ToastSeverity.warning,
+          );
         }
         return;
       }
@@ -117,7 +121,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       final connectivity = await Connectivity().checkConnectivity();
       if (connectivity.contains(ConnectivityResult.none)) {
         if (mounted) {
-          showAppSnackBar(context, '无网络连接，请检查网络后重试');
+          showAppSnackBar(
+            context,
+            '无网络连接，请检查网络后重试',
+            severity: ToastSeverity.error,
+          );
         }
         return;
       }
@@ -135,7 +143,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               );
         } on WidgetSyncException catch (e) {
           if (mounted) {
-            showAppSnackBar(context, '同步成功，但$e');
+            showAppSnackBar(
+              context,
+              '同步成功，但$e',
+              severity: ToastSeverity.warning,
+            );
           }
           return;
         }
@@ -144,12 +156,16 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           ref.read(preferencesStorageProvider),
         );
         if (mounted) {
-          showAppSnackBar(context, '同步成功');
+          showAppSnackBar(context, '同步成功', severity: ToastSeverity.success);
         }
       } else {
         final authState = ref.read(authProvider);
         if (mounted) {
-          showAppSnackBar(context, authState.errorMessage ?? '同步失败');
+          showAppSnackBar(
+            context,
+            authState.errorMessage ?? '同步失败',
+            severity: ToastSeverity.error,
+          );
         }
       }
     } finally {
@@ -416,7 +432,13 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     try {
       await ref.read(scheduleProvider.notifier).deleteCourse(key);
     } on WidgetSyncException catch (e) {
-      if (mounted) showAppSnackBar(this.context, '课程已删除，但$e');
+      if (mounted) {
+        showAppSnackBar(
+          this.context,
+          '课程已删除，但$e',
+          severity: ToastSeverity.warning,
+        );
+      }
     }
   }
 
@@ -447,7 +469,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               await ref.read(scheduleProvider.notifier).addCourse(course);
             } on WidgetSyncException catch (e) {
               if (!mounted) return;
-              showAppSnackBar(this.context, '课程已保存，但$e');
+              showAppSnackBar(
+                this.context,
+                '课程已保存，但$e',
+                severity: ToastSeverity.warning,
+              );
             }
           },
         ),
@@ -480,7 +506,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               }
             } on WidgetSyncException catch (e) {
               if (!mounted) return;
-              showAppSnackBar(this.context, '课程已保存，但$e');
+              showAppSnackBar(
+                this.context,
+                '课程已保存，但$e',
+                severity: ToastSeverity.warning,
+              );
             }
           },
           onDelete: () async {
@@ -488,7 +518,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               await ref.read(scheduleProvider.notifier).deleteCourse(key);
             } on WidgetSyncException catch (e) {
               if (!mounted) return;
-              showAppSnackBar(this.context, '课程已删除，但$e');
+              showAppSnackBar(
+                this.context,
+                '课程已删除，但$e',
+                severity: ToastSeverity.warning,
+              );
             }
           },
         ),

@@ -64,7 +64,9 @@ class NoticePageState extends State<NoticePage> {
       });
     } on Exception catch (e, stackTrace) {
       talker.error('公告列表加载失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '公告加载失败');
+      if (mounted) {
+        showAppSnackBar(context, '公告加载失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _refreshing = false);
     }
@@ -83,7 +85,9 @@ class NoticePageState extends State<NoticePage> {
       });
     } on Exception catch (e, stackTrace) {
       talker.error('公告列表翻页失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '加载更多失败');
+      if (mounted) {
+        showAppSnackBar(context, '加载更多失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -91,9 +95,7 @@ class NoticePageState extends State<NoticePage> {
 
   void _openDetail(NoticeItem item) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => NoticeDetailPage(item: item),
-      ),
+      MaterialPageRoute<void>(builder: (_) => NoticeDetailPage(item: item)),
     );
   }
 

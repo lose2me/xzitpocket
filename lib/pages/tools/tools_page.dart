@@ -69,12 +69,14 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<({String studentId, String password})?> _ensureCredentials() async {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用');
+      showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
       return null;
     }
     final password = await CredentialStorage.getSavedPassword();
     if (password == null || password.isEmpty) {
-      if (mounted) showAppSnackBar(context, '此功能需登录使用');
+      if (mounted) {
+        showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
+      }
       return null;
     }
     return (studentId: config.studentId!, password: password);
@@ -99,14 +101,18 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
     final hasNet = await _manager.checkInternetAvailable();
     if (!hasNet) {
-      if (mounted) showAppSnackBar(context, '请连接网络');
+      if (mounted) {
+        showAppSnackBar(context, '请连接网络', severity: ToastSeverity.warning);
+      }
       return;
     }
 
     if (requiresCampus) {
       final campusOk = await _manager.checkCampusNetwork();
       if (!campusOk) {
-        if (mounted) showAppSnackBar(context, '请连接校园网');
+        if (mounted) {
+          showAppSnackBar(context, '请连接校园网', severity: ToastSeverity.warning);
+        }
         return;
       }
     }
@@ -200,7 +206,9 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _openGradeQuery() async {
     final hasNet = await _manager.checkInternetAvailable();
     if (!hasNet) {
-      if (mounted) showAppSnackBar(context, '请连接网络');
+      if (mounted) {
+        showAppSnackBar(context, '请连接网络', severity: ToastSeverity.warning);
+      }
       return;
     }
     final creds = await _ensureCredentials();
@@ -221,18 +229,20 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
   Future<void> _refreshPower() async {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用');
+      showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
       return;
     }
 
     if (!_manager.isCampusNetworkAvailable) {
-      showAppSnackBar(context, '请连接校园网');
+      showAppSnackBar(context, '请连接校园网', severity: ToastSeverity.warning);
       return;
     }
 
     final hasNet = await _manager.checkInternetAvailable();
     if (!hasNet) {
-      if (mounted) showAppSnackBar(context, '请连接网络');
+      if (mounted) {
+        showAppSnackBar(context, '请连接网络', severity: ToastSeverity.warning);
+      }
       return;
     }
 
@@ -243,7 +253,11 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     await _manager.loadPower(roomId, prefs);
     if (!mounted) return;
     if (_manager.powerError != null) {
-      showAppSnackBar(context, _manager.powerError!);
+      showAppSnackBar(
+        context,
+        _manager.powerError!,
+        severity: ToastSeverity.error,
+      );
     }
   }
 

@@ -51,7 +51,7 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
       );
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(context, '刷新失败');
+        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
         return;
       }
       setState(() {
@@ -60,10 +60,14 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('网络管理详情刷新失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, e.message);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
     } catch (e, stackTrace) {
       talker.error('网络管理详情况刷新异常', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '刷新失败');
+      if (mounted) {
+        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }
@@ -85,14 +89,18 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
         device.mac,
       );
       if (!mounted) return;
-      showAppSnackBar(context, msg);
+      showAppSnackBar(context, msg, severity: ToastSeverity.success);
       await _refresh();
     } on AuthException catch (e, stackTrace) {
       talker.error('网络管理设备解绑失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, e.message);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
     } catch (e, stackTrace) {
       talker.error('网络管理设备解绑异常', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '解绑失败');
+      if (mounted) {
+        showAppSnackBar(context, '解绑失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _unbindingMac = null);
     }

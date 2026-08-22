@@ -42,7 +42,9 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
       setState(() => _detail = detail);
     } on Exception catch (e, stackTrace) {
       talker.error('公告详情加载失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '详情加载失败');
+      if (mounted) {
+        showAppSnackBar(context, '详情加载失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -50,7 +52,9 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
 
   Future<void> _copyUrl() async {
     await Clipboard.setData(ClipboardData(text: widget.item.url));
-    if (mounted) showAppSnackBar(context, '链接已复制');
+    if (mounted) {
+      showAppSnackBar(context, '链接已复制', severity: ToastSeverity.success);
+    }
   }
 
   /// 后台下载附件到应用目录，完成后唤起系统应用打开。
@@ -77,11 +81,13 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
       if (!mounted) return;
       final result = await OpenFilex.open(file.path);
       if (result.type != ResultType.done && mounted) {
-        showAppSnackBar(context, '打开附件失败');
+        showAppSnackBar(context, '打开附件失败', severity: ToastSeverity.error);
       }
     } on Exception catch (e, stackTrace) {
       talker.error('附件下载失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '附件下载失败');
+      if (mounted) {
+        showAppSnackBar(context, '附件下载失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _downloadingIndex = null);
     }
@@ -104,9 +110,7 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
       child: _loading
           ? const AppPageBody(
               child: Center(
-                child: FCircularProgress(
-                  size: FCircularProgressSizeVariant.md,
-                ),
+                child: FCircularProgress(size: FCircularProgressSizeVariant.md),
               ),
             )
           : AppPageListView(
@@ -115,10 +119,7 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
               bottomPadding: AppSpacing.xxl,
               children: [
                 if (detail != null) ...[
-                  Text(
-                    detail.title,
-                    style: theme.typography.pageTitle,
-                  ),
+                  Text(detail.title, style: theme.typography.pageTitle),
                   if (detail.date.isNotEmpty || detail.documentNo != null) ...[
                     const SizedBox(height: AppSpacing.sm),
                     Row(

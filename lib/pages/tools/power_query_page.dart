@@ -72,7 +72,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     final roomId = widget.roomId;
     if (roomId == null || roomId.isEmpty) return;
     if (!_canRefresh) {
-      showAppSnackBar(context, '请连接校园网');
+      showAppSnackBar(context, '请连接校园网', severity: ToastSeverity.warning);
       return;
     }
     setState(() => _isRefreshing = true);
@@ -85,7 +85,11 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       }
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(context, _manager.powerError ?? '刷新失败');
+        showAppSnackBar(
+          context,
+          _manager.powerError ?? '刷新失败',
+          severity: ToastSeverity.error,
+        );
         return;
       }
       final loadedResult = result;
@@ -100,10 +104,14 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       });
     } on PowerQueryException catch (e, stackTrace) {
       talker.error('电费详情刷新失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, e.message);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
     } catch (e, stackTrace) {
       talker.error('电费详情刷新异常', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '刷新失败');
+      if (mounted) {
+        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }

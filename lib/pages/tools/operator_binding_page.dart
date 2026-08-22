@@ -72,7 +72,7 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
     final acct = _acctCtrl.text.trim();
     final pwd = _pwdCtrl.text.trim();
     if (acct.isEmpty || pwd.isEmpty) {
-      showAppSnackBar(context, '请填写宽带账号和密码');
+      showAppSnackBar(context, '请填写宽带账号和密码', severity: ToastSeverity.warning);
       return;
     }
 
@@ -86,14 +86,18 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
         broadbandPassword: pwd,
       );
       if (!mounted) return;
-      showAppSnackBar(context, msg);
+      showAppSnackBar(context, msg, severity: ToastSeverity.success);
       Navigator.of(context).pop();
     } on AuthException catch (e, stackTrace) {
       talker.error('运营商绑定失败', e, stackTrace);
-      if (mounted) showAppSnackBar(context, e.message);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
     } catch (e, stackTrace) {
       talker.error('运营商绑定异常', e, stackTrace);
-      if (mounted) showAppSnackBar(context, '绑定失败');
+      if (mounted) {
+        showAppSnackBar(context, '绑定失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
