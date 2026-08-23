@@ -39,8 +39,8 @@ class CourseCard extends StatelessWidget {
     );
 
     return Container(
-      margin: const EdgeInsets.all(2),
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      margin: const EdgeInsets.all(1.8),
+      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 2),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: borderRadius,

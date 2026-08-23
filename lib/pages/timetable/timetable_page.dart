@@ -229,9 +229,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       showNonCurrentWeekCoursesProvider,
     );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
-    final courseBorderColor = context.theme.colors.border;
-    const courseOpacity = 0.9;
-    const courseBorderOpacity = 0.9;
+    final isDark = context.theme.colors.brightness == Brightness.dark;
+    final courseBorderColor = context.theme.colors.foreground;
+    final courseOpacity = isDark ? 0.95 : 0.85;
+    final courseBorderOpacity = isDark ? 1.0 : 0.85;
 
     return AppPage(
       root: true,
