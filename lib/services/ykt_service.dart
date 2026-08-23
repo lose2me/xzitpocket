@@ -85,7 +85,12 @@ class YktService {
     );
   }
 
-  Future<YktDetailResult> getDetail(String username, String password) async {
+  Future<YktDetailResult> getDetail(
+    String username,
+    String password, {
+    String? start,
+    String? end,
+  }) async {
     final session = await _login(username, password);
     final dio = session.dio;
     final headers = {'Referer': '$myuBaseUrl/yikat-detail'};
@@ -115,11 +120,14 @@ class YktService {
         cardNo: '${first['kh'] ?? ''}',
       );
 
-      // Fetch recent transactions (last 30 days)
-      final now = DateTime.now();
-      final start = now.subtract(const Duration(days: 30));
+      // Fetch transactions in the given range (defaults to the last 30 days).
       String fmt(DateTime d) =>
           '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final now = DateTime.now();
+      final startDate = start != null
+          ? DateTime.parse(start)
+          : now.subtract(const Duration(days: 30));
+      final endDate = end != null ? DateTime.parse(end) : now;
 
       final transactions = <YktTransaction>[];
       String? txnError;
@@ -129,8 +137,8 @@ class YktService {
           data: {
             'currentPage': 1,
             'pageNumber': 50,
-            'kssj': fmt(start),
-            'jssj': fmt(now),
+            'kssj': fmt(startDate),
+            'jssj': fmt(endDate),
             'jylx': '',
           },
           options: Options(

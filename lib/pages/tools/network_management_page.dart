@@ -145,7 +145,7 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
           ),
           const SizedBox(height: AppSpacing.xxl),
           Text(
-            '在线设备 (${_devices.length}/${_info.maxDevices})',
+            '绑定设备 (${_devices.length}/${_info.maxDevices})',
             style: theme.typography.pageTitle,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -154,7 +154,7 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
               padding: const EdgeInsets.all(AppSpacing.xxl),
               child: Center(
                 child: Text(
-                  '暂无在线设备',
+                  '暂无绑定设备',
                   style: theme.typography.bodyText.copyWith(
                     color: theme.colors.mutedForeground,
                   ),
@@ -201,8 +201,8 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
           const SizedBox(height: 4),
           Text(
             value,
-            style: theme.typography.body.md.copyWith(
-              fontWeight: FontWeight.w700,
+            style: theme.typography.body.sm.copyWith(
+              fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,

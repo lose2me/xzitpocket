@@ -405,6 +405,30 @@ class ToolsDataManager extends ChangeNotifier {
     return success ? ykt : null;
   }
 
+  /// 按指定日期范围查询一卡通流水（不写缓存，也不影响「最近30天」缓存）。
+  Future<YktDetailResult?> queryYktRange(
+    String studentId,
+    String password, {
+    required DateTime start,
+    required DateTime end,
+  }) async {
+    String fmt(DateTime d) =>
+        '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    try {
+      return await YktService().getDetail(
+        studentId,
+        password,
+        start: fmt(start),
+        end: fmt(end),
+      );
+    } on AuthException catch (e, stackTrace) {
+      talker.error('一卡通范围查询失败', e, stackTrace);
+    } catch (e, stackTrace) {
+      talker.error('一卡通范围查询异常', e, stackTrace);
+    }
+    return null;
+  }
+
   Future<bool> _loadYkt(
     String studentId,
     String password,

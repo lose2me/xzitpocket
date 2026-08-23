@@ -31,15 +31,28 @@ class _CampusCardPageState extends State<CampusCardPage> {
   static const _pageSize = 7;
   int _currentPage = 0;
   bool _isRefreshing = false;
+  bool _isQuerying = false;
 
   late YktDetailResult _result;
   late List<YktTransaction> _txns;
+  late DateTime _startDate;
+  late DateTime _endDate;
+  final _rangeCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _result = widget.result;
     _txns = _result.transactions.reversed.toList();
+    _endDate = DateTime.now();
+    _startDate = _endDate.subtract(const Duration(days: 30));
+    _rangeCtrl.text = _rangeText();
+  }
+
+  @override
+  void dispose() {
+    _rangeCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _refresh() async {
@@ -83,6 +96,80 @@ class _CampusCardPageState extends State<CampusCardPage> {
     return _txns.sublist(start, end);
   }
 
+  String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String get _rangeLabel {
+    if (_startDate == _endDate) {
+      return '交易明细（${_fmt(_startDate)}）';
+    }
+    return '交易明细（${_fmt(_startDate)} ~ ${_fmt(_endDate)}）';
+  }
+
+  Future<void> _queryRange() async {
+    if (_startDate.isAfter(_endDate)) {
+      showAppSnackBar(context, '开始日期不能晚于结束日期', severity: ToastSeverity.warning);
+      return;
+    }
+    setState(() => _isQuerying = true);
+    try {
+      final result = await ToolsDataManager.instance.queryYktRange(
+        widget.studentId,
+        widget.password,
+        start: _startDate,
+        end: _endDate,
+      );
+      if (!mounted) return;
+      if (result == null) {
+        showAppSnackBar(context, '查询失败', severity: ToastSeverity.error);
+        return;
+      }
+      setState(() {
+        _result = result;
+        _txns = result.transactions.reversed.toList();
+        _currentPage = 0;
+      });
+    } finally {
+      if (mounted) setState(() => _isQuerying = false);
+    }
+  }
+
+  String _rangeText() {
+    if (_startDate == _endDate) return _fmt(_startDate);
+    return '${_fmt(_startDate)} ~ ${_fmt(_endDate)}';
+  }
+
+  Widget _buildRangeField(FThemeData theme) {
+    return AppTextField(
+      controller: _rangeCtrl,
+      hint: '请选择日期范围',
+      readOnly: true,
+      enabled: !_isQuerying,
+      onTap: _pickRange,
+      suffix: _isQuerying
+          ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+          : const Icon(FLucideIcons.chevronDown),
+    );
+  }
+
+  Future<void> _pickRange() async {
+    final picked = await showAppSheet<(DateTime, DateTime)>(
+      context: context,
+      maxHeightRatio: 0.9,
+      builder: (ctx) => _YktRangeCalendarSheet(initial: (_startDate, _endDate)),
+    );
+    if (picked == null || !mounted) return;
+    final (start, end) = picked;
+    setState(() {
+      _startDate = start;
+      _endDate = end;
+      _currentPage = 0;
+      _rangeCtrl.text = _rangeText();
+    });
+    // 选中日期后自动查询。
+    await _queryRange();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
@@ -111,12 +198,17 @@ class _CampusCardPageState extends State<CampusCardPage> {
               _buildMetricCell(theme, '余额', '${bal.balance} 元'),
             ],
           ),
+          const SizedBox(height: AppSpacing.xl),
+          Text('交易明细', style: theme.typography.tileTitle),
+          const SizedBox(height: AppSpacing.md),
+          _buildRangeField(theme),
+          const SizedBox(height: AppSpacing.lg),
           if (_txns.isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xxl),
             Row(
               children: [
-                Text('交易明细（30天）', style: theme.typography.tileTitle),
-                const Spacer(),
+                Expanded(
+                  child: Text(_rangeLabel, style: theme.typography.tileTitle),
+                ),
                 AppIconButton(
                   icon: FLucideIcons.chevronLeft,
                   onPress: _currentPage > 0
@@ -141,7 +233,12 @@ class _CampusCardPageState extends State<CampusCardPage> {
             ),
             const SizedBox(height: AppSpacing.sm),
             ..._pageItems(_currentPage).map((t) => _buildTxnTile(theme, t)),
-          ],
+          ] else
+            const AppStateView(
+              icon: FLucideIcons.inbox,
+              title: '暂无交易',
+              description: '该时间范围内没有交易记录',
+            ),
         ],
       ),
     );
@@ -163,7 +260,14 @@ class _CampusCardPageState extends State<CampusCardPage> {
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(value, style: theme.typography.metric),
+          Text(
+            value,
+            style: theme.typography.body.sm.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -223,6 +327,106 @@ class _CampusCardPageState extends State<CampusCardPage> {
                     ),
                   ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 一个控件内选择「起止」一段日期的范围日历弹层。
+class _YktRangeCalendarSheet extends StatefulWidget {
+  final (DateTime, DateTime) initial;
+
+  const _YktRangeCalendarSheet({required this.initial});
+
+  @override
+  State<_YktRangeCalendarSheet> createState() => _YktRangeCalendarSheetState();
+}
+
+class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
+  late (DateTime, DateTime) _range;
+
+  @override
+  void initState() {
+    super.initState();
+    _range = widget.initial;
+  }
+
+  String _fmt(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Text(
+                '${_fmt(_range.$1)} ~ ${_fmt(_range.$2)}',
+                style: theme.typography.label.copyWith(
+                  color: theme.colors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            // 用 LayoutBuilder 让每个日期格随可用宽度自适应（7 列刚好铺满，不再挤压）。
+            // 不固定 6 行：按当月实际行数布局，出现空行的问题就不会有。
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const spacing = 2.0;
+                final size = ((constraints.maxWidth - spacing * 6) / 7).clamp(
+                  32.0,
+                  44.0,
+                );
+                return FCalendar.splitGrid(
+                  selectionControl: FDateSelectionControl.managedRange(
+                    initial: widget.initial,
+                    onChange: (range) {
+                      if (range != null) setState(() => _range = range);
+                    },
+                  ),
+                  style: FCalendarStyleDelta.delta(
+                    dayPickerStyle: FCalendarDayPickerStyleDelta.delta(
+                      daySize: Size.square(size),
+                      daySpacing: spacing,
+                    ),
+                  ),
+                  dayBuilder: (context, styles, localizations, date, variants) {
+                    if (variants.any(
+                      (v) => v == FCalendarDayVariant.adjacent,
+                    )) {
+                      return const SizedBox.shrink();
+                    }
+                    return FCalendar.defaultDayBuilder(
+                      context,
+                      styles,
+                      localizations,
+                      date,
+                      variants,
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: FButton(
+                onPress: () => Navigator.pop(context, _range),
+                child: const Text('确定'),
+              ),
             ),
           ],
         ),
