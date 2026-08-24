@@ -12,16 +12,12 @@ class SchoolCalendarPage extends StatelessWidget {
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
   static const _weekLabelWidth = 28.0;
   static const _rowHeight = 46.0;
-  static final _semesterStart = DateTime(2026, 8, 31);
-
-  /// 从 2026-08-31（第 1 周）起算周数。
-  int _weekOf(DateTime date) =>
-      ((date.difference(_semesterStart).inDays) ~/ 7) + 1;
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final days = schoolCalendarDays();
+    final calendar = semesterCalendar;
+    final days = calendar.days;
     if (days.isEmpty) {
       return AppPage(
         title: '校历',
@@ -68,7 +64,7 @@ class SchoolCalendarPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          _buildGrid(theme, days),
+          _buildGrid(theme, calendar),
         ],
       ),
     );
@@ -98,7 +94,8 @@ class SchoolCalendarPage extends StatelessWidget {
   }
 
   /// 整体网格：表头「周 + 一二三四五六日」在无背景行；下方是「左栏周列（连续背景）+ 日期网格」。
-  Widget _buildGrid(FThemeData theme, List<SchoolDay> days) {
+  Widget _buildGrid(FThemeData theme, SemesterCalendar calendar) {
+    final days = calendar.days;
     final offset = days.first.date.weekday - 1; // 1=周一 → 第 0 列
     final rowItems = <SchoolDay?>[...List.filled(offset, null), ...days];
     while (rowItems.length % 7 != 0) {
@@ -128,7 +125,7 @@ class SchoolCalendarPage extends StatelessWidget {
     final weekCells = <Widget>[];
     for (var i = 0; i < rowCount; i++) {
       final real = rowItems.sublist(i * 7, i * 7 + 7).whereType<SchoolDay>();
-      final week = real.isEmpty ? '' : '${_weekOf(real.first.date)}';
+      final week = real.isEmpty ? '' : '${calendar.weekOf(real.first.date)}';
       weekCells.add(
         SizedBox(
           height: _rowHeight,

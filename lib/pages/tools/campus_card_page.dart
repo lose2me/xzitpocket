@@ -130,6 +130,16 @@ class _CampusCardPageState extends State<CampusCardPage> {
         _txns = result.transactions.reversed.toList();
         _visibleCount = _pageSize;
       });
+    } on AuthException catch (e, stackTrace) {
+      talker.error('一卡通区间查询失败', e, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, e.message, severity: ToastSeverity.error);
+      }
+    } catch (e, stackTrace) {
+      talker.error('一卡通区间查询异常', e, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '查询失败', severity: ToastSeverity.error);
+      }
     } finally {
       if (mounted) setState(() => _isQuerying = false);
     }
@@ -339,19 +349,23 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
   late final List<int> _yearOptions;
   late final FGridSplitCalendarController _calendarController;
   late (DateTime, DateTime) _range;
+  DateTime? _pendingStart;
 
   @override
   void initState() {
     super.initState();
-    _range = widget.initial;
-
     final now = DateTime.now();
     _today = DateTime.utc(now.year, now.month, now.day);
     _admissionYear = _parseAdmissionYear(widget.studentId, _today.year);
     final admissionStart = DateTime.utc(_admissionYear, 6, 1);
-    _calendarStart = admissionStart.isAfter(_today)
-        ? DateTime.utc(_today.year, 1, 1)
-        : admissionStart;
+    _calendarStart = admissionStart.isAfter(_today) ? _today : admissionStart;
+    var start = _normalize(widget.initial.$1);
+    var end = _normalize(widget.initial.$2);
+    if (end.isBefore(start)) (start, end) = (end, start);
+    if (start.isBefore(_calendarStart)) start = _calendarStart;
+    if (end.isAfter(_today)) end = _today;
+    if (end.isBefore(start)) end = start;
+    _range = (start, end);
     _yearOptions = [
       for (var year = _admissionYear; year <= _today.year; year++) year,
     ];
@@ -378,6 +392,9 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  DateTime _normalize(DateTime value) =>
+      DateTime.utc(value.year, value.month, value.day);
 
   @override
   Widget build(BuildContext context) {
@@ -422,11 +439,10 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
                   fixedWeeks: false,
                   selectionControl: FDateSelectionControl.liftedRange(
                     value: _range,
-                    onChange: (range) {
-                      if (range != null && mounted) {
-                        setState(() => _range = range);
-                      }
-                    },
+                    // The sheet owns the two-step interaction below. Forui's
+                    // default range controller extends the existing range on
+                    // the first tap, which is surprising when reopening it.
+                    onChange: (_) {},
                   ),
                   style: FCalendarStyleDelta.delta(
                     dayPickerStyle: FCalendarDayPickerStyleDelta.delta(
@@ -435,6 +451,7 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
                     ),
                   ),
                   headerBuilder: _buildCalendarHeader,
+                  onDayPress: _selectDay,
                   dayBuilder: (context, styles, localizations, date, variants) {
                     if (variants.contains(FCalendarDayVariant.adjacent)) {
                       return const SizedBox.shrink();
@@ -473,6 +490,31 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
         ),
       ),
     );
+  }
+
+  void _selectDay(DateTime date) {
+    // Adjacent-month cells keep their hit target in Forui's grid even when
+    // their builder is hidden. They must not change the range shown here.
+    final currentMonth = _calendarController.currentMonth;
+    if (date.year != currentMonth.year || date.month != currentMonth.month) {
+      return;
+    }
+    final day = DateTime.utc(date.year, date.month, date.day);
+    final first = _pendingStart;
+    if (first == null) {
+      setState(() {
+        _pendingStart = day;
+        _range = (day, day);
+      });
+      return;
+    }
+
+    final start = day.isBefore(first) ? day : first;
+    final end = day.isBefore(first) ? first : day;
+    setState(() {
+      _pendingStart = null;
+      _range = (start, end);
+    });
   }
 
   Widget _buildCalendarHeader(
@@ -544,7 +586,10 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
   void _selectAll() {
     var start = DateTime.utc(_admissionYear, 6, 1);
     if (start.isAfter(_today)) start = _today;
-    setState(() => _range = (start, _today));
+    setState(() {
+      _pendingStart = null;
+      _range = (start, _today);
+    });
     _calendarController.jumpToDayPicker(start);
   }
 }

@@ -43,6 +43,14 @@ void main() {
     test('returns 0 long before semester', () {
       expect(currentWeek(semesterStart, reference: DateTime(2025, 1, 1)), 0);
     });
+
+    test('given a reference late on the semester-start date when calculating the week '
+        'then the time component does not change the result', () {
+      expect(
+        currentWeek(semesterStart, reference: DateTime(2026, 3, 2, 23, 59, 59)),
+        1,
+      );
+    });
   });
 
   group('weekDateRange', () {
@@ -81,10 +89,27 @@ void main() {
       expect(dates[0], DateTime(2026, 3, 16));
       expect(dates[6], DateTime(2026, 3, 22));
     });
+
+    test('given a Tuesday semester start when requesting week two '
+        'then dates continue from the following Monday', () {
+      expect(weekDates(DateTime(2026, 9, 1), 2), [
+        DateTime(2026, 9, 7),
+        DateTime(2026, 9, 8),
+        DateTime(2026, 9, 9),
+        DateTime(2026, 9, 10),
+        DateTime(2026, 9, 11),
+        DateTime(2026, 9, 12),
+        DateTime(2026, 9, 13),
+      ]);
+    });
   });
 
   group('getCurrentSchoolTerm', () {
-    test('fall start (>=Sept) is term 1 of that year', () {
+    test('fall start (>=Aug) is term 1 of that year', () {
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 8, 31)), (
+        2026,
+        1,
+      ));
       expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 9, 1)), (
         2026,
         1,
@@ -99,7 +124,7 @@ void main() {
       ));
     });
 
-    test('spring start (2-8月) is term 2 of previous academic year', () {
+    test('spring start (2-7月) is term 2 of previous academic year', () {
       expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 2, 1)), (
         2025,
         2,
@@ -108,14 +133,27 @@ void main() {
         2025,
         2,
       ));
-      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 8, 31)), (
+    });
+
+    test('given the month boundary when determining a school term '
+        'then July is spring and August is autumn', () {
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 1, 1)), (
         2025,
         2,
+      ));
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 7, 31)), (
+        2025,
+        2,
+      ));
+      expect(getCurrentSchoolTerm(semesterStart: DateTime(2026, 8, 1)), (
+        2026,
+        1,
       ));
     });
 
     test('uses the configured semester start when no argument is given', () {
-      // semester_config.semesterStartDate = 2026-09-01 (fall) -> (2026, 1)
+      // semesterStartDate is derived from the first school-calendar day:
+      // 2026-08-31 (fall) -> (2026, 1)
       expect(getCurrentSchoolTerm(), (2026, 1));
     });
   });

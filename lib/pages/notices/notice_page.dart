@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart' show MaterialPageRoute;
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
@@ -220,6 +222,7 @@ class NoticeGuideTab extends StatefulWidget {
 }
 
 class _NoticeGuideTabState extends State<NoticeGuideTab> {
+  static const _guideUrl = 'https://xuda.live/guide/';
   late final WebViewController _controller;
   ({String background, String foreground, String border, String mode})?
   _themeConfig;
@@ -254,6 +257,14 @@ class _NoticeGuideTabState extends State<NoticeGuideTab> {
   String _hex(Color color) =>
       '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
 
+  bool _isGuideUrl(String value) {
+    final uri = Uri.tryParse(value);
+    return uri != null &&
+        uri.scheme == 'https' &&
+        uri.host == 'xuda.live' &&
+        (uri.path == '/guide' || uri.path.startsWith('/guide/'));
+  }
+
   Future<void> _initController() async {
     await _controller.setJavaScriptMode(JavaScriptMode.unrestricted);
     await _controller.setNavigationDelegate(
@@ -268,19 +279,16 @@ class _NoticeGuideTabState extends State<NoticeGuideTab> {
         },
         onNavigationRequest: (request) {
           final url = request.url;
-          if (url.startsWith('https://xuda.live/guide/') ||
-              url == 'https://xuda.live/guide') {
+          if (_isGuideUrl(url)) {
             return NavigationDecision.navigate;
           }
           // 非指南页：重定向回指南首页。
-          unawaited(
-            _controller.loadRequest(Uri.parse('https://xuda.live/guide/')),
-          );
+          unawaited(_controller.loadRequest(Uri.parse(_guideUrl)));
           return NavigationDecision.prevent;
         },
       ),
     );
-    await _controller.loadRequest(Uri.parse('https://xuda.live/guide/'));
+    await _controller.loadRequest(Uri.parse(_guideUrl));
   }
 
   Future<void> _finishPageLoad() async {
@@ -297,7 +305,7 @@ class _NoticeGuideTabState extends State<NoticeGuideTab> {
     await _runJavaScript('''
       (function(){
         try {
-          var mode='${config.mode}';
+          var mode=${jsonEncode(config.mode)};
           localStorage.setItem('vuepress-theme-hope-scheme', mode);
           document.documentElement.setAttribute('data-theme', mode);
           document.documentElement.style.setProperty('color-scheme', mode, 'important');
@@ -312,13 +320,20 @@ class _NoticeGuideTabState extends State<NoticeGuideTab> {
     if (config == null) return;
     await _runJavaScript('''
       (function(){
-        var GUIDE='https://xuda.live/guide/';
+        var GUIDE=${jsonEncode(_guideUrl)};
         var STYLE_ID='xzitpocket-guide-theme';
+        function isGuideUrl(value){
+          try{
+            var u=new URL(value,location.href);
+            return u.protocol==='https:' && u.host==='xuda.live' &&
+              (u.pathname==='/guide'||u.pathname.indexOf('/guide/')===0);
+          }catch(e){return false;}
+        }
         window.__xzitPocketGuideConfig={
-          background:'${config.background}',
-          foreground:'${config.foreground}',
-          border:'${config.border}',
-          mode:'${config.mode}'
+          background:${jsonEncode(config.background)},
+          foreground:${jsonEncode(config.foreground)},
+          border:${jsonEncode(config.border)},
+          mode:${jsonEncode(config.mode)}
         };
 
         function hidePageChrome(){
@@ -397,7 +412,7 @@ class _NoticeGuideTabState extends State<NoticeGuideTab> {
             var a=ev.target.closest&&ev.target.closest('a');
             if(!a)return;
             var abs=a.href||'';
-            if(!abs||abs.indexOf(GUIDE)===0)return;
+            if(!abs||isGuideUrl(abs))return;
             ev.preventDefault();
             location.href=GUIDE;
           });

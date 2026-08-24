@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/course.dart';
+import '../../models/school_calendar.dart';
 import '../../ui/app_tokens.dart';
-import '../../utils/week_calculator.dart';
 import 'course_card.dart';
 import 'time_column.dart';
 
@@ -13,7 +13,8 @@ class TimetableGrid extends StatelessWidget {
   final int rotationTick;
   final bool showNonCurrentWeekCourses;
   final bool showWeekendColumns;
-  final DateTime semesterStart;
+
+  final SemesterCalendar calendar;
   final int slotCount;
   final int visibleSlots;
   final Set<int> hiddenSlots;
@@ -34,7 +35,7 @@ class TimetableGrid extends StatelessWidget {
     this.rotationTick = 0,
     this.showNonCurrentWeekCourses = false,
     this.showWeekendColumns = true,
-    required this.semesterStart,
+    required this.calendar,
     this.slotCount = 14,
     this.visibleSlots = 9,
     this.hiddenSlots = const {},
@@ -68,7 +69,7 @@ class TimetableGrid extends StatelessWidget {
     final otherWeekCourses = showNonCurrentWeekCourses
         ? indexedCourses.where((entry) => !entry.isCurrentWeek).toList()
         : const <_IndexedCourse>[];
-    final dates = weekDates(semesterStart, week);
+    final dates = calendar.weekDates(week);
     final today = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final nonCurrentCourseOpacity = (courseOpacity * 0.38)

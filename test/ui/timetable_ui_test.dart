@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:xzitpocket/models/course.dart';
+import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/pages/timetable/course_form_page.dart';
 import 'package:xzitpocket/pages/timetable/course_picker_sheet.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
@@ -22,7 +23,7 @@ void main() {
         TimetableGrid(
           courses: const [],
           week: 1,
-          semesterStart: DateTime(2026, 8, 10),
+          calendar: semesterCalendar,
           borderColor: AppTheme.light.colors.border,
         ),
       ),

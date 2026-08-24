@@ -118,6 +118,12 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
       name = Uri.parse(attachment.url).pathSegments.last;
     }
     name = name.replaceAll(RegExp(r'[/\\:*?"<>|\n\r]'), '_');
+    // Keep files from different URLs separate even when WebPlus gives every
+    // embedded document the same generic name (for example "附件.pdf").
+    final dot = name.lastIndexOf('.');
+    final stem = dot > 0 ? name.substring(0, dot) : name;
+    final extension = dot > 0 ? name.substring(dot) : '';
+    name = '$stem-${_stableHash(attachment.url)}$extension';
     final file = File('${dir.path}/$name');
     if (requirePdf && await file.exists() && !await _isPdf(file)) {
       await file.delete();
@@ -155,6 +161,7 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
     try {
       doc = await PdfDocument.openFile(path);
       final document = doc;
+      if (document.pagesCount <= 0) return images;
       // pdfx exposes PDF page numbers as 1-based (the first page is 1).
       for (
         var pageNumber = 1;
@@ -163,9 +170,15 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
       ) {
         final page = await document.getPage(pageNumber);
         try {
+          // 按设备像素密度放大，确保高分屏上文字清晰；保底 1600、上限 2800，
+          // 避免低分屏或超大页面造成内存暴涨。
+          final dpr = MediaQuery.devicePixelRatioOf(context);
+          final maxWidth = (AppLayout.resultMaxWidth * dpr)
+              .clamp(1600.0, 2800.0);
+          final scale = page.width > maxWidth ? maxWidth / page.width : 1.0;
           final image = await page.render(
-            width: page.width,
-            height: page.height,
+            width: page.width * scale,
+            height: page.height * scale,
             format: PdfPageImageFormat.png,
             backgroundColor: '#FFFFFF',
           );
@@ -178,6 +191,14 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
       await doc?.close();
     }
     return images;
+  }
+
+  String _stableHash(String value) {
+    var hash = 0;
+    for (final codeUnit in value.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0x7fffffff;
+    }
+    return hash.toRadixString(16);
   }
 
   Future<void> _openAttachment(NoticeAttachment attachment) async {

@@ -1,4 +1,8 @@
-/// 校历信息：一学期的每日标记（数据源于 fmd/semester_calendar.json）。
+/// 校历信息：一学期的每日标记。
+///
+/// The source snapshot is kept in `fmd/semester_calendar.json`; this compact
+/// const representation is used at runtime so the app does not need to parse
+/// an additional asset on every startup.
 class SchoolDay {
   final DateTime date;
   final int weekday; // 1=周一 … 7=周日
@@ -168,8 +172,15 @@ class SemesterCalendar {
   final DateTime end;
 
   SemesterCalendar(this.days)
-    : start = days.isEmpty ? DateTime(2026, 8, 31) : days.first.date,
-      end = days.isEmpty ? DateTime(2027, 1, 10) : days.last.date;
+    : start = days.isEmpty ? DateTime(2026, 8, 31) : _mondayOf(days.first.date),
+      end = days.isEmpty ? DateTime(2027, 1, 10) : _dateOnly(days.last.date);
+
+  /// 学期实际开学日，即校历数据中的第一天。
+  ///
+  /// [start] 是用于周号计算的第 1 周周一；当校历第一天不是周一时，
+  /// 两者会不同。需要向教务系统或小组件传递学期起点时，应使用此属性。
+  DateTime get semesterStartDate =>
+      days.isEmpty ? start : _dateOnly(days.first.date);
 
   /// 学期总周数（第 1 周 = 从 start 起的 7 天段）。
   int get totalWeeks =>
@@ -177,7 +188,7 @@ class SemesterCalendar {
 
   /// [date] 在第几周；未开学返回 0。
   int weekOf(DateTime date) {
-    final diff = date.difference(start).inDays;
+    final diff = _dateOnly(date).difference(start).inDays;
     if (diff < 0) return 0;
     return (diff ~/ 7) + 1;
   }
@@ -186,6 +197,12 @@ class SemesterCalendar {
   (DateTime, DateTime) weekRange(int week) {
     final monday = start.add(Duration(days: (week - 1) * 7));
     return (monday, monday.add(const Duration(days: 6)));
+  }
+
+  /// The seven dates in the given week, Monday through Sunday.
+  List<DateTime> weekDates(int week) {
+    final (monday, _) = weekRange(week);
+    return List.generate(7, (index) => monday.add(Duration(days: index)));
   }
 
   /// 第 [week] 周的所有日。
@@ -206,6 +223,14 @@ class SemesterCalendar {
   }
 
   bool get hasStarted => weekOf(DateTime.now()) > 0;
+}
+
+DateTime _dateOnly(DateTime value) =>
+    DateTime(value.year, value.month, value.day);
+
+DateTime _mondayOf(DateTime value) {
+  final date = _dateOnly(value);
+  return date.subtract(Duration(days: date.weekday - 1));
 }
 
 /// 全局学期日历（从内置校历数据构建）。

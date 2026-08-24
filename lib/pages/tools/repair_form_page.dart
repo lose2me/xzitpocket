@@ -31,6 +31,7 @@ class RepairFormPage extends StatefulWidget {
 }
 
 class _RepairFormPageState extends State<RepairFormPage> {
+  static const _maxRepairTreeDepth = 12;
   final _service = RepairService();
   final _picker = ImagePicker();
   final _addressCtrl = TextEditingController();
@@ -38,6 +39,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
   final _areaCtrl = TextEditingController();
   final _itemCtrl = TextEditingController();
   final _images = <XFile>[];
+  final _areaChildrenCache = <String, Future<List<RepairArea>>>{};
+  final _itemChildrenCache = <String, Future<List<RepairItem>>>{};
   String? _tutorial;
 
   CasSession? _session;
@@ -184,7 +187,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     final top = await _fetchTopAreas();
     final result = <WheelChoice<RepairArea>>[];
     for (final area in top) {
-      await _collectAreaChoices(area, [area.name], result);
+      await _collectAreaChoices(area, [area.name], result, depth: 0);
     }
     return result;
   }
@@ -192,25 +195,40 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Future<void> _collectAreaChoices(
     RepairArea area,
     List<String> path,
-    List<WheelChoice<RepairArea>> out,
-  ) async {
+    List<WheelChoice<RepairArea>> out, {
+    required int depth,
+    Set<String> ancestors = const {},
+  }) async {
+    if (depth >= _maxRepairTreeDepth || ancestors.contains(area.id)) {
+      out.add(WheelChoice(label: path.join(' > '), value: area));
+      return;
+    }
     final children = await _loadChildAreasSafe(area.id);
     if (children.isEmpty) {
       out.add(WheelChoice(label: path.join(' > '), value: area));
       return;
     }
+    final nextAncestors = {...ancestors, area.id};
     for (final child in children) {
-      await _collectAreaChoices(child, [...path, child.name], out);
+      await _collectAreaChoices(
+        child,
+        [...path, child.name],
+        out,
+        depth: depth + 1,
+        ancestors: nextAncestors,
+      );
     }
   }
 
   Future<List<RepairArea>> _loadChildAreasSafe(String areaId) async {
-    try {
-      return await _service.getChildAreas(_session!, areaId);
-    } catch (e, stackTrace) {
-      talker.debug('报修子区域获取失败，按叶子节点处理', e, stackTrace);
-      return const [];
-    }
+    return _areaChildrenCache.putIfAbsent(areaId, () async {
+      try {
+        return await _service.getChildAreas(_session!, areaId);
+      } catch (e, stackTrace) {
+        talker.debug('报修子区域获取失败，按叶子节点处理', e, stackTrace);
+        return const [];
+      }
+    });
   }
 
   /// 单列滚轮选择：把整棵树合并成一个输入框，一次滚动选中最终地点。
@@ -251,7 +269,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     final rootItems = await _loadRootItemsSafe();
     final result = <WheelChoice<RepairItem>>[];
     for (final item in rootItems) {
-      await _collectItemChoices(item, [item.name], result);
+      await _collectItemChoices(item, [item.name], result, depth: 0);
     }
     return result;
   }
@@ -271,25 +289,40 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Future<void> _collectItemChoices(
     RepairItem item,
     List<String> path,
-    List<WheelChoice<RepairItem>> out,
-  ) async {
+    List<WheelChoice<RepairItem>> out, {
+    required int depth,
+    Set<String> ancestors = const {},
+  }) async {
+    if (depth >= _maxRepairTreeDepth || ancestors.contains(item.id)) {
+      out.add(WheelChoice(label: path.join(' > '), value: item));
+      return;
+    }
     final children = await _loadChildItemsSafe(item.id);
     if (children.isEmpty) {
       out.add(WheelChoice(label: path.join(' > '), value: item));
       return;
     }
+    final nextAncestors = {...ancestors, item.id};
     for (final child in children) {
-      await _collectItemChoices(child, [...path, child.name], out);
+      await _collectItemChoices(
+        child,
+        [...path, child.name],
+        out,
+        depth: depth + 1,
+        ancestors: nextAncestors,
+      );
     }
   }
 
   Future<List<RepairItem>> _loadChildItemsSafe(String itemId) async {
-    try {
-      return await _service.getChildItems(_session!, itemId);
-    } catch (e, stackTrace) {
-      talker.debug('报修子项目获取失败，按叶子节点处理', e, stackTrace);
-      return const [];
-    }
+    return _itemChildrenCache.putIfAbsent(itemId, () async {
+      try {
+        return await _service.getChildItems(_session!, itemId);
+      } catch (e, stackTrace) {
+        talker.debug('报修子项目获取失败，按叶子节点处理', e, stackTrace);
+        return const [];
+      }
+    });
   }
 
   /// 单列滚轮选择：把报修项目整棵树合并成一个输入框，一次滚动选中。

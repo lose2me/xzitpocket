@@ -2,6 +2,33 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xzitpocket/services/hqgl_service.dart';
 
 void main() {
+  test('parseListHtml accepts flexible WebPlus list markup', () {
+    const html = '''
+      <ul>
+        <li class="foo liebiao bar">
+          <span class="date">2026-08-24</span>
+          <a title="公告标题" href="../news/page.htm"><strong>公告标题</strong></a>
+        </li>
+      </ul>
+      <em class="per_count">每页 14 条</em>
+      <em class="all_count">共 29 条</em>
+    ''';
+
+    final page = HqglService.parseListHtml(
+      html,
+      pageUrl: 'https://hqglc.xzit.edu.cn/3585/list.htm',
+      page: 2,
+    );
+
+    expect(page.page, 2);
+    expect(page.perPage, 14);
+    expect(page.total, 29);
+    expect(page.totalPages, 3);
+    expect(page.items.single.title, '公告标题');
+    expect(page.items.single.date, '2026-08-24');
+    expect(page.items.single.url, 'https://hqglc.xzit.edu.cn/news/page.htm');
+  });
+
   group('HqglService.parseDetailHtml', () {
     test('parses WebPlus pdf player and attachment markup', () {
       const html = '''

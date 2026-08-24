@@ -75,11 +75,20 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
       await attDir.create(recursive: true);
 
       var fileName = attachment.name.trim();
-      if (fileName.isEmpty) {
-        fileName = attachment.url.split('/').last;
+      final uri = Uri.tryParse(attachment.url);
+      final urlName = uri == null || uri.pathSegments.isEmpty
+          ? ''
+          : Uri.decodeComponent(uri.pathSegments.last);
+      if (fileName.isEmpty ||
+          !RegExp(r'\.[A-Za-z0-9]{1,8}$').hasMatch(fileName)) {
+        fileName = urlName.isEmpty ? 'attachment' : urlName;
       }
-      // 清理文件名中的非法字符
+      // 清理文件名中的非法字符，并避免不同 URL 的同名附件互相覆盖。
       fileName = fileName.replaceAll(RegExp(r'[/\\:*?"<>|\n\r]'), '_');
+      final dot = fileName.lastIndexOf('.');
+      final stem = dot > 0 ? fileName.substring(0, dot) : fileName;
+      final extension = dot > 0 ? fileName.substring(dot) : '';
+      fileName = '$stem-${_stableHash(attachment.url)}$extension';
 
       final file = File('${attDir.path}/$fileName');
       if (!await file.exists()) {
@@ -99,6 +108,14 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
     } finally {
       if (mounted) setState(() => _downloadingIndex = null);
     }
+  }
+
+  String _stableHash(String value) {
+    var hash = 0;
+    for (final codeUnit in value.codeUnits) {
+      hash = (hash * 31 + codeUnit) & 0x7fffffff;
+    }
+    return hash.toRadixString(16);
   }
 
   @override

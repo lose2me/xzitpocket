@@ -36,11 +36,6 @@ class HqglService {
   static const baseUrl = 'https://hqglc.xzit.edu.cn';
   static const listColumnPath = '/3585';
 
-  static final _listItemReg = RegExp(
-    r'<li class="liebiao">\s*<a href="([^"]+)">([^<]+)</a>\s*<span>([\d-]+)</span>',
-  );
-  static final _perCountReg = RegExp(r'class="per_count"[^>]*>(\d+)</em>');
-  static final _allCountReg = RegExp(r'class="all_count"[^>]*>(\d+)</em>');
   static final _attachmentExtensionReg = RegExp(
     r'\.(docx?|xlsx?|pptx?|pdf|zip|rar|7z|txt|wps|et)$',
     caseSensitive: false,
@@ -75,28 +70,42 @@ class HqglService {
       throw const NoticeException('后勤公告页面为空');
     }
 
+    return parseListHtml(html, pageUrl: url, page: page);
+  }
+
+  /// Parses a server-rendered list page without performing network I/O.
+  static NoticePage parseListHtml(
+    String html, {
+    required String pageUrl,
+    required int page,
+  }) {
+    final pageUri = Uri.parse(pageUrl);
+    final doc = html_parser.parse(html);
     final items = <NoticeItem>[];
-    for (final m in _listItemReg.allMatches(html)) {
-      final href = m.group(1)?.trim() ?? '';
-      final title = m.group(2)?.trim() ?? '';
-      final date = m.group(3)?.trim() ?? '';
+    for (final li in doc.querySelectorAll('li.liebiao')) {
+      final a = li.querySelector('a[href]');
+      final href = a?.attributes['href']?.trim() ?? '';
+      final title = a?.text.trim() ?? '';
+      final date =
+          RegExp(r'\d{4}-\d{1,2}-\d{1,2}')
+              .firstMatch(li.querySelector('span')?.text ?? li.text)
+              ?.group(0) ??
+          '';
       if (href.isEmpty || title.isEmpty) continue;
       items.add(
-        NoticeItem(
-          title: title,
-          url: _resolveUrl(href, Uri.parse(baseUrl)),
-          date: date,
-        ),
+        NoticeItem(title: title, url: _resolveUrl(href, pageUri), date: date),
       );
     }
 
-    final perPage =
-        int.tryParse(_perCountReg.firstMatch(html)?.group(1) ?? '') ?? 14;
-    final total =
-        int.tryParse(_allCountReg.firstMatch(html)?.group(1) ?? '') ??
-        items.length;
+    final perPage = _parseCount(doc.querySelector('.per_count'), 14);
+    final total = _parseCount(doc.querySelector('.all_count'), items.length);
 
     return NoticePage(items: items, page: page, perPage: perPage, total: total);
+  }
+
+  static int _parseCount(html_dom.Element? element, int fallback) {
+    final value = RegExp(r'\d+').firstMatch(element?.text ?? '')?.group(0);
+    return int.tryParse(value ?? '') ?? fallback;
   }
 
   /// 抓取后勤处公告详情：正文 = 内嵌 PDF（bodyPdfs），其余 /upload 链接为附件。

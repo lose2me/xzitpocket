@@ -20,7 +20,7 @@ enum ToastSeverity {
   error,
 }
 
-/// 右上角抽屉式 toast 队列（最新的在最上方，最多同时显示 3 条）。
+/// 右上角抽屉式 toast 队列（始终只保留最新的一条）。
 final List<_ToastData> _queue = [];
 OverlayEntry? _hostEntry;
 final ValueNotifier<int> _revision = ValueNotifier(0);
@@ -49,11 +49,12 @@ void showAppSnackBar(
   // 在调用方的 context 里判断是否处于“有底部导航”的根页面，
   // 而不是在复用的 Overlay host 里判断，避免详情页无导航栏时仍被当作有导航栏。
   final showAboveNavBar = !Navigator.of(context).canPop();
-  // 插入 Navigator 的 Overlay（rootOverlay: false），
-  // 这样 toast 显示在页面之上，且其 context 向上能找到 Navigator（用于判断底部导航）。
-  final overlay = Overlay.of(context);
+  // 始终挂到根 Overlay，避免第一个 toast 来自详情页的子 Overlay 时，
+  // 后续路由切换把整个 toast 宿主一起卸载。
+  final overlay = Overlay.of(context, rootOverlay: true);
   // 仅在 host 不存在时创建并插入，避免重复插入同一 OverlayEntry 导致崩溃。
-  if (_hostEntry == null) {
+  if (_hostEntry?.mounted != true) {
+    _hostEntry?.remove();
     _hostEntry = OverlayEntry(
       builder: (_) => ValueListenableBuilder<int>(
         valueListenable: _revision,
@@ -96,7 +97,7 @@ class _ToastHost extends StatelessWidget {
     // forui FBottomNavigationBar 基础高度 ≈ 61px（icon 24 + padding 5×2 + spacing 2 + 文字 ≈15 + bar padding 5×2）
     final navBarHeight = 61.0 + viewPadding.bottom * 2 / 3;
     // 根页面（有底部导航）toast 贴导航栏上缘；push 出的详情页无底部导航则贴屏幕底部。
-    final hasBottomNav = toasts.isEmpty ? false : toasts.last.showAboveNavBar;
+    final hasBottomNav = toasts.isEmpty ? false : toasts.first.showAboveNavBar;
 
     return IgnorePointer(
       // 让 toast 完全穿透点击/滑动，不遮挡任何操作。
@@ -110,7 +111,7 @@ class _ToastHost extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final t in toasts.take(3))
+                for (final t in toasts)
                   _ToastItem(
                     key: ValueKey(t),
                     data: t,

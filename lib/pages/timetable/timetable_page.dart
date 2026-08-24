@@ -5,7 +5,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
-import '../../constants/semester_config.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../providers/auth_provider.dart';
@@ -269,7 +268,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         rotationTick: _conflictRotationTick,
                         showNonCurrentWeekCourses: showNonCurrentWeekCourses,
                         showWeekendColumns: showWeekendColumns,
-                        semesterStart: semesterStartDate,
+                        calendar: semesterCalendar,
                         hiddenSlots: hide56 ? const {5, 6} : const {},
                         countdownAnimation: _conflictCountdownController,
                         borderColor: courseBorderColor,
