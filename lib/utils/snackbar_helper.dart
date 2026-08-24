@@ -135,8 +135,7 @@ class _ToastItem extends StatefulWidget {
   State<_ToastItem> createState() => _ToastItemState();
 }
 
-class _ToastItemState extends State<_ToastItem>
-    with SingleTickerProviderStateMixin {
+class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
   late final AnimationController _expandController;
   late final Animation<double> _expand;
   late final AnimationController _progressController;

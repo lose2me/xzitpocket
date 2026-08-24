@@ -15,15 +15,23 @@ import '../../ui/app_components.dart';
 
 class NoticeDetailPage extends StatefulWidget {
   final NoticeItem item;
+  final Future<NoticeDetail> Function(String url) fetchDetail;
+  final Future<void> Function(String url, String path) downloadAttachment;
 
-  const NoticeDetailPage({super.key, required this.item});
+  NoticeDetailPage({
+    super.key,
+    required this.item,
+    Future<NoticeDetail> Function(String url)? fetchDetail,
+    Future<void> Function(String url, String path)? downloadAttachment,
+  }) : fetchDetail = fetchDetail ?? NoticeService().fetchDetail,
+       downloadAttachment =
+           downloadAttachment ?? NoticeService().downloadAttachment;
 
   @override
   State<NoticeDetailPage> createState() => _NoticeDetailPageState();
 }
 
 class _NoticeDetailPageState extends State<NoticeDetailPage> {
-  final _service = NoticeService();
   NoticeDetail? _detail;
   bool _loading = true;
   int? _downloadingIndex;
@@ -37,7 +45,7 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final detail = await _service.fetchDetail(widget.item.url);
+      final detail = await widget.fetchDetail(widget.item.url);
       if (!mounted) return;
       setState(() => _detail = detail);
     } on Exception catch (e, stackTrace) {
@@ -75,7 +83,7 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
 
       final file = File('${attDir.path}/$fileName');
       if (!await file.exists()) {
-        await _service.downloadAttachment(attachment.url, file.path);
+        await widget.downloadAttachment(attachment.url, file.path);
       }
 
       if (!mounted) return;

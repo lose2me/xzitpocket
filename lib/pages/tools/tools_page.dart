@@ -20,6 +20,7 @@ import 'network_management_page.dart';
 import 'power_query_page.dart';
 import 'repair_page.dart';
 import 'teacher_evaluation_page.dart';
+import 'school_calendar_page.dart';
 
 class ToolsPage extends ConsumerStatefulWidget {
   const ToolsPage({super.key});
@@ -190,6 +191,15 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     ),
   );
 
+  Future<void> _openSchoolCalendar() async {
+    await Navigator.of(context).push(
+      appRoute(
+        name: AppRouteNames.schoolCalendar,
+        builder: (_) => const SchoolCalendarPage(),
+      ),
+    );
+  }
+
   Future<void> _openJp() async {
     if (!_manager.isCampusNetworkAvailable) return;
     await _openTool(
@@ -333,6 +343,13 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
             title: '极速报修',
             loading: _manager.repairLoading,
             onTap: _openRepair,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildSimpleCard(
+            theme,
+            icon: FLucideIcons.calendarDays,
+            title: '校历',
+            onTap: _openSchoolCalendar,
           ),
           const SizedBox(height: AppSpacing.md),
           _buildSimpleCard(

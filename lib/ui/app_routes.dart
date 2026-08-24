@@ -6,6 +6,7 @@ abstract final class AppRouteNames {
   static const debugLogs = '/about/debug-logs';
   static const licenses = '/about/licenses';
   static const teacherEvaluation = '/tools/teacher-evaluation';
+  static const schoolCalendar = '/tools/school-calendar';
   static const campusCard = '/tools/campus-card';
   static const electricity = '/tools/electricity';
   static const exams = '/tools/exams';
