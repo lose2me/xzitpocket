@@ -160,3 +160,55 @@ List<SchoolDay> schoolCalendarDays() => [
       festival: festival,
     ),
 ];
+
+/// 基于校历数据的学期日历：提供周号、周区间、该周假期等查询。
+class SemesterCalendar {
+  final List<SchoolDay> days;
+  final DateTime start;
+  final DateTime end;
+
+  SemesterCalendar(this.days)
+    : start = days.isEmpty ? DateTime(2026, 8, 31) : days.first.date,
+      end = days.isEmpty ? DateTime(2027, 1, 10) : days.last.date;
+
+  /// 学期总周数（第 1 周 = 从 start 起的 7 天段）。
+  int get totalWeeks =>
+      days.isEmpty ? 0 : ((end.difference(start).inDays) ~/ 7) + 1;
+
+  /// [date] 在第几周；未开学返回 0。
+  int weekOf(DateTime date) {
+    final diff = date.difference(start).inDays;
+    if (diff < 0) return 0;
+    return (diff ~/ 7) + 1;
+  }
+
+  /// 第 [week] 周的周一~周日。
+  (DateTime, DateTime) weekRange(int week) {
+    final monday = start.add(Duration(days: (week - 1) * 7));
+    return (monday, monday.add(const Duration(days: 6)));
+  }
+
+  /// 第 [week] 周的所有日。
+  List<SchoolDay> daysOfWeek(int week) {
+    final (monday, sunday) = weekRange(week);
+    return days
+        .where((d) => !d.date.isBefore(monday) && !d.date.isAfter(sunday))
+        .toList();
+  }
+
+  /// 第 [week] 周内的特殊节日名（去重）。
+  List<String> festivalNamesInWeek(int week) {
+    final seen = <String>{};
+    for (final d in daysOfWeek(week)) {
+      if (d.festival != null) seen.add(d.festival!);
+    }
+    return seen.toList();
+  }
+
+  bool get hasStarted => weekOf(DateTime.now()) > 0;
+}
+
+/// 全局学期日历（从内置校历数据构建）。
+final SemesterCalendar semesterCalendar = SemesterCalendar(
+  schoolCalendarDays(),
+);

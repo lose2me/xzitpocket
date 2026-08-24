@@ -29,9 +29,10 @@ class CampusCardPage extends StatefulWidget {
 
 class _CampusCardPageState extends State<CampusCardPage> {
   static const _pageSize = 7;
-  int _currentPage = 0;
   bool _isRefreshing = false;
   bool _isQuerying = false;
+  final _scrollController = ScrollController();
+  int _visibleCount = _pageSize;
 
   late YktDetailResult _result;
   late List<YktTransaction> _txns;
@@ -47,10 +48,12 @@ class _CampusCardPageState extends State<CampusCardPage> {
     _endDate = DateTime.now();
     _startDate = _endDate.subtract(const Duration(days: 30));
     _rangeCtrl.text = _rangeText();
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _rangeCtrl.dispose();
     super.dispose();
   }
@@ -71,7 +74,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
       setState(() {
         _result = result;
         _txns = result.transactions.reversed.toList();
-        _currentPage = 0;
+        _visibleCount = _pageSize;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('一卡通详情刷新失败', e, stackTrace);
@@ -88,23 +91,21 @@ class _CampusCardPageState extends State<CampusCardPage> {
     }
   }
 
-  int get _totalPages => (_txns.length / _pageSize).ceil().clamp(1, 999);
-
-  List<YktTransaction> _pageItems(int page) {
-    final start = page * _pageSize;
-    final end = (start + _pageSize).clamp(0, _txns.length);
-    return _txns.sublist(start, end);
+  // 滚动接近底部时，自动加载更多交易。
+  void _onScroll() {
+    if (!mounted || _visibleCount >= _txns.length) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 240) {
+      setState(() {
+        _visibleCount = (_visibleCount + _pageSize)
+            .clamp(0, _txns.length)
+            .toInt();
+      });
+    }
   }
 
   String _fmt(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  String get _rangeLabel {
-    if (_startDate == _endDate) {
-      return '交易明细（${_fmt(_startDate)}）';
-    }
-    return '交易明细（${_fmt(_startDate)} ~ ${_fmt(_endDate)}）';
-  }
 
   Future<void> _queryRange() async {
     if (_startDate.isAfter(_endDate)) {
@@ -127,7 +128,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
       setState(() {
         _result = result;
         _txns = result.transactions.reversed.toList();
-        _currentPage = 0;
+        _visibleCount = _pageSize;
       });
     } finally {
       if (mounted) setState(() => _isQuerying = false);
@@ -156,14 +157,17 @@ class _CampusCardPageState extends State<CampusCardPage> {
     final picked = await showAppSheet<(DateTime, DateTime)>(
       context: context,
       maxHeightRatio: 0.9,
-      builder: (ctx) => _YktRangeCalendarSheet(initial: (_startDate, _endDate)),
+      builder: (ctx) => _YktRangeCalendarSheet(
+        initial: (_startDate, _endDate),
+        studentId: widget.studentId,
+      ),
     );
     if (picked == null || !mounted) return;
     final (start, end) = picked;
     setState(() {
       _startDate = start;
       _endDate = end;
-      _currentPage = 0;
+      _visibleCount = _pageSize;
       _rangeCtrl.text = _rangeText();
     });
     // 选中日期后自动查询。
@@ -189,6 +193,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
+        controller: _scrollController,
         children: [
           Text('卡片信息', style: theme.typography.pageTitle),
           const SizedBox(height: AppSpacing.md),
@@ -204,35 +209,13 @@ class _CampusCardPageState extends State<CampusCardPage> {
           _buildRangeField(theme),
           const SizedBox(height: AppSpacing.lg),
           if (_txns.isNotEmpty) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: Text(_rangeLabel, style: theme.typography.tileTitle),
-                ),
-                AppIconButton(
-                  icon: FLucideIcons.chevronLeft,
-                  onPress: _currentPage > 0
-                      ? () => setState(() => _currentPage--)
-                      : null,
-                  tooltip: '上一页',
-                  size: FButtonSizeVariant.xs,
-                ),
-                Text(
-                  '${_currentPage + 1}/$_totalPages',
-                  style: theme.typography.label,
-                ),
-                AppIconButton(
-                  icon: FLucideIcons.chevronRight,
-                  onPress: _currentPage < _totalPages - 1
-                      ? () => setState(() => _currentPage++)
-                      : null,
-                  tooltip: '下一页',
-                  size: FButtonSizeVariant.xs,
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            ..._pageItems(_currentPage).map((t) => _buildTxnTile(theme, t)),
+            for (final t in _txns.take(_visibleCount)) _buildTxnTile(theme, t),
+            if (_visibleCount < _txns.length) ...[
+              const SizedBox(height: AppSpacing.md),
+              const Center(
+                child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+              ),
+            ],
           ] else
             const AppStateView(
               icon: FLucideIcons.inbox,
@@ -316,7 +299,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
                     fontWeight: FontWeight.w600,
                     color: isNeg
                         ? theme.colors.destructive
-                        : theme.colors.primary,
+                        : theme.colors.semantic.success,
                   ),
                 ),
                 if (t.balance.isNotEmpty)
@@ -338,20 +321,59 @@ class _CampusCardPageState extends State<CampusCardPage> {
 /// 一个控件内选择「起止」一段日期的范围日历弹层。
 class _YktRangeCalendarSheet extends StatefulWidget {
   final (DateTime, DateTime) initial;
+  final String studentId;
 
-  const _YktRangeCalendarSheet({required this.initial});
+  const _YktRangeCalendarSheet({
+    required this.initial,
+    required this.studentId,
+  });
 
   @override
   State<_YktRangeCalendarSheet> createState() => _YktRangeCalendarSheetState();
 }
 
 class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
+  late final int _admissionYear;
+  late final DateTime _today;
+  late final DateTime _calendarStart;
+  late final List<int> _yearOptions;
+  late final FGridSplitCalendarController _calendarController;
   late (DateTime, DateTime) _range;
 
   @override
   void initState() {
     super.initState();
     _range = widget.initial;
+
+    final now = DateTime.now();
+    _today = DateTime.utc(now.year, now.month, now.day);
+    _admissionYear = _parseAdmissionYear(widget.studentId, _today.year);
+    final admissionStart = DateTime.utc(_admissionYear, 6, 1);
+    _calendarStart = admissionStart.isAfter(_today)
+        ? DateTime.utc(_today.year, 1, 1)
+        : admissionStart;
+    _yearOptions = [
+      for (var year = _admissionYear; year <= _today.year; year++) year,
+    ];
+    _calendarController = FGridSplitCalendarController(
+      start: _calendarStart,
+      today: _today,
+      initial: _today,
+      end: _today,
+    );
+  }
+
+  @override
+  void dispose() {
+    _calendarController.dispose();
+    super.dispose();
+  }
+
+  static int _parseAdmissionYear(String studentId, int currentYear) {
+    final prefix = RegExp(r'^\d{2}').firstMatch(studentId.trim())?.group(0);
+    final shortYear = prefix == null ? null : int.tryParse(prefix);
+    final year = shortYear == null ? currentYear : 2000 + shortYear;
+    return year.clamp(2000, currentYear).toInt();
   }
 
   String _fmt(DateTime d) =>
@@ -381,20 +403,29 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            // 用 LayoutBuilder 让每个日期格随可用宽度自适应（7 列刚好铺满，不再挤压）。
-            // 不固定 6 行：按当月实际行数布局，出现空行的问题就不会有。
             LayoutBuilder(
               builder: (context, constraints) {
                 const spacing = 2.0;
-                final size = ((constraints.maxWidth - spacing * 6) / 7).clamp(
-                  32.0,
-                  44.0,
-                );
+                final calendarPadding = context.theme.calendarStyle.padding
+                    .resolve(Directionality.of(context));
+                final size =
+                    ((constraints.maxWidth -
+                                calendarPadding.horizontal -
+                                spacing * 6) /
+                            7)
+                        .clamp(32.0, 44.0)
+                        .toDouble();
                 return FCalendar.splitGrid(
-                  selectionControl: FDateSelectionControl.managedRange(
-                    initial: widget.initial,
+                  control: FGridSplitCalendarControl(
+                    controller: _calendarController,
+                  ),
+                  fixedWeeks: false,
+                  selectionControl: FDateSelectionControl.liftedRange(
+                    value: _range,
                     onChange: (range) {
-                      if (range != null) setState(() => _range = range);
+                      if (range != null && mounted) {
+                        setState(() => _range = range);
+                      }
                     },
                   ),
                   style: FCalendarStyleDelta.delta(
@@ -403,10 +434,9 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
                       daySpacing: spacing,
                     ),
                   ),
+                  headerBuilder: _buildCalendarHeader,
                   dayBuilder: (context, styles, localizations, date, variants) {
-                    if (variants.any(
-                      (v) => v == FCalendarDayVariant.adjacent,
-                    )) {
+                    if (variants.contains(FCalendarDayVariant.adjacent)) {
                       return const SizedBox.shrink();
                     }
                     return FCalendar.defaultDayBuilder(
@@ -421,16 +451,100 @@ class _YktRangeCalendarSheetState extends State<_YktRangeCalendarSheet> {
               },
             ),
             const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: FButton(
-                onPress: () => Navigator.pop(context, _range),
-                child: const Text('确定'),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: FButton(
+                    variant: .outline,
+                    onPress: _selectAll,
+                    child: const Text('选择全部'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: FButton(
+                    onPress: () => Navigator.pop(context, _range),
+                    child: const Text('确定'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildCalendarHeader(
+    BuildContext context,
+    FGridSplitCalendarController controller,
+    FDateSelectionController selection,
+    Widget child,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        FButton(
+          variant: .ghost,
+          size: .sm,
+          mainAxisSize: .min,
+          suffix: const Icon(FLucideIcons.chevronDown),
+          onPress: () => _pickYear(controller),
+          child: Text('${controller.currentMonth.year}年'),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          '${controller.currentMonth.month}月',
+          style: context.theme.typography.tileTitle.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickYear(FGridSplitCalendarController controller) async {
+    final selected = await showAppSheet<int>(
+      context: context,
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.md,
+        ),
+        child: FSelectTileGroup<int>(
+          control: FMultiValueControl.managedRadio(
+            initial: controller.currentMonth.year,
+            onChange: (values) {
+              if (values.isNotEmpty) {
+                Navigator.pop(sheetContext, values.first);
+              }
+            },
+          ),
+          maxHeight: 360,
+          children: [
+            for (final year in _yearOptions)
+              FSelectTile<int>.suffix(title: Text('$year年'), value: year),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || selected == null) return;
+    _jumpToYear(controller, selected);
+  }
+
+  void _jumpToYear(FGridSplitCalendarController controller, int year) {
+    final minMonth = year == _calendarStart.year ? _calendarStart.month : 1;
+    final maxMonth = year == _today.year ? _today.month : 12;
+    final month = controller.currentMonth.month.clamp(minMonth, maxMonth);
+    controller.jumpToDayPicker(DateTime.utc(year, month));
+  }
+
+  void _selectAll() {
+    var start = DateTime.utc(_admissionYear, 6, 1);
+    if (start.isAfter(_today)) start = _today;
+    setState(() => _range = (start, _today));
+    _calendarController.jumpToDayPicker(start);
   }
 }

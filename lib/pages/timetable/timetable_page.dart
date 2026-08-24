@@ -7,6 +7,7 @@ import 'package:forui/forui.dart';
 
 import '../../constants/semester_config.dart';
 import '../../models/course.dart';
+import '../../models/school_calendar.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
@@ -16,7 +17,6 @@ import 'timetable_providers.dart';
 import '../../services/widget_service.dart';
 import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
-import '../../utils/week_calculator.dart';
 import '../../widgets/week_header.dart';
 import '../../ui/app_components.dart';
 import 'course_form_page.dart';
@@ -44,7 +44,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   @override
   void initState() {
     super.initState();
-    final initialWeek = currentWeek(semesterStartDate)
+    final initialWeek = semesterCalendar
+        .weekOf(DateTime.now())
         .clamp(1, _maxDisplayWeek());
     _pageController = PageController(initialPage: initialWeek - 1);
     _conflictCountdownController = AnimationController(
@@ -75,7 +76,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   void jumpToCurrentWeek() {
     final maxWeek = _maxDisplayWeek();
-    final week = currentWeek(semesterStartDate).clamp(1, maxWeek);
+    final week = semesterCalendar.weekOf(DateTime.now()).clamp(1, maxWeek);
     if (_pageController.hasClients) {
       _pageController.jumpToPage(week - 1);
     }
@@ -90,7 +91,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   int _maxDisplayWeek() {
     final courses = ref.read(scheduleProvider).value ?? [];
-    int max = currentWeek(semesterStartDate).clamp(1, 52);
+    int max = semesterCalendar.totalWeeks;
     for (final c in courses) {
       for (final w in c.weeks) {
         if (w > max) max = w;
@@ -175,7 +176,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   Widget _buildEmptyView() {
     final isLoggedIn = ref.watch(configProvider).studentId != null;
-    final semesterNotStarted = currentWeek(semesterStartDate) == 0;
+    final semesterNotStarted = !semesterCalendar.hasStarted;
 
     IconData icon;
     String title;
@@ -240,7 +241,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         child: Column(
           children: [
             WeekHeader(
-              semesterStart: semesterStartDate,
+              calendar: semesterCalendar,
               selectedWeek: selectedWeek,
               onSync: _isSyncing ? null : _onSync,
             ),

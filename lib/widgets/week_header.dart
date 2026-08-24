@@ -1,17 +1,18 @@
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
+import '../models/school_calendar.dart';
 import '../ui/app_components.dart';
-import '../utils/week_calculator.dart';
 
+/// 课表顶部周信息：显示当前日期、第 N 周、该周日期范围与节日（数据来自校历）。
 class WeekHeader extends StatelessWidget {
-  final DateTime semesterStart;
+  final SemesterCalendar calendar;
   final int selectedWeek;
   final VoidCallback? onSync;
 
   const WeekHeader({
     super.key,
-    required this.semesterStart,
+    required this.calendar,
     required this.selectedWeek,
     this.onSync,
   });
@@ -20,9 +21,20 @@ class WeekHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final theme = context.theme;
+    final cw = calendar.weekOf(today);
+    final beforeStart = cw <= 0;
 
-    final cw = currentWeek(semesterStart);
-    final isBeforeStart = cw <= 0;
+    final safeWeek = selectedWeek.clamp(1, calendar.totalWeeks);
+    final (monday, sunday) = beforeStart
+        ? (today, today)
+        : calendar.weekRange(safeWeek);
+    final festivals = beforeStart
+        ? const <String>[]
+        : calendar.festivalNamesInWeek(safeWeek);
+    final rangeText = beforeStart
+        ? ''
+        : '${monday.month}/${monday.day}–${sunday.month}/${sunday.day}';
+    final festivalText = festivals.isEmpty ? '' : '  ·  ${festivals.join('、')}';
 
     return AppContentFrame(
       safeArea: false,
@@ -42,7 +54,11 @@ class WeekHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.micro),
                 Text(
-                  isBeforeStart ? '未开学' : '第$selectedWeek周',
+                  beforeStart
+                      ? '未开学'
+                      : '第$selectedWeek周 $rangeText$festivalText',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.typography.caption.copyWith(
                     color: theme.colors.mutedForeground,
                   ),

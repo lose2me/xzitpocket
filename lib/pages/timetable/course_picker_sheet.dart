@@ -193,9 +193,12 @@ class _CourseWeekPickerSheetState extends State<CourseWeekPickerSheet> {
             if (custom) ...[
               const SizedBox(height: AppSpacing.md),
               SizedBox(
-                height: ((widget.maxWeek + 4) ~/ 5 * 44)
-                    .clamp(44, 220)
-                    .toDouble(),
+                height: (() {
+                  final rows = (widget.maxWeek / 5).ceil();
+                  return (rows * 36.0 + (rows - 1) * AppSpacing.sm)
+                      .clamp(44.0, 220.0)
+                      .toDouble();
+                })(),
                 child: GridView.builder(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 5,

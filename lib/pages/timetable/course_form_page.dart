@@ -230,7 +230,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
       : '第$_startSession-$_endSession节';
 
   Future<void> _openWeekPicker() async {
-    final maxWeek = math.max(20, _weeks.last);
+    final maxWeek = math.max(24, _weeks.last);
     final selected = await showAppSheet<List<int>>(
       context: context,
       maxHeightRatio: 0.82,

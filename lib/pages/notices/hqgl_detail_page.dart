@@ -64,7 +64,7 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
         _preparingBodyPdfs = detail.bodyPdfs.isNotEmpty;
       });
       await _prepareBodyPdfs(detail);
-    } on Exception catch (e, stackTrace) {
+    } catch (e, stackTrace) {
       talker.error('后勤公告详情加载失败', e, stackTrace);
       if (mounted) {
         showAppSnackBar(context, '加载失败', severity: ToastSeverity.error);
@@ -90,12 +90,12 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
             throw const FormatException('PDF 没有可渲染页面');
           }
           if (mounted) setState(() => _bodyPageImages.addAll(pages));
-        } on Exception catch (e, stackTrace) {
+        } catch (e, stackTrace) {
           talker.error('后勤公告正文 PDF 处理失败\n${pdf.url}', e, stackTrace);
           if (mounted) setState(() => _failedBodyPdfUrls.add(pdf.url));
         }
       }
-    } on Exception catch (e, stackTrace) {
+    } catch (e, stackTrace) {
       talker.error('后勤公告正文 PDF 初始化失败', e, stackTrace);
       if (mounted) {
         setState(
@@ -155,8 +155,13 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
     try {
       doc = await PdfDocument.openFile(path);
       final document = doc;
-      for (var i = 0; i < document.pagesCount; i++) {
-        final page = await document.getPage(i);
+      // pdfx exposes PDF page numbers as 1-based (the first page is 1).
+      for (
+        var pageNumber = 1;
+        pageNumber <= document.pagesCount;
+        pageNumber++
+      ) {
+        final page = await document.getPage(pageNumber);
         try {
           final image = await page.render(
             width: page.width,
@@ -187,7 +192,7 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
       if (result.type != ResultType.done && mounted) {
         showAppSnackBar(context, '打开附件失败', severity: ToastSeverity.error);
       }
-    } on Exception catch (e, stackTrace) {
+    } catch (e, stackTrace) {
       talker.error('打开后勤附件失败', e, stackTrace);
       if (mounted) {
         showAppSnackBar(context, '打开附件失败', severity: ToastSeverity.error);
