@@ -126,7 +126,7 @@ class NoticePageState extends State<NoticePage> {
           expands: true,
           style: const FTabsStyleDelta.delta(spacing: 0),
           children: [
-            FTabEntry(label: const Text('通知公告'), child: _buildNoticeTab(theme)),
+            FTabEntry(label: const Text('官网'), child: _buildNoticeTab(theme)),
             FTabEntry(label: const Text('后勤处'), child: const HqglNoticeTab()),
             FTabEntry(label: const Text('指南'), child: const NoticeGuideTab()),
           ],

@@ -262,6 +262,22 @@ class NoticeService {
         out.write('\n');
         return;
       }
+      if (name == 'img') {
+        final src =
+            (node.attributes['src'] ??
+            node.attributes['data-src'] ??
+            node.attributes['original-src'] ??
+            '')
+                .trim();
+        if (src.isNotEmpty) {
+          final alt = (node.attributes['alt'] ?? '').trim();
+          // 相对路径（如 /_upload/...）补全为绝对地址，否则 MarkdownBody 无法加载。
+          final abs =
+              Uri.tryParse(src)?.hasScheme == true ? src : '$baseUrl$src';
+          out.write('\n\n![${_escapeImageAlt(alt)}](${_imageUrl(abs)})\n\n');
+        }
+        return;
+      }
       if (name == 'strong' || name == 'b' || name == 'i' || name == 'em') {
         // 不渲染加粗/斜体，内容按普通文本输出。
         for (final child in node.nodes) {
@@ -350,6 +366,20 @@ class NoticeService {
     _emailReg,
     (m) => m.group(0)!.replaceAll('@', r'\@'),
   );
+
+  /// 图片 alt 文本：转义会破坏 `![alt](url)` 的字符。
+  String _escapeImageAlt(String alt) => alt
+      .replaceAll('\\', r'\\')
+      .replaceAll('[', r'\[')
+      .replaceAll(']', r'\]');
+
+  /// 图片 URL：含空格或括号等特殊字符时用尖括号包裹，避免截断 Markdown 链接。
+  String _imageUrl(String url) => url.contains(' ') ||
+          url.contains(')') ||
+          url.contains('<') ||
+          url.contains('>')
+      ? '<$url>'
+      : url;
 
   /// 提取元素的纯文本（清理空白，并转义邮箱避免渲染为链接）。
   String _nodePlainText(html_dom.Element element) => _escapeEmails(

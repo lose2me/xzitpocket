@@ -124,14 +124,7 @@ class ProfileSettingsToggleTile extends StatelessWidget with FTileMixin {
       title: Text(title),
       suffix: ExcludeSemantics(
         child: IgnorePointer(
-          child: SizedBox(
-            width: 40,
-            height: 24,
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: FSwitch(value: value),
-            ),
-          ),
+          child: FSwitch(value: value),
         ),
       ),
       onPress: () => onChange(!value),

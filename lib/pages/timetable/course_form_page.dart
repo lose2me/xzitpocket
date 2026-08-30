@@ -89,6 +89,56 @@ class _CourseFormPageState extends State<CourseFormPage> {
     return '#${argb.substring(2).toUpperCase()}';
   }
 
+  /// 解析当前 HEX 输入值（#RRGGBB），非法返回 null。
+  Color? _parsedColor() {
+    final text = _colorCtrl.text;
+    if (!RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(text)) return null;
+    return Color(int.parse('FF${text.substring(1)}', radix: 16));
+  }
+
+  void _applyColor(Color color) {
+    _colorCtrl.text = _colorToHex(color);
+    _colorCtrl.selection = TextSelection.collapsed(
+      offset: _colorCtrl.text.length,
+    );
+    setState(() {});
+  }
+
+  /// 快捷调色板：横向滑动，点击圆圈直接把 HEX 输入值改成对应颜色。
+  Widget _buildColorSwatches() {
+    final selected = _parsedColor();
+    return SizedBox(
+      height: 32,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final color in Course.colors) ...[
+              GestureDetector(
+                onTap: () => _applyColor(color),
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: color == selected
+                          ? context.theme.colors.primary
+                          : context.theme.colors.border,
+                      width: color == selected ? 1.5 : 1,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _titleCtrl.dispose();
@@ -107,40 +157,39 @@ class _CourseFormPageState extends State<CourseFormPage> {
     return AppPage(
       title: widget.isEditing ? '编辑课程' : '添加课程',
       actions: [
-        FHeaderAction(
-          icon: const Icon(FLucideIcons.check),
-          semanticsLabel: '保存',
-          onPress: _save,
-        ),
+        if (widget.onDelete != null)
+          FHeaderAction(
+            icon: const Icon(FLucideIcons.trash2),
+            semanticsLabel: '删除',
+            onPress: _confirmDelete,
+          ),
       ],
-      footer: widget.onDelete != null
-          ? SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppLayout.pageGutter(context),
-                  AppSpacing.sm,
-                  AppLayout.pageGutter(context),
-                  AppSpacing.md,
-                ),
-                child: Align(
-                  heightFactor: 1,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: AppLayout.formMaxWidth,
-                    ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: FButton(
-                        variant: FButtonVariant.destructive,
-                        onPress: _confirmDelete,
-                        child: const Text('删除课程'),
-                      ),
-                    ),
-                  ),
+      footer: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppLayout.pageGutter(context),
+            0,
+            AppLayout.pageGutter(context),
+            AppSpacing.md,
+          ),
+          child: Align(
+            heightFactor: 1,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppLayout.formMaxWidth,
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: FButton(
+                  variant: FButtonVariant.primary,
+                  onPress: _save,
+                  child: const Text('确定'),
                 ),
               ),
-            )
-          : null,
+            ),
+          ),
+        ),
+      ),
       child: Form(
         key: _formKey,
         child: AppPageListView(
@@ -213,6 +262,8 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 return null;
               },
             ),
+            const SizedBox(height: 20),
+            _buildColorSwatches(),
           ],
         ),
       ),

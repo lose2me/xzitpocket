@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show compute;
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
+import 'package:image/image.dart' as img;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdfx/pdfx.dart';
@@ -13,6 +15,29 @@ import '../../services/notice_service.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+
+/// 按固定比例裁掉 PDF 页面两侧边缘，让内容放大后铺满宽度展示。
+/// 每侧裁掉页宽的 [_pdfSideCropRatio]，结果确定、可控。
+const double _pdfSideCropRatio = 0.08;
+
+Uint8List trimPdfSideMargins(Uint8List pngBytes) {
+  final image = img.decodeImage(pngBytes);
+  if (image == null || image.width < 2) return pngBytes;
+
+  final w = image.width;
+  final h = image.height;
+  final crop = (w * _pdfSideCropRatio).round();
+  if (crop <= 0 || crop * 2 >= w) return pngBytes;
+
+  final cropped = img.copyCrop(
+    image,
+    x: crop,
+    y: 0,
+    width: w - crop * 2,
+    height: h,
+  );
+  return img.encodePng(cropped);
+}
 
 /// 后勤处公告详情：正文是「内嵌 PDF」，把它每一页渲染成图片，和页面一起滚动；
 /// 其余文件超链接作为附件，样式与「通知公告」一致，可下载并用系统打开。
@@ -157,6 +182,8 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
   /// 渲染 PDF 每一页为 PNG 图片。
   Future<List<Uint8List>> _renderPdfPages(String path) async {
     final images = <Uint8List>[];
+    // 提前读取像素密度，避免跨 await 使用 BuildContext。
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     PdfDocument? doc;
     try {
       doc = await PdfDocument.openFile(path);
@@ -170,9 +197,6 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
       ) {
         final page = await document.getPage(pageNumber);
         try {
-          // 按设备像素密度放大，确保高分屏上文字清晰；保底 1600、上限 2800，
-          // 避免低分屏或超大页面造成内存暴涨。
-          final dpr = MediaQuery.devicePixelRatioOf(context);
           final maxWidth = (AppLayout.resultMaxWidth * dpr)
               .clamp(1600.0, 2800.0);
           final scale = page.width > maxWidth ? maxWidth / page.width : 1.0;
@@ -182,7 +206,9 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
             format: PdfPageImageFormat.png,
             backgroundColor: '#FFFFFF',
           );
-          if (image != null) images.add(image.bytes);
+          if (image != null) {
+            images.add(await compute(trimPdfSideMargins, image.bytes));
+          }
         } finally {
           await page.close();
         }
@@ -220,6 +246,13 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
       }
     } finally {
       if (mounted) setState(() => _openingUrl = null);
+    }
+  }
+
+  Future<void> _copyUrl() async {
+    await Clipboard.setData(ClipboardData(text: widget.item.url));
+    if (mounted) {
+      showAppSnackBar(context, '链接已复制', severity: ToastSeverity.success);
     }
   }
 
@@ -281,7 +314,14 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
     final detail = _detail;
 
     return AppPage(
-      title: '后勤公告',
+      title: '后勤处通知',
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.link2,
+          onPress: _copyUrl,
+          tooltip: '复制链接',
+        ),
+      ],
       child: _loading
           ? const AppPageBody(
               child: Center(
@@ -296,19 +336,28 @@ class _HqglDetailPageState extends State<HqglDetailPage> {
                 if (detail != null) ...[
                   Text(
                     detail.title,
-                    style: theme.typography.pageTitle.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: theme.typography.pageTitle,
                   ),
                   if (detail.date.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      detail.date,
-                      style: theme.typography.body.sm.copyWith(
-                        color: theme.colors.mutedForeground,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          detail.date,
+                          style: theme.typography.body.sm.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
+                        ),
+                        const Spacer(),
+                      ],
                     ),
                   ],
+                  const SizedBox(height: AppSpacing.lg),
+                  Container(
+                    width: double.infinity,
+                    height: 1,
+                    color: theme.colors.border,
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   if (detail.content.isEmpty &&
                       detail.bodyPdfs.isEmpty &&

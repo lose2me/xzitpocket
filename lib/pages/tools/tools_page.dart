@@ -348,7 +348,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
           _buildSimpleCard(
             theme,
             icon: FLucideIcons.calendarDays,
-            title: '校历',
+            title: '26上学期校历',
             onTap: _openSchoolCalendar,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -547,11 +547,21 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        '一卡通查询',
-                        style: theme.typography.bodySmall.copyWith(
-                          color: theme.colors.mutedForeground,
-                        ),
+                      Row(
+                        children: [
+                          Icon(
+                            FLucideIcons.creditCard,
+                            size: 16,
+                            color: theme.colors.mutedForeground,
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            '一卡通查询',
+                            style: theme.typography.bodySmall.copyWith(
+                              color: theme.colors.mutedForeground,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
@@ -586,23 +596,20 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
     String statusText;
     TextStyle? statusStyle;
-    if (!hasRoom) {
+    // 先检测校园网连接，再考虑是否已填写宿舍号。
+    if (!campusAvailable) {
+      statusText = campusChecking ? '正在检测校园网' : '请连接校园网';
+      statusStyle = theme.typography.bodySmall.copyWith(
+        color: theme.colors.mutedForeground,
+      );
+    } else if (!hasRoom) {
       statusText = '请先在「我的」中设置宿舍号';
       statusStyle = theme.typography.bodySmall.copyWith(
         color: theme.colors.mutedForeground,
       );
     } else if (data != null) {
-      statusText = campusAvailable
-          ? '${data.available} 度'
-          : '${data.available} 度（缓存）';
+      statusText = '${data.available} 度';
       statusStyle = theme.typography.metric;
-    } else if (!campusAvailable) {
-      statusText = campusChecking ? '正在检测校园网' : '请连接校园网';
-      statusStyle = theme.typography.bodySmall.copyWith(
-        color: campusChecking
-            ? theme.colors.mutedForeground
-            : theme.colors.semantic.warning,
-      );
     } else if (_manager.powerLoading) {
       statusText = '';
       statusStyle = null;
@@ -638,11 +645,21 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '电费查询',
-                  style: theme.typography.bodySmall.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
+                Row(
+                  children: [
+                    Icon(
+                      FLucideIcons.zap,
+                      size: 16,
+                      color: theme.colors.mutedForeground,
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Text(
+                      '电费查询',
+                      style: theme.typography.bodySmall.copyWith(
+                        color: theme.colors.mutedForeground,
+                      ),
+                    ),
+                  ],
                 ),
                 if (_manager.powerLoading && hasRoom && data == null)
                   const Padding(

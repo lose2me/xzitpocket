@@ -124,10 +124,10 @@ class _NoticeDetailPageState extends State<NoticeDetailPage> {
     final detail = _detail;
 
     return AppPage(
-      title: '公告详情',
+      title: '官网通知',
       actions: [
         AppIconButton(
-          icon: FLucideIcons.copy,
+          icon: FLucideIcons.link2,
           onPress: _copyUrl,
           tooltip: '复制链接',
         ),
