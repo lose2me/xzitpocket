@@ -27,35 +27,39 @@ class TimeColumn extends StatelessWidget {
           final slot = kTimeSlots[i];
           return SizedBox(
             height: cellHeight,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '${slot.index}',
-                  style: theme.typography.caption.copyWith(
-                    fontSize: 12,
-                    height: 4 / 3,
-                    fontWeight: FontWeight.w600,
-                    color: theme.colors.mutedForeground,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${slot.index}',
+                    style: theme.typography.caption.copyWith(
+                      fontSize: 12,
+                      height: 4 / 3,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colors.mutedForeground,
+                    ),
                   ),
-                ),
-                Text(
-                  slot.start,
-                  style: theme.typography.caption.copyWith(
-                    fontSize: 11,
-                    height: 14 / 11,
-                    color: theme.colors.mutedForeground,
+                  Text(
+                    slot.start,
+                    style: theme.typography.caption.copyWith(
+                      fontSize: 11,
+                      height: 14 / 11,
+                      color: theme.colors.mutedForeground,
+                    ),
                   ),
-                ),
-                Text(
-                  slot.end,
-                  style: theme.typography.caption.copyWith(
-                    fontSize: 11,
-                    height: 14 / 11,
-                    color: theme.colors.mutedForeground,
+                  Text(
+                    slot.end,
+                    style: theme.typography.caption.copyWith(
+                      fontSize: 11,
+                      height: 14 / 11,
+                      color: theme.colors.mutedForeground,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         }),

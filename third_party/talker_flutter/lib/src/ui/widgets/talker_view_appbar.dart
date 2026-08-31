@@ -169,66 +169,70 @@ class _TalkerViewAppBarState extends State<TalkerViewAppBar>
         background: SafeArea(
           child: Padding(
             padding: const EdgeInsets.only(top: 60),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: GroupButton(
-                    key: _groupButtonKey,
-                    controller: _bcontroller,
-                    isRadio: false,
-                    buttonBuilder: (selected, key, context) {
-                      final count = widget.keys.where((e) => e == key).length;
-                      final title = key != null
-                          ? widget.talker.settings.getTitleByKey(key)
-                          : '未定义';
-                      return Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border:
-                              Border.all(color: widget.talkerTheme.textColor),
-                          borderRadius: BorderRadius.circular(10),
-                          color: selected
-                              ? theme.colorScheme.primaryContainer
-                              : widget.talkerTheme.cardColor,
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              '$count',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: widget.talkerTheme.textColor,
+            child: OverflowBox(
+              alignment: Alignment.topCenter,
+              maxHeight: double.infinity,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: GroupButton(
+                      key: _groupButtonKey,
+                      controller: _bcontroller,
+                      isRadio: false,
+                      buttonBuilder: (selected, key, context) {
+                        final count = widget.keys.where((e) => e == key).length;
+                        final title = key != null
+                            ? widget.talker.settings.getTitleByKey(key)
+                            : '未定义';
+                        return Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            border:
+                                Border.all(color: widget.talkerTheme.textColor),
+                            borderRadius: BorderRadius.circular(10),
+                            color: selected
+                                ? theme.colorScheme.primaryContainer
+                                : widget.talkerTheme.cardColor,
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                '$count',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: widget.talkerTheme.textColor,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              title,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: widget.talkerTheme.textColor,
+                              const SizedBox(width: 4),
+                              Text(
+                                title,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: widget.talkerTheme.textColor,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    onSelected: (_, i, selected) => _onToggleKey(
-                      uniqKeys[i],
-                      selected,
+                            ],
+                          ),
+                        );
+                      },
+                      onSelected: (_, i, selected) => _onToggleKey(
+                        uniqKeys[i],
+                        selected,
+                      ),
+                      buttons: uniqKeys,
                     ),
-                    buttons: uniqKeys,
                   ),
-                ),
-                const SizedBox(height: _padding),
-                _SearchTextField(
-                  key: _searchTextFieldKey,
-                  controller: widget.controller,
-                  talkerTheme: widget.talkerTheme,
-                ),
-              ],
+                  const SizedBox(height: _padding),
+                  _SearchTextField(
+                    key: _searchTextFieldKey,
+                    controller: widget.controller,
+                    talkerTheme: widget.talkerTheme,
+                  ),
+                ],
+              ),
             ),
           ),
         ),

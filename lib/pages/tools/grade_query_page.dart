@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
@@ -53,7 +54,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         _result = grades;
         _academic = academic;
         _yearIndex = 0;
-        _termIndex = 0;
+        // 默认显示最新学期：最新学年 + 该学年最后一个学期
+        final latestYear = grades.years.isNotEmpty ? grades.years.first : null;
+        final latestTerms = latestYear == null
+            ? const <String>[]
+            : (grades.termsByYear[latestYear] ?? const <String>[]);
+        _termIndex = latestTerms.isEmpty ? 0 : latestTerms.length - 1;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('学业情况查询失败', e, stackTrace);
@@ -119,7 +125,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           children: [
             FTabEntry(label: const Text('学科成绩'), child: _buildGradeTab(theme)),
             FTabEntry(
-              label: const Text('学业详细'),
+              label: const Text('学业总览'),
               child: _buildAcademicTab(theme),
             ),
           ],
@@ -148,11 +154,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   Widget _buildHeader(FThemeData theme, List<GradeItem> grades) {
-    final years = _result?.years ?? [];
-    final terms = _terms;
-    final yi = _yearIndex.clamp(0, years.length - 1);
-    final ti = _termIndex.clamp(0, terms.length - 1);
-
     var totalCredit = 0.0;
     var weightedSum = 0.0;
     for (final g in grades) {
@@ -171,98 +172,125 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         AppSpacing.sm,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (grades.isNotEmpty)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  '该学期学分',
-                  style: theme.typography.body.sm.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                FBadge(
-                  variant: FBadgeVariant.outline,
-                  child: Text(totalCredit.toStringAsFixed(1)),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  '该学期绩点',
-                  style: theme.typography.body.sm.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                FBadge(
-                  variant: FBadgeVariant.outline,
-                  child: Text('${gpa.toStringAsFixed(2)} / 5.0'),
-                ),
-              ],
-            ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _pager(
-                theme,
-                label: years.isNotEmpty ? years[yi] : '',
-                canPrev: yi > 0,
-                canNext: yi < years.length - 1,
-                onPrev: () => setState(() {
-                  _yearIndex = yi - 1;
-                  _termIndex = 0;
-                }),
-                onNext: () => setState(() {
-                  _yearIndex = yi + 1;
-                  _termIndex = 0;
-                }),
-              ),
-              const SizedBox(width: 8),
-              _pager(
-                theme,
-                label: terms.isNotEmpty ? '第${terms[ti]}学期' : '',
-                canPrev: ti > 0,
-                canNext: ti < terms.length - 1,
-                onPrev: () => setState(() => _termIndex = ti - 1),
-                onNext: () => setState(() => _termIndex = ti + 1),
-              ),
-            ],
-          ),
+          // 学年+学期 二合一：横向滚动选择栏
+          _buildSemesterSelector(theme),
+          if (grades.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            // 学分/绩点摘要：无边框、小字号，位于选择栏下方
+            _buildSummaryRow(theme, totalCredit, gpa),
+          ],
         ],
       ),
     );
   }
 
-  Widget _pager(
+  /// 学年 + 学期 合并成单个选项（新→旧），供滚动选择栏直接选择。
+  List<({int yearIndex, int termIndex, String label})> get _semesterOptions {
+    final options = <({int yearIndex, int termIndex, String label})>[];
+    final years = _result?.years ?? [];
+    for (var y = 0; y < years.length; y++) {
+      final terms =
+          _result?.termsByYear[years[y]] ?? const <String>[];
+      // 同一学年内按学期倒序，让"最新学期"排在最前，默认选中即第一项。
+      for (var t = terms.length - 1; t >= 0; t--) {
+        options.add((
+          yearIndex: y,
+          termIndex: t,
+          label: '${years[y]} ${terms[t]}',
+        ));
+      }
+    }
+    return options;
+  }
+
+  Widget _buildSemesterSelector(FThemeData theme) {
+    final options = _semesterOptions;
+    if (options.isEmpty) return const SizedBox.shrink();
+    final selectedOption = options.indexWhere(
+      (o) => o.yearIndex == _yearIndex && o.termIndex == _termIndex,
+    );
+    return SizedBox(
+      width: double.infinity,
+      height: 38,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(
+          children: [
+            for (var i = 0; i < options.length; i++) ...[
+              _semesterChip(
+                theme,
+                label: options[i].label,
+                selected: i == selectedOption,
+                onTap: () => setState(() {
+                  _yearIndex = options[i].yearIndex;
+                  _termIndex = options[i].termIndex;
+                }),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _semesterChip(
     FThemeData theme, {
     required String label,
-    required bool canPrev,
-    required bool canNext,
-    required VoidCallback onPrev,
-    required VoidCallback onNext,
+    required bool selected,
+    required VoidCallback onTap,
   }) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppIconButton(
-          icon: FLucideIcons.chevronLeft,
-          onPress: canPrev ? onPrev : null,
-          tooltip: '上一项',
-          size: FButtonSizeVariant.xs,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? theme.colors.primary : theme.colors.card,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(
+            color: selected ? theme.colors.primary : theme.colors.border,
+          ),
         ),
-        Text(
+        child: Text(
           label,
-          style: theme.typography.body.md.copyWith(fontWeight: FontWeight.w600),
+          style: theme.typography.body.sm.copyWith(
+            fontWeight: FontWeight.w600,
+            color: selected
+                ? theme.colors.primaryForeground
+                : theme.colors.mutedForeground,
+          ),
         ),
-        AppIconButton(
-          icon: FLucideIcons.chevronRight,
-          onPress: canNext ? onNext : null,
-          tooltip: '下一项',
-          size: FButtonSizeVariant.xs,
-        ),
-      ],
+      ),
+    );
+  }
+
+  /// 学分 / 绩点摘要行：无边框胶囊、小字号，左对齐。
+  Widget _buildSummaryRow(FThemeData theme, double totalCredit, double gpa) {
+    // 学分靠左、绩点靠右，与下方成绩卡片左右边缘对齐。
+    return SizedBox(
+      width: double.infinity,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '该学期学分 ${totalCredit.toStringAsFixed(1)}',
+            style: theme.typography.body.xs.copyWith(
+              color: theme.colors.mutedForeground,
+            ),
+          ),
+          Text(
+            '该学期绩点 ${gpa.toStringAsFixed(2)} / 5.0',
+            style: theme.typography.body.xs.copyWith(
+              color: theme.colors.mutedForeground,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -462,21 +490,17 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
             ],
           ),
         ),
-        SizedBox(
-          width: 36,
-          height: 36,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(width: 36, child: FDeterminateProgress(value: progress)),
-              Text(
-                '$pct%',
-                style: theme.typography.body.xs.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 9,
-                ),
-              ),
-            ],
+        _RingProgress(
+          progress: progress,
+          size: 36,
+          trackColor: theme.colors.border,
+          color: theme.colors.primary,
+          center: Text(
+            '$pct%',
+            style: theme.typography.body.xs.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 9,
+            ),
           ),
         ),
       ],
@@ -511,24 +535,102 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
             ],
           ),
         ),
-        SizedBox(
-          width: 36,
-          height: 36,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(width: 36, child: FDeterminateProgress(value: progress)),
-              Text(
-                '$pct%',
-                style: theme.typography.body.xs.copyWith(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 9,
-                ),
-              ),
-            ],
+        _RingProgress(
+          progress: progress,
+          size: 36,
+          trackColor: theme.colors.border,
+          color: theme.colors.primary,
+          center: Text(
+            '$pct%',
+            style: theme.typography.body.xs.copyWith(
+              fontWeight: FontWeight.w600,
+              fontSize: 9,
+            ),
           ),
         ),
       ],
     );
+  }
+}
+
+/// 确定圆形进度环，中心展示 [center]（通常为百分比）。
+class _RingProgress extends StatelessWidget {
+  const _RingProgress({
+    required this.progress,
+    this.size = 36,
+    required this.trackColor,
+    required this.color,
+    this.center,
+  });
+
+  final double progress;
+  final double size;
+  final Color trackColor;
+  final Color color;
+  final Widget? center;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: Size.square(size),
+            painter: _RingPainter(
+              progress: progress.clamp(0.0, 1.0),
+              trackColor: trackColor,
+              color: color,
+            ),
+          ),
+          ?center,
+        ],
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  const _RingPainter({
+    required this.progress,
+    required this.trackColor,
+    required this.color,
+  });
+
+  final double progress;
+  final Color trackColor;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final stroke = size.width * 0.12;
+    if (stroke <= 0) return;
+    final center = size.center(Offset.zero);
+    final radius = (size.width - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final track = Paint()
+      ..color = trackColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke;
+    canvas.drawCircle(center, radius, track);
+
+    if (progress > 0) {
+      final arc = Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * progress, false, arc);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.trackColor != trackColor ||
+        oldDelegate.color != color;
   }
 }

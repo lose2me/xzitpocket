@@ -16,6 +16,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # vendored 第三方包，不参与本项目的 lint（避免 use_super_parameters 等 info 干扰 CI）
+    - third_party/**
 include: package:flutter_lints/flutter.yaml
 
 linter:
