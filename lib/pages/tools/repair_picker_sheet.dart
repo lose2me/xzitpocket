@@ -37,42 +37,45 @@ class _SingleWheelSheetState<T> extends State<SingleWheelSheet<T>> {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
+          AppSpacing.md,
           AppSpacing.lg,
           AppSpacing.lg,
-          AppSpacing.xl,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(widget.title, style: theme.typography.tileTitle),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              height: 200,
-              child: FPicker(
-                control: FPickerControl.lifted(
-                  indexes: [_index],
-                  onChange: (indexes) => setState(() => _index = indexes.first),
-                ),
-                children: [
-                  FPickerWheel(
-                    semanticsLabel: widget.title,
-                    children: [
-                      for (final choice in widget.choices) Text(choice.label),
-                    ],
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(widget.title, style: theme.typography.tileTitle),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                height: 190,
+                child: FPicker(
+                  control: FPickerControl.lifted(
+                    indexes: [_index],
+                    onChange: (indexes) => setState(() => _index = indexes.first),
                   ),
-                ],
+                  children: [
+                    FPickerWheel(
+                      semanticsLabel: widget.title,
+                      children: [
+                        for (final choice in widget.choices)
+                          Text(choice.label),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              child: FButton(
-                onPress: () => Navigator.pop(context, widget.choices[_index]),
-                child: const Text('确定'),
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: FButton(
+                  onPress: () => Navigator.pop(context, widget.choices[_index]),
+                  child: const Text('确定'),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

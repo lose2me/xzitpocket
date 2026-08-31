@@ -193,13 +193,13 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
                 value: _automationLabel(settings.classAutomationMode),
                 onTap: () => _openAutomationSheet(settings.classAutomationMode),
               ),
-              ProfileSettingsToggleTile(
+              ProfileSettingsCheckboxTile(
                 icon: FLucideIcons.eye,
                 title: '显示非本周课程',
                 value: showNonCurrentWeekCourses,
                 onChange: _updateShowNonCurrentWeekCourses,
               ),
-              ProfileSettingsToggleTile(
+              ProfileSettingsCheckboxTile(
                 icon: FLucideIcons.calendarDays,
                 title: '隐藏周末网格',
                 value: !showWeekendColumns,
@@ -897,16 +897,29 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {
     final selected = await showAppSheet<ClassAutomationMode>(
       context: context,
-      builder: (context) => ProfileOptionSheet<ClassAutomationMode>(
+      builder: (context) => AppOptionSheet<ClassAutomationMode>(
+        title: '课堂勿扰',
         value: currentMode,
-        options: ClassAutomationMode.values
-            .map(
-              (mode) => ProfileOption<ClassAutomationMode>(
-                value: mode,
-                title: _automationTitle(mode),
-              ),
-            )
-            .toList(),
+        options: [
+          AppOption<ClassAutomationMode>(
+            value: ClassAutomationMode.off,
+            title: '关闭',
+            subtitle: '不自动调节手机模式',
+            icon: FLucideIcons.bellOff,
+          ),
+          AppOption<ClassAutomationMode>(
+            value: ClassAutomationMode.dnd,
+            title: '上课开启，下课恢复',
+            subtitle: '上课静音，下课后自动恢复',
+            icon: FLucideIcons.bellRing,
+          ),
+          AppOption<ClassAutomationMode>(
+            value: ClassAutomationMode.dndKeep,
+            title: '上课开启，下课不恢复',
+            subtitle: '上课静音，下课后保持勿扰',
+            icon: FLucideIcons.vibrateOff,
+          ),
+        ],
       ),
     );
 
@@ -918,16 +931,27 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
   Future<void> _openThemeSheet(AppThemePreference currentPreference) async {
     final selected = await showAppSheet<AppThemePreference>(
       context: context,
-      builder: (context) => ProfileOptionSheet<AppThemePreference>(
+      builder: (context) => AppOptionSheet<AppThemePreference>(
+        title: '主题模式',
         value: currentPreference,
-        options: AppThemePreference.values
-            .map(
-              (preference) => ProfileOption<AppThemePreference>(
-                value: preference,
-                title: _themeTitle(preference),
-              ),
-            )
-            .toList(),
+        options: [
+          AppOption<AppThemePreference>(
+            value: AppThemePreference.system,
+            title: '跟随系统',
+            subtitle: '自动跟随系统深色/浅色',
+            icon: FLucideIcons.settings,
+          ),
+          AppOption<AppThemePreference>(
+            value: AppThemePreference.light,
+            title: '浅色模式',
+            icon: FLucideIcons.sun,
+          ),
+          AppOption<AppThemePreference>(
+            value: AppThemePreference.dark,
+            title: '深色模式',
+            icon: FLucideIcons.moon,
+          ),
+        ],
       ),
     );
 
@@ -943,14 +967,6 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
       ClassAutomationMode.off => '关闭',
       ClassAutomationMode.dnd => '上课时开启',
       ClassAutomationMode.dndKeep => '下课不恢复',
-    };
-  }
-
-  String _automationTitle(ClassAutomationMode mode) {
-    return switch (mode) {
-      ClassAutomationMode.off => '关闭',
-      ClassAutomationMode.dnd => '上课开启，下课恢复',
-      ClassAutomationMode.dndKeep => '上课开启，下课不恢复',
     };
   }
 

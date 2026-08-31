@@ -149,11 +149,23 @@ class AcademicCategory {
   final double earnedCredits;
   final double missingCredits;
 
+  /// 是否为目录节点（该成绩项下有子级，页面行内为可折叠标题）。
+  final bool isDirectory;
+
+  /// 是否已通过（页面 sftg='1'）。
+  final bool completed;
+
+  /// 子级项（树形层级，最多 4 级）。叶节点为空列表。
+  final List<AcademicCategory> children;
+
   const AcademicCategory({
     required this.name,
     required this.reqCredits,
     required this.earnedCredits,
     required this.missingCredits,
+    this.isDirectory = false,
+    this.completed = false,
+    this.children = const [],
   });
 }
 
@@ -458,29 +470,79 @@ class AuthService {
     final totalRequired = double.tryParse(totalMatch?.group(1) ?? '') ?? 0;
     final totalEarned = double.tryParse(totalMatch?.group(2) ?? '') ?? 0;
 
-    final catPattern = RegExp(
-      r'"(\S+?)&nbsp;"[^:]+yqxf[^:]+:([\d.]+)[^:]+hdxf[^:]+:([\d.]+)[^:]+whdxf[^:]+:([\d.]+)',
+    // 按树形层级解析各分类：<li id='liX' ... fxfyqjd_id='父id'> 编码父子关系，
+    // <p class='title1' id='pX' yxxf=已修学分 yqzdxf=要求学分 sftg=是否通过>NAME 携带学分。
+    final liPattern = RegExp(r"<li id='li([A-Za-z0-9]+)'([^>]*)>");
+    final pPattern = RegExp(
+      r"<p class='title1' id='p([A-Za-z0-9]+)'([^>]*)>(.*?)&nbsp;",
+      dotAll: true,
     );
-    final seen = <String>{};
-    final categories = <AcademicCategory>[];
-    for (final m in catPattern.allMatches(body)) {
-      final name = m.group(1)!;
-      final req = double.tryParse(m.group(2)!) ?? 0;
-      final got = double.tryParse(m.group(3)!) ?? 0;
-      final miss = double.tryParse(m.group(4)!) ?? 0;
-      if (name.contains(':') || name.isEmpty) continue;
-      final key = '$name|$req';
-      if (seen.contains(key)) continue;
-      if (req == totalRequired && got == totalEarned) continue;
-      seen.add(key);
-      categories.add(
-        AcademicCategory(
-          name: name,
-          reqCredits: req,
-          earnedCredits: got,
-          missingCredits: miss,
-        ),
+
+    // 第一步：收集每个 li 的父节点 id
+    final parents = <String, String>{};
+    final parentAttr = RegExp(r"fxfyqjd_id='([A-Za-z0-9]*)'");
+    for (final m in liPattern.allMatches(body)) {
+      parents[m.group(1)!] = parentAttr.firstMatch(m.group(2)!)?.group(1) ?? '';
+    }
+
+    // 第二步：收集每个 p 的学分与名称（仅保留属于上面 li 的节点）
+    final byId = <String, AcademicCategory>{};
+    for (final m in pPattern.allMatches(body)) {
+      final id = m.group(1)!;
+      if (!parents.containsKey(id)) continue;
+      final attrs = m.group(2)!;
+      final yxxf = _attrDouble(attrs, 'yxxf');
+      final yqzdxf = _attrDouble(attrs, 'yqzdxf');
+      final name =
+          (m.group(3) ?? '').replaceAll('" +', '').replaceAll('"', '').trim();
+      if (name.isEmpty) continue;
+      byId[id] = AcademicCategory(
+        name: name,
+        reqCredits: yqzdxf,
+        earnedCredits: yxxf,
+        missingCredits: (yqzdxf - yxxf).clamp(0.0, double.infinity).toDouble(),
+        isDirectory: false, // 目录与否由 children 判定
+        completed: _attr(attrs, 'sftg') == '1',
       );
+    }
+
+    // 第三步：按 fxfyqjd_id 重建父子树；根节点 = 父 id 为空或父不在节点表。
+    final childrenIds = <String, List<String>>{};
+    final rootIds = <String>[];
+    for (final id in byId.keys) {
+      final parentId = parents[id] ?? '';
+      if (parentId.isNotEmpty && byId.containsKey(parentId)) {
+        childrenIds.putIfAbsent(parentId, () => []).add(id);
+      } else {
+        rootIds.add(id);
+      }
+    }
+
+    AcademicCategory buildTree(String id) {
+      final node = byId[id]!;
+      final kids = (childrenIds[id] ?? const <String>[])
+          .map(buildTree)
+          .where((k) => !_ignoredAcademicNames.contains(k.name))
+          .toList();
+      return AcademicCategory(
+        name: node.name,
+        reqCredits: node.reqCredits,
+        earnedCredits: node.earnedCredits,
+        missingCredits: node.missingCredits,
+        isDirectory: kids.isNotEmpty,
+        completed: node.completed,
+        children: kids,
+      );
+    }
+
+    var categories = rootIds
+        .map(buildTree)
+        .where((c) => !_ignoredAcademicNames.contains(c.name))
+        .toList();
+
+    // 若顶层只剩一个「包装」目录（如专业/大类），直接展示其内部内容。
+    if (categories.length == 1 && categories.first.children.isNotEmpty) {
+      categories = categories.first.children;
     }
 
     return AcademicStatus(
@@ -496,3 +558,15 @@ class AuthService {
     return int.tryParse(value.toString());
   }
 }
+
+/// 从一组 HTML 属性字符串里取指定属性的值。
+String _attr(String attrs, String key) {
+  final m = RegExp("$key='([^']*)'").firstMatch(attrs);
+  return m?.group(1) ?? '';
+}
+
+double _attrDouble(String attrs, String key) =>
+    double.tryParse(_attr(attrs, key)) ?? 0;
+
+/// 学业总览树里不展示的分类名称。
+const _ignoredAcademicNames = {'其他课程', '创新创业情况'};

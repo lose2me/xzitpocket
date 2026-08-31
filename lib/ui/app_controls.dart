@@ -258,3 +258,147 @@ FFieldIconBuilder<FTextFieldStyle>? _iconBuilder(Widget? icon) => icon == null
     ? null
     : (context, style, variants) =>
           FTextField.prefixIconBuilder(context, style, variants, icon);
+
+/// 用于底部选项弹窗的单个选项：值、标题、可选副标题与图标。
+class AppOption<T> {
+  final T value;
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+
+  const AppOption({
+    required this.value,
+    required this.title,
+    this.subtitle,
+    this.icon,
+  });
+}
+
+/// 美观的选项选择弹窗内容：标题 + 可点选的卡片（图标 / 副标题 / 选中态）。
+class AppOptionSheet<T> extends StatelessWidget {
+  final String title;
+  final T? value;
+  final List<AppOption<T>> options;
+
+  const AppOptionSheet({
+    super.key,
+    required this.title,
+    required this.options,
+    this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.typography.pageTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            for (final option in options) ...[
+              _AppOptionTile<T>(
+                theme: theme,
+                option: option,
+                selected: option.value == value,
+                onTap: () => Navigator.pop(context, option.value),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AppOptionTile<T> extends StatelessWidget {
+  final FThemeData theme;
+  final AppOption<T> option;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AppOptionTile({
+    required this.theme,
+    required this.option,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? theme.colors.primary.withAlpha(26)
+              : theme.colors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: selected ? theme.colors.primary : theme.colors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            if (option.icon != null) ...[
+              Icon(
+                option.icon,
+                size: 22,
+                color: selected
+                    ? theme.colors.primary
+                    : theme.colors.mutedForeground,
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.title,
+                    style: theme.typography.body.md.copyWith(
+                      fontWeight: selected
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                    ),
+                  ),
+                  if (option.subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      option.subtitle!,
+                      style: theme.typography.body.sm.copyWith(
+                        color: theme.colors.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              selected ? FLucideIcons.check : FLucideIcons.circle,
+              size: 20,
+              color: selected ? theme.colors.primary : theme.colors.border,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

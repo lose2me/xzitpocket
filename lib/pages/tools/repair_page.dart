@@ -142,29 +142,41 @@ class _RepairPageState extends State<RepairPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: AppCard(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                FBadge(
-                  variant: _statusBadgeVariant(record.status),
-                  child: Text(record.status),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(color: _statusColor(record.status)),
+                  child: Text(
+                    record.status,
+                    style: theme.typography.body.xs.copyWith(
+                      fontSize: 11,
+                      height: 1.1,
+                      fontWeight: FontWeight.w600,
+                      color: _onColor(_statusColor(record.status)),
+                    ),
+                  ),
                 ),
                 const Spacer(),
                 Text(
                   record.createTime,
-                  style: theme.typography.body.sm.copyWith(
+                  style: theme.typography.body.xs.copyWith(
                     color: theme.colors.mutedForeground,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               record.content,
-              style: theme.typography.body.md.copyWith(
+              style: theme.typography.body.sm.copyWith(
                 fontWeight: FontWeight.w500,
               ),
               maxLines: 2,
@@ -175,7 +187,7 @@ class _RepairPageState extends State<RepairPage> {
               record.address.isNotEmpty
                   ? '${record.areaName}(${record.address})  ${record.itemName}'
                   : '${record.areaName}  ${record.itemName}',
-              style: theme.typography.body.sm.copyWith(
+              style: theme.typography.body.xs.copyWith(
                 color: theme.colors.mutedForeground,
               ),
             ),
@@ -185,10 +197,18 @@ class _RepairPageState extends State<RepairPage> {
     );
   }
 
-  FBadgeVariant _statusBadgeVariant(String status) => switch (status) {
-    '已完工' || '已关闭' || '已评价' => FBadgeVariant.primary,
-    '已接单' || '已转单' || '处理中' || '维修中' => FBadgeVariant.destructive,
-    '已上报' || '已上传照片' => FBadgeVariant.secondary,
-    _ => FBadgeVariant.outline,
-  };
+  /// 状态对应颜色：绿=完成，黄=处理中，灰=已提交/早期，红=其他。
+  Color _statusColor(String status) {
+    return switch (status) {
+      '已完工' || '已关闭' || '已评价' => const Color(0xFF4CAF50), // 绿
+      '已接单' || '已转单' || '处理中' || '维修中' => const Color(0xFFFBC02D), // 黄
+      '已上报' || '已上传照片' => const Color(0xFF9E9E9E), // 灰
+      _ => const Color(0xFFF44336), // 红
+    };
+  }
+
+  /// 依据背景明度自动返回黑字或白字，保证可读性。
+  Color _onColor(Color background) => background.computeLuminance() > 0.5
+      ? const Color(0xFF000000)
+      : const Color(0xFFFFFFFF);
 }

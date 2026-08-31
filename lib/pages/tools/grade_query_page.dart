@@ -187,84 +187,83 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   /// 学年 + 学期 合并成单个选项（新→旧），供滚动选择栏直接选择。
-  List<({int yearIndex, int termIndex, String label})> get _semesterOptions {
-    final options = <({int yearIndex, int termIndex, String label})>[];
+  List<({int yearIndex, int termIndex, String label, String key})>
+  get _semesterOptions {
+    final options =
+        <({int yearIndex, int termIndex, String label, String key})>[];
     final years = _result?.years ?? [];
     for (var y = 0; y < years.length; y++) {
-      final terms =
-          _result?.termsByYear[years[y]] ?? const <String>[];
-      // 同一学年内按学期倒序，让"最新学期"排在最前，默认选中即第一项。
+      final terms = _result?.termsByYear[years[y]] ?? const <String>[];
+      // 同一学年内按学期倒序，让"最新学期"排在最前。
       for (var t = terms.length - 1; t >= 0; t--) {
         options.add((
           yearIndex: y,
           termIndex: t,
-          label: '${years[y]} ${terms[t]}',
+          label: _formatSemesterLabel(years[y], terms[t]),
+          key: '$y|$t',
         ));
       }
     }
     return options;
   }
 
+  /// 把学年/学期原始值格式化为下拉显示文本，如 "2025-2026 1" → "25学年第1学期"。
+  String _formatSemesterLabel(String year, String term) {
+    final startYear = year.split('-').first.trim();
+    final short = startYear.length >= 4
+        ? startYear.substring(startYear.length - 2)
+        : startYear;
+    final t = term.trim();
+    String semester;
+    if (t.startsWith('第')) {
+      semester = t;
+    } else if (int.tryParse(t) != null) {
+      semester = '第$t学期';
+    } else {
+      semester = t;
+    }
+    return '$short学年$semester';
+  }
+
+  String _optionLabel(String key) {
+    for (final o in _semesterOptions) {
+      if (o.key == key) return o.label;
+    }
+    return _semesterOptions.isEmpty ? '' : _semesterOptions.first.label;
+  }
+
   Widget _buildSemesterSelector(FThemeData theme) {
     final options = _semesterOptions;
     if (options.isEmpty) return const SizedBox.shrink();
-    final selectedOption = options.indexWhere(
+    final selectedIndex = options.indexWhere(
       (o) => o.yearIndex == _yearIndex && o.termIndex == _termIndex,
     );
+    if (selectedIndex < 0) return const SizedBox.shrink();
+    final selectedKey = options[selectedIndex].key;
+
     return SizedBox(
       width: double.infinity,
-      height: 38,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        child: Row(
-          children: [
-            for (var i = 0; i < options.length; i++) ...[
-              _semesterChip(
-                theme,
-                label: options[i].label,
-                selected: i == selectedOption,
-                onTap: () => setState(() {
-                  _yearIndex = options[i].yearIndex;
-                  _termIndex = options[i].termIndex;
-                }),
-              ),
-              const SizedBox(width: 8),
-            ],
-          ],
+      child: FSelect<String>.rich(
+        control: FSelectControl.lifted(
+          value: selectedKey,
+          onChange: (key) {
+            if (key == null) return;
+            for (final o in options) {
+              if (o.key == key) {
+                setState(() {
+                  _yearIndex = o.yearIndex;
+                  _termIndex = o.termIndex;
+                });
+                return;
+              }
+            }
+          },
         ),
-      ),
-    );
-  }
-
-  Widget _semesterChip(
-    FThemeData theme, {
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? theme.colors.primary : theme.colors.card,
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(
-            color: selected ? theme.colors.primary : theme.colors.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: theme.typography.body.sm.copyWith(
-            fontWeight: FontWeight.w600,
-            color: selected
-                ? theme.colors.primaryForeground
-                : theme.colors.mutedForeground,
-          ),
-        ),
+        format: _optionLabel,
+        children: [
+          for (final o in options)
+            FSelectItem.item(title: Text(o.label), value: o.key),
+        ],
       ),
     );
   }
@@ -454,7 +453,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                 if (i > 0) const FDivider(),
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  child: _buildCategoryRow(theme, status.categories[i]),
+                  child: _AcademicCategoryNode(
+                    key: ValueKey('root:$i:${status.categories[i].name}'),
+                    category: status.categories[i],
+                    theme: theme,
+                    depth: 0,
+                  ),
                 ),
               ],
             ],
@@ -507,50 +511,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     );
   }
 
-  Widget _buildCategoryRow(FThemeData theme, AcademicCategory cat) {
-    final progress = cat.reqCredits > 0
-        ? (cat.earnedCredits / cat.reqCredits).clamp(0.0, 1.0)
-        : 0.0;
-    final pct = (progress * 100).toInt();
-
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                cat.name,
-                style: theme.typography.body.md.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                '${cat.earnedCredits} / ${cat.reqCredits}',
-                style: theme.typography.body.sm.copyWith(
-                  color: theme.colors.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-        ),
-        _RingProgress(
-          progress: progress,
-          size: 36,
-          trackColor: theme.colors.border,
-          color: theme.colors.primary,
-          center: Text(
-            '$pct%',
-            style: theme.typography.body.xs.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 9,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 /// 确定圆形进度环，中心展示 [center]（通常为百分比）。
@@ -634,3 +594,123 @@ class _RingPainter extends CustomPainter {
         oldDelegate.color != color;
   }
 }
+
+/// 学业分类的树形可折叠节点：目录可展开/收起，叶子展示学分进度环。
+class _AcademicCategoryNode extends StatefulWidget {
+  const _AcademicCategoryNode({
+    super.key,
+    required this.category,
+    required this.theme,
+    this.depth = 0,
+  });
+
+  final AcademicCategory category;
+  final FThemeData theme;
+  final int depth;
+
+  @override
+  State<_AcademicCategoryNode> createState() => _AcademicCategoryNodeState();
+}
+
+class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
+  // 顶层平台默认展开，更深层的模块/课程组默认折叠。
+  late bool _expanded = widget.depth == 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final cat = widget.category;
+    final theme = widget.theme;
+    final hasChildren = cat.children.isNotEmpty;
+    final progress = cat.reqCredits > 0
+        ? (cat.earnedCredits / cat.reqCredits).clamp(0.0, 1.0)
+        : 0.0;
+    final pct = (progress * 100).toInt();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: hasChildren
+              ? () => setState(() => _expanded = !_expanded)
+              : null,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  child: hasChildren
+                      ? AnimatedRotation(
+                          turns: _expanded ? 0.25 : 0,
+                          duration: const Duration(milliseconds: 150),
+                          curve: Curves.easeOut,
+                          child: Icon(
+                            FLucideIcons.chevronRight,
+                            size: 18,
+                            color: theme.colors.mutedForeground,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cat.name,
+                        style: theme.typography.body.md.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '已${_fmtNum(cat.earnedCredits)} / 需${_fmtNum(cat.reqCredits)}',
+                        style: theme.typography.body.xs.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _RingProgress(
+                  progress: progress,
+                  size: 30,
+                  trackColor: theme.colors.border,
+                  color: theme.colors.primary,
+                  center: Text(
+                    '$pct%',
+                    style: theme.typography.body.xs.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 8,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded && hasChildren)
+          Padding(
+            padding: const EdgeInsets.only(left: 16),
+            child: Column(
+              children: [
+                for (var i = 0; i < cat.children.length; i++)
+                  _AcademicCategoryNode(
+                    key: ValueKey('${widget.depth}:$i:${cat.children[i].name}'),
+                    category: cat.children[i],
+                    theme: theme,
+                    depth: widget.depth + 1,
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 学分数字格式化：整数不带小数，其余保留 1 位。
+String _fmtNum(double v) =>
+    v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);

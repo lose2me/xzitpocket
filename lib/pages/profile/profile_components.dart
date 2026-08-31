@@ -132,6 +132,36 @@ class ProfileSettingsToggleTile extends StatelessWidget with FTileMixin {
   );
 }
 
+class ProfileSettingsCheckboxTile extends StatelessWidget with FTileMixin {
+  final IconData icon;
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChange;
+
+  const ProfileSettingsCheckboxTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChange,
+  });
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    checked: value,
+    child: FTile(
+      prefix: Icon(icon, size: 20),
+      title: Text(title),
+      suffix: ExcludeSemantics(
+        // 勾选框自身可点击；点击方框由手势竞技场优先交给子控件处理，
+        // 点击其余区域由 tile 的 onPress 处理，不会重复触发。
+        child: FCheckbox(value: value, onChange: onChange),
+      ),
+      onPress: () => onChange(!value),
+    ),
+  );
+}
+
 class ProfileOption<T> {
   final T value;
   final String title;

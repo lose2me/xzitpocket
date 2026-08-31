@@ -91,27 +91,22 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Future<void> _pickImage() async {
     final source = await showAppSheet<ImageSource>(
       context: context,
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-        child: FSelectTileGroup<ImageSource>(
-          control: FMultiValueControl.managedRadio(
-            onChange: (values) {
-              if (values.isNotEmpty) Navigator.pop(ctx, values.first);
-            },
+      builder: (ctx) => const AppOptionSheet<ImageSource>(
+        title: '选择图片来源',
+        options: [
+          AppOption<ImageSource>(
+            value: ImageSource.camera,
+            title: '拍照',
+            subtitle: '打开相机拍摄图片',
+            icon: FLucideIcons.camera,
           ),
-          children: const [
-            FSelectTile<ImageSource>.suffix(
-              prefix: Icon(FLucideIcons.camera),
-              title: Text('拍照'),
-              value: ImageSource.camera,
-            ),
-            FSelectTile<ImageSource>.suffix(
-              prefix: Icon(FLucideIcons.image),
-              title: Text('从相册选择'),
-              value: ImageSource.gallery,
-            ),
-          ],
-        ),
+          AppOption<ImageSource>(
+            value: ImageSource.gallery,
+            title: '从相册选择',
+            subtitle: '从手机相册挑选图片',
+            icon: FLucideIcons.image,
+          ),
+        ],
       ),
     );
     if (source == null) return;
