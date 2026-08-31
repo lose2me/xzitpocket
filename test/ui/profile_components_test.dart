@@ -17,7 +17,7 @@ void main() {
               title: '学号',
               value: '20260001',
             ),
-            ProfileSettingsToggleTile(
+            ProfileSettingsCheckboxTile(
               icon: FLucideIcons.eye,
               title: '显示非本周课程',
               value: true,

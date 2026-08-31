@@ -37,7 +37,11 @@ class ProfilePage extends ConsumerStatefulWidget {
   ConsumerState<ProfilePage> createState() => ProfilePageState();
 }
 
-class ProfilePageState extends ConsumerState<ProfilePage> {
+class ProfilePageState extends ConsumerState<ProfilePage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _formKey = GlobalKey<FormState>();
   final _sidCtrl = TextEditingController();
   final _pwdCtrl = TextEditingController();
@@ -97,6 +101,7 @@ class ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = context.theme;
     final config = ref.watch(configProvider);
     final isLoggedIn = config.studentId != null && config.studentId!.isNotEmpty;

@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:html/dom.dart' as html_dom;
+import 'package:html/parser.dart' as html_parser;
 
 import '../constants/network_config.dart';
 import '../constants/time_slots.dart';
@@ -462,51 +464,90 @@ class AuthService {
     }
 
     final gpaMatch = RegExp(r'GPA）：\s*<font[^>]*>\s*([\d.]+)').firstMatch(body);
-    final gpa = double.tryParse(gpaMatch?.group(1) ?? '') ?? 0;
+    final gpaText = _stripHtml(body);
+    final gpa =
+        double.tryParse(
+          gpaMatch?.group(1) ??
+              RegExp(r'GPA）?：?\s*([\d.]+)').firstMatch(gpaText)?.group(1) ??
+              '',
+        ) ??
+        0;
 
     final totalMatch = RegExp(
       r"title1[^>]*>[^<]*<br\s*/?>\s*最低毕业学分[：:]([\d.]+).*?已获得总学分[：:]([\d.]+)",
     ).firstMatch(body);
-    final totalRequired = double.tryParse(totalMatch?.group(1) ?? '') ?? 0;
-    final totalEarned = double.tryParse(totalMatch?.group(2) ?? '') ?? 0;
-
-    // 按树形层级解析各分类：<li id='liX' ... fxfyqjd_id='父id'> 编码父子关系，
-    // <p class='title1' id='pX' yxxf=已修学分 yqzdxf=要求学分 sftg=是否通过>NAME 携带学分。
-    final liPattern = RegExp(r"<li id='li([A-Za-z0-9]+)'([^>]*)>");
-    final pPattern = RegExp(
-      r"<p class='title1' id='p([A-Za-z0-9]+)'([^>]*)>(.*?)&nbsp;",
+    final totalText = _stripHtml(body);
+    final totalTextMatch = RegExp(
+      r'最低毕业学分\s*[：:]?\s*([\d.]+).*?已获得总学分\s*[：:]?\s*([\d.]+)',
       dotAll: true,
-    );
+    ).firstMatch(totalText);
+    final totalRequired =
+        double.tryParse(
+          totalMatch?.group(1) ?? totalTextMatch?.group(1) ?? '',
+        ) ??
+        0;
+    final totalEarned =
+        double.tryParse(
+          totalMatch?.group(2) ?? totalTextMatch?.group(2) ?? '',
+        ) ??
+        0;
 
-    // 第一步：收集每个 li 的父节点 id
+    // The template embeds these tags in JavaScript on some deployments and
+    // emits real HTML on others. Parse tag attributes independently of quote
+    // style; `liX` and `pX` share the same X identifier.
     final parents = <String, String>{};
-    final parentAttr = RegExp(r"fxfyqjd_id='([A-Za-z0-9]*)'");
-    for (final m in liPattern.allMatches(body)) {
-      parents[m.group(1)!] = parentAttr.firstMatch(m.group(2)!)?.group(1) ?? '';
+    final liPattern = RegExp(r'<li\b[^>]*>', caseSensitive: false);
+    for (final match in liPattern.allMatches(body)) {
+      final attrs = _parseAcademicAttributes(match.group(0)!);
+      final id = _academicId(attrs['id'], 'li');
+      if (id == null) continue;
+      parents[id] = _academicParentId(attrs['fxfyqjd_id']);
     }
 
-    // 第二步：收集每个 p 的学分与名称（仅保留属于上面 li 的节点）
     final byId = <String, AcademicCategory>{};
-    for (final m in pPattern.allMatches(body)) {
-      final id = m.group(1)!;
-      if (!parents.containsKey(id)) continue;
-      final attrs = m.group(2)!;
-      final yxxf = _attrDouble(attrs, 'yxxf');
-      final yqzdxf = _attrDouble(attrs, 'yqzdxf');
-      final name =
-          (m.group(3) ?? '').replaceAll('" +', '').replaceAll('"', '').trim();
+    final pPattern = RegExp(r'<p\b[^>]*>', caseSensitive: false);
+    for (final match in pPattern.allMatches(body)) {
+      final attrs = _parseAcademicAttributes(match.group(0)!);
+      final classes = attrs['class']?.split(RegExp(r'\s+')) ?? const <String>[];
+      if (!classes.any((value) => value.toLowerCase() == 'title1')) continue;
+      final id = _academicId(attrs['id'], 'p');
+      if (id == null || !parents.containsKey(id)) continue;
+      final close = body.indexOf('</p', match.end);
+      final rawContent = body.substring(
+        match.end,
+        close < 0 ? body.length : close,
+      );
+      final name = _academicName(rawContent);
       if (name.isEmpty) continue;
+      final yxxf = double.tryParse(attrs['yxxf'] ?? '') ?? 0;
+      final yqzdxf = double.tryParse(attrs['yqzdxf'] ?? '') ?? 0;
       byId[id] = AcademicCategory(
         name: name,
         reqCredits: yqzdxf,
         earnedCredits: yxxf,
         missingCredits: (yqzdxf - yxxf).clamp(0.0, double.infinity).toDouble(),
-        isDirectory: false, // 目录与否由 children 判定
-        completed: _attr(attrs, 'sftg') == '1',
+        completed: attrs['sftg'] == '1',
       );
     }
 
-    // 第三步：按 fxfyqjd_id 重建父子树；根节点 = 父 id 为空或父不在节点表。
+    if (byId.isEmpty) {
+      final legacy = _parseLegacyAcademicCategories(
+        body,
+        totalRequired: totalRequired,
+        totalEarned: totalEarned,
+      );
+      if (legacy.isNotEmpty) {
+        return AcademicStatus(
+          gpa: gpa,
+          totalRequired: totalRequired,
+          totalEarned: totalEarned,
+          categories: legacy,
+        );
+      }
+    }
+
+    // Some versions emit a p before its li. Keep only nodes with a valid
+    // matching li, then rebuild the hierarchy from the parent identifiers.
     final childrenIds = <String, List<String>>{};
     final rootIds = <String>[];
     for (final id in byId.keys) {
@@ -518,10 +559,12 @@ class AuthService {
       }
     }
 
-    AcademicCategory buildTree(String id) {
+    AcademicCategory buildTree(String id, Set<String> path) {
       final node = byId[id]!;
+      // A malformed server response must not recurse forever.
+      if (!path.add(id)) return node;
       final kids = (childrenIds[id] ?? const <String>[])
-          .map(buildTree)
+          .map((childId) => buildTree(childId, {...path}))
           .where((k) => !_ignoredAcademicNames.contains(k.name))
           .toList();
       return AcademicCategory(
@@ -536,11 +579,12 @@ class AuthService {
     }
 
     var categories = rootIds
-        .map(buildTree)
+        .map((id) => buildTree(id, <String>{}))
         .where((c) => !_ignoredAcademicNames.contains(c.name))
         .toList();
 
-    // 若顶层只剩一个「包装」目录（如专业/大类），直接展示其内部内容。
+    // If the server adds one transparent wrapper (for example, a major),
+    // present its actual categories at the top level.
     if (categories.length == 1 && categories.first.children.isNotEmpty) {
       categories = categories.first.children;
     }
@@ -553,20 +597,114 @@ class AuthService {
     );
   }
 
+  static String? _academicId(String? raw, String prefix) {
+    if (raw == null ||
+        !raw.toLowerCase().startsWith(prefix.toLowerCase()) ||
+        raw.length == prefix.length) {
+      return null;
+    }
+    final id = raw.substring(prefix.length);
+    return RegExp(r'^[A-Za-z0-9]+$').hasMatch(id) ? id : null;
+  }
+
+  static String _academicParentId(String? raw) {
+    final value = raw?.trim() ?? '';
+    if (value.startsWith('li') && value.length > 2) return value.substring(2);
+    if (value.startsWith('p') && value.length > 1) return value.substring(1);
+    return value;
+  }
+
+  static String _academicName(String markup) {
+    final firstPart = markup
+        .split(RegExp(r'&nbsp;|&#160;|\u00a0', caseSensitive: false))
+        .first;
+    final fragment = html_parser.parseFragment('<span>$firstPart</span>');
+    final element = fragment.querySelector('span');
+    if (element == null) return _cleanAcademicName(firstPart);
+
+    final text = StringBuffer();
+    bool append(html_dom.Node node) {
+      if (node is html_dom.Element && node.localName == 'br') return false;
+      if (node is html_dom.Text) {
+        text.write(node.text);
+      } else if (node is html_dom.Element) {
+        for (final child in node.nodes) {
+          if (!append(child)) return false;
+        }
+      }
+      return true;
+    }
+
+    for (final node in element.nodes) {
+      if (!append(node)) break;
+    }
+    return _cleanAcademicName(text.toString());
+  }
+
+  static Map<String, String> _parseAcademicAttributes(String tag) {
+    final attributes = <String, String>{};
+    final pattern = RegExp(
+      r'''([A-Za-z_:][A-Za-z0-9_.:-]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))''',
+    );
+    for (final match in pattern.allMatches(tag)) {
+      final key = match.group(1)!.toLowerCase();
+      attributes[key] =
+          match.group(2) ?? match.group(3) ?? match.group(4) ?? '';
+    }
+    return attributes;
+  }
+
+  static List<AcademicCategory> _parseLegacyAcademicCategories(
+    String body, {
+    required double totalRequired,
+    required double totalEarned,
+  }) {
+    final pattern = RegExp(
+      r'"([^"\r\n]+?)&nbsp;"[^:]+yqxf[^:]+:([\d.]+)[^:]+hdxf[^:]+:([\d.]+)[^:]+whdxf[^:]+:([\d.]+)',
+    );
+    final seen = <String>{};
+    final categories = <AcademicCategory>[];
+    for (final match in pattern.allMatches(body)) {
+      final name = match.group(1)!.trim();
+      final req = double.tryParse(match.group(2)!) ?? 0;
+      final earned = double.tryParse(match.group(3)!) ?? 0;
+      final missing = double.tryParse(match.group(4)!) ?? 0;
+      if (name.isEmpty || name.contains(':')) continue;
+      if (req == totalRequired && earned == totalEarned) continue;
+      if (!_ignoredAcademicNames.contains(name) && seen.add('$name|$req')) {
+        categories.add(
+          AcademicCategory(
+            name: name,
+            reqCredits: req,
+            earnedCredits: earned,
+            missingCredits: missing,
+          ),
+        );
+      }
+    }
+    return categories;
+  }
+
+  static String _stripHtml(String value) => value
+      .replaceAll(RegExp(r'<[^>]*>'), ' ')
+      .replaceAll(RegExp(r'\\[rn]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  static String _cleanAcademicName(String value) {
+    var cleaned = value.replaceAll('\u00a0', ' ').trim();
+    // A few server templates concatenate the label as `"foo" + "bar"`.
+    cleaned = cleaned.replaceAll(RegExp(r'''["']\s*\+\s*["']'''), '');
+    cleaned = cleaned.replaceAll('" +', '').replaceAll("' +", '');
+    cleaned = cleaned.replaceAll('"', '').replaceAll("'", '').trim();
+    return cleaned;
+  }
+
   static int? _parseInt(dynamic value) {
     if (value == null) return null;
     return int.tryParse(value.toString());
   }
 }
-
-/// 从一组 HTML 属性字符串里取指定属性的值。
-String _attr(String attrs, String key) {
-  final m = RegExp("$key='([^']*)'").firstMatch(attrs);
-  return m?.group(1) ?? '';
-}
-
-double _attrDouble(String attrs, String key) =>
-    double.tryParse(_attr(attrs, key)) ?? 0;
 
 /// 学业总览树里不展示的分类名称。
 const _ignoredAcademicNames = {'其他课程', '创新创业情况'};

@@ -31,7 +31,11 @@ class ToolsPage extends ConsumerStatefulWidget {
   ConsumerState<ToolsPage> createState() => ToolsPageState();
 }
 
-class ToolsPageState extends ConsumerState<ToolsPage> {
+class ToolsPageState extends ConsumerState<ToolsPage>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final _manager = ToolsDataManager.instance;
 
   @override
@@ -273,6 +277,7 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = context.theme;
     final roomId = ref.watch(savedRoomIdProvider);
     final hasRoom = roomId != null && roomId.isNotEmpty;
@@ -294,7 +299,6 @@ class ToolsPageState extends ConsumerState<ToolsPage> {
     return AppPage(
       title: '服务',
       root: true,
-      // 与「通知公告」等 tab 页统一为小号标题（display.xl）。
       headerStyle: FHeaderStyleDelta.delta(
         titleTextStyle: TextStyleDelta.value(
           context.theme.typography.display.xl.copyWith(

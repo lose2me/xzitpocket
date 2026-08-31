@@ -10,6 +10,13 @@ import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 
+typedef _SemesterOption = ({
+  int yearIndex,
+  int termIndex,
+  String label,
+  String key,
+});
+
 class GradeQueryPage extends StatefulWidget {
   final String studentId;
   final String password;
@@ -30,6 +37,8 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   bool _loading = false;
   int _yearIndex = 0;
   int _termIndex = 0;
+  GradeResult? _semesterOptionsSource;
+  List<_SemesterOption> _semesterOptionsCache = const [];
 
   @override
   void initState() {
@@ -187,13 +196,16 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   /// 学年 + 学期 合并成单个选项（新→旧），供滚动选择栏直接选择。
-  List<({int yearIndex, int termIndex, String label, String key})>
-  get _semesterOptions {
-    final options =
-        <({int yearIndex, int termIndex, String label, String key})>[];
-    final years = _result?.years ?? [];
+  List<_SemesterOption> get _semesterOptions {
+    final result = _result;
+    if (identical(result, _semesterOptionsSource)) {
+      return _semesterOptionsCache;
+    }
+
+    final options = <_SemesterOption>[];
+    final years = result?.years ?? const <String>[];
     for (var y = 0; y < years.length; y++) {
-      final terms = _result?.termsByYear[years[y]] ?? const <String>[];
+      final terms = result?.termsByYear[years[y]] ?? const <String>[];
       // 同一学年内按学期倒序，让"最新学期"排在最前。
       for (var t = terms.length - 1; t >= 0; t--) {
         options.add((
@@ -204,7 +216,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         ));
       }
     }
-    return options;
+    _semesterOptionsSource = result;
+    _semesterOptionsCache = options;
+    return _semesterOptionsCache;
   }
 
   /// 把学年/学期原始值格式化为下拉显示文本，如 "2025-2026 1" → "25学年第1学期"。
@@ -510,7 +524,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       ],
     );
   }
-
 }
 
 /// 确定圆形进度环，中心展示 [center]（通常为百分比）。

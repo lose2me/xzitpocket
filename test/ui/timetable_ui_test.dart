@@ -109,7 +109,7 @@ void main() {
     expect(find.text('地点'), findsOneWidget);
     expect(find.text('校区'), findsOneWidget);
     expect(find.text('周次'), findsOneWidget);
-    expect(find.text('删除课程'), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
     expect(tester.getSize(find.byType(ListView)).height, greaterThan(300));
   });
 

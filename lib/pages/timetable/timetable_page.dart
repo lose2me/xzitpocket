@@ -31,14 +31,14 @@ class TimetablePage extends ConsumerStatefulWidget {
 }
 
 class TimetablePageState extends ConsumerState<TimetablePage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   late final PageController _pageController;
   late final AnimationController _conflictCountdownController;
   bool _isSyncing = false;
   int _conflictRotationTick = 0;
   double _lastConflictCountdownValue = 0;
-  bool _hasConflict = false;
-  bool _isMutedConflict = false;
 
   @override
   void initState() {
@@ -88,8 +88,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     }
   }
 
-  int _maxDisplayWeek() {
-    final courses = ref.read(scheduleProvider).value ?? [];
+  int _maxDisplayWeek([List<Course>? source]) {
+    final courses = source ?? (ref.read(scheduleProvider).value ?? const []);
     int max = semesterCalendar.totalWeeks;
     for (final c in courses) {
       for (final w in c.weeks) {
@@ -223,6 +223,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final coursesAsync = ref.watch(scheduleProvider);
     final selectedWeek = ref.watch(selectedWeekProvider);
     final showNonCurrentWeekCourses = ref.watch(
@@ -250,18 +251,19 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                   if (courses.isEmpty) {
                     return _buildEmptyView();
                   }
+                  final maxDisplayWeek = _maxDisplayWeek(courses);
+                  final hide56 = !courses.any(
+                    (c) => c.sessions.contains(5) || c.sessions.contains(6),
+                  );
                   return PageView.builder(
                     controller: _pageController,
                     physics: const _LessSensitivePagePhysics(),
-                    itemCount: _maxDisplayWeek(),
+                    itemCount: maxDisplayWeek,
                     onPageChanged: (page) {
                       ref.read(selectedWeekProvider.notifier).set(page + 1);
                     },
                     itemBuilder: (context, index) {
                       final week = index + 1;
-                      final hide56 = !courses.any(
-                        (c) => c.sessions.contains(5) || c.sessions.contains(6),
-                      );
                       return TimetableGrid(
                         courses: courses,
                         week: week,
@@ -275,15 +277,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         borderWidth: 0.5,
                         courseOpacity: courseOpacity,
                         courseBorderOpacity: courseBorderOpacity,
-                        onConflictComputed: (hasConflict, isMuted) {
-                          if (_hasConflict != hasConflict ||
-                              _isMutedConflict != isMuted) {
-                            setState(() {
-                              _hasConflict = hasConflict;
-                              _isMutedConflict = isMuted;
-                            });
-                          }
-                        },
                         onCourseTap: (course, idx) {
                           final key = ref
                               .read(scheduleProvider.notifier)

@@ -207,8 +207,14 @@ class _RepairPageState extends State<RepairPage> {
     };
   }
 
-  /// 依据背景明度自动返回黑字或白字，保证可读性。
-  Color _onColor(Color background) => background.computeLuminance() > 0.5
-      ? const Color(0xFF000000)
-      : const Color(0xFFFFFFFF);
+  /// Choose the foreground with the better WCAG contrast ratio. A fixed
+  /// luminance cutoff makes medium green/red badges unreadable in one theme.
+  Color _onColor(Color background) {
+    const black = Color(0xFF000000);
+    const white = Color(0xFFFFFFFF);
+    final luminance = background.computeLuminance();
+    final blackContrast = (luminance + 0.05) / 0.05;
+    final whiteContrast = 1.05 / (luminance + 0.05);
+    return blackContrast >= whiteContrast ? black : white;
+  }
 }

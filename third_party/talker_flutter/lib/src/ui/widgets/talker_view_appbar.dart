@@ -117,7 +117,9 @@ class _TalkerViewAppBarState extends State<TalkerViewAppBar>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final uniqKeys = widget.uniqKeys..removeWhere((e) => e == null);
+    // Do not mutate the list owned by TalkerView; builds can happen while the
+    // parent is reusing the same list instance.
+    final uniqKeys = widget.uniqKeys.whereType<String>().toList();
     return SliverAppBar(
       backgroundColor: widget.talkerTheme.backgroundColor,
       elevation: 0,

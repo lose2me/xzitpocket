@@ -20,8 +20,6 @@ class TimetableGrid extends StatelessWidget {
   final Set<int> hiddenSlots;
   final void Function(Course course, int index)? onCourseTap;
   final void Function(int weekday, int session)? onEmptyTap;
-  final void Function(bool hasConflict, bool isMutedConflict)?
-  onConflictComputed;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
   final double borderWidth;
@@ -41,7 +39,6 @@ class TimetableGrid extends StatelessWidget {
     this.hiddenSlots = const {},
     this.onCourseTap,
     this.onEmptyTap,
-    this.onConflictComputed,
     this.countdownAnimation,
     required this.borderColor,
     this.borderWidth = 0.5,
@@ -69,6 +66,14 @@ class TimetableGrid extends StatelessWidget {
     final otherWeekCourses = showNonCurrentWeekCourses
         ? indexedCourses.where((entry) => !entry.isCurrentWeek).toList()
         : const <_IndexedCourse>[];
+    final currentByWeekday = <int, List<_IndexedCourse>>{};
+    for (final entry in currentWeekCourses) {
+      currentByWeekday.putIfAbsent(entry.course.weekday, () => []).add(entry);
+    }
+    final otherByWeekday = <int, List<_IndexedCourse>>{};
+    for (final entry in otherWeekCourses) {
+      otherByWeekday.putIfAbsent(entry.course.weekday, () => []).add(entry);
+    }
     final dates = calendar.weekDates(week);
     final today = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
@@ -85,29 +90,11 @@ class TimetableGrid extends StatelessWidget {
     final dayDisplayData = List.generate(dayCount, (dayIndex) {
       final weekday = dayIndex + 1;
       final allDayCourses = <_IndexedCourse>[
-        ...currentWeekCourses.where((e) => e.course.weekday == weekday),
-        ...otherWeekCourses.where((e) => e.course.weekday == weekday),
+        ...(currentByWeekday[weekday] ?? const <_IndexedCourse>[]),
+        ...(otherByWeekday[weekday] ?? const <_IndexedCourse>[]),
       ];
       return _buildDisplayCourses(allDayCourses, rotationTick);
     });
-
-    // Compute conflict state
-    var anyConflict = false;
-    var anyMutedConflict = false;
-    for (final displayCourses in dayDisplayData) {
-      for (final d in displayCourses) {
-        if (d.isConflict) {
-          anyConflict = true;
-          if (d.isMutedVariant) anyMutedConflict = true;
-        }
-      }
-    }
-
-    if (onConflictComputed != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        onConflictComputed!(anyConflict, anyMutedConflict);
-      });
-    }
 
     return Column(
       children: [
@@ -216,12 +203,10 @@ class TimetableGrid extends StatelessWidget {
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
                         final allDayCourses = <_IndexedCourse>[
-                          ...currentWeekCourses.where(
-                            (e) => e.course.weekday == weekday,
-                          ),
-                          ...otherWeekCourses.where(
-                            (e) => e.course.weekday == weekday,
-                          ),
+                          ...(currentByWeekday[weekday] ??
+                              const <_IndexedCourse>[]),
+                          ...(otherByWeekday[weekday] ??
+                              const <_IndexedCourse>[]),
                         ];
                         final allDisplayCourses = dayDisplayData[dayIndex];
                         return Expanded(
@@ -280,49 +265,27 @@ class TimetableGrid extends StatelessWidget {
                                   final top = startRow * cellHeight;
                                   final height =
                                       (endRow - startRow + 1) * cellHeight;
-                                  return AnimatedPositioned(
+                                  return Positioned(
                                     key: ValueKey(display.animationKey),
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeOut,
                                     top: top,
                                     left: 0,
                                     right: 0,
                                     height: height,
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(
-                                        milliseconds: 450,
-                                      ),
-                                      switchInCurve: Curves.easeInOutCubic,
-                                      switchOutCurve: Curves.easeInOutCubic,
-                                      transitionBuilder: (child, animation) {
-                                        final slide = Tween<Offset>(
-                                          begin: const Offset(0, 0.15),
-                                          end: Offset.zero,
-                                        ).animate(animation);
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: SlideTransition(
-                                            position: slide,
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                      child: CourseCard(
-                                        key: ValueKey(display.animationKey),
-                                        course: course,
-                                        countdownAnimation: display.isConflict
-                                            ? countdownAnimation
-                                            : null,
-                                        muted: !isCurrentWeek,
-                                        courseOpacity: isCurrentWeek
-                                            ? courseOpacity
-                                            : nonCurrentCourseOpacity,
-                                        courseBorderOpacity: isCurrentWeek
-                                            ? courseBorderOpacity
-                                            : nonCurrentCourseBorderOpacity,
-                                        borderColor: borderColor,
-                                        borderWidth: borderWidth,
-                                      ),
+                                    child: CourseCard(
+                                      key: ValueKey(display.animationKey),
+                                      course: course,
+                                      countdownAnimation: display.isConflict
+                                          ? countdownAnimation
+                                          : null,
+                                      muted: !isCurrentWeek,
+                                      courseOpacity: isCurrentWeek
+                                          ? courseOpacity
+                                          : nonCurrentCourseOpacity,
+                                      courseBorderOpacity: isCurrentWeek
+                                          ? courseBorderOpacity
+                                          : nonCurrentCourseBorderOpacity,
+                                      borderColor: borderColor,
+                                      borderWidth: borderWidth,
                                     ),
                                   );
                                 }),

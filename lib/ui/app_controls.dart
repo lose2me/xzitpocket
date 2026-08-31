@@ -346,9 +346,7 @@ class _AppOptionTile<T> extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: selected
-              ? theme.colors.primary.withAlpha(26)
-              : theme.colors.card,
+          color: selected ? theme.colors.secondary : theme.colors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? theme.colors.primary : theme.colors.border,
@@ -373,9 +371,7 @@ class _AppOptionTile<T> extends StatelessWidget {
                   Text(
                     option.title,
                     style: theme.typography.body.md.copyWith(
-                      fontWeight: selected
-                          ? FontWeight.w700
-                          : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     ),
                   ),
                   if (option.subtitle != null) ...[

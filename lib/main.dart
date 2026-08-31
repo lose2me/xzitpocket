@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
@@ -19,20 +21,10 @@ void main() async {
 
   final courseStorage = CourseStorage();
   final preferencesStorage = PreferencesStorage();
-  await courseStorage.init();
-  await preferencesStorage.init();
-  ToolsDataManager.instance.initialize(preferencesStorage);
-  await WidgetService.init();
-
-  final courses = courseStorage.getCourses();
-  try {
-    await WidgetService.updateWidget(
-      courses: courses,
-      semesterStart: semesterStartDate,
-    );
-  } on WidgetSyncException catch (e) {
-    talker.error('Initial widget sync failed', e);
-  }
+  // These are the only startup operations required to build the first page.
+  // Run them concurrently; platform widget sync and network probes happen
+  // after the first frame so a cold launch can paint immediately.
+  await Future.wait([courseStorage.init(), preferencesStorage.init()]);
 
   // Listen for widget clicks → switch to timetable tab
   HomeWidget.widgetClicked.listen((_) {
@@ -48,4 +40,24 @@ void main() async {
       child: App(courseStorage: courseStorage),
     ),
   );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_finishStartup(courseStorage, preferencesStorage));
+  });
+}
+
+Future<void> _finishStartup(
+  CourseStorage courseStorage,
+  PreferencesStorage preferencesStorage,
+) async {
+  ToolsDataManager.instance.initialize(preferencesStorage);
+  await WidgetService.init();
+  try {
+    await WidgetService.updateWidget(
+      courses: courseStorage.getCourses(),
+      semesterStart: semesterStartDate,
+    );
+  } on WidgetSyncException catch (e) {
+    talker.error('Initial widget sync failed', e);
+  }
 }
