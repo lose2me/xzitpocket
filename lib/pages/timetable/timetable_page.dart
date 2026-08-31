@@ -260,6 +260,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     controller: _pageController,
                     physics: const _LessSensitivePagePhysics(),
                     itemCount: maxDisplayWeek,
+                    // Pre-build the neighbouring weeks while the current page is
+                    // idle so the left/right swipe only moves an already-built
+                    // grid instead of doing the (heavy) layout synchronously in
+                    // the middle of the gesture.
+                    allowImplicitScrolling: true,
                     onPageChanged: (page) {
                       ref.read(selectedWeekProvider.notifier).set(page + 1);
                     },

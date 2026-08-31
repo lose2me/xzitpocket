@@ -109,7 +109,12 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     if (!isLoggedIn || _isLoggingIn) {
       return AppPage(
         root: true,
-        resizeToAvoidBottomInset: true,
+        // Like the other root pages (timetable/tools), the scaffold itself must
+        // NOT resizeToAvoidBottomInset. Inside the home shell it already sits
+        // above the shell footer, so resize would over-shrink and leave a white
+        // strip above the keyboard. `AppPage` still feeds the content the live
+        // inset, so focused text fields auto-scroll clear of the IME.
+        resizeToAvoidBottomInset: false,
         child: SafeArea(child: _buildLoginForm(theme)),
       );
     }
@@ -129,7 +134,9 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     return AppPage(
       title: '掌上徐工',
       root: true,
-      resizeToAvoidBottomInset: true,
+      // root page: don't resize (see the login branch comment) so the scaffold
+      // does not over-shrink above the shell footer / keyboard.
+      resizeToAvoidBottomInset: false,
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         children: [

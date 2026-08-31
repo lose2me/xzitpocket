@@ -7,7 +7,17 @@ import '../../ui/app_tokens.dart';
 import 'course_card.dart';
 import 'time_column.dart';
 
-class TimetableGrid extends StatelessWidget {
+/// A single day's timetable.
+///
+/// The widget memoizes the expensive part of its layout computation: the
+/// sorting, overlap grouping and the conflict-variant backtracking
+/// (`_buildConflictVariants`). Those only depend on `courses`, `week` and
+/// `showNonCurrentWeekCourses`, so the result is cached in the State and the
+/// layout is only re-derived when one of those inputs actually changes. The
+/// `rotationTick` (which drives the 3-second conflict rotation) only picks a
+/// *variant index*, which is cheap — it no longer re-runs the grouping or the
+/// backtracking every time the countdown wraps.
+class TimetableGrid extends StatefulWidget {
   final List<Course> courses;
   final int week;
   final int rotationTick;
@@ -47,8 +57,24 @@ class TimetableGrid extends StatelessWidget {
   });
 
   @override
+  State<TimetableGrid> createState() => _TimetableGridState();
+}
+
+class _TimetableGridState extends State<TimetableGrid> {
+  _GridLayoutCacheKey? _layoutKey;
+  Map<int, List<_DaySlot>>? _daySlots;
+
+  @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final courses = widget.courses;
+    final week = widget.week;
+    final showNonCurrentWeekCourses = widget.showNonCurrentWeekCourses;
+    final showWeekendColumns = widget.showWeekendColumns;
+    final rotationTick = widget.rotationTick;
+
+    _ensureLayout(courses, week, showNonCurrentWeekCourses);
+
     final indexedCourses = courses
         .asMap()
         .entries
@@ -74,9 +100,11 @@ class TimetableGrid extends StatelessWidget {
     for (final entry in otherWeekCourses) {
       otherByWeekday.putIfAbsent(entry.course.weekday, () => []).add(entry);
     }
-    final dates = calendar.weekDates(week);
+    final dates = widget.calendar.weekDates(week);
     final today = DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final courseOpacity = widget.courseOpacity;
+    final courseBorderOpacity = widget.courseBorderOpacity;
     final nonCurrentCourseOpacity = (courseOpacity * 0.38)
         .clamp(0.18, 0.4)
         .toDouble();
@@ -86,14 +114,12 @@ class TimetableGrid extends StatelessWidget {
 
     final dayCount = showWeekendColumns ? 7 : 5;
 
-    // Pre-compute display courses for all days
+    // Cheap pre-compute: only the variant selection happens here (from the
+    // cached day slots), never the grouping/backtracking.
     final dayDisplayData = List.generate(dayCount, (dayIndex) {
       final weekday = dayIndex + 1;
-      final allDayCourses = <_IndexedCourse>[
-        ...(currentByWeekday[weekday] ?? const <_IndexedCourse>[]),
-        ...(otherByWeekday[weekday] ?? const <_IndexedCourse>[]),
-      ];
-      return _buildDisplayCourses(allDayCourses, rotationTick);
+      final slots = _daySlots?[weekday] ?? const <_DaySlot>[];
+      return _selectDayDisplays(slots, rotationTick);
     });
 
     return Column(
@@ -172,8 +198,8 @@ class TimetableGrid extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final visibleSessions = [
-                for (int s = 1; s <= slotCount; s++)
-                  if (!hiddenSlots.contains(s)) s,
+                for (int s = 1; s <= widget.slotCount; s++)
+                  if (!widget.hiddenSlots.contains(s)) s,
               ];
               final effectiveSlotCount = visibleSessions.length;
               final sessionToRow = <int, int>{};
@@ -181,7 +207,7 @@ class TimetableGrid extends StatelessWidget {
                 sessionToRow[visibleSessions[i]] = i;
               }
 
-              final cellHeight = constraints.maxHeight / visibleSlots;
+              final cellHeight = constraints.maxHeight / widget.visibleSlots;
               final totalHeight = cellHeight * effectiveSlotCount;
 
               return SingleChildScrollView(
@@ -191,8 +217,8 @@ class TimetableGrid extends StatelessWidget {
                     children: [
                       TimeColumn(
                         cellHeight: cellHeight,
-                        slotCount: slotCount,
-                        hiddenSlots: hiddenSlots,
+                        slotCount: widget.slotCount,
+                        hiddenSlots: widget.hiddenSlots,
                       ),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
@@ -210,14 +236,17 @@ class TimetableGrid extends StatelessWidget {
                               final row =
                                   (details.localPosition.dy / cellHeight)
                                       .floor()
-                                      .clamp(0, visibleSessions.length - 1);
+                                      .clamp(
+                                        0,
+                                        visibleSessions.length - 1,
+                                      );
                               final session = visibleSessions[row];
                               final hasHit = allDayCourses.any(
                                 (entry) =>
                                     _indexedCourseHitsSession(entry, session),
                               );
-                              if (!hasHit && onEmptyTap != null) {
-                                onEmptyTap!(weekday, session);
+                              if (!hasHit && widget.onEmptyTap != null) {
+                                widget.onEmptyTap!(weekday, session);
                               }
                             },
                             child: Stack(
@@ -265,21 +294,27 @@ class TimetableGrid extends StatelessWidget {
                                     left: 0,
                                     right: 0,
                                     height: height,
-                                    child: CourseCard(
-                                      key: ValueKey(display.animationKey),
-                                      course: course,
-                                      countdownAnimation: display.isConflict
-                                          ? countdownAnimation
-                                          : null,
-                                      muted: !isCurrentWeek,
-                                      courseOpacity: isCurrentWeek
-                                          ? courseOpacity
-                                          : nonCurrentCourseOpacity,
-                                      courseBorderOpacity: isCurrentWeek
-                                          ? courseBorderOpacity
-                                          : nonCurrentCourseBorderOpacity,
-                                      borderColor: borderColor,
-                                      borderWidth: borderWidth,
+                                    // Each card gets its own compositing layer so
+                                    // the continuously-running conflict countdown
+                                    // bar only repaints this card instead of the
+                                    // whole week grid on every frame.
+                                    child: RepaintBoundary(
+                                      child: CourseCard(
+                                        key: ValueKey(display.animationKey),
+                                        course: course,
+                                        countdownAnimation: display.isConflict
+                                            ? widget.countdownAnimation
+                                            : null,
+                                        muted: !isCurrentWeek,
+                                        courseOpacity: isCurrentWeek
+                                            ? courseOpacity
+                                            : nonCurrentCourseOpacity,
+                                        courseBorderOpacity: isCurrentWeek
+                                            ? courseBorderOpacity
+                                            : nonCurrentCourseBorderOpacity,
+                                        borderColor: widget.borderColor,
+                                        borderWidth: widget.borderWidth,
+                                      ),
                                     ),
                                   );
                                 }),
@@ -305,8 +340,8 @@ class TimetableGrid extends StatelessWidget {
                                     height: height,
                                     child: GestureDetector(
                                       behavior: HitTestBehavior.translucent,
-                                      onTap: onCourseTap != null
-                                          ? () => onCourseTap!(
+                                      onTap: widget.onCourseTap != null
+                                          ? () => widget.onCourseTap!(
                                               display.course,
                                               display.sourceIndex,
                                             )
@@ -330,6 +365,63 @@ class TimetableGrid extends StatelessWidget {
       ],
     );
   }
+
+  /// Rebuilds the cached per-weekday slot layout only when the inputs that
+  /// determine the grouping change. `rotationTick` is intentionally excluded:
+  /// picking a conflict variant from the cache is cheap and done in build.
+  void _ensureLayout(
+    List<Course> courses,
+    int week,
+    bool showNonCurrentWeekCourses,
+  ) {
+    final key = _GridLayoutCacheKey(courses, week, showNonCurrentWeekCourses);
+    if (_layoutKey == key && _daySlots != null) return;
+
+    _layoutKey = key;
+    final currentByWeekday = <int, List<_IndexedCourse>>{};
+    final otherByWeekday = <int, List<_IndexedCourse>>{};
+    for (int index = 0; index < courses.length; index++) {
+      final course = courses[index];
+      final entry = _IndexedCourse(
+        sourceIndex: index,
+        course: course,
+        isCurrentWeek: course.isInWeek(week),
+      );
+      final map = entry.isCurrentWeek ? currentByWeekday : otherByWeekday;
+      map.putIfAbsent(course.weekday, () => []).add(entry);
+    }
+
+    final daySlots = <int, List<_DaySlot>>{};
+    for (int weekday = 1; weekday <= 7; weekday++) {
+      final allDayCourses = <_IndexedCourse>[
+        ...(currentByWeekday[weekday] ?? const <_IndexedCourse>[]),
+        ...(showNonCurrentWeekCourses
+            ? (otherByWeekday[weekday] ?? const <_IndexedCourse>[])
+            : const <_IndexedCourse>[]),
+      ];
+      daySlots[weekday] = _buildDaySlots(allDayCourses);
+    }
+    _daySlots = daySlots;
+  }
+}
+
+class _GridLayoutCacheKey {
+  final List<Course> courses;
+  final int week;
+  final bool showNonCurrentWeekCourses;
+
+  const _GridLayoutCacheKey(this.courses, this.week, this.showNonCurrentWeekCourses);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _GridLayoutCacheKey &&
+      identical(courses, other.courses) &&
+      week == other.week &&
+      showNonCurrentWeekCourses == other.showNonCurrentWeekCourses;
+
+  @override
+  int get hashCode =>
+      Object.hash(identityHashCode(courses), week, showNonCurrentWeekCourses);
 }
 
 bool _indexedCourseHitsSession(_IndexedCourse entry, int session) {
@@ -337,10 +429,9 @@ bool _indexedCourseHitsSession(_IndexedCourse entry, int session) {
       session <= entry.course.endSession;
 }
 
-List<_DisplayCourse> _buildDisplayCourses(
-  List<_IndexedCourse> dayCourses,
-  int rotationTick,
-) {
+/// The EXPENSIVE part: sort, group overlapping courses and precompute the
+/// conflict variants (with backtracking). Cached per (courses, week, showNon).
+List<_DaySlot> _buildDaySlots(List<_IndexedCourse> dayCourses) {
   final sortedCourses = [...dayCourses]
     ..sort((a, b) {
       final startCompare = a.course.startSession.compareTo(
@@ -380,19 +471,10 @@ List<_DisplayCourse> _buildDisplayCourses(
     groups.add(currentGroup);
   }
 
-  final displayCourses = <_DisplayCourse>[];
+  final slots = <_DaySlot>[];
   for (final group in groups) {
     if (group.length == 1) {
-      final entry = group.first;
-      displayCourses.add(
-        _DisplayCourse(
-          course: entry.course,
-          sourceIndex: entry.sourceIndex,
-          tapStartSession: entry.course.startSession,
-          tapSessionSpan: entry.course.sessionSpan,
-          animationKey: '${entry.sourceIndex}:solo',
-        ),
-      );
+      slots.add(_DaySlot.solo(group.first));
       continue;
     }
 
@@ -407,16 +489,44 @@ List<_DisplayCourse> _buildDisplayCourses(
         ? _buildConflictVariants(otherWeekEntries)
         : <List<_IndexedCourse>>[];
 
-    final variants = [...currentVariants, ...otherVariants];
-    if (variants.isEmpty) {
-      variants.add(group.take(1).toList());
+    slots.add(_DaySlot.group(group, currentVariants, otherVariants));
+  }
+
+  return slots;
+}
+
+/// The CHEAP part: pick the variant index from the cached slots and produce the
+/// flat list of display courses. Runs on every build (including every countdown
+/// wrap) but does no sorting/grouping/backtracking.
+List<_DisplayCourse> _selectDayDisplays(
+  List<_DaySlot> slots,
+  int rotationTick,
+) {
+  final displayCourses = <_DisplayCourse>[];
+  for (final slot in slots) {
+    if (slot.solo) {
+      final entry = slot.all.first;
+      displayCourses.add(
+        _DisplayCourse(
+          course: entry.course,
+          sourceIndex: entry.sourceIndex,
+          tapStartSession: entry.course.startSession,
+          tapSessionSpan: entry.course.sessionSpan,
+          animationKey: '${entry.sourceIndex}:solo',
+        ),
+      );
+      continue;
     }
 
-    final selectedVariantIndex = rotationTick % variants.length;
-    final selectedVariant = variants[selectedVariantIndex];
+    final variants = [...slot.currentVariants, ...slot.otherVariants];
+    final effectiveVariants = variants.isEmpty
+        ? [slot.all.take(1).toList()]
+        : variants;
+    final selectedVariantIndex = rotationTick % effectiveVariants.length;
+    final selectedVariant = effectiveVariants[selectedVariantIndex];
     final isMuted =
-        selectedVariantIndex >= currentVariants.length &&
-        otherVariants.isNotEmpty;
+        selectedVariantIndex >= slot.currentVariants.length &&
+        slot.otherVariants.isNotEmpty;
 
     for (final entry in selectedVariant) {
       displayCourses.add(
@@ -425,7 +535,7 @@ List<_DisplayCourse> _buildDisplayCourses(
           sourceIndex: entry.sourceIndex,
           tapStartSession: entry.course.startSession,
           tapSessionSpan: entry.course.sessionSpan,
-          isConflict: variants.length > 1,
+          isConflict: effectiveVariants.length > 1,
           isMutedVariant: isMuted,
           animationKey: '${entry.sourceIndex}:variant:$selectedVariantIndex',
         ),
@@ -510,6 +620,24 @@ class _IndexedCourse {
     required this.course,
     required this.isCurrentWeek,
   });
+}
+
+/// A per-day slot: either a single (non-conflicting) course or an overlapping
+/// group whose display alternatives have already been computed.
+class _DaySlot {
+  final List<_IndexedCourse> all;
+  final List<List<_IndexedCourse>> currentVariants;
+  final List<List<_IndexedCourse>> otherVariants;
+  final bool solo;
+
+  _DaySlot.solo(_IndexedCourse entry)
+    : all = [entry],
+      currentVariants = const [],
+      otherVariants = const [],
+      solo = true;
+
+  _DaySlot.group(this.all, this.currentVariants, this.otherVariants)
+    : solo = false;
 }
 
 class _DisplayCourse {
