@@ -109,6 +109,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     if (!isLoggedIn || _isLoggingIn) {
       return AppPage(
         root: true,
+        resizeToAvoidBottomInset: true,
         child: SafeArea(child: _buildLoginForm(theme)),
       );
     }
@@ -128,6 +129,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     return AppPage(
       title: '掌上徐工',
       root: true,
+      resizeToAvoidBottomInset: true,
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         children: [
@@ -297,14 +299,11 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                   constraints: const BoxConstraints(
                     maxWidth: AppLayout.formMaxWidth,
                   ),
-                  child: IndexedStack(
-                    index: _currentPage,
-                    children: [
-                      _buildLoginPanel(theme, isLoading, buttons),
-                      _buildVerifyPanel(theme, buttons),
-                      _buildPasswordPanel(theme, buttons),
-                    ],
-                  ),
+                  child: switch (_currentPage) {
+                    0 => _buildLoginPanel(theme, isLoading, buttons),
+                    1 => _buildVerifyPanel(theme, buttons),
+                    _ => _buildPasswordPanel(theme, buttons),
+                  },
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 // 登录页底部的低调调试入口。

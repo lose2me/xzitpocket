@@ -103,21 +103,15 @@ class TimetableGrid extends StatelessWidget {
           children: [
             SizedBox(
               width: 40,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: '${dates[0].month}月'
-                    .split('')
-                    .map(
-                      (c) => Text(
-                        c,
-                        style: theme.typography.caption.copyWith(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colors.mutedForeground,
-                        ),
-                      ),
-                    )
-                    .toList(),
+              child: Center(
+                child: Text(
+                  '${dates[0].month}月',
+                  style: theme.typography.caption.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colors.mutedForeground,
+                  ),
+                ),
               ),
             ),
             ...List.generate(dayCount, (i) {

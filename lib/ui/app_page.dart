@@ -11,6 +11,7 @@ class AppPage extends StatelessWidget {
   final Widget? footer;
   final bool root;
   final bool childPad;
+  final bool? resizeToAvoidBottomInset;
 
   /// 自定义标题栏样式（默认跟随主题）。
   final FHeaderStyleDelta? headerStyle;
@@ -23,11 +24,13 @@ class AppPage extends StatelessWidget {
     this.footer,
     this.root = false,
     this.childPad = false,
+    this.resizeToAvoidBottomInset,
     this.headerStyle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final ambientMediaQuery = MediaQuery.of(context);
     final header = title == null
         ? null
         : root
@@ -53,15 +56,30 @@ class AppPage extends StatelessWidget {
             child: child,
           );
 
+    final scaffoldChild = root && resizeToAvoidBottomInset != true
+        ? MediaQuery(data: ambientMediaQuery, child: content)
+        : content;
+    final scaffold = FScaffold(
+      header: header,
+      footer: footer,
+      childPad: childPad,
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset ?? !root,
+      child: scaffoldChild,
+    );
+
+    // Root pages are hosted inside HomePage's shell. Their content still gets
+    // the live keyboard inset when needed, but idle timetable/tools roots do
+    // not make their scaffold render objects relayout for every IME frame.
+    final isolatedScaffold = root && resizeToAvoidBottomInset != true
+        ? MediaQuery(
+            data: ambientMediaQuery.copyWith(viewInsets: EdgeInsets.zero),
+            child: scaffold,
+          )
+        : scaffold;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: context.theme.colors.systemOverlayStyle,
-      child: FScaffold(
-        header: header,
-        footer: footer,
-        childPad: childPad,
-        resizeToAvoidBottomInset: !root,
-        child: content,
-      ),
+      child: isolatedScaffold,
     );
   }
 }

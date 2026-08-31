@@ -225,7 +225,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   Widget build(BuildContext context) {
     super.build(context);
     final coursesAsync = ref.watch(scheduleProvider);
-    final selectedWeek = ref.watch(selectedWeekProvider);
     final showNonCurrentWeekCourses = ref.watch(
       showNonCurrentWeekCoursesProvider,
     );
@@ -240,10 +239,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       child: SafeArea(
         child: Column(
           children: [
-            WeekHeader(
-              calendar: semesterCalendar,
-              selectedWeek: selectedWeek,
-              onSync: _isSyncing ? null : _onSync,
+            Consumer(
+              builder: (context, ref, child) => WeekHeader(
+                calendar: semesterCalendar,
+                selectedWeek: ref.watch(selectedWeekProvider),
+                onSync: _isSyncing ? null : _onSync,
+              ),
             ),
             Expanded(
               child: coursesAsync.when(
@@ -264,27 +265,29 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     },
                     itemBuilder: (context, index) {
                       final week = index + 1;
-                      return TimetableGrid(
-                        courses: courses,
-                        week: week,
-                        rotationTick: _conflictRotationTick,
-                        showNonCurrentWeekCourses: showNonCurrentWeekCourses,
-                        showWeekendColumns: showWeekendColumns,
-                        calendar: semesterCalendar,
-                        hiddenSlots: hide56 ? const {5, 6} : const {},
-                        countdownAnimation: _conflictCountdownController,
-                        borderColor: courseBorderColor,
-                        borderWidth: 0.5,
-                        courseOpacity: courseOpacity,
-                        courseBorderOpacity: courseBorderOpacity,
-                        onCourseTap: (course, idx) {
-                          final key = ref
-                              .read(scheduleProvider.notifier)
-                              .keyAt(idx);
-                          _showCourseDetail(context, course, key);
-                        },
-                        onEmptyTap: (weekday, session) =>
-                            _onEmptySlotTap(context, weekday, session),
+                      return RepaintBoundary(
+                        child: TimetableGrid(
+                          courses: courses,
+                          week: week,
+                          rotationTick: _conflictRotationTick,
+                          showNonCurrentWeekCourses: showNonCurrentWeekCourses,
+                          showWeekendColumns: showWeekendColumns,
+                          calendar: semesterCalendar,
+                          hiddenSlots: hide56 ? const {5, 6} : const {},
+                          countdownAnimation: _conflictCountdownController,
+                          borderColor: courseBorderColor,
+                          borderWidth: 0.5,
+                          courseOpacity: courseOpacity,
+                          courseBorderOpacity: courseBorderOpacity,
+                          onCourseTap: (course, idx) {
+                            final key = ref
+                                .read(scheduleProvider.notifier)
+                                .keyAt(idx);
+                            _showCourseDetail(context, course, key);
+                          },
+                          onEmptyTap: (weekday, session) =>
+                              _onEmptySlotTap(context, weekday, session),
+                        ),
                       );
                     },
                   );

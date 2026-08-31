@@ -424,7 +424,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
             child: AppTextField(
               controller: _addressCtrl,
               label: '详细地址',
-              hint: '7B216',
               enabled: !_formDisabled,
             ),
           ),

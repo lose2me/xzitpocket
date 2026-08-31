@@ -47,7 +47,12 @@ class HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return FScaffold(
+    return _KeyboardIsolatedShell(builder: _buildShell);
+  }
+
+  Widget _buildShell(BuildContext context, MediaQueryData ambientMediaQuery) {
+    final shell = FScaffold(
+      resizeToAvoidBottomInset: false,
       childPad: false,
       footer: FBottomNavigationBar(
         index: _currentIndex,
@@ -99,10 +104,39 @@ class HomePageState extends State<HomePage> {
               1 => ToolsPage(key: ToolsPage.globalKey),
               _ => ProfilePage(key: ProfilePage.globalKey),
             };
-            return TickerMode(enabled: _currentIndex == index, child: page);
+            final pageWithInsets = index == 2
+                ? MediaQuery(data: ambientMediaQuery, child: page)
+                : page;
+            return TickerMode(
+              enabled: _currentIndex == index,
+              child: pageWithInsets,
+            );
           },
         ),
       ),
+    );
+
+    // Keep the shell's own inset at zero. Profile injects the live inset into
+    // its dedicated root scaffold; this prevents the nav shell and timetable
+    // render tree from participating in the keyboard animation.
+    return shell;
+  }
+}
+
+/// Keeps IME metric updates out of the home state and the timetable/tools
+/// render trees. Only the profile page receives the live bottom inset.
+class _KeyboardIsolatedShell extends StatelessWidget {
+  final Widget Function(BuildContext context, MediaQueryData mediaQuery)
+  builder;
+
+  const _KeyboardIsolatedShell({required this.builder});
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    return MediaQuery(
+      data: mediaQuery.copyWith(viewInsets: EdgeInsets.zero),
+      child: Builder(builder: (context) => builder(context, mediaQuery)),
     );
   }
 }

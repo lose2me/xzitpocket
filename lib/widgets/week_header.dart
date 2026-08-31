@@ -4,7 +4,7 @@ import 'package:forui/forui.dart';
 import '../models/school_calendar.dart';
 import '../ui/app_components.dart';
 
-/// 课表顶部周信息：显示当前日期、第 N 周、该周日期范围与节日（数据来自校历）。
+/// 课表顶部周信息：显示当前日期与第 N 周。
 class WeekHeader extends StatelessWidget {
   final SemesterCalendar calendar;
   final int selectedWeek;
@@ -24,17 +24,7 @@ class WeekHeader extends StatelessWidget {
     final cw = calendar.weekOf(today);
     final beforeStart = cw <= 0;
 
-    final safeWeek = selectedWeek.clamp(1, calendar.totalWeeks);
-    final (monday, sunday) = beforeStart
-        ? (today, today)
-        : calendar.weekRange(safeWeek);
-    final festivals = beforeStart
-        ? const <String>[]
-        : calendar.festivalNamesInWeek(safeWeek);
-    final rangeText = beforeStart
-        ? ''
-        : '${monday.month}/${monday.day}–${sunday.month}/${sunday.day}';
-    final festivalText = festivals.isEmpty ? '' : '  ·  ${festivals.join('、')}';
+
 
     return AppContentFrame(
       safeArea: false,
@@ -54,9 +44,7 @@ class WeekHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.micro),
                 Text(
-                  beforeStart
-                      ? '未开学'
-                      : '第$selectedWeek周 $rangeText$festivalText',
+                  beforeStart ? '未开学' : '第$selectedWeek周',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.typography.caption.copyWith(
