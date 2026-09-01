@@ -28,7 +28,7 @@ class SchoolCalendarPage extends StatelessWidget {
     }
 
     return AppPage(
-      title: '26上学期校历',
+      title: '学校校历',
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: 0,
@@ -47,12 +47,14 @@ class SchoolCalendarPage extends StatelessWidget {
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   _legendDot(theme, theme.colors.secondary, '节假日'),
+                  const SizedBox(width: AppSpacing.sm),
+                  _legendDot(theme, theme.colors.semantic.info, '今日'),
                 ],
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
-                  '实际安排可能会发生变动，如调休',
+                  '实际安排可能会发生变动',
                   textAlign: TextAlign.right,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -192,6 +194,11 @@ class SchoolCalendarPage extends StatelessWidget {
     final isFestival = day.festival != null;
     final isMonthStart = day.date.day == 1;
     final isWeekend = day.weekday == 6 || day.weekday == 7;
+    final now = DateTime.now();
+    final isToday =
+        day.date.year == now.year &&
+        day.date.month == now.month &&
+        day.date.day == now.day;
 
     // 节假日/特殊节日（含非周末的放假日）用主题浅粉；周末(周六/日)用之前琥珀色。
     final Color bg;
@@ -213,10 +220,16 @@ class SchoolCalendarPage extends StatelessWidget {
 
     return Container(
       height: 44,
+      width: double.infinity,
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: theme.colors.border, width: 0.5),
+        border: Border.all(
+          color: isToday
+              ? theme.colors.semantic.info
+              : theme.colors.border,
+          width: isToday ? 1.5 : 0.5,
+        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

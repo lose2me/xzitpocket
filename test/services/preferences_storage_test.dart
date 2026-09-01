@@ -79,4 +79,34 @@ void main() {
       expect(preferences.getString('saved_power_cache_date'), isNull);
     });
   });
+
+  group('appearance settings', () {
+    late PreferencesStorage storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = PreferencesStorage();
+      await storage.init();
+    });
+
+    test('roundtrips timetable appearance settings', () async {
+      await storage.setThemeColor('blue');
+      await storage.setTimetableBackgroundPath('/tmp/background.jpg');
+      await storage.setTimetableBackgroundOpacity(0.65);
+      await storage.setShowTimetableGridLines(false);
+
+      expect(storage.getThemeColor(), 'blue');
+      expect(storage.getTimetableBackgroundPath(), '/tmp/background.jpg');
+      expect(storage.getTimetableBackgroundOpacity(), 0.65);
+      expect(storage.getShowTimetableGridLines(), isFalse);
+    });
+
+    test('clamps timetable background opacity', () async {
+      await storage.setTimetableBackgroundOpacity(2);
+      expect(storage.getTimetableBackgroundOpacity(), 1);
+
+      await storage.setTimetableBackgroundOpacity(-1);
+      expect(storage.getTimetableBackgroundOpacity(), 0);
+    });
+  });
 }

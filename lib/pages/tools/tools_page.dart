@@ -13,6 +13,7 @@ import '../../services/tools_data_manager.dart';
 import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../../services/learning_repository.dart';
 import 'exam_query_page.dart';
 import 'grade_query_page.dart';
 import 'campus_card_page.dart';
@@ -21,6 +22,7 @@ import 'power_query_page.dart';
 import 'repair_page.dart';
 import 'teacher_evaluation_page.dart';
 import 'school_calendar_page.dart';
+import 'learning_center_page.dart';
 
 class ToolsPage extends ConsumerStatefulWidget {
   const ToolsPage({super.key});
@@ -180,6 +182,20 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       preferencesStorage: ref.read(preferencesStorageProvider),
     ),
   );
+
+  Future<void> _openLearningCenter() async {
+    final repository = LearningRepository(
+      preferencesStorage: ref.read(preferencesStorageProvider),
+    );
+    await repository.load();
+    if (!mounted) return;
+    Navigator.of(context).push(
+      appRoute(
+        name: AppRouteNames.learning,
+        builder: (_) => LearningCenterPage(repository: repository),
+      ),
+    );
+  }
 
   Future<void> _openNetAuth() => _openTool(
     loading: _manager.netAuthLoading,
@@ -351,8 +367,15 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           const SizedBox(height: AppSpacing.md),
           _buildSimpleCard(
             theme,
+            icon: FLucideIcons.graduationCap,
+            title: '学习中心',
+            onTap: _openLearningCenter,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _buildSimpleCard(
+            theme,
             icon: FLucideIcons.calendarDays,
-            title: '26上学期校历',
+            title: '学校校历',
             onTap: _openSchoolCalendar,
           ),
           const SizedBox(height: AppSpacing.md),

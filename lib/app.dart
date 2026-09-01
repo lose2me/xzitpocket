@@ -77,23 +77,23 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final themePreference = ref.watch(
-      appSettingsProvider.select((state) => state.themePreference),
-    );
+    final settings = ref.watch(appSettingsProvider);
+    final lightTheme = AppTheme.lightFor(settings.themeColor);
+    final darkTheme = AppTheme.darkFor(settings.themeColor);
 
     return MaterialApp(
       title: '掌上徐工',
       debugShowCheckedModeBanner: false,
       localizationsDelegates: FLocalizations.localizationsDelegates,
       supportedLocales: FLocalizations.supportedLocales,
-      theme: AppTheme.light.toApproximateMaterialTheme(),
-      darkTheme: AppTheme.dark.toApproximateMaterialTheme(),
-      themeMode: themePreference.themeMode,
+      theme: lightTheme.toApproximateMaterialTheme(),
+      darkTheme: darkTheme.toApproximateMaterialTheme(),
+      themeMode: settings.themePreference.themeMode,
       navigatorObservers: [TalkerRouteObserver(talker)],
       builder: (context, child) {
         final theme = Theme.of(context).brightness == Brightness.dark
-            ? AppTheme.dark
-            : AppTheme.light;
+            ? darkTheme
+            : lightTheme;
         return FTheme(
           data: theme,
           child: IconTheme(

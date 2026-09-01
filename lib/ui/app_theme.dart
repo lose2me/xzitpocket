@@ -1,18 +1,24 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
+import '../models/app_settings.dart';
 import 'app_colors.dart';
 
 abstract final class AppTheme {
-  static final light = _build(
+  static final light = lightFor(AppThemeColor.rose);
+  static final dark = darkFor(AppThemeColor.rose);
+
+  static FThemeData lightFor(AppThemeColor themeColor) => _build(
     debugLabel: 'XZIT Pocket Light',
     colors: FColors.neutralLight.copyWith(
       background: const Color(0xFFF7F9FA),
       foreground: const Color(0xFF182126),
-      primary: const Color(0xFFCE3C57),
-      primaryForeground: const Color(0xFFFFFFFF),
-      secondary: const Color(0xFFFBE3E9),
-      secondaryForeground: const Color(0xFF55202B),
+      primary: themeColor.color,
+      primaryForeground: _onColor(themeColor.color),
+      secondary: Color.lerp(Colors.white, themeColor.color, 0.12)!,
+      secondaryForeground: _onColor(
+        Color.lerp(Colors.white, themeColor.color, 0.12)!,
+      ),
       muted: const Color(0xFFEEF2F3),
       mutedForeground: const Color(0xFF58686F),
       destructive: const Color(0xFFB42318),
@@ -40,41 +46,54 @@ abstract final class AppTheme {
     ),
   );
 
-  static final dark = _build(
-    debugLabel: 'XZIT Pocket Dark',
-    colors: FColors.neutralDark.copyWith(
-      background: const Color(0xFF0E1417),
-      foreground: const Color(0xFFE8EEF0),
-      primary: const Color(0xFFFF9BAE),
-      primaryForeground: const Color(0xFF2A0E14),
-      secondary: const Color(0xFF3A1C22),
-      secondaryForeground: const Color(0xFFFFD6DD),
-      muted: const Color(0xFF1D292D),
-      mutedForeground: const Color(0xFFA5B6BC),
-      destructive: const Color(0xFFFF8A80),
-      destructiveForeground: const Color(0xFF2B0806),
-      error: const Color(0xFFFF8A80),
-      errorForeground: const Color(0xFF2B0806),
-      card: const Color(0xFF151D21),
-      border: const Color(0xFF304047),
-      extensions: const [
-        AppSemanticColors(
-          controlBorder: Color(0xFF71868F),
-          success: Color(0xFF6DD6A7),
-          successContainer: Color(0xFF143A2B),
-          onSuccessContainer: Color(0xFFB9F0D2),
-          warning: Color(0xFFF4C060),
-          warningContainer: Color(0xFF3A2B0D),
-          onWarningContainer: Color(0xFFFFE3A3),
-          info: Color(0xFF8FC2FF),
-          infoContainer: Color(0xFF15324F),
-          onInfoContainer: Color(0xFFC6E1FF),
-          timetableForeground: Color(0xFF182126),
-          timetableMutedForeground: Color(0xFF45545A),
-        ),
-      ],
-    ),
-  );
+  static FThemeData darkFor(AppThemeColor themeColor) {
+    final primary = _darkPrimary(themeColor.color);
+    return _build(
+      debugLabel: 'XZIT Pocket Dark',
+      colors: FColors.neutralDark.copyWith(
+        background: const Color(0xFF0E1417),
+        foreground: const Color(0xFFE8EEF0),
+        primary: primary,
+        primaryForeground: _onColor(primary),
+        secondary: Color.lerp(Colors.black, themeColor.color, 0.28)!,
+        secondaryForeground: primary,
+        muted: const Color(0xFF1D292D),
+        mutedForeground: const Color(0xFFA5B6BC),
+        destructive: const Color(0xFFFF8A80),
+        destructiveForeground: const Color(0xFF2B0806),
+        error: const Color(0xFFFF8A80),
+        errorForeground: const Color(0xFF2B0806),
+        card: const Color(0xFF151D21),
+        border: const Color(0xFF304047),
+        extensions: const [
+          AppSemanticColors(
+            controlBorder: Color(0xFF71868F),
+            success: Color(0xFF6DD6A7),
+            successContainer: Color(0xFF143A2B),
+            onSuccessContainer: Color(0xFFB9F0D2),
+            warning: Color(0xFFF4C060),
+            warningContainer: Color(0xFF3A2B0D),
+            onWarningContainer: Color(0xFFFFE3A3),
+            info: Color(0xFF8FC2FF),
+            infoContainer: Color(0xFF15324F),
+            onInfoContainer: Color(0xFFC6E1FF),
+            timetableForeground: Color(0xFF182126),
+            timetableMutedForeground: Color(0xFF45545A),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Color _darkPrimary(Color color) {
+    final hsl = HSLColor.fromColor(color);
+    return hsl
+        .withLightness((hsl.lightness + 0.28).clamp(0.58, 0.78))
+        .toColor();
+  }
+
+  static Color _onColor(Color color) =>
+      color.computeLuminance() > 0.48 ? Colors.black : Colors.white;
 
   static FThemeData _build({
     required String debugLabel,

@@ -27,9 +27,40 @@ class PreferencesStorage {
   Future<void> setThemePreference(String value) =>
       _prefs.setString('theme_preference', value);
 
+  String? getThemeColor() => _prefs.getString('theme_color');
+  Future<void> setThemeColor(String value) =>
+      _prefs.setString('theme_color', value);
+
   String? getClassAutomationMode() => _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
+
+  String? getTimetableBackgroundPath() =>
+      _prefs.getString('timetable_background_path');
+
+  Future<void> setTimetableBackgroundPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _prefs.remove('timetable_background_path');
+    } else {
+      await _prefs.setString('timetable_background_path', path);
+    }
+  }
+
+  double getTimetableBackgroundOpacity() =>
+      (_prefs.getDouble('timetable_background_opacity') ?? 0.24)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableBackgroundOpacity(double value) => _prefs.setDouble(
+    'timetable_background_opacity',
+    value.clamp(0.0, 1.0).toDouble(),
+  );
+
+  bool getShowTimetableGridLines() =>
+      _prefs.getBool('show_timetable_grid_lines') ?? true;
+
+  Future<void> setShowTimetableGridLines(bool value) =>
+      _prefs.setBool('show_timetable_grid_lines', value);
 
   // ── Power room ──
 
@@ -117,6 +148,24 @@ class PreferencesStorage {
   Future<void> setNetauthCache(String json) =>
       _setCache('netauth_cache', 'netauth_cache_time', json);
 
+  // ── Learning center cache ──
+
+  String? getLearningQuestionBankCache() =>
+      _prefs.getString('learning_question_bank_cache');
+
+  Future<void> setLearningQuestionBankCache(String json) =>
+      _prefs.setString('learning_question_bank_cache', json);
+
+  String? getLearningStateCache() => _prefs.getString('learning_state_cache');
+
+  Future<void> setLearningStateCache(String json) =>
+      _prefs.setString('learning_state_cache', json);
+
+  Future<void> clearLearningCache() async {
+    await _prefs.remove('learning_question_bank_cache');
+    await _prefs.remove('learning_state_cache');
+  }
+
   Future<void> clearUserToolCaches() async {
     await Future.wait([
       _clearCache('jp_cache', 'jp_cache_time'),
@@ -124,6 +173,7 @@ class PreferencesStorage {
       _clearCache('exam_cache', 'exam_cache_time'),
       _clearCache('ykt_cache', 'ykt_cache_time'),
       _clearCache('netauth_cache', 'netauth_cache_time'),
+      clearLearningCache(),
     ]);
   }
 

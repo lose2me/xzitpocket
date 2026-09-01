@@ -265,12 +265,14 @@ class AppOption<T> {
   final String title;
   final String? subtitle;
   final IconData? icon;
+  final Widget? leading;
 
   const AppOption({
     required this.value,
     required this.title,
     this.subtitle,
     this.icon,
+    this.leading,
   });
 }
 
@@ -354,14 +356,15 @@ class _AppOptionTile<T> extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (option.icon != null) ...[
-              Icon(
-                option.icon,
-                size: 22,
-                color: selected
-                    ? theme.colors.primary
-                    : theme.colors.mutedForeground,
-              ),
+            if (option.leading != null || option.icon != null) ...[
+              option.leading ??
+                  Icon(
+                    option.icon,
+                    size: 22,
+                    color: selected
+                        ? theme.colors.primary
+                        : theme.colors.mutedForeground,
+                  ),
               const SizedBox(width: 12),
             ],
             Expanded(

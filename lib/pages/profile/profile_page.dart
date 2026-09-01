@@ -1,11 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
-import 'package:flutter/material.dart' show InputBorder;
-import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../models/app_settings.dart';
@@ -27,6 +29,24 @@ import '../../services/cas_service.dart';
 import '../home_page.dart';
 import '../timetable/timetable_providers.dart';
 import 'profile_components.dart';
+
+enum _BackgroundAction { pick, clear }
+
+class _ThemeColorSwatch extends StatelessWidget {
+  final Color color;
+
+  const _ThemeColorSwatch({required this.color});
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: color,
+      shape: BoxShape.circle,
+      border: Border.all(color: context.theme.colors.border),
+    ),
+    child: const SizedBox(width: 26, height: 26),
+  );
+}
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -68,6 +88,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   bool _roomIdInitialized = false;
   bool _isSavingRoom = false;
   bool _isLoggingIn = false;
+  final _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -220,6 +241,30 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 onChange: (v) =>
                     ref.read(showWeekendColumnsProvider.notifier).set(!v),
               ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.image,
+                title: '课表背景图',
+                value: settings.timetableBackgroundPath == null ? '未设置' : '已设置',
+                onTap: () =>
+                    _openBackgroundSheet(settings.timetableBackgroundPath),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.eye,
+                title: '背景图不透明度',
+                value:
+                    '${(settings.timetableBackgroundOpacity * 100).round()}%',
+                onTap: () => _openBackgroundOpacitySheet(
+                  settings.timetableBackgroundOpacity,
+                ),
+              ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.grid2x2,
+                title: '显示网格辅助线',
+                value: settings.showTimetableGridLines,
+                onChange: (v) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setShowTimetableGridLines(v),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -231,6 +276,12 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 title: '主题模式',
                 value: _themeTitle(settings.themePreference),
                 onTap: () => _openThemeSheet(settings.themePreference),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.palette,
+                title: '软件主题色',
+                value: settings.themeColor.label,
+                onTap: () => _openThemeColorSheet(settings.themeColor),
               ),
             ],
           ),
@@ -968,6 +1019,176 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
     if (selected != null && selected != currentPreference) {
       await _updateTheme(selected);
+    }
+  }
+
+  Future<void> _updateThemeColor(AppThemeColor color) async {
+    await ref.read(appSettingsProvider.notifier).setThemeColor(color);
+  }
+
+  Future<void> _openThemeColorSheet(AppThemeColor currentColor) async {
+    final selected = await showAppSheet<AppThemeColor>(
+      context: context,
+      builder: (context) => AppOptionSheet<AppThemeColor>(
+        title: '软件主题色',
+        value: currentColor,
+        options: [
+          for (final color in AppThemeColor.values)
+            AppOption<AppThemeColor>(
+              value: color,
+              title: color.label,
+              subtitle:
+                  '#${color.color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
+              leading: _ThemeColorSwatch(color: color.color),
+            ),
+        ],
+      ),
+    );
+
+    if (selected != null && selected != currentColor) {
+      await _updateThemeColor(selected);
+    }
+  }
+
+  Future<void> _openBackgroundSheet(String? currentPath) async {
+    final selected = await showAppSheet<_BackgroundAction>(
+      context: context,
+      builder: (context) => AppOptionSheet<_BackgroundAction>(
+        title: '课表背景图',
+        options: [
+          const AppOption<_BackgroundAction>(
+            value: _BackgroundAction.pick,
+            title: '选择图片',
+            subtitle: '从设备相册选择一张图片',
+            icon: FLucideIcons.imagePlus,
+          ),
+          if (currentPath != null)
+            const AppOption<_BackgroundAction>(
+              value: _BackgroundAction.clear,
+              title: '清除背景图',
+              subtitle: '恢复为纯色背景',
+              icon: FLucideIcons.imageOff,
+            ),
+        ],
+      ),
+    );
+
+    switch (selected) {
+      case _BackgroundAction.pick:
+        await _pickTimetableBackground();
+      case _BackgroundAction.clear:
+        await _clearTimetableBackground(currentPath);
+      case null:
+        break;
+    }
+  }
+
+  Future<void> _pickTimetableBackground() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 90,
+      maxWidth: 2048,
+      maxHeight: 2048,
+    );
+    if (picked == null || !mounted) return;
+
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final extension = p.extension(picked.path).isEmpty
+          ? '.jpg'
+          : p.extension(picked.path);
+      final targetPath = p.join(
+        directory.path,
+        'timetable_background_${DateTime.now().millisecondsSinceEpoch}$extension',
+      );
+      await picked.saveTo(targetPath);
+
+      final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setTimetableBackgroundPath(targetPath);
+      if (oldPath != null && oldPath != targetPath) {
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) await oldFile.delete();
+      }
+      if (mounted) {
+        showAppSnackBar(context, '背景图已更新', severity: ToastSeverity.success);
+      }
+    } catch (error, stackTrace) {
+      talker.error('保存课表背景图失败', error, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
+      }
+    }
+  }
+
+  Future<void> _clearTimetableBackground(String? path) async {
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setTimetableBackgroundPath(null);
+    if (path != null) {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    }
+    if (mounted) {
+      showAppSnackBar(context, '已清除背景图', severity: ToastSeverity.info);
+    }
+  }
+
+  Future<void> _openBackgroundOpacitySheet(double currentOpacity) async {
+    var value = currentOpacity;
+    final selected = await showAppSheet<double>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('背景图不透明度', style: context.theme.typography.pageTitle),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '${(value * 100).round()}%',
+                style: context.theme.typography.bodySmall.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+              Material(
+                type: MaterialType.transparency,
+                child: Slider(
+                  value: value,
+                  min: 0,
+                  max: 1,
+                  divisions: 20,
+                  activeColor: context.theme.colors.primary,
+                  onChanged: (next) => setState(() => value = next),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FButton(
+                  mainAxisSize: MainAxisSize.min,
+                  onPress: () => Navigator.pop(context, value),
+                  child: const Text('确定'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (selected != null && selected != currentOpacity) {
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setTimetableBackgroundOpacity(selected);
     }
   }
 

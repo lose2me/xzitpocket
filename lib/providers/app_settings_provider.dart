@@ -23,9 +23,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       themePreference: AppThemePreference.fromStorage(
         _storage.getThemePreference(),
       ),
+      themeColor: AppThemeColor.fromStorage(_storage.getThemeColor()),
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
+      timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
+      timetableBackgroundOpacity: _storage.getTimetableBackgroundOpacity(),
+      showTimetableGridLines: _storage.getShowTimetableGridLines(),
     );
   }
 
@@ -39,9 +43,35 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     }
   }
 
+  Future<void> setThemeColor(AppThemeColor color) async {
+    await _storage.setThemeColor(color.storageValue);
+    state = state.copyWith(themeColor: color);
+    try {
+      await WidgetService.refreshWidget();
+    } on WidgetSyncException {
+      // Ignore widget refresh failures so theme changes still apply in-app.
+    }
+  }
+
   Future<void> setClassAutomationMode(ClassAutomationMode mode) async {
     await _storage.setClassAutomationMode(mode.storageValue);
     state = state.copyWith(classAutomationMode: mode);
     await NativeAutomationService.refreshClassAutomation();
+  }
+
+  Future<void> setTimetableBackgroundPath(String? path) async {
+    await _storage.setTimetableBackgroundPath(path);
+    state = state.copyWith(timetableBackgroundPath: path);
+  }
+
+  Future<void> setTimetableBackgroundOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    await _storage.setTimetableBackgroundOpacity(normalized);
+    state = state.copyWith(timetableBackgroundOpacity: normalized);
+  }
+
+  Future<void> setShowTimetableGridLines(bool value) async {
+    await _storage.setShowTimetableGridLines(value);
+    state = state.copyWith(showTimetableGridLines: value);
   }
 }

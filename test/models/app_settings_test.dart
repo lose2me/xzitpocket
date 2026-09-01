@@ -34,6 +34,19 @@ void main() {
     });
   });
 
+  group('AppThemeColor', () {
+    test('fromStorage returns correct values', () {
+      for (final color in AppThemeColor.values) {
+        expect(AppThemeColor.fromStorage(color.storageValue), color);
+      }
+    });
+
+    test('fromStorage returns rose for unknown value', () {
+      expect(AppThemeColor.fromStorage('invalid'), AppThemeColor.rose);
+      expect(AppThemeColor.fromStorage(null), AppThemeColor.rose);
+    });
+  });
+
   group('ClassAutomationMode', () {
     test('fromStorage returns correct values', () {
       expect(ClassAutomationMode.fromStorage('off'), ClassAutomationMode.off);
@@ -63,16 +76,28 @@ void main() {
     test('defaults are correct', () {
       const settings = AppSettings();
       expect(settings.themePreference, AppThemePreference.system);
+      expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
+      expect(settings.timetableBackgroundPath, isNull);
+      expect(settings.timetableBackgroundOpacity, 0.24);
+      expect(settings.showTimetableGridLines, isTrue);
     });
 
     test('copyWith overrides specified fields', () {
       const settings = AppSettings();
       final updated = settings.copyWith(
         themePreference: AppThemePreference.dark,
+        themeColor: AppThemeColor.blue,
+        timetableBackgroundPath: '/tmp/background.jpg',
+        timetableBackgroundOpacity: 0.6,
+        showTimetableGridLines: false,
       );
       expect(updated.themePreference, AppThemePreference.dark);
+      expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.classAutomationMode, ClassAutomationMode.off);
+      expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
+      expect(updated.timetableBackgroundOpacity, 0.6);
+      expect(updated.showTimetableGridLines, isFalse);
     });
 
     test('copyWith preserves unspecified fields', () {
@@ -84,7 +109,18 @@ void main() {
         classAutomationMode: ClassAutomationMode.dndKeep,
       );
       expect(updated.themePreference, AppThemePreference.light);
+      expect(updated.themeColor, AppThemeColor.rose);
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
+      expect(updated.timetableBackgroundPath, isNull);
+      expect(updated.timetableBackgroundOpacity, 0.24);
+      expect(updated.showTimetableGridLines, isTrue);
+    });
+
+    test('copyWith can clear the background path', () {
+      const settings = AppSettings(timetableBackgroundPath: '/tmp/bg.jpg');
+      final updated = settings.copyWith(timetableBackgroundPath: null);
+
+      expect(updated.timetableBackgroundPath, isNull);
     });
   });
 }

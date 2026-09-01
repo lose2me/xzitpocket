@@ -7,6 +7,7 @@ import 'package:forui/forui.dart';
 
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
@@ -225,6 +226,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   Widget build(BuildContext context) {
     super.build(context);
     final coursesAsync = ref.watch(scheduleProvider);
+    final settings = ref.watch(appSettingsProvider);
     final showNonCurrentWeekCourses = ref.watch(
       showNonCurrentWeekCoursesProvider,
     );
@@ -284,6 +286,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                           borderWidth: 0.5,
                           courseOpacity: courseOpacity,
                           courseBorderOpacity: courseBorderOpacity,
+                          backgroundImagePath: settings.timetableBackgroundPath,
+                          backgroundOpacity:
+                              settings.timetableBackgroundOpacity,
+                          showGridLines: settings.showTimetableGridLines,
                           onCourseTap: (course, idx) {
                             final key = ref
                                 .read(scheduleProvider.notifier)

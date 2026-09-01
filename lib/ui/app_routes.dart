@@ -15,6 +15,11 @@ abstract final class AppRouteNames {
   static const operatorBinding = '/tools/network-management/operator-binding';
   static const repair = '/tools/repair';
   static const newRepair = '/tools/repair/new';
+  static const learning = '/tools/learning';
+  static const learningQuestionBank = '/tools/learning/questions';
+  static const learningWrongQuestions = '/tools/learning/wrong';
+  static const learningFavorites = '/tools/learning/favorites';
+  static const learningQuiz = '/tools/learning/quiz';
   static const addCourse = '/timetable/course/add';
   static const editCourse = '/timetable/course/edit';
 }

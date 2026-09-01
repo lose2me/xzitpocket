@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -35,6 +37,9 @@ class TimetableGrid extends StatefulWidget {
   final double borderWidth;
   final double courseOpacity;
   final double courseBorderOpacity;
+  final String? backgroundImagePath;
+  final double backgroundOpacity;
+  final bool showGridLines;
 
   const TimetableGrid({
     super.key,
@@ -54,6 +59,9 @@ class TimetableGrid extends StatefulWidget {
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
+    this.backgroundImagePath,
+    this.backgroundOpacity = 0.24,
+    this.showGridLines = true,
   });
 
   @override
@@ -122,7 +130,7 @@ class _TimetableGridState extends State<TimetableGrid> {
       return _selectDayDisplays(slots, rotationTick);
     });
 
-    return Column(
+    final content = Column(
       children: [
         // Weekday headers row
         Row(
@@ -236,10 +244,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                               final row =
                                   (details.localPosition.dy / cellHeight)
                                       .floor()
-                                      .clamp(
-                                        0,
-                                        visibleSessions.length - 1,
-                                      );
+                                      .clamp(0, visibleSessions.length - 1);
                               final session = visibleSessions[row];
                               final hasHit = allDayCourses.any(
                                 (entry) =>
@@ -251,30 +256,31 @@ class _TimetableGridState extends State<TimetableGrid> {
                             },
                             child: Stack(
                               children: [
-                                // Grid lines
-                                Column(
-                                  children: List.generate(effectiveSlotCount, (
-                                    i,
-                                  ) {
-                                    return Container(
-                                      height: cellHeight,
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          bottom: BorderSide(
-                                            color: theme.colors.border
-                                                .withAlpha(76),
-                                            width: 0.5,
+                                if (widget.showGridLines)
+                                  Column(
+                                    children: List.generate(
+                                      effectiveSlotCount,
+                                      (i) {
+                                        return Container(
+                                          height: cellHeight,
+                                          decoration: BoxDecoration(
+                                            border: Border(
+                                              bottom: BorderSide(
+                                                color: theme.colors.border
+                                                    .withAlpha(76),
+                                                width: 0.5,
+                                              ),
+                                              right: BorderSide(
+                                                color: theme.colors.border
+                                                    .withAlpha(76),
+                                                width: 0.5,
+                                              ),
+                                            ),
                                           ),
-                                          right: BorderSide(
-                                            color: theme.colors.border
-                                                .withAlpha(76),
-                                            width: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 // Course cards
                                 ...allDisplayCourses.map((display) {
                                   final course = display.course;
@@ -364,6 +370,26 @@ class _TimetableGridState extends State<TimetableGrid> {
         ),
       ],
     );
+
+    final backgroundPath = widget.backgroundImagePath;
+    if (backgroundPath == null || backgroundPath.isEmpty) return content;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: Opacity(
+            opacity: widget.backgroundOpacity.clamp(0.0, 1.0).toDouble(),
+            child: Image.file(
+              File(backgroundPath),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => const SizedBox(),
+            ),
+          ),
+        ),
+        content,
+      ],
+    );
   }
 
   /// Rebuilds the cached per-weekday slot layout only when the inputs that
@@ -410,7 +436,11 @@ class _GridLayoutCacheKey {
   final int week;
   final bool showNonCurrentWeekCourses;
 
-  const _GridLayoutCacheKey(this.courses, this.week, this.showNonCurrentWeekCourses);
+  const _GridLayoutCacheKey(
+    this.courses,
+    this.week,
+    this.showNonCurrentWeekCourses,
+  );
 
   @override
   bool operator ==(Object other) =>
