@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/learning_question.dart';
+import '../../services/control_service.dart';
 import '../../services/learning_repository.dart';
 import '../../ui/app_components.dart';
+import '../../utils/snackbar_helper.dart';
 import 'learning_question_list_page.dart';
 import 'learning_quiz_page.dart';
 
@@ -24,6 +26,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   LearningRepository get repository => widget.repository;
 
   _LearningTab _tab = _LearningTab.bank;
+  bool _redeeming = false;
+  final _cdkController = TextEditingController();
 
   @override
   void initState() {
@@ -39,6 +43,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   @override
   void dispose() {
     repository.removeListener(_onRepositoryUpdate);
+    _cdkController.dispose();
     super.dispose();
   }
 
@@ -123,45 +128,117 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ],
   );
 
+  Future<void> _redeemCdk() async {
+    final code = _cdkController.text.trim();
+    if (code.isEmpty) {
+      showAppSnackBar(context, '请输入 CDK', severity: ToastSeverity.warning);
+      return;
+    }
+    setState(() => _redeeming = true);
+    try {
+      await repository.redeemCdk(code);
+      if (!mounted) return;
+      _cdkController.clear();
+      showAppSnackBar(context, '题库兑换成功', severity: ToastSeverity.success);
+    } on ControlApiException catch (error) {
+      if (!mounted) return;
+      showAppSnackBar(context, error.message, severity: ToastSeverity.error);
+    } catch (_) {
+      if (!mounted) return;
+      showAppSnackBar(context, '题库兑换失败，请稍后重试', severity: ToastSeverity.error);
+    } finally {
+      if (mounted) setState(() => _redeeming = false);
+    }
+  }
+
   Widget _buildBankPage(BuildContext context) {
     final theme = context.theme;
-    final terms = _termGroups(repository.questions);
-    return terms.isEmpty
-        ? const AppStateView(
+    final terms = _termGroups();
+    if (repository.libraryUnavailable) {
+      return const AppPageListView(
+        maxWidth: AppLayout.resultMaxWidth,
+        topPadding: AppSpacing.lg,
+        bottomPadding: AppSpacing.xxl,
+        children: [
+          AppStateView(
+            icon: FLucideIcons.shieldAlert,
+            title: '风险控制',
+            description: '您的账户被暂时禁用',
+          ),
+        ],
+      );
+    }
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.lg,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        if (repository.canRedeemCdk) ...[
+          _buildCdkRedeemCard(theme),
+          if (terms.isNotEmpty) const SizedBox(height: AppSpacing.xl),
+        ],
+        if (terms.isEmpty)
+          const AppStateView(
             icon: FLucideIcons.library,
             title: '题库为空',
             description: '暂时没有可练习的题目',
           )
-        : AppPageListView(
-            maxWidth: AppLayout.resultMaxWidth,
-            topPadding: AppSpacing.lg,
-            bottomPadding: AppSpacing.xxl,
-            children: [
-              for (
-                var termIndex = 0;
-                termIndex < terms.length;
-                termIndex++
-              ) ...[
-                Text(
-                  terms[termIndex].code,
-                  style: theme.typography.sectionTitle,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                for (
-                  var bankIndex = 0;
-                  bankIndex < terms[termIndex].banks.length;
-                  bankIndex++
-                ) ...[
-                  _buildBankCard(theme, terms[termIndex].banks[bankIndex]),
-                  if (bankIndex != terms[termIndex].banks.length - 1)
-                    const SizedBox(height: AppSpacing.sm),
-                ],
-                if (termIndex != terms.length - 1)
-                  const SizedBox(height: AppSpacing.xl),
-              ],
+        else
+          for (var termIndex = 0; termIndex < terms.length; termIndex++) ...[
+            Text(terms[termIndex].code, style: theme.typography.sectionTitle),
+            const SizedBox(height: AppSpacing.md),
+            for (
+              var bankIndex = 0;
+              bankIndex < terms[termIndex].banks.length;
+              bankIndex++
+            ) ...[
+              _buildBankCard(theme, terms[termIndex].banks[bankIndex]),
+              if (bankIndex != terms[termIndex].banks.length - 1)
+                const SizedBox(height: AppSpacing.sm),
             ],
-          );
+            if (termIndex != terms.length - 1)
+              const SizedBox(height: AppSpacing.xl),
+          ],
+      ],
+    );
   }
+
+  Widget _buildCdkRedeemCard(FThemeData theme) => AppCard(
+    padding: const EdgeInsets.all(AppSpacing.lg),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(FLucideIcons.keyRound, color: theme.colors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Text('兑换题库', style: theme.typography.tileTitle),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        AppTextField(
+          controller: _cdkController,
+          label: '题库 CDK',
+          hint: '输入兑换码以解锁题库',
+          prefix: const Icon(FLucideIcons.keyRound),
+          textCapitalization: TextCapitalization.characters,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _redeeming ? null : _redeemCdk(),
+          clearable: true,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        SizedBox(
+          width: double.infinity,
+          child: FButton(
+            variant: FButtonVariant.primary,
+            onPress: _redeeming ? null : _redeemCdk,
+            prefix: const Icon(FLucideIcons.unlock),
+            child: Text(_redeeming ? '兑换中...' : '兑换 CDK'),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildBankCard(
     FThemeData theme,
@@ -176,7 +253,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             final targetId = bank.id.trim();
             return targetId.isNotEmpty
                 ? bankId == targetId
-                : question.bankName == bank.name && question.year == bank.year;
+                : question.bankName == bank.name &&
+                      question.bankIsNew == bank.isNew;
           }).toList();
     final completed = allQuestions
         .where((question) => repository.isJudged(question.id))
@@ -189,7 +267,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
       ),
-      onPress: () => _openQuestions(bank.questions, pageTitle: name),
+      onPress: bank.locked || bank.questions.isEmpty
+          ? null
+          : () => _openQuestions(bank.questions, pageTitle: name),
       child: Row(
         children: [
           Container(
@@ -237,7 +317,22 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                       ),
                     ),
                     const SizedBox(width: AppSpacing.sm),
-                    if (collectionKind == LearningListKind.wrong)
+                    if (bank.locked)
+                      Text(
+                        '需要 CDK 解锁',
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.semantic.warning,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else if (bank.questions.isEmpty)
+                      Text(
+                        '暂无题目',
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      )
+                    else if (collectionKind == LearningListKind.wrong)
                       Text(
                         '剩余 ${bank.questions.length} 道错题',
                         style: theme.typography.caption.copyWith(
@@ -263,20 +358,36 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
   }
 
-  List<_TermGroup> _termGroups(List<LearningQuestion> questions) {
+  List<_TermGroup> _termGroups() {
     final banks = <String, _QuestionBankGroup>{};
-    for (final question in questions) {
-      final key = _bankKey(question);
-      final bank = banks.putIfAbsent(
-        key,
-        () => _QuestionBankGroup(
-          id: question.bankId,
-          name: question.bankName,
-          year: question.year,
-          isNew: question.bankIsNew,
-        ),
+    for (final source in repository.banks) {
+      final key = source.id.trim().isNotEmpty
+          ? source.id.trim()
+          : '${source.name}\u0000${source.isNew == true ? 'new' : 'old'}';
+      banks[key] = _QuestionBankGroup(
+        id: source.id,
+        name: source.name,
+        orderId: source.orderId,
+        isNew: source.isNew,
+        requiresCDK: source.requiresCDK,
+        locked: source.locked,
+        questions: [...source.questions],
       );
-      bank.questions.add(question);
+    }
+    if (banks.isEmpty) {
+      for (final question in repository.questions) {
+        final key = _bankKey(question);
+        final bank = banks.putIfAbsent(
+          key,
+          () => _QuestionBankGroup(
+            id: question.bankId,
+            name: question.bankName,
+            orderId: question.bankOrderId,
+            isNew: question.bankIsNew,
+          ),
+        );
+        bank.questions.add(question);
+      }
     }
 
     final terms = <String, _TermGroup>{};
@@ -293,7 +404,16 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             : 0,
       );
     for (final term in result) {
-      term.banks.sort((a, b) => a.name.compareTo(b.name));
+      term.banks.sort((a, b) {
+        final aOrder = a.orderId;
+        final bOrder = b.orderId;
+        if (aOrder != null && bOrder != null && aOrder != bOrder) {
+          return aOrder.compareTo(bOrder);
+        }
+        if (aOrder != null && bOrder == null) return -1;
+        if (aOrder == null && bOrder != null) return 1;
+        return a.name.compareTo(b.name);
+      });
     }
     return result;
   }
@@ -301,7 +421,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   String _bankKey(LearningQuestion question) {
     final bankId = question.bankId.trim();
     return bankId.isEmpty
-        ? '${question.bankName}\u0000${question.year}'
+        ? '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}'
         : bankId;
   }
 
@@ -379,7 +499,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         () => _QuestionBankGroup(
           id: question.bankId,
           name: question.bankName,
-          year: question.year,
+          orderId: question.bankOrderId,
           isNew: question.bankIsNew,
         ),
       );
@@ -389,6 +509,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       final aIsNew = a.isNew == true;
       final bIsNew = b.isNew == true;
       if (aIsNew != bIsNew) return aIsNew ? -1 : 1;
+      final aOrder = a.orderId;
+      final bOrder = b.orderId;
+      if (aOrder != null && bOrder != null && aOrder != bOrder) {
+        return aOrder.compareTo(bOrder);
+      }
+      if (aOrder != null && bOrder == null) return -1;
+      if (aOrder == null && bOrder != null) return 1;
       return a.name.compareTo(b.name);
     });
   }
@@ -416,20 +543,21 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 class _QuestionBankGroup {
   final String id;
   final String name;
-  final int year;
+  final int? orderId;
   final bool? isNew;
-  final List<LearningQuestion> questions = [];
+  final bool requiresCDK;
+  final bool locked;
+  final List<LearningQuestion> questions;
 
   _QuestionBankGroup({
     required this.id,
     required this.name,
-    required this.year,
+    required this.orderId,
     required this.isNew,
-  });
-
-  String get termCode => year >= 2000 && year <= 2099
-      ? '${(year % 100).toString().padLeft(2, '0')}01'
-      : year.toString();
+    this.requiresCDK = false,
+    this.locked = false,
+    List<LearningQuestion>? questions,
+  }) : questions = questions ?? [];
 
   String get title => isNew == true ? '最新题库' : '往年题库';
 }

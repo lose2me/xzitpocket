@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/learning_question.dart';
@@ -17,85 +15,94 @@ void main() {
     await storage.init();
   });
 
-  test('loads the fallback bank and caches it locally', () async {
-    final repository = LearningRepository(preferencesStorage: storage);
+  LearningRepository repository() => LearningRepository(
+    preferencesStorage: storage,
+    fetcher: () async => _fixtureQuestions(),
+  );
 
-    await repository.load();
+  test(
+    'loads only questions returned by the configured control fetcher',
+    () async {
+      final value = repository();
+      await value.load();
 
-    expect(repository.questions, hasLength(124));
-    expect(repository.questions.any((question) => question.isMultiple), isTrue);
-    expect(
-      repository.questions.any((question) => question.isTrueFalse),
-      isTrue,
+      expect(value.questions, hasLength(8));
+      expect(value.questions.any((question) => question.isMultiple), isTrue);
+      expect(value.questions.any((question) => question.isTrueFalse), isTrue);
+      expect(value.questions.any((question) => question.isFillBlank), isTrue);
+      expect(storage.getLearningQuestionBankCache(), isNull);
+    },
+  );
+
+  test('does not create local questions when control is unavailable', () async {
+    final value = LearningRepository(
+      preferencesStorage: storage,
+      fetcher: () async => throw StateError('offline'),
     );
-    expect(
-      repository.questions.any((question) => question.isFillBlank),
-      isTrue,
-    );
-    expect(
-      repository.questions.map((question) => question.bankId).toSet(),
-      containsAll(<String>['QB-001', 'QB-002', 'QB-003']),
-    );
-    expect(
-      repository.questions.where((question) => question.bankId == 'QB-100'),
-      hasLength(104),
-    );
-    expect(storage.getLearningQuestionBankCache(), isNotEmpty);
+    await value.load();
+
+    expect(value.questions, isEmpty);
+    expect(storage.getLearningQuestionBankCache(), isNull);
   });
 
   test(
-    'upgrades an older built-in question cache with the extra banks',
+    'keeps locked active banks visible without loading their questions',
     () async {
-      final oldQuestions = defaultLearningQuestions().take(8);
-      await storage.setLearningQuestionBankCache(
-        jsonEncode([for (final question in oldQuestions) question.toJson()]),
+      final value = LearningRepository(
+        preferencesStorage: storage,
+        bankFetcher: () async => [
+          const LearningQuestionBank(
+            id: 'QB-LOCKED',
+            name: '受保护题库',
+            isNew: true,
+            orderId: 1,
+            requiresCDK: true,
+            locked: true,
+            questions: [],
+          ),
+        ],
       );
-      final repository = LearningRepository(preferencesStorage: storage);
 
-      await repository.load();
+      await value.load();
 
-      expect(repository.questions, hasLength(124));
-      expect(
-        repository.questions.any((question) => question.id == 'qb001-001'),
-        isTrue,
-      );
+      expect(value.banks, hasLength(1));
+      expect(value.banks.single.locked, isTrue);
+      expect(value.banks.single.requiresCDK, isTrue);
+      expect(value.questions, isEmpty);
     },
   );
 
   test('locks a judged answer and keeps the wrong set', () async {
-    final repository = LearningRepository(preferencesStorage: storage);
-    await repository.load();
-    final question = repository.questions.firstWhere((item) => item.isMultiple);
+    final value = repository();
+    await value.load();
+    final question = value.questions.firstWhere((item) => item.isMultiple);
 
-    expect(await repository.submitAnswer(question.id, {'a'}), isFalse);
-    expect(repository.wrongIds, contains(question.id));
+    expect(await value.submitAnswer(question.id, {'A'}), isFalse);
+    expect(value.wrongIds, contains(question.id));
     expect(
-      await repository.submitAnswer(question.id, question.correctOptionIds),
+      await value.submitAnswer(question.id, question.correctOptionIds),
       isFalse,
     );
-    expect(repository.wrongIds, contains(question.id));
+    expect(value.wrongIds, contains(question.id));
   });
 
   test('does not judge an empty answer', () async {
-    final repository = LearningRepository(preferencesStorage: storage);
-    await repository.load();
-    final question = repository.questions.first;
+    final value = repository();
+    await value.load();
+    final question = value.questions.first;
 
-    expect(
-      await repository.submitAnswer(question.id, const <String>{}),
-      isFalse,
-    );
-    expect(repository.isJudged(question.id), isFalse);
+    expect(await value.submitAnswer(question.id, const <String>{}), isFalse);
+    expect(value.isJudged(question.id), isFalse);
   });
 
   test('favorites and answer state survive a repository reload', () async {
-    final first = LearningRepository(preferencesStorage: storage);
+    final first = repository();
     await first.load();
     final question = first.questions.first;
     await first.toggleFavorite(question.id);
     await first.submitAnswer(question.id, question.correctOptionIds);
 
-    final second = LearningRepository(preferencesStorage: storage);
+    final second = repository();
     await second.load();
 
     expect(second.isFavorite(question.id), isTrue);
@@ -106,185 +113,188 @@ void main() {
   test(
     'resets answers while preserving wrong and favorite collections',
     () async {
-      final repository = LearningRepository(preferencesStorage: storage);
-      await repository.load();
-      final question = repository.questions.first;
+      final value = repository();
+      await value.load();
+      final question = value.questions.first;
 
-      await repository.toggleFavorite(question.id);
-      await repository.submitAnswer(question.id, {'not-correct'});
-      expect(repository.wrongIds, contains(question.id));
+      await value.toggleFavorite(question.id);
+      await value.submitAnswer(question.id, {'not-correct'});
+      await value.resetProgress();
 
-      await repository.resetProgress();
-
-      expect(repository.isJudged(question.id), isFalse);
-      expect(repository.answerFor(question.id), isEmpty);
-      expect(repository.wrongIds, contains(question.id));
-      expect(repository.favoriteIds, contains(question.id));
+      expect(value.isJudged(question.id), isFalse);
+      expect(value.answerFor(question.id), isEmpty);
+      expect(value.wrongIds, contains(question.id));
+      expect(value.favoriteIds, contains(question.id));
     },
   );
 
   test('can reset only the current question list', () async {
-    final repository = LearningRepository(preferencesStorage: storage);
-    await repository.load();
-    final first = repository.questions[0];
-    final second = repository.questions[1];
+    final value = repository();
+    await value.load();
+    final first = value.questions[0];
+    final second = value.questions[1];
 
-    await repository.submitAnswer(first.id, first.correctOptionIds);
-    await repository.submitAnswer(second.id, second.correctOptionIds);
-    await repository.resetProgress([first.id]);
+    await value.submitAnswer(first.id, first.correctOptionIds);
+    await value.submitAnswer(second.id, second.correctOptionIds);
+    await value.resetProgress([first.id]);
 
-    expect(repository.isJudged(first.id), isFalse);
-    expect(repository.isJudged(second.id), isTrue);
+    expect(value.isJudged(first.id), isFalse);
+    expect(value.isJudged(second.id), isTrue);
   });
 
-  test('tracks the six most recent judged questions in order', () async {
-    final repository = LearningRepository(preferencesStorage: storage);
-    await repository.load();
-    final questions = repository.questions;
+  test('tracks recent judged questions in order', () async {
+    final value = repository();
+    await value.load();
+    final questions = value.questions;
 
     for (final question in questions.take(7)) {
-      await repository.submitAnswer(question.id, question.correctOptionIds);
+      await value.submitAnswer(question.id, question.correctOptionIds);
     }
 
     expect(
-      repository.recentJudgedIds(questions.map((question) => question.id)),
+      value.recentJudgedIds(questions.map((question) => question.id)),
       questions.skip(1).take(6).map((question) => question.id).toList(),
     );
   });
 
   test(
-    'parses the questionBank payload and supported question types',
-    () async {
-      final payload = {
+    'parses the control questionBank payload and supported question types',
+    () {
+      final bank = LearningQuestionBank.fromJson({
         'questionBank': {
-          'year': '2026',
+          'id': 'QB-001',
+          'orderId': 12,
+          'new': true,
           'name': '计算机基础知识测验',
           'questions': [
             {
+              'questionNumber': 1,
               'type': '单选题',
               'title': '第1题',
-              'questionText': '以下哪个是计算机的核心部件？',
-              'options': ['A. 显示器', 'B. CPU', 'C. 键盘', 'D. 鼠标'],
+              'questionText': '核心部件？',
+              'options': [
+                {'label': 'A', 'text': '显示器'},
+                {'label': 'B', 'text': 'CPU'},
+              ],
               'correctAnswer': 'B',
             },
             {
+              'questionNumber': 2,
               'type': '多选题',
               'title': '第2题',
-              'questionText': '下列哪些属于操作系统？',
-              'options': ['A. Windows', 'B. Linux', 'C. macOS', 'D. Photoshop'],
-              'correctAnswer': 'A,B,C',
+              'questionText': '操作系统？',
+              'options': [
+                {'label': 'A', 'text': 'Windows'},
+                {'label': 'B', 'text': 'Linux'},
+              ],
+              'correctAnswer': 'A,B',
             },
             {
+              'questionNumber': 3,
               'type': '判断题',
               'title': '第3题',
-              'questionText': 'Python 是一种编译型语言。',
+              'questionText': '判断',
               'options': [],
-              'correctAnswer': '错误',
+              'correctAnswer': '正确',
             },
             {
+              'questionNumber': 4,
               'type': '填空题',
               'title': '第4题',
-              'questionText': '1 GB 等于 ____ MB。',
+              'questionText': '答案？',
               'options': [],
               'correctAnswer': '1024',
             },
           ],
         },
-      };
-      final bank = LearningQuestionBank.fromJson(payload);
-
-      expect(bank.year, 2026);
-      expect(bank.name, '计算机基础知识测验');
-      expect(bank.isNew, isNull);
-      expect(bank.questions, hasLength(4));
-      expect(bank.questions[0].bankName, '计算机基础知识测验');
-      expect(bank.questions[0].type, LearningQuestionType.single);
-      expect(bank.questions[0].options[1].id, 'B');
-      expect(bank.questions[0].correctOptionIds, {'B'});
-      expect(bank.questions[1].type, LearningQuestionType.multiple);
-      expect(bank.questions[1].correctOptionIds, {'A', 'B', 'C'});
-      expect(bank.questions[2].type, LearningQuestionType.trueFalse);
-      expect(bank.questions[2].options, hasLength(2));
-      expect(bank.questions[2].correctOptionIds, {'错误'});
-      expect(bank.questions[3].type, LearningQuestionType.fillBlank);
-      expect(bank.questions[3].questionText, '1 GB 等于 ____ MB。');
-      expect(bank.questions[3].correctOptionIds, {'1024'});
-
-      final secondTerm = LearningQuestionBank.fromJson({
-        'questionBank': {
-          'year': '2025',
-          'semester': '2',
-          'name': '第二学期题单',
-          'questions': <dynamic>[],
-        },
       });
-      expect(secondTerm.year, 2502);
+
+      expect(bank.id, 'QB-001');
+      expect(bank.orderId, 12);
+      expect(bank.questions, hasLength(4));
+      expect(bank.questions.first.bankOrderId, 12);
+      expect(bank.questions[0].correctOptionIds, {'B'});
+      expect(bank.questions[1].correctOptionIds, {'A', 'B'});
+      expect(bank.questions[2].correctOptionIds, {'正确'});
+      expect(bank.questions[3].correctOptionIds, {'1024'});
     },
   );
-
-  test('parses question bank identity, new flag, and question numbers', () {
-    final bank = LearningQuestionBank.fromJson({
-      'questionBank': {
-        'id': 'QB-001',
-        'new': true,
-        'name': '计算机基础知识测验',
-        'questions': [
-          {
-            'questionNumber': 7,
-            'type': '单选题',
-            'title': '第7题',
-            'questionText': '题目',
-            'options': ['A. 选项'],
-            'correctAnswer': 'A',
-          },
-        ],
-      },
-    });
-
-    expect(bank.id, 'QB-001');
-    expect(bank.isNew, isTrue);
-    expect(bank.questions.single.id, 'QB-001:7');
-    expect(bank.questions.single.bankId, 'QB-001');
-    expect(bank.questions.single.bankIsNew, isTrue);
-    expect(bank.questions.single.questionNumber, 7);
-  });
-
-  test('parses option labels and label-based true false answers', () {
-    final bank = LearningQuestionBank.fromJson({
-      'questionBank': {
-        'id': 'QB-LABELS',
-        'new': true,
-        'name': '标签题单',
-        'questions': [
-          {
-            'questionNumber': 1,
-            'type': '单选题',
-            'title': '第1题',
-            'questionText': '选择',
-            'options': [
-              {'label': 'A', 'text': '显示器'},
-              {'label': 'B', 'text': 'CPU'},
-            ],
-            'correctAnswer': 'B',
-          },
-          {
-            'questionNumber': 2,
-            'type': '判断题',
-            'title': '第2题',
-            'questionText': '判断',
-            'options': [
-              {'label': 'A', 'text': '正确'},
-              {'label': 'B', 'text': '错误'},
-            ],
-            'correctAnswer': 'B',
-          },
-        ],
-      },
-    });
-
-    expect(bank.questions[0].options.map((option) => option.id), ['A', 'B']);
-    expect(bank.questions[0].correctOptionIds, {'B'});
-    expect(bank.questions[1].options.map((option) => option.id), ['A', 'B']);
-    expect(bank.questions[1].correctOptionIds, {'B'});
-  });
 }
+
+List<LearningQuestion> _fixtureQuestions() => [
+  LearningQuestion(
+    id: 'remote-1',
+    bankName: '在线题库',
+    bankId: 'QB-REMOTE',
+    bankOrderId: 1,
+    bankIsNew: true,
+    questionNumber: 1,
+    title: '单选',
+    questionText: '单选',
+    type: LearningQuestionType.single,
+    options: const [
+      LearningOption(id: 'A', text: 'A'),
+      LearningOption(id: 'B', text: 'B'),
+    ],
+    correctOptionIds: {'A'},
+  ),
+  LearningQuestion(
+    id: 'remote-2',
+    bankName: '在线题库',
+    bankId: 'QB-REMOTE',
+    bankOrderId: 1,
+    bankIsNew: true,
+    questionNumber: 2,
+    title: '多选',
+    questionText: '多选',
+    type: LearningQuestionType.multiple,
+    options: const [
+      LearningOption(id: 'A', text: 'A'),
+      LearningOption(id: 'B', text: 'B'),
+    ],
+    correctOptionIds: {'A', 'B'},
+  ),
+  LearningQuestion(
+    id: 'remote-3',
+    bankName: '在线题库',
+    bankId: 'QB-REMOTE',
+    bankOrderId: 1,
+    bankIsNew: true,
+    questionNumber: 3,
+    title: '判断',
+    questionText: '判断',
+    type: LearningQuestionType.trueFalse,
+    options: const [
+      LearningOption(id: '正确', text: '正确'),
+      LearningOption(id: '错误', text: '错误'),
+    ],
+    correctOptionIds: {'正确'},
+  ),
+  LearningQuestion(
+    id: 'remote-4',
+    bankName: '在线题库',
+    bankId: 'QB-REMOTE',
+    bankOrderId: 1,
+    bankIsNew: true,
+    questionNumber: 4,
+    title: '填空',
+    questionText: '填空',
+    type: LearningQuestionType.fillBlank,
+    options: const [],
+    correctOptionIds: {'答案'},
+  ),
+  for (var index = 5; index <= 8; index++)
+    LearningQuestion(
+      id: 'remote-$index',
+      bankName: '在线题库',
+      bankId: 'QB-REMOTE',
+      bankOrderId: 1,
+      bankIsNew: true,
+      questionNumber: index,
+      title: '题目$index',
+      questionText: '题目$index',
+      type: LearningQuestionType.single,
+      options: const [LearningOption(id: 'A', text: 'A')],
+      correctOptionIds: {'A'},
+    ),
+];

@@ -6,8 +6,6 @@ import 'package:forui/forui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
-import '../../models/app_settings.dart';
-import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
@@ -21,6 +19,8 @@ import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
+import '../../services/control_service.dart';
+import '../../services/update_service.dart';
 import '../home_page.dart';
 import 'profile_components.dart';
 import 'appearance_settings_page.dart';
@@ -115,7 +115,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
       );
     }
 
-    final settings = ref.watch(appSettingsProvider);
     final savedRoomId = ref.watch(savedRoomIdProvider);
 
     if (!_roomIdInitialized) {
@@ -189,14 +188,13 @@ class ProfilePageState extends ConsumerState<ProfilePage>
               ),
             ],
           ),
+          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '外观'),
           ProfileSettingsGroup(
             children: [
               ProfileSettingsTile(
                 icon: FLucideIcons.palette,
                 title: '主题设置',
-                value:
-                    '${_themeTitle(settings.themePreference)} · ${settings.themeColor.label}',
                 onTap: () => Navigator.of(context).push(
                   appRoute(
                     name: AppRouteNames.appearanceSettings,
@@ -210,6 +208,16 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           const ProfileSectionLabel(title: '软件信息'),
           ProfileSettingsGroup(
             children: [
+              ProfileSettingsTile(
+                icon: FLucideIcons.download,
+                title: '版本更新',
+                onTap: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.version,
+                    builder: (_) => const _VersionPage(),
+                  ),
+                ),
+              ),
               ProfileSettingsTile(
                 icon: FLucideIcons.bug,
                 title: '调试模式',
@@ -854,14 +862,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
   // ── Helpers ──
 
-  String _themeTitle(AppThemePreference preference) {
-    return switch (preference) {
-      AppThemePreference.system => '跟随系统',
-      AppThemePreference.light => '浅色模式',
-      AppThemePreference.dark => '深色模式',
-    };
-  }
-
   // ── Logout ──
 
   void _logout(BuildContext context) {
@@ -890,4 +890,106 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     await ref.read(configProvider.notifier).logout();
     ref.read(authProvider.notifier).reset();
   }
+}
+
+class _VersionPage extends StatefulWidget {
+  const _VersionPage();
+
+  @override
+  State<_VersionPage> createState() => _VersionPageState();
+}
+
+class _VersionPageState extends State<_VersionPage> {
+  bool _loading = true;
+  String _currentVersion = '';
+  ControlRelease? _release;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_check());
+  }
+
+  Future<void> _check() async {
+    final info = await PackageInfo.fromPlatform();
+    final release = await ControlService.instance.checkForUpdate();
+    if (!mounted) return;
+    setState(() {
+      _currentVersion = info.version;
+      _release = release;
+      _loading = false;
+    });
+  }
+
+  Future<void> _openRelease() async {
+    final release = _release;
+    if (release == null) return;
+    await showAppUpdatePrompt(context, release);
+  }
+
+  @override
+  Widget build(BuildContext context) => AppPage(
+    title: '版本更新',
+    child: AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.xl,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        Text(
+          '当前版本 $_currentVersion',
+          style: context.theme.typography.pageTitle,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        if (_loading)
+          const Center(child: FCircularProgress())
+        else if (_release != null) ...[
+          AppCard(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '发现新版本 ${_release!.latestVersion}',
+                  style: context.theme.typography.tileTitle,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                SizedBox(
+                  width: double.infinity,
+                  child: FButton(
+                    variant: FButtonVariant.primary,
+                    onPress: _openRelease,
+                    prefix: const Icon(FLucideIcons.download),
+                    child: const Text('立即更新'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else
+          Text(
+            '当前已是最新版本',
+            textAlign: TextAlign.center,
+            style: context.theme.typography.bodySmall.copyWith(
+              color: context.theme.colors.mutedForeground,
+            ),
+          ),
+        const SizedBox(height: AppSpacing.lg),
+        SizedBox(
+          width: double.infinity,
+          child: FButton(
+            variant: FButtonVariant.outline,
+            onPress: _loading
+                ? null
+                : () {
+                    setState(() => _loading = true);
+                    unawaited(_check());
+                  },
+            prefix: const Icon(FLucideIcons.refreshCw),
+            child: const Text('重新检查'),
+          ),
+        ),
+      ],
+    ),
+  );
 }

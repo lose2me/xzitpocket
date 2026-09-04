@@ -176,6 +176,9 @@ class PreferencesStorage {
     await _prefs.remove('learning_state_cache');
   }
 
+  Future<void> clearLearningQuestionBankCache() =>
+      _prefs.remove('learning_question_bank_cache');
+
   Future<void> clearUserToolCaches() async {
     await Future.wait([
       _clearCache('jp_cache', 'jp_cache_time'),

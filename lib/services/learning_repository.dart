@@ -4,31 +4,43 @@ import 'package:flutter/foundation.dart';
 
 import '../models/learning_question.dart';
 import 'preferences_storage.dart';
+import 'control_service.dart';
 
 typedef LearningQuestionFetcher = Future<List<LearningQuestion>> Function();
+typedef LearningQuestionBankFetcher =
+    Future<List<LearningQuestionBank>> Function();
+typedef LearningCdkRedeemer = Future<void> Function(String code);
 
 class LearningRepository extends ChangeNotifier {
   final PreferencesStorage preferencesStorage;
   final LearningQuestionFetcher? fetcher;
+  final LearningQuestionBankFetcher? bankFetcher;
+  final LearningCdkRedeemer? cdkRedeemer;
 
-  LearningRepository({required this.preferencesStorage, this.fetcher});
+  LearningRepository({
+    required this.preferencesStorage,
+    this.fetcher,
+    this.bankFetcher,
+    this.cdkRedeemer,
+  });
 
   List<LearningQuestion> _questions = const [];
-  String _questionBankName = '题库';
-  int? _questionBankYear;
+  List<LearningQuestionBank> _banks = const [];
   final Set<String> _favoriteIds = {};
   final Set<String> _wrongIds = {};
   final Map<String, Set<String>> _answers = {};
   final Set<String> _judgedIds = {};
   final List<String> _judgedOrder = [];
   bool _loaded = false;
+  bool _libraryUnavailable = false;
 
   List<LearningQuestion> get questions => List.unmodifiable(_questions);
+  List<LearningQuestionBank> get banks => List.unmodifiable(_banks);
   Set<String> get favoriteIds => Set.unmodifiable(_favoriteIds);
   Set<String> get wrongIds => Set.unmodifiable(_wrongIds);
   bool get isLoaded => _loaded;
-  String get questionBankName => _questionBankName;
-  int? get questionBankYear => _questionBankYear;
+  bool get libraryUnavailable => _libraryUnavailable;
+  bool get canRedeemCdk => cdkRedeemer != null;
   int get answeredCount =>
       _questions.where((question) => _judgedIds.contains(question.id)).length;
 
@@ -77,56 +89,35 @@ class LearningRepository extends ChangeNotifier {
 
   Future<void> load() async {
     if (_loaded) return;
+    await preferencesStorage.clearLearningQuestionBankCache();
 
-    final cachedQuestions = preferencesStorage.getLearningQuestionBankCache();
-    if (cachedQuestions != null && cachedQuestions.isNotEmpty) {
+    if (bankFetcher != null) {
       try {
-        final decoded = jsonDecode(cachedQuestions);
-        if (decoded is Map<String, dynamic> &&
-            (decoded['questionBank'] is Map<String, dynamic> ||
-                decoded['questions'] is List<dynamic>)) {
-          final bank = LearningQuestionBank.fromJson(decoded);
-          _questionBankName = bank.name;
-          _questionBankYear = bank.year;
-          _questions = bank.questions;
-        } else if (decoded is List<dynamic>) {
-          final banks = [
-            for (final item in decoded)
-              if (item is Map<String, dynamic> &&
-                  (item['questionBank'] is Map<String, dynamic> ||
-                      item['questions'] is List<dynamic>))
-                LearningQuestionBank.fromJson(item),
-          ];
-          if (banks.isNotEmpty) {
-            _questionBankName = banks.first.name;
-            _questionBankYear = banks.first.year;
-            _questions = [for (final bank in banks) ...bank.questions];
-          } else {
-            _questions = [
-              for (final item in decoded)
-                LearningQuestion.fromJson(item as Map<String, dynamic>),
-            ];
-          }
+        _libraryUnavailable = false;
+        _banks = await bankFetcher!();
+        _questions = [for (final bank in _banks) ...bank.questions];
+      } on ControlApiException catch (error) {
+        _libraryUnavailable = error.code == 'user_unavailable';
+        _banks = const [];
+        _questions = const [];
+      } catch (_) {
+        _libraryUnavailable = false;
+        _banks = const [];
+        _questions = const [];
+      }
+    } else if (fetcher != null) {
+      try {
+        final fetched = await fetcher!();
+        if (fetched.isNotEmpty) {
+          _questions = fetched;
         }
       } catch (_) {
         _questions = const [];
       }
     }
-
-    if (_questions.isEmpty) {
-      _questions = fetcher == null
-          ? defaultLearningQuestions()
-          : await fetcher!();
-      await preferencesStorage.setLearningQuestionBankCache(
-        jsonEncode([for (final question in _questions) question.toJson()]),
-      );
-    } else if (fetcher == null && _isOutdatedBuiltInCache(_questions)) {
-      _questions = defaultLearningQuestions();
-      await preferencesStorage.setLearningQuestionBankCache(
-        jsonEncode([for (final question in _questions) question.toJson()]),
-      );
+    if (_banks.isEmpty && _questions.isNotEmpty) {
+      _banks = _deriveBanks(_questions);
     }
-
     final stateJson = preferencesStorage.getLearningStateCache();
     if (stateJson != null && stateJson.isNotEmpty) {
       try {
@@ -154,6 +145,39 @@ class LearningRepository extends ChangeNotifier {
         _answers.clear();
       }
     }
+    _pruneState();
+    _loaded = true;
+  }
+
+  Future<void> redeemCdk(String code) async {
+    final redeem = cdkRedeemer;
+    if (redeem == null) return;
+    await redeem(code);
+    await refresh();
+  }
+
+  Future<void> refresh() async {
+    if (fetcher == null && bankFetcher == null) return;
+    if (bankFetcher != null) {
+      try {
+        _libraryUnavailable = false;
+        _banks = await bankFetcher!();
+      } on ControlApiException catch (error) {
+        _libraryUnavailable = error.code == 'user_unavailable';
+        _banks = const [];
+      }
+      _questions = [for (final bank in _banks) ...bank.questions];
+    } else {
+      final fetched = await fetcher!();
+      _questions = fetched;
+      _banks = _deriveBanks(fetched);
+    }
+    _pruneState();
+    _loaded = true;
+    notifyListeners();
+  }
+
+  void _pruneState() {
     final questionIds = _questions.map((question) => question.id).toSet();
     _favoriteIds.retainAll(questionIds);
     _wrongIds.retainAll(questionIds);
@@ -167,7 +191,43 @@ class LearningRepository extends ChangeNotifier {
             question.id,
       ]);
     _answers.removeWhere((questionId, _) => !questionIds.contains(questionId));
-    _loaded = true;
+  }
+
+  static List<LearningQuestionBank> _deriveBanks(
+    List<LearningQuestion> questions,
+  ) {
+    final grouped = <String, LearningQuestionBank>{};
+    for (final question in questions) {
+      final key = question.bankId.trim().isNotEmpty
+          ? question.bankId.trim()
+          : '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}';
+      final existing = grouped[key];
+      if (existing == null) {
+        grouped[key] = LearningQuestionBank(
+          id: question.bankId,
+          isNew: question.bankIsNew,
+          name: question.bankName,
+          orderId: question.bankOrderId,
+          questions: [question],
+        );
+      } else {
+        existing.questions.add(question);
+      }
+    }
+    return grouped.values.toList();
+  }
+
+  static Set<String> _stringSet(dynamic value) {
+    if (value is! List) return <String>{};
+    return {for (final item in value) item.toString()};
+  }
+
+  static Map<String, Set<String>> _answersFromJson(dynamic value) {
+    if (value is! Map) return <String, Set<String>>{};
+    return {
+      for (final entry in value.entries)
+        entry.key.toString(): _stringSet(entry.value),
+    };
   }
 
   Future<void> toggleFavorite(String questionId) async {
@@ -243,28 +303,6 @@ class LearningRepository extends ChangeNotifier {
       },
     }),
   );
-
-  static Set<String> _stringSet(dynamic value) {
-    if (value is! List) return <String>{};
-    return {for (final item in value) item.toString()};
-  }
-
-  static bool _isOutdatedBuiltInCache(List<LearningQuestion> cached) {
-    final defaults = defaultLearningQuestions();
-    final defaultIds = defaults.map((question) => question.id).toSet();
-    final cachedIds = cached.map((question) => question.id).toSet();
-    return cachedIds.isNotEmpty &&
-        cachedIds.length < defaultIds.length &&
-        cachedIds.every(defaultIds.contains);
-  }
-
-  static Map<String, Set<String>> _answersFromJson(dynamic value) {
-    if (value is! Map) return <String, Set<String>>{};
-    return {
-      for (final entry in value.entries)
-        entry.key.toString(): _stringSet(entry.value),
-    };
-  }
 
   static bool _sameSet(Set<String> first, Set<String> second) =>
       first.length == second.length && first.containsAll(second);

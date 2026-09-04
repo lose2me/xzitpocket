@@ -89,29 +89,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _pickImage() async {
-    final source = await showAppSheet<ImageSource>(
-      context: context,
-      builder: (ctx) => const AppOptionSheet<ImageSource>(
-        title: '选择图片来源',
-        options: [
-          AppOption<ImageSource>(
-            value: ImageSource.camera,
-            title: '拍照',
-            subtitle: '打开相机拍摄图片',
-            icon: FLucideIcons.camera,
-          ),
-          AppOption<ImageSource>(
-            value: ImageSource.gallery,
-            title: '从相册选择',
-            subtitle: '从手机相册挑选图片',
-            icon: FLucideIcons.image,
-          ),
-        ],
-      ),
-    );
-    if (source == null) return;
     final picked = await _picker.pickImage(
-      source: source,
+      source: ImageSource.gallery,
       imageQuality: 80,
       maxWidth: 1920,
     );

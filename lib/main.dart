@@ -10,6 +10,7 @@ import 'constants/semester_config.dart';
 import 'pages/home_page.dart';
 import 'providers/config_provider.dart';
 import 'services/course_storage.dart';
+import 'services/control_service.dart';
 import 'services/preferences_storage.dart';
 import 'services/talker.dart';
 import 'services/tools_data_manager.dart';
@@ -51,6 +52,16 @@ Future<void> _finishStartup(
   PreferencesStorage preferencesStorage,
 ) async {
   ToolsDataManager.instance.initialize(preferencesStorage);
+  await ControlService.instance.initialize();
+  final studentId = preferencesStorage.getStudentId();
+  if (studentId != null && studentId.isNotEmpty) {
+    unawaited(
+      ControlService.instance.syncAfterOaLogin(
+        studentId: studentId,
+        displayName: preferencesStorage.getStudentName() ?? '',
+      ),
+    );
+  }
   await WidgetService.init();
   try {
     await WidgetService.updateWidget(

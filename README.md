@@ -40,6 +40,8 @@ Android
 flutter run -d emulator-5554 --target-platform android-arm64
 ```
 
+APP 固定连接 `https://con.xuda.live`。Control 服务不可用时，OA 登录、APP 启动和其他免费功能保持可用；学习中心入口会自动禁用。
+
 ## 构建
 Android
 ```

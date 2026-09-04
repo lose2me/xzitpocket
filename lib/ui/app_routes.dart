@@ -4,6 +4,7 @@ import 'app_tokens.dart';
 
 abstract final class AppRouteNames {
   static const debugLogs = '/about/debug-logs';
+  static const version = '/about/version';
   static const licenses = '/about/licenses';
   static const teacherEvaluation = '/tools/teacher-evaluation';
   static const schoolCalendar = '/tools/school-calendar';

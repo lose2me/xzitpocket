@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_config.dart';
 import '../services/course_storage.dart';
 import '../services/credential_storage.dart';
+import '../services/control_service.dart';
 import '../services/preferences_storage.dart';
 import '../services/tools_data_manager.dart';
 
@@ -63,6 +66,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
   }
 
   Future<void> logout() async {
+    unawaited(ControlService.instance.logout());
     ToolsDataManager.instance.clear();
     await Future.wait([
       _storage.clearStudentInfo(),

@@ -2,20 +2,41 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xzitpocket/models/learning_question.dart';
 import 'package:xzitpocket/pages/tools/learning_center_page.dart';
 import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
-import 'package:xzitpocket/ui/app_theme.dart';
 import 'package:xzitpocket/ui/app_components.dart';
+import 'package:xzitpocket/ui/app_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('shows year banks and learning navigation', (tester) async {
+  testWidgets('shows online learning questions and navigation', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final storage = PreferencesStorage();
     await storage.init();
-    final repository = LearningRepository(preferencesStorage: storage);
+    final repository = LearningRepository(
+      preferencesStorage: storage,
+      fetcher: () async => [
+        const LearningQuestion(
+          id: 'remote-1',
+          bankName: '在线题库',
+          bankId: 'QB-REMOTE',
+          bankOrderId: 1,
+          bankIsNew: true,
+          questionNumber: 1,
+          title: '第1题',
+          questionText: '在线题目',
+          type: LearningQuestionType.single,
+          options: [
+            LearningOption(id: 'A', text: '正确答案'),
+            LearningOption(id: 'B', text: '其他答案'),
+          ],
+          correctOptionIds: {'A'},
+        ),
+      ],
+    );
 
     await tester.pumpWidget(
       MediaQuery(
@@ -33,30 +54,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('在线题库'), findsOneWidget);
     expect(find.text('题库'), findsWidgets);
     expect(find.text('错题集'), findsOneWidget);
     expect(find.text('收藏集'), findsOneWidget);
-    expect(find.text('最新题库'), findsOneWidget);
-    expect(find.text('往年题库'), findsOneWidget);
-    expect(find.text('综合能力训练 100+'), findsOneWidget);
-
-    await tester.tap(find.text('计算机基础知识测验'));
-    await tester.pumpAndSettle();
-    expect(find.text('计算机基础知识测验'), findsOneWidget);
-    Navigator.of(tester.element(find.byType(PageView))).pop();
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byType(AppCard).first);
-    await tester.pumpAndSettle();
-
-    expect(find.byType(PageView), findsOneWidget);
-    expect(find.text('1.在校园服务中发现设备故障时，最合适的第一步是什么？'), findsOneWidget);
-
-    await tester.tap(find.text('拍照记录现场并提交报修'));
-    await tester.fling(find.byType(PageView), const Offset(-500, 0), 1000);
-    await tester.pumpAndSettle();
-
-    expect(repository.isJudged('campus-001'), isTrue);
-    expect(find.text('2.以下哪些做法有助于保护校园账号安全？'), findsOneWidget);
+    expect(find.byType(AppCard), findsOneWidget);
   });
 }

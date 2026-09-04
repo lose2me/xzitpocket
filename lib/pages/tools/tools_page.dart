@@ -14,6 +14,7 @@ import '../../utils/exam_utils.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../../services/learning_repository.dart';
+import '../../services/control_service.dart';
 import 'exam_query_page.dart';
 import 'grade_query_page.dart';
 import 'campus_card_page.dart';
@@ -39,21 +40,41 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   bool get wantKeepAlive => true;
 
   final _manager = ToolsDataManager.instance;
+  Timer? _controlHealthTimer;
+  bool _controlHealthChecking = true;
+  bool _controlAvailable = false;
 
   @override
   void initState() {
     super.initState();
     _manager.addListener(_onManagerUpdate);
+    unawaited(_refreshControlAvailability());
+    _controlHealthTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => unawaited(_refreshControlAvailability()),
+    );
   }
 
   @override
   void dispose() {
+    _controlHealthTimer?.cancel();
     _manager.removeListener(_onManagerUpdate);
     super.dispose();
   }
 
   void _onManagerUpdate() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshControlAvailability() async {
+    if (!mounted) return;
+    setState(() => _controlHealthChecking = true);
+    final available = await ControlService.instance.checkHealth();
+    if (!mounted) return;
+    setState(() {
+      _controlAvailable = available;
+      _controlHealthChecking = false;
+    });
   }
 
   Future<void> refreshData() async {
@@ -184,11 +205,28 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   );
 
   Future<void> _openLearningCenter() async {
+    final control = ControlService.instance;
+    if (!await control.checkHealth()) {
+      if (mounted) {
+        setState(() => _controlAvailable = false);
+      }
+      return;
+    }
     final repository = LearningRepository(
       preferencesStorage: ref.read(preferencesStorageProvider),
+      bankFetcher: control.isConfigured
+          ? control.fetchLearningQuestionBanks
+          : null,
+      cdkRedeemer: control.isConfigured ? control.redeemLibraryCdk : null,
     );
     await repository.load();
     if (!mounted) return;
+    unawaited(
+      control.track(
+        'library_open',
+        properties: const {'screen': 'learning_center'},
+      ),
+    );
     Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.learning,
@@ -303,6 +341,16 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       CampusNetworkStatus.available => null,
       CampusNetworkStatus.unavailable => '请连接校园网',
     };
+    final config = ref.watch(configProvider);
+    final learningLoggedIn = config.studentId?.isNotEmpty == true;
+    final learningEnabled = _controlAvailable && learningLoggedIn;
+    final learningSubtitle = _controlHealthChecking
+        ? '正在检查服务'
+        : !_controlAvailable
+        ? '服务不可用'
+        : !learningLoggedIn
+        ? '请先登录'
+        : null;
 
     ref.listen(savedRoomIdProvider, (prev, next) {
       _manager.clearPower();
@@ -369,7 +417,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
             theme,
             icon: FLucideIcons.graduationCap,
             title: '学习中心',
-            onTap: _openLearningCenter,
+            subtitle: learningSubtitle,
+            loading: _controlHealthChecking,
+            onTap: learningEnabled ? _openLearningCenter : null,
           ),
           const SizedBox(height: AppSpacing.md),
           _buildSimpleCard(

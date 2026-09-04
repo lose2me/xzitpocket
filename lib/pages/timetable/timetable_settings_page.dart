@@ -16,8 +16,6 @@ import '../../utils/snackbar_helper.dart';
 import '../profile/profile_components.dart';
 import 'timetable_providers.dart';
 
-enum _BackgroundAction { camera, gallery, clear }
-
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -112,8 +110,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 icon: FLucideIcons.image,
                 title: '课表背景图',
                 value: settings.timetableBackgroundPath == null ? '未设置' : '已设置',
-                onTap: () =>
-                    _openBackgroundSheet(settings.timetableBackgroundPath),
+                onTap: _pickBackground,
               ),
             ],
           ),
@@ -242,49 +239,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     if (selected != null && selected != currentValue) await onSave(selected);
   }
 
-  Future<void> _openBackgroundSheet(String? currentPath) async {
-    final selected = await showAppSheet<_BackgroundAction>(
-      context: context,
-      builder: (context) => AppOptionSheet<_BackgroundAction>(
-        title: '课表背景图',
-        options: [
-          const AppOption(
-            value: _BackgroundAction.camera,
-            title: '拍照',
-            subtitle: '打开相机拍摄图片',
-            icon: FLucideIcons.camera,
-          ),
-          const AppOption(
-            value: _BackgroundAction.gallery,
-            title: '从相册选择',
-            subtitle: '从手机相册挑选图片',
-            icon: FLucideIcons.image,
-          ),
-          if (currentPath != null)
-            const AppOption(
-              value: _BackgroundAction.clear,
-              title: '清除背景图',
-              subtitle: '恢复为纯色背景',
-              icon: FLucideIcons.imageOff,
-            ),
-        ],
-      ),
-    );
-    switch (selected) {
-      case _BackgroundAction.camera:
-        await _pickBackground(ImageSource.camera);
-      case _BackgroundAction.gallery:
-        await _pickBackground(ImageSource.gallery);
-      case _BackgroundAction.clear:
-        await _clearBackground(currentPath);
-      case null:
-        break;
-    }
-  }
-
-  Future<void> _pickBackground(ImageSource source) async {
+  Future<void> _pickBackground() async {
     final picked = await _imagePicker.pickImage(
-      source: source,
+      source: ImageSource.gallery,
       imageQuality: 90,
       maxWidth: 2048,
       maxHeight: 2048,
@@ -316,19 +273,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       if (mounted) {
         showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
       }
-    }
-  }
-
-  Future<void> _clearBackground(String? path) async {
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setTimetableBackgroundPath(null);
-    if (path != null) {
-      final file = File(path);
-      if (await file.exists()) await file.delete();
-    }
-    if (mounted) {
-      showAppSnackBar(context, '已清除背景图', severity: ToastSeverity.info);
     }
   }
 }

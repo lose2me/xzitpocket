@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/course.dart';
 import '../services/auth_service.dart';
 import '../services/cas_service.dart';
+import '../services/control_service.dart';
 import '../services/talker.dart';
 
 enum AuthStatus { idle, loading, success, error }
@@ -43,6 +46,12 @@ class AuthNotifier extends Notifier<AuthState> {
         courses: login.courses,
         studentId: login.studentId,
         studentName: login.studentName,
+      );
+      unawaited(
+        ControlService.instance.syncAfterOaLogin(
+          studentId: login.studentId ?? studentId,
+          displayName: login.studentName ?? '',
+        ),
       );
       return (login, exams);
     } on AuthException catch (e, stackTrace) {
