@@ -59,7 +59,14 @@ class _CourseWheelPickerSheetState extends State<CourseWheelPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title, style: context.theme.typography.tileTitle),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                widget.title,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.tileTitle,
+              ),
+            ),
             const SizedBox(height: AppSpacing.lg),
             _PickerColumnLabels(columns: widget.columns),
             const SizedBox(height: AppSpacing.xs),
@@ -167,7 +174,14 @@ class _CourseWeekPickerSheetState extends State<CourseWeekPickerSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('选择周次', style: context.theme.typography.tileTitle),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                '选择周次',
+                textAlign: TextAlign.center,
+                style: context.theme.typography.tileTitle,
+              ),
+            ),
             const SizedBox(height: AppSpacing.lg),
             _PickerColumnLabels(columns: columns),
             const SizedBox(height: AppSpacing.xs),

@@ -22,6 +22,8 @@ abstract final class AppRouteNames {
   static const learningQuiz = '/tools/learning/quiz';
   static const addCourse = '/timetable/course/add';
   static const editCourse = '/timetable/course/edit';
+  static const timetableSettings = '/timetable/settings';
+  static const appearanceSettings = '/profile/appearance-settings';
 }
 
 Route<T> appRoute<T>({

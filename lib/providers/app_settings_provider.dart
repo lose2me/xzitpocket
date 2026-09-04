@@ -29,6 +29,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       ),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
       timetableBackgroundOpacity: _storage.getTimetableBackgroundOpacity(),
+      timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
     );
   }
@@ -68,6 +69,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     final normalized = value.clamp(0.0, 1.0).toDouble();
     await _storage.setTimetableBackgroundOpacity(normalized);
     state = state.copyWith(timetableBackgroundOpacity: normalized);
+  }
+
+  Future<void> setTimetableComponentOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    await _storage.setTimetableComponentOpacity(normalized);
+    state = state.copyWith(timetableComponentOpacity: normalized);
   }
 
   Future<void> setShowTimetableGridLines(bool value) async {

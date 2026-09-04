@@ -9,12 +9,14 @@ class WeekHeader extends StatelessWidget {
   final SemesterCalendar calendar;
   final int selectedWeek;
   final VoidCallback? onSync;
+  final VoidCallback? onSettings;
 
   const WeekHeader({
     super.key,
     required this.calendar,
     required this.selectedWeek,
     this.onSync,
+    this.onSettings,
   });
 
   @override
@@ -23,8 +25,6 @@ class WeekHeader extends StatelessWidget {
     final theme = context.theme;
     final cw = calendar.weekOf(today);
     final beforeStart = cw <= 0;
-
-
 
     return AppContentFrame(
       safeArea: false,
@@ -58,6 +58,11 @@ class WeekHeader extends StatelessWidget {
             icon: FLucideIcons.refreshCw,
             onPress: onSync,
             tooltip: '同步课表',
+          ),
+          AppIconButton(
+            icon: FLucideIcons.settings,
+            onPress: onSettings,
+            tooltip: '课表设置',
           ),
         ],
       ),

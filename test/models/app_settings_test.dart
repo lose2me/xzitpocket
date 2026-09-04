@@ -80,6 +80,7 @@ void main() {
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.timetableBackgroundPath, isNull);
       expect(settings.timetableBackgroundOpacity, 0.24);
+      expect(settings.timetableComponentOpacity, 0.85);
       expect(settings.showTimetableGridLines, isTrue);
     });
 
@@ -90,6 +91,7 @@ void main() {
         themeColor: AppThemeColor.blue,
         timetableBackgroundPath: '/tmp/background.jpg',
         timetableBackgroundOpacity: 0.6,
+        timetableComponentOpacity: 0.7,
         showTimetableGridLines: false,
       );
       expect(updated.themePreference, AppThemePreference.dark);
@@ -97,6 +99,7 @@ void main() {
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
       expect(updated.timetableBackgroundOpacity, 0.6);
+      expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.showTimetableGridLines, isFalse);
     });
 
@@ -113,6 +116,7 @@ void main() {
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
       expect(updated.timetableBackgroundPath, isNull);
       expect(updated.timetableBackgroundOpacity, 0.24);
+      expect(updated.timetableComponentOpacity, 0.85);
       expect(updated.showTimetableGridLines, isTrue);
     });
 

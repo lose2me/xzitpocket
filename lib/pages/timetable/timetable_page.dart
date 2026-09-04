@@ -21,6 +21,7 @@ import '../../widgets/week_header.dart';
 import '../../ui/app_components.dart';
 import 'course_form_page.dart';
 import 'timetable_grid.dart';
+import 'timetable_settings_page.dart';
 
 class TimetablePage extends ConsumerStatefulWidget {
   const TimetablePage({super.key});
@@ -231,10 +232,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       showNonCurrentWeekCoursesProvider,
     );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
-    final isDark = context.theme.colors.brightness == Brightness.dark;
     final courseBorderColor = context.theme.colors.foreground;
-    final courseOpacity = isDark ? 0.95 : 0.85;
-    final courseBorderOpacity = isDark ? 1.0 : 0.85;
+    final courseOpacity = settings.timetableComponentOpacity;
+    final courseBorderOpacity = settings.timetableComponentOpacity;
 
     return AppPage(
       root: true,
@@ -246,6 +246,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                 calendar: semesterCalendar,
                 selectedWeek: ref.watch(selectedWeekProvider),
                 onSync: _isSyncing ? null : _onSync,
+                onSettings: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.timetableSettings,
+                    builder: (_) => const TimetableSettingsPage(),
+                  ),
+                ),
               ),
             ),
             Expanded(

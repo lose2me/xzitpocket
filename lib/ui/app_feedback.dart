@@ -105,7 +105,14 @@ Future<bool> showAppConfirmDialog({
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: context.theme.typography.pageTitle),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.pageTitle,
+              ),
+            ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               message,
@@ -126,9 +133,9 @@ Future<bool> showAppConfirmDialog({
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 FButton(
-                  variant: destructive
-                      ? FButtonVariant.destructive
-                      : FButtonVariant.primary,
+                  // Confirmation actions use the active theme color so they
+                  // remain consistent with user-selected app themes.
+                  variant: FButtonVariant.primary,
                   size: FButtonSizeVariant.sm,
                   mainAxisSize: MainAxisSize.min,
                   onPress: () => Navigator.pop(context, true),

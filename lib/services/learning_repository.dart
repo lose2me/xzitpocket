@@ -20,6 +20,7 @@ class LearningRepository extends ChangeNotifier {
   final Set<String> _wrongIds = {};
   final Map<String, Set<String>> _answers = {};
   final Set<String> _judgedIds = {};
+  final List<String> _judgedOrder = [];
   bool _loaded = false;
 
   List<LearningQuestion> get questions => List.unmodifiable(_questions);
@@ -44,6 +45,23 @@ class LearningRepository extends ChangeNotifier {
       Set.unmodifiable(_answers[questionId] ?? const <String>{});
 
   bool isJudged(String questionId) => _judgedIds.contains(questionId);
+
+  List<String> recentJudgedIds(Iterable<String> questionIds, {int limit = 6}) {
+    final allowed = questionIds.toSet();
+    final ordered = _judgedOrder.where(allowed.contains).toList();
+    if (ordered.isEmpty) {
+      ordered.addAll(
+        _questions
+            .where(
+              (question) =>
+                  allowed.contains(question.id) && isJudged(question.id),
+            )
+            .map((question) => question.id),
+      );
+    }
+    final start = ordered.length > limit ? ordered.length - limit : 0;
+    return ordered.sublist(start);
+  }
 
   bool isCorrect(String questionId) {
     final question = questionById(questionId);
@@ -102,6 +120,11 @@ class LearningRepository extends ChangeNotifier {
       await preferencesStorage.setLearningQuestionBankCache(
         jsonEncode([for (final question in _questions) question.toJson()]),
       );
+    } else if (fetcher == null && _isOutdatedBuiltInCache(_questions)) {
+      _questions = defaultLearningQuestions();
+      await preferencesStorage.setLearningQuestionBankCache(
+        jsonEncode([for (final question in _questions) question.toJson()]),
+      );
     }
 
     final stateJson = preferencesStorage.getLearningStateCache();
@@ -117,6 +140,9 @@ class LearningRepository extends ChangeNotifier {
         _judgedIds
           ..clear()
           ..addAll(_stringSet(state['judgedIds']));
+        _judgedOrder
+          ..clear()
+          ..addAll(_stringSet(state['judgedOrder']));
         _answers
           ..clear()
           ..addAll(_answersFromJson(state['answers']));
@@ -124,6 +150,7 @@ class LearningRepository extends ChangeNotifier {
         _favoriteIds.clear();
         _wrongIds.clear();
         _judgedIds.clear();
+        _judgedOrder.clear();
         _answers.clear();
       }
     }
@@ -131,6 +158,14 @@ class LearningRepository extends ChangeNotifier {
     _favoriteIds.retainAll(questionIds);
     _wrongIds.retainAll(questionIds);
     _judgedIds.retainAll(questionIds);
+    _judgedOrder
+      ..removeWhere((questionId) => !questionIds.contains(questionId))
+      ..addAll([
+        for (final question in _questions)
+          if (_judgedIds.contains(question.id) &&
+              !_judgedOrder.contains(question.id))
+            question.id,
+      ]);
     _answers.removeWhere((questionId, _) => !questionIds.contains(questionId));
     _loaded = true;
   }
@@ -173,6 +208,8 @@ class LearningRepository extends ChangeNotifier {
     }
     _answers[questionId] = selected;
     _judgedIds.add(questionId);
+    _judgedOrder.remove(questionId);
+    _judgedOrder.add(questionId);
     final correct = _sameSet(selected, question.correctOptionIds);
     if (correct) {
       _wrongIds.remove(questionId);
@@ -190,6 +227,7 @@ class LearningRepository extends ChangeNotifier {
         _questions.map((question) => question.id).toSet();
     _answers.removeWhere((questionId, _) => ids.contains(questionId));
     _judgedIds.removeAll(ids);
+    _judgedOrder.removeWhere(ids.contains);
     await _persistState();
     notifyListeners();
   }
@@ -199,6 +237,7 @@ class LearningRepository extends ChangeNotifier {
       'favoriteIds': _favoriteIds.toList(),
       'wrongIds': _wrongIds.toList(),
       'judgedIds': _judgedIds.toList(),
+      'judgedOrder': _judgedOrder,
       'answers': {
         for (final entry in _answers.entries) entry.key: entry.value.toList(),
       },
@@ -208,6 +247,15 @@ class LearningRepository extends ChangeNotifier {
   static Set<String> _stringSet(dynamic value) {
     if (value is! List) return <String>{};
     return {for (final item in value) item.toString()};
+  }
+
+  static bool _isOutdatedBuiltInCache(List<LearningQuestion> cached) {
+    final defaults = defaultLearningQuestions();
+    final defaultIds = defaults.map((question) => question.id).toSet();
+    final cachedIds = cached.map((question) => question.id).toSet();
+    return cachedIds.isNotEmpty &&
+        cachedIds.length < defaultIds.length &&
+        cachedIds.every(defaultIds.contains);
   }
 
   static Map<String, Set<String>> _answersFromJson(dynamic value) {

@@ -46,21 +46,27 @@ class _SingleWheelSheetState<T> extends State<SingleWheelSheet<T>> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(widget.title, style: theme.typography.tileTitle),
+              Center(
+                child: Text(
+                  widget.title,
+                  textAlign: TextAlign.center,
+                  style: theme.typography.tileTitle,
+                ),
+              ),
               const SizedBox(height: AppSpacing.md),
               SizedBox(
                 height: 190,
                 child: FPicker(
                   control: FPickerControl.lifted(
                     indexes: [_index],
-                    onChange: (indexes) => setState(() => _index = indexes.first),
+                    onChange: (indexes) =>
+                        setState(() => _index = indexes.first),
                   ),
                   children: [
                     FPickerWheel(
                       semanticsLabel: widget.title,
                       children: [
-                        for (final choice in widget.choices)
-                          Text(choice.label),
+                        for (final choice in widget.choices) Text(choice.label),
                       ],
                     ),
                   ],

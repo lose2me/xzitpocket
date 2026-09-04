@@ -304,10 +304,16 @@ class AppOptionSheet<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: theme.typography.pageTitle.copyWith(
-                fontWeight: FontWeight.w700,
+            SizedBox(
+              width: double.infinity,
+              child: Center(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: theme.typography.pageTitle.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),

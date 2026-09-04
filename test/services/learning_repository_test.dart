@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/learning_question.dart';
@@ -20,10 +22,45 @@ void main() {
 
     await repository.load();
 
-    expect(repository.questions, hasLength(8));
+    expect(repository.questions, hasLength(124));
     expect(repository.questions.any((question) => question.isMultiple), isTrue);
+    expect(
+      repository.questions.any((question) => question.isTrueFalse),
+      isTrue,
+    );
+    expect(
+      repository.questions.any((question) => question.isFillBlank),
+      isTrue,
+    );
+    expect(
+      repository.questions.map((question) => question.bankId).toSet(),
+      containsAll(<String>['QB-001', 'QB-002', 'QB-003']),
+    );
+    expect(
+      repository.questions.where((question) => question.bankId == 'QB-100'),
+      hasLength(104),
+    );
     expect(storage.getLearningQuestionBankCache(), isNotEmpty);
   });
+
+  test(
+    'upgrades an older built-in question cache with the extra banks',
+    () async {
+      final oldQuestions = defaultLearningQuestions().take(8);
+      await storage.setLearningQuestionBankCache(
+        jsonEncode([for (final question in oldQuestions) question.toJson()]),
+      );
+      final repository = LearningRepository(preferencesStorage: storage);
+
+      await repository.load();
+
+      expect(repository.questions, hasLength(124));
+      expect(
+        repository.questions.any((question) => question.id == 'qb001-001'),
+        isTrue,
+      );
+    },
+  );
 
   test('locks a judged answer and keeps the wrong set', () async {
     final repository = LearningRepository(preferencesStorage: storage);
@@ -100,6 +137,21 @@ void main() {
     expect(repository.isJudged(second.id), isTrue);
   });
 
+  test('tracks the six most recent judged questions in order', () async {
+    final repository = LearningRepository(preferencesStorage: storage);
+    await repository.load();
+    final questions = repository.questions;
+
+    for (final question in questions.take(7)) {
+      await repository.submitAnswer(question.id, question.correctOptionIds);
+    }
+
+    expect(
+      repository.recentJudgedIds(questions.map((question) => question.id)),
+      questions.skip(1).take(6).map((question) => question.id).toList(),
+    );
+  });
+
   test(
     'parses the questionBank payload and supported question types',
     () async {
@@ -143,6 +195,7 @@ void main() {
 
       expect(bank.year, 2026);
       expect(bank.name, '计算机基础知识测验');
+      expect(bank.isNew, isNull);
       expect(bank.questions, hasLength(4));
       expect(bank.questions[0].bankName, '计算机基础知识测验');
       expect(bank.questions[0].type, LearningQuestionType.single);
@@ -168,4 +221,70 @@ void main() {
       expect(secondTerm.year, 2502);
     },
   );
+
+  test('parses question bank identity, new flag, and question numbers', () {
+    final bank = LearningQuestionBank.fromJson({
+      'questionBank': {
+        'id': 'QB-001',
+        'new': true,
+        'name': '计算机基础知识测验',
+        'questions': [
+          {
+            'questionNumber': 7,
+            'type': '单选题',
+            'title': '第7题',
+            'questionText': '题目',
+            'options': ['A. 选项'],
+            'correctAnswer': 'A',
+          },
+        ],
+      },
+    });
+
+    expect(bank.id, 'QB-001');
+    expect(bank.isNew, isTrue);
+    expect(bank.questions.single.id, 'QB-001:7');
+    expect(bank.questions.single.bankId, 'QB-001');
+    expect(bank.questions.single.bankIsNew, isTrue);
+    expect(bank.questions.single.questionNumber, 7);
+  });
+
+  test('parses option labels and label-based true false answers', () {
+    final bank = LearningQuestionBank.fromJson({
+      'questionBank': {
+        'id': 'QB-LABELS',
+        'new': true,
+        'name': '标签题单',
+        'questions': [
+          {
+            'questionNumber': 1,
+            'type': '单选题',
+            'title': '第1题',
+            'questionText': '选择',
+            'options': [
+              {'label': 'A', 'text': '显示器'},
+              {'label': 'B', 'text': 'CPU'},
+            ],
+            'correctAnswer': 'B',
+          },
+          {
+            'questionNumber': 2,
+            'type': '判断题',
+            'title': '第2题',
+            'questionText': '判断',
+            'options': [
+              {'label': 'A', 'text': '正确'},
+              {'label': 'B', 'text': '错误'},
+            ],
+            'correctAnswer': 'B',
+          },
+        ],
+      },
+    });
+
+    expect(bank.questions[0].options.map((option) => option.id), ['A', 'B']);
+    expect(bank.questions[0].correctOptionIds, {'B'});
+    expect(bank.questions[1].options.map((option) => option.id), ['A', 'B']);
+    expect(bank.questions[1].correctOptionIds, {'B'});
+  });
 }

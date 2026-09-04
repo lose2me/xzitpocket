@@ -163,8 +163,27 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           );
   }
 
-  Widget _buildBankCard(FThemeData theme, _QuestionBankGroup bank) {
+  Widget _buildBankCard(
+    FThemeData theme,
+    _QuestionBankGroup bank, {
+    LearningListKind? collectionKind,
+  }) {
     final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
+    final allQuestions = collectionKind == null
+        ? bank.questions
+        : repository.questions.where((question) {
+            final bankId = question.bankId.trim();
+            final targetId = bank.id.trim();
+            return targetId.isNotEmpty
+                ? bankId == targetId
+                : question.bankName == bank.name && question.year == bank.year;
+          }).toList();
+    final completed = allQuestions
+        .where((question) => repository.isJudged(question.id))
+        .length;
+    final progress = allQuestions.isEmpty
+        ? 0
+        : (completed / allQuestions.length * 100).round();
     return AppCard(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -174,23 +193,71 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       child: Row(
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: 48,
+            height: 48,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: theme.colors.secondary,
+              color: Color.lerp(theme.colors.primary, Colors.black, 0.18),
               shape: BoxShape.circle,
             ),
-            child: Text(
-              name.characters.first,
-              style: theme.typography.tileTitle.copyWith(
-                color: theme.colors.primary,
-                fontWeight: FontWeight.w700,
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: theme.colors.secondary,
+                shape: BoxShape.circle,
+              ),
+              child: Text(
+                name.characters.first,
+                style: theme.typography.tileTitle.copyWith(
+                  color: theme.colors.primary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
-          Expanded(child: Text(name, style: theme.typography.tileTitle)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.typography.bodyText.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    if (collectionKind == LearningListKind.wrong)
+                      Text(
+                        '剩余 ${bank.questions.length} 道错题',
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.destructive,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else
+                      Text(
+                        '$progress%',
+                        style: theme.typography.bodySmall.copyWith(
+                          color: theme.colors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -199,37 +266,53 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   List<_TermGroup> _termGroups(List<LearningQuestion> questions) {
     final banks = <String, _QuestionBankGroup>{};
     for (final question in questions) {
-      final key = '${question.bankName}\u0000${question.year}';
+      final key = _bankKey(question);
       final bank = banks.putIfAbsent(
         key,
-        () => _QuestionBankGroup(name: question.bankName, year: question.year),
+        () => _QuestionBankGroup(
+          id: question.bankId,
+          name: question.bankName,
+          year: question.year,
+          isNew: question.bankIsNew,
+        ),
       );
       bank.questions.add(question);
     }
 
     final terms = <String, _TermGroup>{};
     for (final bank in banks.values) {
-      final code = _termCode(bank.year);
+      final code = bank.isNew == true ? '最新题库' : '往年题库';
       terms.putIfAbsent(code, () => _TermGroup(code)).banks.add(bank);
     }
     final result = terms.values.toList()
-      ..sort((a, b) => b.code.compareTo(a.code));
+      ..sort(
+        (a, b) => a.code == '最新题库'
+            ? -1
+            : b.code == '最新题库'
+            ? 1
+            : 0,
+      );
     for (final term in result) {
       term.banks.sort((a, b) => a.name.compareTo(b.name));
     }
     return result;
   }
 
-  String _termCode(int year) {
-    if (year >= 2000 && year <= 2099) {
-      return '${(year % 100).toString().padLeft(2, '0')}01';
-    }
-    return year.toString();
+  String _bankKey(LearningQuestion question) {
+    final bankId = question.bankId.trim();
+    return bankId.isEmpty
+        ? '${question.bankName}\u0000${question.year}'
+        : bankId;
   }
 
   Widget _buildQuestionPage(BuildContext context, LearningListKind kind) {
     final theme = context.theme;
     final groups = _groupedQuestions(kind);
+    final sections = <String, List<_QuestionBankGroup>>{};
+    for (final group in groups) {
+      final section = group.isNew == true ? '最新题库' : '往年题库';
+      sections.putIfAbsent(section, () => []).add(group);
+    }
     final emptyIcon = kind == LearningListKind.wrong
         ? FLucideIcons.circleCheck
         : FLucideIcons.bookmark;
@@ -247,31 +330,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             bottomPadding: AppSpacing.xxl,
             children: [
               for (
-                var groupIndex = 0;
-                groupIndex < groups.length;
-                groupIndex++
+                var sectionIndex = 0;
+                sectionIndex < sections.length;
+                sectionIndex++
               ) ...[
                 Text(
-                  groups[groupIndex].title,
+                  sections.keys.elementAt(sectionIndex),
                   style: theme.typography.sectionTitle,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 for (
-                  var index = 0;
-                  index < groups[groupIndex].questions.length;
-                  index++
+                  var groupIndex = 0;
+                  groupIndex < sections.values.elementAt(sectionIndex).length;
+                  groupIndex++
                 ) ...[
-                  _buildQuestionCard(
+                  _buildBankCard(
                     theme,
-                    groups[groupIndex].questions,
-                    groups[groupIndex].questions[index],
-                    index,
-                    kind == LearningListKind.wrong ? '错题集' : '收藏集',
+                    sections.values.elementAt(sectionIndex)[groupIndex],
+                    collectionKind: kind,
                   ),
-                  if (index != groups[groupIndex].questions.length - 1)
+                  if (groupIndex !=
+                      sections.values.elementAt(sectionIndex).length - 1)
                     const SizedBox(height: AppSpacing.sm),
                 ],
-                if (groupIndex != groups.length - 1)
+                if (sectionIndex != sections.length - 1)
                   const SizedBox(height: AppSpacing.xl),
               ],
             ],
@@ -291,93 +373,24 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   List<_QuestionBankGroup> _groupedQuestions(LearningListKind kind) {
     final groups = <String, _QuestionBankGroup>{};
     for (final question in _filteredQuestions(kind)) {
-      final key = '${question.bankName}\u0000${question.year}';
+      final key = _bankKey(question);
       final group = groups.putIfAbsent(
         key,
-        () => _QuestionBankGroup(name: question.bankName, year: question.year),
+        () => _QuestionBankGroup(
+          id: question.bankId,
+          name: question.bankName,
+          year: question.year,
+          isNew: question.bankIsNew,
+        ),
       );
       group.questions.add(question);
     }
     return groups.values.toList()..sort((a, b) {
-      final year = b.year.compareTo(a.year);
-      if (year != 0) return year;
+      final aIsNew = a.isNew == true;
+      final bIsNew = b.isNew == true;
+      if (aIsNew != bIsNew) return aIsNew ? -1 : 1;
       return a.name.compareTo(b.name);
     });
-  }
-
-  Widget _buildQuestionCard(
-    FThemeData theme,
-    List<LearningQuestion> questions,
-    LearningQuestion question,
-    int index,
-    String pageTitle,
-  ) {
-    final judged = repository.isJudged(question.id);
-    final correct = judged && repository.isCorrect(question.id);
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      onPress: () =>
-          _openQuestions(questions, initialIndex: index, pageTitle: pageTitle),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: theme.colors.secondary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${index + 1}',
-              style: theme.typography.bodySmall.copyWith(
-                color: theme.colors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (question.title != question.questionText)
-                  Text(
-                    question.title,
-                    style: theme.typography.caption.copyWith(
-                      color: theme.colors.mutedForeground,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                Text(
-                  question.questionText,
-                  style: theme.typography.tileTitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  question.typeLabel,
-                  style: theme.typography.caption.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Icon(
-            judged && correct
-                ? FLucideIcons.circleCheck
-                : FLucideIcons.chevronRight,
-            color: judged && correct
-                ? theme.colors.semantic.success
-                : theme.colors.mutedForeground,
-          ),
-        ],
-      ),
-    );
   }
 
   void _openQuestions(
@@ -401,17 +414,24 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 }
 
 class _QuestionBankGroup {
+  final String id;
   final String name;
   final int year;
+  final bool? isNew;
   final List<LearningQuestion> questions = [];
 
-  _QuestionBankGroup({required this.name, required this.year});
+  _QuestionBankGroup({
+    required this.id,
+    required this.name,
+    required this.year,
+    required this.isNew,
+  });
 
   String get termCode => year >= 2000 && year <= 2099
       ? '${(year % 100).toString().padLeft(2, '0')}01'
       : year.toString();
 
-  String get title => name == '题库' ? termCode : '$termCode · $name';
+  String get title => isNew == true ? '最新题库' : '往年题库';
 }
 
 class _TermGroup {

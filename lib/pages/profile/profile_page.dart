@@ -1,13 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:path/path.dart' as p;
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import '../../models/app_settings.dart';
@@ -16,7 +12,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/credential_storage.dart';
-import '../../services/native_automation_service.dart';
 import '../../services/password_reset_service.dart';
 import '../../services/power_service.dart';
 import '../../services/talker.dart';
@@ -27,26 +22,8 @@ import '../../ui/app_components.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
 import '../home_page.dart';
-import '../timetable/timetable_providers.dart';
 import 'profile_components.dart';
-
-enum _BackgroundAction { pick, clear }
-
-class _ThemeColorSwatch extends StatelessWidget {
-  final Color color;
-
-  const _ThemeColorSwatch({required this.color});
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: color,
-      shape: BoxShape.circle,
-      border: Border.all(color: context.theme.colors.border),
-    ),
-    child: const SizedBox(width: 26, height: 26),
-  );
-}
+import 'appearance_settings_page.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
@@ -88,8 +65,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   bool _roomIdInitialized = false;
   bool _isSavingRoom = false;
   bool _isLoggingIn = false;
-  final _imagePicker = ImagePicker();
-
   @override
   void initState() {
     super.initState();
@@ -141,10 +116,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     }
 
     final settings = ref.watch(appSettingsProvider);
-    final showNonCurrentWeekCourses = ref.watch(
-      showNonCurrentWeekCoursesProvider,
-    );
-    final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final savedRoomId = ref.watch(savedRoomIdProvider);
 
     if (!_roomIdInitialized) {
@@ -218,70 +189,20 @@ class ProfilePageState extends ConsumerState<ProfilePage>
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '课表'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.bellOff,
-                title: '课堂勿扰',
-                value: _automationLabel(settings.classAutomationMode),
-                onTap: () => _openAutomationSheet(settings.classAutomationMode),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.eye,
-                title: '显示非本周课程',
-                value: showNonCurrentWeekCourses,
-                onChange: _updateShowNonCurrentWeekCourses,
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.calendarDays,
-                title: '隐藏周末网格',
-                value: !showWeekendColumns,
-                onChange: (v) =>
-                    ref.read(showWeekendColumnsProvider.notifier).set(!v),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.image,
-                title: '课表背景图',
-                value: settings.timetableBackgroundPath == null ? '未设置' : '已设置',
-                onTap: () =>
-                    _openBackgroundSheet(settings.timetableBackgroundPath),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.eye,
-                title: '背景图不透明度',
-                value:
-                    '${(settings.timetableBackgroundOpacity * 100).round()}%',
-                onTap: () => _openBackgroundOpacitySheet(
-                  settings.timetableBackgroundOpacity,
-                ),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.grid2x2,
-                title: '显示网格辅助线',
-                value: settings.showTimetableGridLines,
-                onChange: (v) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setShowTimetableGridLines(v),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '外观'),
           ProfileSettingsGroup(
             children: [
               ProfileSettingsTile(
                 icon: FLucideIcons.palette,
-                title: '主题模式',
-                value: _themeTitle(settings.themePreference),
-                onTap: () => _openThemeSheet(settings.themePreference),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.palette,
-                title: '软件主题色',
-                value: settings.themeColor.label,
-                onTap: () => _openThemeColorSheet(settings.themeColor),
+                title: '主题设置',
+                value:
+                    '${_themeTitle(settings.themePreference)} · ${settings.themeColor.label}',
+                onTap: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.appearanceSettings,
+                    builder: (_) => const AppearanceSettingsPage(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -312,7 +233,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
             width: double.infinity,
             height: 48,
             child: FButton(
-              variant: FButtonVariant.destructive,
+              variant: FButtonVariant.primary,
               onPress: () => _logout(context),
               prefix: const Icon(FLucideIcons.logOut),
               child: const Text('退出登录'),
@@ -668,7 +589,10 @@ class ProfilePageState extends ConsumerState<ProfilePage>
             child: ListView(
               shrinkWrap: true,
               children: [
-                const Padding(padding: EdgeInsets.all(8), child: Text('选择账号')),
+                const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Center(child: Text('选择账号')),
+                ),
                 ...accounts.map(
                   (a) => FItem(
                     title: Text(
@@ -881,34 +805,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
   // ── Settings actions ──
 
-  Future<void> _updateTheme(AppThemePreference preference) async {
-    await ref.read(appSettingsProvider.notifier).setThemePreference(preference);
-  }
-
-  Future<void> _updateAutomationMode(ClassAutomationMode mode) async {
-    await ref.read(appSettingsProvider.notifier).setClassAutomationMode(mode);
-
-    if (!mounted || mode == ClassAutomationMode.off) return;
-
-    final status = await NativeAutomationService.getPermissionStatus();
-    if (!mounted) return;
-
-    if (!status.isFullyGranted) {
-      final missing = <String>[];
-      if (!status.hasDndPermission) missing.add('勿扰');
-      if (!status.hasExactAlarmPermission) missing.add('精确闹钟');
-      showAppSnackBar(
-        context,
-        '需要开启${missing.join('和')}权限',
-        severity: ToastSeverity.warning,
-      );
-    }
-  }
-
-  void _updateShowNonCurrentWeekCourses(bool value) {
-    ref.read(showNonCurrentWeekCoursesProvider.notifier).set(value);
-  }
-
   Future<void> _submitRoomId() async {
     if (_isSavingRoom) return;
 
@@ -956,251 +852,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     }
   }
 
-  Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {
-    final selected = await showAppSheet<ClassAutomationMode>(
-      context: context,
-      builder: (context) => AppOptionSheet<ClassAutomationMode>(
-        title: '课堂勿扰',
-        value: currentMode,
-        options: [
-          AppOption<ClassAutomationMode>(
-            value: ClassAutomationMode.off,
-            title: '关闭',
-            subtitle: '不自动调节手机模式',
-            icon: FLucideIcons.bellOff,
-          ),
-          AppOption<ClassAutomationMode>(
-            value: ClassAutomationMode.dnd,
-            title: '上课开启，下课恢复',
-            subtitle: '上课静音，下课后自动恢复',
-            icon: FLucideIcons.bellRing,
-          ),
-          AppOption<ClassAutomationMode>(
-            value: ClassAutomationMode.dndKeep,
-            title: '上课开启，下课不恢复',
-            subtitle: '上课静音，下课后保持勿扰',
-            icon: FLucideIcons.vibrateOff,
-          ),
-        ],
-      ),
-    );
-
-    if (selected != null && selected != currentMode) {
-      await _updateAutomationMode(selected);
-    }
-  }
-
-  Future<void> _openThemeSheet(AppThemePreference currentPreference) async {
-    final selected = await showAppSheet<AppThemePreference>(
-      context: context,
-      builder: (context) => AppOptionSheet<AppThemePreference>(
-        title: '主题模式',
-        value: currentPreference,
-        options: [
-          AppOption<AppThemePreference>(
-            value: AppThemePreference.system,
-            title: '跟随系统',
-            subtitle: '自动跟随系统深色/浅色',
-            icon: FLucideIcons.settings,
-          ),
-          AppOption<AppThemePreference>(
-            value: AppThemePreference.light,
-            title: '浅色模式',
-            icon: FLucideIcons.sun,
-          ),
-          AppOption<AppThemePreference>(
-            value: AppThemePreference.dark,
-            title: '深色模式',
-            icon: FLucideIcons.moon,
-          ),
-        ],
-      ),
-    );
-
-    if (selected != null && selected != currentPreference) {
-      await _updateTheme(selected);
-    }
-  }
-
-  Future<void> _updateThemeColor(AppThemeColor color) async {
-    await ref.read(appSettingsProvider.notifier).setThemeColor(color);
-  }
-
-  Future<void> _openThemeColorSheet(AppThemeColor currentColor) async {
-    final selected = await showAppSheet<AppThemeColor>(
-      context: context,
-      builder: (context) => AppOptionSheet<AppThemeColor>(
-        title: '软件主题色',
-        value: currentColor,
-        options: [
-          for (final color in AppThemeColor.values)
-            AppOption<AppThemeColor>(
-              value: color,
-              title: color.label,
-              subtitle:
-                  '#${color.color.toARGB32().toRadixString(16).substring(2).toUpperCase()}',
-              leading: _ThemeColorSwatch(color: color.color),
-            ),
-        ],
-      ),
-    );
-
-    if (selected != null && selected != currentColor) {
-      await _updateThemeColor(selected);
-    }
-  }
-
-  Future<void> _openBackgroundSheet(String? currentPath) async {
-    final selected = await showAppSheet<_BackgroundAction>(
-      context: context,
-      builder: (context) => AppOptionSheet<_BackgroundAction>(
-        title: '课表背景图',
-        options: [
-          const AppOption<_BackgroundAction>(
-            value: _BackgroundAction.pick,
-            title: '选择图片',
-            subtitle: '从设备相册选择一张图片',
-            icon: FLucideIcons.imagePlus,
-          ),
-          if (currentPath != null)
-            const AppOption<_BackgroundAction>(
-              value: _BackgroundAction.clear,
-              title: '清除背景图',
-              subtitle: '恢复为纯色背景',
-              icon: FLucideIcons.imageOff,
-            ),
-        ],
-      ),
-    );
-
-    switch (selected) {
-      case _BackgroundAction.pick:
-        await _pickTimetableBackground();
-      case _BackgroundAction.clear:
-        await _clearTimetableBackground(currentPath);
-      case null:
-        break;
-    }
-  }
-
-  Future<void> _pickTimetableBackground() async {
-    final picked = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 90,
-      maxWidth: 2048,
-      maxHeight: 2048,
-    );
-    if (picked == null || !mounted) return;
-
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final extension = p.extension(picked.path).isEmpty
-          ? '.jpg'
-          : p.extension(picked.path);
-      final targetPath = p.join(
-        directory.path,
-        'timetable_background_${DateTime.now().millisecondsSinceEpoch}$extension',
-      );
-      await picked.saveTo(targetPath);
-
-      final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
-      await ref
-          .read(appSettingsProvider.notifier)
-          .setTimetableBackgroundPath(targetPath);
-      if (oldPath != null && oldPath != targetPath) {
-        final oldFile = File(oldPath);
-        if (await oldFile.exists()) await oldFile.delete();
-      }
-      if (mounted) {
-        showAppSnackBar(context, '背景图已更新', severity: ToastSeverity.success);
-      }
-    } catch (error, stackTrace) {
-      talker.error('保存课表背景图失败', error, stackTrace);
-      if (mounted) {
-        showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
-      }
-    }
-  }
-
-  Future<void> _clearTimetableBackground(String? path) async {
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setTimetableBackgroundPath(null);
-    if (path != null) {
-      final file = File(path);
-      if (await file.exists()) await file.delete();
-    }
-    if (mounted) {
-      showAppSnackBar(context, '已清除背景图', severity: ToastSeverity.info);
-    }
-  }
-
-  Future<void> _openBackgroundOpacitySheet(double currentOpacity) async {
-    var value = currentOpacity;
-    final selected = await showAppSheet<double>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.sm,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('背景图不透明度', style: context.theme.typography.pageTitle),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '${(value * 100).round()}%',
-                style: context.theme.typography.bodySmall.copyWith(
-                  color: context.theme.colors.mutedForeground,
-                ),
-              ),
-              Material(
-                type: MaterialType.transparency,
-                child: Slider(
-                  value: value,
-                  min: 0,
-                  max: 1,
-                  divisions: 20,
-                  activeColor: context.theme.colors.primary,
-                  onChanged: (next) => setState(() => value = next),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Align(
-                alignment: Alignment.centerRight,
-                child: FButton(
-                  mainAxisSize: MainAxisSize.min,
-                  onPress: () => Navigator.pop(context, value),
-                  child: const Text('确定'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (selected != null && selected != currentOpacity) {
-      await ref
-          .read(appSettingsProvider.notifier)
-          .setTimetableBackgroundOpacity(selected);
-    }
-  }
-
   // ── Helpers ──
-
-  String _automationLabel(ClassAutomationMode mode) {
-    return switch (mode) {
-      ClassAutomationMode.off => '关闭',
-      ClassAutomationMode.dnd => '上课时开启',
-      ClassAutomationMode.dndKeep => '下课不恢复',
-    };
-  }
 
   String _themeTitle(AppThemePreference preference) {
     return switch (preference) {

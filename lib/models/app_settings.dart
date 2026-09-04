@@ -73,6 +73,7 @@ class AppSettings {
   final ClassAutomationMode classAutomationMode;
   final String? timetableBackgroundPath;
   final double timetableBackgroundOpacity;
+  final double timetableComponentOpacity;
   final bool showTimetableGridLines;
 
   const AppSettings({
@@ -81,6 +82,7 @@ class AppSettings {
     this.classAutomationMode = ClassAutomationMode.off,
     this.timetableBackgroundPath,
     this.timetableBackgroundOpacity = 0.24,
+    this.timetableComponentOpacity = 0.85,
     this.showTimetableGridLines = true,
   });
 
@@ -92,6 +94,7 @@ class AppSettings {
     ClassAutomationMode? classAutomationMode,
     Object? timetableBackgroundPath = _unset,
     double? timetableBackgroundOpacity,
+    double? timetableComponentOpacity,
     bool? showTimetableGridLines,
   }) {
     return AppSettings(
@@ -103,6 +106,8 @@ class AppSettings {
           : timetableBackgroundPath as String?,
       timetableBackgroundOpacity:
           timetableBackgroundOpacity ?? this.timetableBackgroundOpacity,
+      timetableComponentOpacity:
+          timetableComponentOpacity ?? this.timetableComponentOpacity,
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
     );

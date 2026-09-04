@@ -56,6 +56,16 @@ class PreferencesStorage {
     value.clamp(0.0, 1.0).toDouble(),
   );
 
+  double getTimetableComponentOpacity() =>
+      (_prefs.getDouble('timetable_component_opacity') ?? 0.85)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableComponentOpacity(double value) => _prefs.setDouble(
+    'timetable_component_opacity',
+    value.clamp(0.0, 1.0).toDouble(),
+  );
+
   bool getShowTimetableGridLines() =>
       _prefs.getBool('show_timetable_grid_lines') ?? true;
 

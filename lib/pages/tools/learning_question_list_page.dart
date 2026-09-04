@@ -60,10 +60,18 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
   List<_QuestionBankGroup> get _groupedQuestions {
     final groups = <String, _QuestionBankGroup>{};
     for (final question in _questions) {
-      final key = '${question.bankName}\u0000${question.year}';
+      final bankId = question.bankId.trim();
+      final key = bankId.isEmpty
+          ? '${question.bankName}\u0000${question.year}'
+          : bankId;
       final group = groups.putIfAbsent(
         key,
-        () => _QuestionBankGroup(name: question.bankName, year: question.year),
+        () => _QuestionBankGroup(
+          id: question.bankId,
+          name: question.bankName,
+          year: question.year,
+          isNew: question.bankIsNew,
+        ),
       );
       group.questions.add(question);
     }
@@ -89,11 +97,6 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
       title: _title,
       actions: [
         AppIconButton(
-          icon: FLucideIcons.settings,
-          onPress: _openModeSettings,
-          tooltip: '刷题设置',
-        ),
-        AppIconButton(
           icon: FLucideIcons.trash2,
           onPress: _clearData,
           tooltip: widget.kind == LearningListKind.wrong
@@ -101,6 +104,11 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
               : widget.kind == LearningListKind.favorite
               ? '清空收藏集'
               : '清空做题数据',
+        ),
+        AppIconButton(
+          icon: FLucideIcons.settings,
+          onPress: _openModeSettings,
+          tooltip: '刷题设置',
         ),
       ],
       child: questions.isEmpty
@@ -149,7 +157,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
                       groups[groupIndex].questions,
                       groups[groupIndex].questions[index],
                       index,
-                      _title,
+                      groups[groupIndex].name,
                     ),
                     if (index != groups[groupIndex].questions.length - 1)
                       const SizedBox(height: AppSpacing.sm),
@@ -212,8 +220,12 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           AppOption(
             value: LearningQuizMode.memorize,
             title: '背题模式',
-            subtitle: '直接显示正确答案',
             icon: FLucideIcons.bookOpen,
+          ),
+          AppOption(
+            value: LearningQuizMode.memorizeFlow,
+            title: '背题模式·流水',
+            icon: FLucideIcons.rows3,
           ),
         ],
       ),
@@ -267,38 +279,13 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: theme.colors.secondary,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${index + 1}',
-              style: theme.typography.bodySmall.copyWith(
-                color: theme.colors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (question.title != question.questionText)
-                  Text(
-                    question.title,
-                    style: theme.typography.caption.copyWith(
-                      color: theme.colors.mutedForeground,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 Text(
-                  question.questionText,
-                  style: theme.typography.tileTitle,
+                  '${widget.kind == LearningListKind.wrong ? '[错题] ' : ''}${question.questionNumber ?? index + 1}.${question.questionText}',
+                  style: theme.typography.bodySmall.copyWith(fontSize: 14),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -361,15 +348,22 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
 }
 
 class _QuestionBankGroup {
+  final String id;
   final String name;
   final int year;
+  final bool? isNew;
   final List<LearningQuestion> questions = [];
 
-  _QuestionBankGroup({required this.name, required this.year});
+  _QuestionBankGroup({
+    required this.id,
+    required this.name,
+    required this.year,
+    required this.isNew,
+  });
 
   String get termCode => year >= 2000 && year <= 2099
       ? '${(year % 100).toString().padLeft(2, '0')}01'
       : year.toString();
 
-  String get title => name == '题库' ? termCode : '$termCode · $name';
+  String get title => isNew == true ? '最新题库' : '往年题库';
 }

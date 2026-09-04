@@ -8,7 +8,7 @@ import '../../models/learning_question.dart';
 import '../../services/learning_repository.dart';
 import '../../ui/app_components.dart';
 
-enum LearningQuizMode { normal, random, memorize }
+enum LearningQuizMode { normal, random, memorize, memorizeFlow }
 
 class LearningQuizPage extends StatefulWidget {
   final LearningRepository repository;
@@ -40,6 +40,23 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   final Set<String> _judgingIds = {};
 
   LearningRepository get repository => widget.repository;
+  bool get _isMemorize =>
+      widget.mode == LearningQuizMode.memorize ||
+      widget.mode == LearningQuizMode.memorizeFlow;
+  bool get _isMemorizeFlow => widget.mode == LearningQuizMode.memorizeFlow;
+
+  String get _displayTitle {
+    final provided = widget.pageTitle.trim();
+    const genericTitles = {'题库', '错题集', '收藏集'};
+    if (provided.isNotEmpty && !genericTitles.contains(provided)) {
+      return provided;
+    }
+    for (final questionId in widget.questionIds) {
+      final bankName = repository.questionById(questionId)?.bankName.trim();
+      if (bankName != null && bankName.isNotEmpty) return bankName;
+    }
+    return provided.isEmpty ? '题库' : provided;
+  }
 
   LearningQuestion? get _question {
     if (_currentIndex < 0 || _currentIndex >= _questionIds.length) {
@@ -118,7 +135,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   void _selectOption(LearningQuestion question, String optionId) {
-    if (widget.mode == LearningQuizMode.memorize ||
+    if (_isMemorize ||
         repository.isJudged(question.id) ||
         _judgingIds.contains(question.id)) {
       return;
@@ -139,7 +156,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   void _updateTextAnswer(LearningQuestion question, String value) {
-    if (widget.mode == LearningQuizMode.memorize ||
+    if (_isMemorize ||
         repository.isJudged(question.id) ||
         _judgingIds.contains(question.id)) {
       return;
@@ -158,7 +175,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   Future<void> _judgeAndNotify(int index) async {
-    if (widget.mode == LearningQuizMode.memorize) return;
+    if (_isMemorize) return;
     if (index < 0 || index >= _questionIds.length) return;
     final question = repository.questionById(_questionIds[index]);
     if (question == null) return;
@@ -185,7 +202,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   Future<void> _goNext() async {
-    if (widget.mode == LearningQuizMode.memorize) {
+    if (_isMemorize) {
       if (_currentIndex < _questionIds.length - 1 &&
           _pageController.hasClients) {
         unawaited(
@@ -200,17 +217,18 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     if (_currentIndex >= _questionIds.length - 1) {
       final question = _question;
       if (question == null) return;
-      if (repository.isJudged(question.id) ||
-          _judgingIds.contains(question.id)) {
-        return;
+      if (!repository.isJudged(question.id)) {
+        if (_judgingIds.contains(question.id) || !_hasAnswer(question)) {
+          return;
+        }
+        _judgingIds.add(question.id);
+        try {
+          await repository.submitAnswer(question.id, _answerFor(question));
+        } finally {
+          _judgingIds.remove(question.id);
+        }
       }
-      if (!_hasAnswer(question)) return;
-      _judgingIds.add(question.id);
-      try {
-        await repository.submitAnswer(question.id, _answerFor(question));
-      } finally {
-        _judgingIds.remove(question.id);
-      }
+      await _advanceToNextUnanswered();
       return;
     }
     if (!_pageController.hasClients) return;
@@ -219,6 +237,31 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         duration: AppMotion.standard,
         curve: Curves.easeOutCubic,
       ),
+    );
+  }
+
+  Future<void> _advanceToNextUnanswered() async {
+    if (_isMemorize) return;
+    final unanswered = [
+      for (final questionId in widget.questionIds)
+        if (!repository.isJudged(questionId) &&
+            !_judgingIds.contains(questionId))
+          questionId,
+    ];
+    if (unanswered.isEmpty) return;
+    final nextId = widget.mode == LearningQuizMode.random
+        ? (unanswered..shuffle(Random())).first
+        : unanswered.first;
+    var targetIndex = _questionIds.indexOf(nextId);
+    if (targetIndex < 0) {
+      _questionIds.add(nextId);
+      targetIndex = _questionIds.length - 1;
+    }
+    if (!_pageController.hasClients || targetIndex == _currentIndex) return;
+    await _pageController.animateToPage(
+      targetIndex,
+      duration: AppMotion.standard,
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -237,7 +280,14 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('选题卡', style: context.theme.typography.pageTitle),
+            SizedBox(
+              width: double.infinity,
+              child: Text(
+                '选题卡',
+                textAlign: TextAlign.center,
+                style: context.theme.typography.pageTitle,
+              ),
+            ),
             const SizedBox(height: AppSpacing.md),
             Flexible(
               child: GridView.builder(
@@ -253,25 +303,32 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   final questionId = widget.questionIds[index];
                   final question = repository.questionById(questionId);
                   if (question == null) return const SizedBox.shrink();
+                  final questionNumber = question.questionNumber ?? index + 1;
                   final judged = repository.isJudged(question.id);
                   final correct = judged && repository.isCorrect(question.id);
                   final targetPage = _questionIds.indexOf(questionId);
                   final current = _question?.id == questionId;
-                  final background = judged
+                  final background = _isMemorize
+                      ? context.theme.colors.semantic.successContainer
+                      : judged
                       ? correct
                             ? context.theme.colors.semantic.successContainer
                             : context.theme.colors.destructive.withAlpha(28)
                       : current
                       ? context.theme.colors.secondary
                       : context.theme.colors.card;
-                  final foreground = judged
+                  final foreground = _isMemorize
+                      ? context.theme.colors.semantic.onSuccessContainer
+                      : judged
                       ? correct
                             ? context.theme.colors.semantic.onSuccessContainer
                             : context.theme.colors.destructive
                       : current
                       ? context.theme.colors.primary
                       : context.theme.colors.mutedForeground;
-                  final border = judged
+                  final border = _isMemorize
+                      ? context.theme.colors.semantic.success
+                      : judged
                       ? correct
                             ? context.theme.colors.semantic.success
                             : context.theme.colors.destructive
@@ -281,7 +338,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   return Semantics(
                     button: true,
                     selected: current,
-                    label: '第${index + 1}题',
+                    label: '第$questionNumber题',
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: targetPage < 0
@@ -298,7 +355,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                           ),
                         ),
                         child: Text(
-                          '${index + 1}',
+                          '$questionNumber',
                           style: context.theme.typography.bodySmall.copyWith(
                             color: foreground,
                             fontWeight: FontWeight.w700,
@@ -386,8 +443,12 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
           AppOption(
             value: LearningQuizMode.memorize,
             title: '背题模式',
-            subtitle: '直接显示正确答案',
             icon: FLucideIcons.bookOpen,
+          ),
+          AppOption(
+            value: LearningQuizMode.memorizeFlow,
+            title: '背题模式·流水',
+            icon: FLucideIcons.rows3,
           ),
         ],
       ),
@@ -405,59 +466,91 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
       );
     }
     final theme = context.theme;
+    if (_isMemorizeFlow) {
+      return AppPage(
+        title: _displayTitle,
+        actions: [
+          AppIconButton(
+            icon: FLucideIcons.grid2x2,
+            onPress: _openQuestionCard,
+            tooltip: '选题卡',
+          ),
+          AppIconButton(
+            icon: FLucideIcons.settings,
+            onPress: _openSettings,
+            tooltip: '刷题设置',
+          ),
+        ],
+        child: _buildMemorizeFlow(theme),
+      );
+    }
     return AppPage(
-      title: widget.pageTitle,
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.settings,
-          onPress: _openSettings,
-          tooltip: '刷题设置',
-        ),
-        AppIconButton(
-          icon: FLucideIcons.trash2,
-          onPress: _resetProgress,
-          tooltip: '清空做题数据',
-        ),
-      ],
+      title: _displayTitle,
+      actions: _isMemorize
+          ? [
+              AppIconButton(
+                icon: FLucideIcons.settings,
+                onPress: _openSettings,
+                tooltip: '刷题设置',
+              ),
+            ]
+          : [
+              AppIconButton(
+                icon: FLucideIcons.trash2,
+                onPress: _resetProgress,
+                tooltip: '清空做题数据',
+              ),
+              AppIconButton(
+                icon: FLucideIcons.settings,
+                onPress: _openSettings,
+                tooltip: '刷题设置',
+              ),
+            ],
       footer: _buildFooter(theme, question),
-      child: PageView.builder(
-        controller: _pageController,
-        onPageChanged: _handlePageChanged,
-        itemCount: _questionIds.length,
-        itemBuilder: (context, index) {
-          final item = repository.questionById(_questionIds[index]);
-          return item == null
-              ? const AppStateView(
-                  icon: FLucideIcons.circleAlert,
-                  title: '题目不存在',
-                )
-              : _buildQuestionView(theme, item, index);
-        },
+      child: Column(
+        children: [
+          if (!_isMemorize) _buildFixedHeader(theme, question),
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: _handlePageChanged,
+              itemCount: _questionIds.length,
+              itemBuilder: (context, index) {
+                final item = repository.questionById(_questionIds[index]);
+                return item == null
+                    ? const AppStateView(
+                        icon: FLucideIcons.circleAlert,
+                        title: '题目不存在',
+                      )
+                    : _buildQuestionView(theme, item);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildQuestionView(
-    FThemeData theme,
-    LearningQuestion question,
-    int pageIndex,
-  ) {
+  Widget _buildFixedHeader(FThemeData theme, LearningQuestion question) {
+    if (_isMemorize) return const SizedBox.shrink();
     final originalIndex = widget.questionIds.indexOf(question.id);
-    final questionNumber = originalIndex >= 0
-        ? originalIndex + 1
-        : pageIndex + 1;
-    final selected = widget.mode == LearningQuizMode.memorize
-        ? const <String>{}
-        : _selectionFor(question);
-    final submitted = repository.isJudged(question.id);
-    final revealed = submitted || widget.mode == LearningQuizMode.memorize;
-    return AppPageListView(
-      maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.lg,
-      bottomPadding: AppSpacing.xxl,
-      primary: false,
-      children: [
-        Row(
+    final questionNumber =
+        question.questionNumber ??
+        (originalIndex >= 0 ? originalIndex + 1 : _currentIndex + 1);
+    final judgedCount = widget.questionIds.where(repository.isJudged).length;
+    final progress = widget.questionIds.isEmpty
+        ? 0
+        : (judgedCount / widget.questionIds.length * 100).round();
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: theme.colors.background,
+        border: Border(bottom: BorderSide(color: theme.colors.border)),
+      ),
+      child: AppContentFrame(
+        safeArea: false,
+        topPadding: AppSpacing.md,
+        bottomPadding: AppSpacing.md,
+        child: Row(
           children: [
             Text(
               '$questionNumber/${widget.questionIds.length}',
@@ -465,7 +558,15 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                 color: theme.colors.mutedForeground,
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              '$progress%',
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Expanded(child: Center(child: _buildRecentStatusDots(theme))),
             Text(
               question.typeLabel,
               style: theme.typography.bodySmall.copyWith(
@@ -475,30 +576,30 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.md),
-        if (question.title != question.questionText) ...[
-          Text(
-            question.title,
-            style: theme.typography.caption.copyWith(
-              color: theme.colors.mutedForeground,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-        ],
+      ),
+    );
+  }
+
+  Widget _buildQuestionView(FThemeData theme, LearningQuestion question) {
+    final selected = _isMemorize ? const <String>{} : _selectionFor(question);
+    final submitted = repository.isJudged(question.id);
+    final revealed = submitted || _isMemorize;
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.sm,
+      bottomPadding: AppSpacing.xxl,
+      primary: false,
+      children: [
         Text(
-          question.questionText,
-          style: theme.typography.body.lg.copyWith(
-            fontWeight: FontWeight.w700,
-            height: 1.45,
-          ),
+          _questionPrompt(question),
+          style: theme.typography.body.lg.copyWith(height: 1.45),
         ),
         const SizedBox(height: AppSpacing.lg),
         if (question.isFillBlank)
           AppTextField(
             controller: _textControllerFor(
               question,
-              answerOverride: widget.mode == LearningQuizMode.memorize
+              answerOverride: _isMemorize
                   ? question.correctOptionIds.join(', ')
                   : null,
             ),
@@ -516,33 +617,169 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               question.options[index],
               selected,
               revealed,
+              optionIndex: index,
             ),
             if (index != question.options.length - 1)
               const SizedBox(height: AppSpacing.sm),
           ],
-        if (widget.mode == LearningQuizMode.memorize) ...[
-          const SizedBox(height: AppSpacing.lg),
+      ],
+    );
+  }
+
+  Widget _buildMemorizeFlow(FThemeData theme) => AppPageListView(
+    maxWidth: AppLayout.resultMaxWidth,
+    topPadding: AppSpacing.lg,
+    bottomPadding: AppSpacing.xxl,
+    children: [
+      for (var index = 0; index < widget.questionIds.length; index++)
+        if (repository.questionById(widget.questionIds[index])
+            case final question?)
+          _buildFlowQuestion(theme, question, index),
+    ],
+  );
+
+  Widget _buildFlowQuestion(
+    FThemeData theme,
+    LearningQuestion question,
+    int index,
+  ) {
+    final number = question.questionNumber ?? index + 1;
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: index == widget.questionIds.length - 1 ? 0 : AppSpacing.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Text(
-            '答案：${_answerLabel(question)}',
-            style: theme.typography.bodyText.copyWith(
-              color: theme.colors.semantic.success,
+            question.typeLabel,
+            style: theme.typography.caption.copyWith(
+              color: theme.colors.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            _questionPrompt(
+              question,
+              fallbackNumber: number,
+              revealFillBlank: true,
+            ),
+            style: theme.typography.body.lg,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (!question.isFillBlank) ...[
+            for (
+              var optionIndex = 0;
+              optionIndex < question.options.length;
+              optionIndex++
+            ) ...[
+              _buildOption(
+                theme,
+                question,
+                question.options[optionIndex],
+                const <String>{},
+                true,
+                optionIndex: optionIndex,
+              ),
+              if (optionIndex != question.options.length - 1)
+                const SizedBox(height: AppSpacing.xs),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _questionPrompt(
+    LearningQuestion question, {
+    int? fallbackNumber,
+    bool revealFillBlank = false,
+  }) {
+    final number =
+        question.questionNumber ??
+        fallbackNumber ??
+        widget.questionIds.indexOf(question.id) + 1;
+    var text = question.questionText;
+    if (revealFillBlank && question.isFillBlank) {
+      final answer = question.correctOptionIds.join('、');
+      final revealed = text.replaceFirst(RegExp(r'_{2,}'), answer);
+      text = revealed == text ? '$text（$answer）' : revealed;
+    }
+    return '$number.$text';
+  }
+
+  Widget _buildRecentStatusDots(FThemeData theme) {
+    final slotCount = min(widget.questionIds.length, 6);
+    final judgedIds = repository.recentJudgedIds(
+      _questionIds,
+      limit: slotCount,
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var index = 0; index < slotCount - judgedIds.length; index++) ...[
+          _buildStatusDot(theme, null, latest: false),
+          const SizedBox(width: AppSpacing.xs),
+        ],
+        for (var index = 0; index < judgedIds.length; index++) ...[
+          _buildStatusDot(
+            theme,
+            repository.isCorrect(judgedIds[index]),
+            questionNumber: _questionNumberFor(judgedIds[index]),
+            latest: index == judgedIds.length - 1,
+          ),
+          if (index != judgedIds.length - 1)
+            const SizedBox(width: AppSpacing.xs),
         ],
       ],
     );
   }
 
-  String _answerLabel(LearningQuestion question) {
-    if (question.isFillBlank || question.isTrueFalse) {
-      return question.correctOptionIds.join('、');
-    }
-    final ids = question.options
-        .where((option) => question.correctOptionIds.contains(option.id))
-        .map((option) => option.text)
-        .toList();
-    return ids.isEmpty ? question.correctOptionIds.join('、') : ids.join('、');
+  int _questionNumberFor(String questionId) {
+    final question = repository.questionById(questionId);
+    if (question?.questionNumber != null) return question!.questionNumber!;
+    final index = widget.questionIds.indexOf(questionId);
+    return index < 0 ? 0 : index + 1;
+  }
+
+  Widget _buildStatusDot(
+    FThemeData theme,
+    bool? status, {
+    int? questionNumber,
+    required bool latest,
+  }) {
+    final fill = status == null
+        ? theme.colors.mutedForeground.withAlpha(100)
+        : status
+        ? theme.colors.semantic.success
+        : theme.colors.destructive;
+    return Container(
+      width: 18,
+      height: 18,
+      padding: EdgeInsets.all(latest ? 1.5 : 1),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: latest
+            ? Border.all(color: theme.colors.primary, width: 1.5)
+            : null,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: fill, shape: BoxShape.circle),
+        child: questionNumber == null
+            ? null
+            : Center(
+                child: Text(
+                  '$questionNumber',
+                  style: theme.typography.caption.copyWith(
+                    color: Colors.white,
+                    fontSize: questionNumber >= 100 ? 7 : 8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+      ),
+    );
   }
 
   Widget _buildOption(
@@ -550,8 +787,11 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     LearningQuestion question,
     LearningOption option,
     Set<String> selectedIds,
-    bool submitted,
-  ) {
+    bool submitted, {
+    required int optionIndex,
+  }) {
+    final optionLabel = _optionLabel(option, optionIndex);
+    final optionText = _optionText(option.text);
     final selected = selectedIds.contains(option.id);
     final isCorrectOption = question.correctOptionIds.contains(option.id);
     final showCorrect = submitted && isCorrectOption;
@@ -566,14 +806,14 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     final backgroundColor = showCorrect
         ? theme.colors.semantic.successContainer
         : showWrong
-        ? theme.colors.semantic.warningContainer
+        ? theme.colors.destructive.withAlpha(28)
         : selected
         ? theme.colors.secondary
         : theme.colors.card;
     return Semantics(
       button: true,
       selected: selected,
-      label: option.text,
+      label: '$optionLabel $optionText',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: submitted ? null : () => _selectOption(question, option.id),
@@ -588,11 +828,27 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(
+                width: 28,
+                child: Text(
+                  optionLabel,
+                  style: theme.typography.bodyText.copyWith(
+                    color: showCorrect
+                        ? theme.colors.semantic.success
+                        : showWrong
+                        ? theme.colors.destructive
+                        : selected
+                        ? theme.colors.primary
+                        : theme.colors.mutedForeground,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(option.text, style: theme.typography.bodyText),
+                    Text(optionText, style: theme.typography.bodyText),
                     if (option.imageUrl != null &&
                         option.imageUrl!.isNotEmpty) ...[
                       const SizedBox(height: AppSpacing.sm),
@@ -647,7 +903,19 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     );
   }
 
+  String _optionLabel(LearningOption option, int index) {
+    final id = option.id.trim();
+    if (RegExp(r'^[A-Za-z]$').hasMatch(id)) return id.toUpperCase();
+    return String.fromCharCode('A'.codeUnitAt(0) + index);
+  }
+
+  String _optionText(String text) {
+    final value = text.trim();
+    return value.replaceFirst(RegExp(r'^[A-Za-z][.、)）:\s]+'), '');
+  }
+
   Widget _buildFooter(FThemeData theme, LearningQuestion question) {
+    if (_isMemorizeFlow) return const SizedBox.shrink();
     final favorite = repository.isFavorite(question.id);
     return SafeArea(
       top: false,
@@ -687,16 +955,14 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   : FLucideIcons.bookmark,
               onPress: _toggleFavorite,
               tooltip: favorite ? '取消收藏' : '收藏',
-              variant: favorite
-                  ? FButtonVariant.secondary
-                  : FButtonVariant.outline,
+              variant: FButtonVariant.ghost,
               size: FButtonSizeVariant.sm,
             ),
             const SizedBox(width: AppSpacing.xs),
             Expanded(
               child: FButton(
                 size: FButtonSizeVariant.sm,
-                variant: FButtonVariant.primary,
+                variant: FButtonVariant.ghost,
                 onPress: _goNext,
                 suffix: const Icon(FLucideIcons.chevronRight),
                 child: const Text('下一题'),
