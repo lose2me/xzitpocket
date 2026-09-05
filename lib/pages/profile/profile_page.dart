@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
@@ -133,6 +134,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         children: [
           _buildVersionLine(theme),
           const SizedBox(height: AppSpacing.md),
+          const _ProfileUpdateCard(),
           const ProfileSectionLabel(title: '用户信息'),
           ProfileSettingsGroup(
             children: [
@@ -208,16 +210,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           const ProfileSectionLabel(title: '软件信息'),
           ProfileSettingsGroup(
             children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.download,
-                title: '版本更新',
-                onTap: () => Navigator.of(context).push(
-                  appRoute(
-                    name: AppRouteNames.version,
-                    builder: (_) => const _VersionPage(),
-                  ),
-                ),
-              ),
               ProfileSettingsTile(
                 icon: FLucideIcons.bug,
                 title: '调试模式',
@@ -892,17 +884,20 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   }
 }
 
-class _VersionPage extends StatefulWidget {
-  const _VersionPage();
+class _ProfileUpdateCard extends StatefulWidget {
+  const _ProfileUpdateCard();
 
   @override
-  State<_VersionPage> createState() => _VersionPageState();
+  State<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
 }
 
-class _VersionPageState extends State<_VersionPage> {
+class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
   bool _loading = true;
-  String _currentVersion = '';
   ControlRelease? _release;
+  UpdateDownloadProgress? _progress;
+  CancelToken? _cancelToken;
+  String? _error;
+  bool _downloading = false;
 
   @override
   void initState() {
@@ -911,85 +906,151 @@ class _VersionPageState extends State<_VersionPage> {
   }
 
   Future<void> _check() async {
-    final info = await PackageInfo.fromPlatform();
     final release = await ControlService.instance.checkForUpdate();
     if (!mounted) return;
     setState(() {
-      _currentVersion = info.version;
       _release = release;
       _loading = false;
     });
   }
 
-  Future<void> _openRelease() async {
+  @override
+  void dispose() {
+    _cancelToken?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _download() async {
     final release = _release;
-    if (release == null) return;
-    await showAppUpdatePrompt(context, release);
+    if (release == null || _downloading) return;
+    final cancelToken = CancelToken();
+    setState(() {
+      _downloading = true;
+      _cancelToken = cancelToken;
+      _error = null;
+      _progress = const UpdateDownloadProgress(
+        stage: UpdateDownloadStage.preparing,
+        message: '准备下载更新包',
+      );
+    });
+    try {
+      await UpdateService.downloadAndInstall(
+        release,
+        cancelToken: cancelToken,
+        onProgress: (progress) {
+          if (mounted) setState(() => _progress = progress);
+        },
+      );
+    } on UpdateException catch (error) {
+      if (mounted && error.message != '已取消下载') {
+        setState(() => _error = error.message);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _error = '下载更新失败，请稍后重试');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloading = false;
+          _cancelToken = null;
+        });
+      }
+    }
   }
 
   @override
-  Widget build(BuildContext context) => AppPage(
-    title: '版本更新',
-    child: AppPageListView(
-      maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.xl,
-      bottomPadding: AppSpacing.xxl,
-      children: [
-        Text(
-          '当前版本 $_currentVersion',
-          style: context.theme.typography.pageTitle,
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: AppSpacing.xl),
-        if (_loading)
-          const Center(child: FCircularProgress())
-        else if (_release != null) ...[
-          AppCard(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final release = _release;
+    if (_loading || release == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: AppCard(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        onPress: _downloading ? null : _download,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  '发现新版本 ${_release!.latestVersion}',
-                  style: context.theme.typography.tileTitle,
+                Icon(
+                  _downloading
+                      ? FLucideIcons.loaderCircle
+                      : FLucideIcons.download,
+                  color: context.theme.colors.primary,
                 ),
-                const SizedBox(height: AppSpacing.md),
-                SizedBox(
-                  width: double.infinity,
-                  child: FButton(
-                    variant: FButtonVariant.primary,
-                    onPress: _openRelease,
-                    prefix: const Icon(FLucideIcons.download),
-                    child: const Text('立即更新'),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    _error == null
+                        ? '发现新版本 ${release.latestVersion}'
+                        : '更新失败，点击重试',
+                    style: context.theme.typography.tileTitle,
+                  ),
+                ),
+                if (!_downloading)
+                  Icon(
+                    FLucideIcons.chevronRight,
+                    color: context.theme.colors.mutedForeground,
+                  ),
+              ],
+            ),
+            if (_downloading || _progress != null) ...[
+              const SizedBox(height: AppSpacing.md),
+              if (_progress?.progress case final value?)
+                FDeterminateProgress(value: value)
+              else
+                const FProgress(),
+              if (_progress != null) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  _progress!.message,
+                  style: context.theme.typography.bodySmall,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  _progressLine,
+                  style: context.theme.typography.caption.copyWith(
+                    color: context.theme.colors.mutedForeground,
                   ),
                 ),
               ],
-            ),
-          ),
-        ] else
-          Text(
-            '当前已是最新版本',
-            textAlign: TextAlign.center,
-            style: context.theme.typography.bodySmall.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
-          ),
-        const SizedBox(height: AppSpacing.lg),
-        SizedBox(
-          width: double.infinity,
-          child: FButton(
-            variant: FButtonVariant.outline,
-            onPress: _loading
-                ? null
-                : () {
-                    setState(() => _loading = true);
-                    unawaited(_check());
-                  },
-            prefix: const Icon(FLucideIcons.refreshCw),
-            child: const Text('重新检查'),
-          ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                _error!,
+                style: context.theme.typography.bodySmall.copyWith(
+                  color: context.theme.colors.destructive,
+                ),
+              ),
+            ],
+          ],
         ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
+
+  String get _progressLine {
+    final progress = _progress;
+    if (progress == null) return '';
+    final received = _formatBytes(progress.receivedBytes);
+    if (progress.totalBytes <= 0) return received;
+    final total = _formatBytes(progress.totalBytes);
+    final percent = ((progress.progress ?? 0) * 100).toStringAsFixed(1);
+    final speed = progress.stage == UpdateDownloadStage.downloading
+        ? ' · ${_formatBytes(progress.bytesPerSecond.round())}/s'
+        : '';
+    return '$received / $total ($percent%)$speed';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    var value = bytes.toDouble();
+    var unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    return '${value.toStringAsFixed(unit == 0 ? 0 : 1)} ${units[unit]}';
+  }
 }

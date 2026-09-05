@@ -3,9 +3,9 @@ import 'package:talker_flutter/talker_flutter.dart';
 
 /// Application-wide Talker instance used by the UI, services, and Dio.
 ///
-/// Request and response data are intentionally logged in full. This is a
-/// local diagnostic mode and must not be enabled when logs can leave the
-/// device.
+/// Request and response data are intentionally available in the local
+/// diagnostic view. When Talker is enabled, error-level records are also
+/// sent to Control after sensitive fields are redacted.
 final talker = TalkerFlutter.init(
   settings: TalkerSettings(
     enabled: false,

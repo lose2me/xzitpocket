@@ -112,6 +112,13 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 value: settings.timetableBackgroundPath == null ? '未设置' : '已设置',
                 onTap: _pickBackground,
               ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.trash2,
+                title: '清除背景图',
+                onTap: settings.timetableBackgroundPath == null
+                    ? null
+                    : _clearBackground,
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -273,6 +280,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       if (mounted) {
         showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
       }
+    }
+  }
+
+  Future<void> _clearBackground() async {
+    final path = ref.read(appSettingsProvider).timetableBackgroundPath;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setTimetableBackgroundPath(null);
+    if (path != null && path.isNotEmpty) {
+      final file = File(path);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (error, stackTrace) {
+          talker.warning('删除课表背景图文件失败', error, stackTrace);
+        }
+      }
+    }
+    if (mounted) {
+      showAppSnackBar(context, '背景图已清除', severity: ToastSeverity.success);
     }
   }
 }

@@ -12,7 +12,6 @@ import 'providers/app_settings_provider.dart';
 import 'services/course_storage.dart';
 import 'services/control_service.dart';
 import 'services/talker.dart';
-import 'services/update_service.dart';
 import 'services/widget_service.dart';
 import 'ui/app_theme.dart';
 
@@ -34,9 +33,6 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _heartbeatTimer = Timer.periodic(const Duration(minutes: 10), (_) {
       unawaited(ControlService.instance.track('heartbeat'));
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_checkForUpdate());
     });
   }
 
@@ -74,12 +70,6 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       unawaited(_syncWidgetsFromCache());
       unawaited(ControlService.instance.track('foreground'));
     }
-  }
-
-  Future<void> _checkForUpdate() async {
-    final release = await ControlService.instance.checkForUpdate();
-    if (!mounted || release == null) return;
-    await showAppUpdatePrompt(context, release);
   }
 
   Future<void> _syncWidgetsFromCache() async {

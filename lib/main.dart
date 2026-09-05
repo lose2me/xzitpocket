@@ -13,12 +13,14 @@ import 'services/course_storage.dart';
 import 'services/control_service.dart';
 import 'services/preferences_storage.dart';
 import 'services/talker.dart';
+import 'services/talker_network_reporter.dart';
 import 'services/tools_data_manager.dart';
 import 'services/widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupErrorHooks(talker);
+  TalkerNetworkReporter.instance.initialize();
 
   final courseStorage = CourseStorage();
   final preferencesStorage = PreferencesStorage();

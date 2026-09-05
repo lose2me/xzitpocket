@@ -10,6 +10,75 @@ import '../../ui/app_components.dart';
 
 enum LearningQuizMode { normal, random, memorize, memorizeFlow }
 
+/// Keeps accidental swipes from opening questions that have not been answered.
+/// Programmatic navigation (buttons and automatic progression) is unaffected.
+class _QuizPageScrollPhysics extends PageScrollPhysics {
+  final int Function() currentIndex;
+  final bool Function(int index) canNavigateTo;
+
+  const _QuizPageScrollPhysics({
+    required this.currentIndex,
+    required this.canNavigateTo,
+    super.parent,
+  });
+
+  @override
+  _QuizPageScrollPhysics applyTo(ScrollPhysics? ancestor) =>
+      _QuizPageScrollPhysics(
+        currentIndex: currentIndex,
+        canNavigateTo: canNavigateTo,
+        parent: buildParent(ancestor),
+      );
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) {
+    if (position is! PageMetrics || position.outOfRange) {
+      return super.applyBoundaryConditions(position, value);
+    }
+    final currentPixels =
+        currentIndex() * position.viewportDimension * position.viewportFraction;
+    if (value > currentPixels && !canNavigateTo(currentIndex() + 1)) {
+      return value - currentPixels;
+    }
+    if (value < currentPixels && !canNavigateTo(currentIndex() - 1)) {
+      return value - currentPixels;
+    }
+    return super.applyBoundaryConditions(position, value);
+  }
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) {
+    if (position.outOfRange || position is! PageMetrics) {
+      return super.createBallisticSimulation(position, velocity);
+    }
+    final tolerance = toleranceFor(position);
+    var targetPage = position.page ?? currentIndex().toDouble();
+    if (velocity < -tolerance.velocity) {
+      targetPage -= 0.5;
+    } else if (velocity > tolerance.velocity) {
+      targetPage += 0.5;
+    }
+    final targetIndex = targetPage.round();
+    if (!canNavigateTo(targetIndex)) {
+      final currentPage = currentIndex().toDouble();
+      final targetPixels =
+          currentPage * position.viewportDimension * position.viewportFraction;
+      if (targetPixels == position.pixels) return null;
+      return ScrollSpringSimulation(
+        spring,
+        position.pixels,
+        targetPixels,
+        velocity,
+        tolerance: tolerance,
+      );
+    }
+    return super.createBallisticSimulation(position, velocity);
+  }
+}
+
 class LearningQuizPage extends StatefulWidget {
   final LearningRepository repository;
   final List<String> questionIds;
@@ -38,6 +107,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   final Map<String, String> _draftTextAnswers = {};
   final Map<String, TextEditingController> _textControllers = {};
   final Set<String> _judgingIds = {};
+  bool _programmaticNavigation = false;
 
   LearningRepository get repository => widget.repository;
   bool get _isMemorize =>
@@ -134,7 +204,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     _draftAnswers[question.id] = {...repository.answerFor(question.id)};
   }
 
-  void _selectOption(LearningQuestion question, String optionId) {
+  Future<void> _selectOption(LearningQuestion question, String optionId) async {
     if (_isMemorize ||
         repository.isJudged(question.id) ||
         _judgingIds.contains(question.id)) {
@@ -153,6 +223,21 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         ..add(optionId);
     }
     setState(() => _draftAnswers[question.id] = selected);
+
+    if (!question.isMultiple) {
+      await _submitAnswer(question, selected);
+      return;
+    }
+
+    final containsWrongOption = selected.any(
+      (id) => !question.correctOptionIds.contains(id),
+    );
+    final selectedAllCorrectOptions =
+        selected.length == question.correctOptionIds.length &&
+        selected.containsAll(question.correctOptionIds);
+    if (containsWrongOption || selectedAllCorrectOptions) {
+      await _submitAnswer(question, selected);
+    }
   }
 
   void _updateTextAnswer(LearningQuestion question, String value) {
@@ -161,108 +246,137 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         _judgingIds.contains(question.id)) {
       return;
     }
-    _draftTextAnswers[question.id] = value;
+    setState(() => _draftTextAnswers[question.id] = value);
   }
 
   void _handlePageChanged(int nextIndex) {
-    final previousIndex = _currentIndex;
+    if (!_programmaticNavigation && !_canNavigateToPage(nextIndex)) {
+      _snapBackToCurrentPage();
+      return;
+    }
     _currentIndex = nextIndex;
     _loadSelection(nextIndex);
     setState(() {});
-    if (previousIndex != nextIndex) {
-      unawaited(_judgeAndNotify(previousIndex));
-    }
   }
 
-  Future<void> _judgeAndNotify(int index) async {
+  Future<void> _submitAnswer(
+    LearningQuestion question, [
+    Set<String>? answer,
+  ]) async {
     if (_isMemorize) return;
-    if (index < 0 || index >= _questionIds.length) return;
-    final question = repository.questionById(_questionIds[index]);
-    if (question == null) return;
     if (repository.isJudged(question.id) || _judgingIds.contains(question.id)) {
       return;
     }
-    if (!_hasAnswer(question)) return;
+    final submittedAnswer = answer ?? _answerFor(question);
+    if (submittedAnswer.isEmpty ||
+        (submittedAnswer.length == 1 && submittedAnswer.first.trim().isEmpty)) {
+      return;
+    }
     _judgingIds.add(question.id);
+    if (mounted) setState(() {});
+    var correct = false;
     try {
-      await repository.submitAnswer(question.id, _answerFor(question));
+      correct = await repository.submitAnswer(question.id, submittedAnswer);
     } finally {
       _judgingIds.remove(question.id);
+      if (mounted) setState(() {});
+    }
+    if (!correct || !mounted || _question?.id != question.id) return;
+
+    // Briefly retain the correct state so the selection and status indicator
+    // can be perceived before moving to the next unanswered question.
+    await Future<void>.delayed(const Duration(milliseconds: 280));
+    if (!mounted || _question?.id != question.id) return;
+    await _advanceToNextUnanswered(afterIndex: _currentIndex);
+  }
+
+  Future<void> _submitTextAnswer(LearningQuestion question) async {
+    if (!question.isFillBlank || !_hasAnswer(question)) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _submitAnswer(question);
+  }
+
+  Future<void> _moveToPage(int index) async {
+    if (!_pageController.hasClients || index == _currentIndex) return;
+    _programmaticNavigation = true;
+    try {
+      await _pageController.animateToPage(
+        index,
+        duration: AppMotion.standard,
+        curve: Curves.easeOutCubic,
+      );
+    } finally {
+      _programmaticNavigation = false;
     }
   }
 
-  void _goPrevious() {
-    if (_currentIndex == 0 || !_pageController.hasClients) return;
+  void _snapBackToCurrentPage() {
+    if (!_pageController.hasClients) return;
+    _programmaticNavigation = true;
     unawaited(
-      _pageController.previousPage(
-        duration: AppMotion.standard,
-        curve: Curves.easeOutCubic,
-      ),
+      _pageController
+          .animateToPage(
+            _currentIndex,
+            duration: AppMotion.standard,
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() => _programmaticNavigation = false),
     );
+  }
+
+  bool _canNavigateToPage(int index) =>
+      _isMemorize ||
+      (index < _currentIndex &&
+          index >= 0 &&
+          index < _questionIds.length &&
+          repository.isJudged(_questionIds[index]));
+
+  int? _nextUnansweredIndex({required int afterIndex}) {
+    if (_questionIds.length <= 1) return null;
+    for (var offset = 1; offset < _questionIds.length; offset++) {
+      final index = (afterIndex + offset) % _questionIds.length;
+      final questionId = _questionIds[index];
+      if (!repository.isJudged(questionId) &&
+          !_judgingIds.contains(questionId)) {
+        return index;
+      }
+    }
+    return null;
+  }
+
+  void _goPrevious() {
+    if (_currentIndex == 0 ||
+        !_pageController.hasClients ||
+        (!_isMemorize &&
+            !repository.isJudged(_questionIds[_currentIndex - 1]))) {
+      return;
+    }
+    unawaited(_moveToPage(_currentIndex - 1));
   }
 
   Future<void> _goNext() async {
     if (_isMemorize) {
-      if (_currentIndex < _questionIds.length - 1 &&
-          _pageController.hasClients) {
-        unawaited(
-          _pageController.nextPage(
-            duration: AppMotion.standard,
-            curve: Curves.easeOutCubic,
-          ),
-        );
+      if (_currentIndex < _questionIds.length - 1) {
+        unawaited(_moveToPage(_currentIndex + 1));
       }
       return;
     }
-    if (_currentIndex >= _questionIds.length - 1) {
-      final question = _question;
-      if (question == null) return;
-      if (!repository.isJudged(question.id)) {
-        if (_judgingIds.contains(question.id) || !_hasAnswer(question)) {
-          return;
-        }
-        _judgingIds.add(question.id);
-        try {
-          await repository.submitAnswer(question.id, _answerFor(question));
-        } finally {
-          _judgingIds.remove(question.id);
-        }
-      }
-      await _advanceToNextUnanswered();
+    final question = _question;
+    if (question?.isFillBlank == true && !repository.isJudged(question!.id)) {
+      await _submitTextAnswer(question);
       return;
     }
-    if (!_pageController.hasClients) return;
-    unawaited(
-      _pageController.nextPage(
-        duration: AppMotion.standard,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    if (_currentIndex < _questionIds.length - 1) {
+      await _moveToPage(_currentIndex + 1);
+      return;
+    }
+    await _advanceToNextUnanswered(afterIndex: _currentIndex);
   }
 
-  Future<void> _advanceToNextUnanswered() async {
+  Future<void> _advanceToNextUnanswered({required int afterIndex}) async {
     if (_isMemorize) return;
-    final unanswered = [
-      for (final questionId in widget.questionIds)
-        if (!repository.isJudged(questionId) &&
-            !_judgingIds.contains(questionId))
-          questionId,
-    ];
-    if (unanswered.isEmpty) return;
-    final nextId = widget.mode == LearningQuizMode.random
-        ? (unanswered..shuffle(Random())).first
-        : unanswered.first;
-    var targetIndex = _questionIds.indexOf(nextId);
-    if (targetIndex < 0) {
-      _questionIds.add(nextId);
-      targetIndex = _questionIds.length - 1;
-    }
-    if (!_pageController.hasClients || targetIndex == _currentIndex) return;
-    await _pageController.animateToPage(
-      targetIndex,
-      duration: AppMotion.standard,
-      curve: Curves.easeOutCubic,
-    );
+    final targetIndex = _nextUnansweredIndex(afterIndex: afterIndex);
+    if (targetIndex != null) await _moveToPage(targetIndex);
   }
 
   Future<void> _openQuestionCard() async {
@@ -513,6 +627,11 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
           Expanded(
             child: PageView.builder(
               controller: _pageController,
+              physics: _QuizPageScrollPhysics(
+                currentIndex: () => _currentIndex,
+                canNavigateTo: (index) =>
+                    _programmaticNavigation || _canNavigateToPage(index),
+              ),
               onPageChanged: _handlePageChanged,
               itemCount: _questionIds.length,
               itemBuilder: (context, index) {
@@ -533,10 +652,6 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
 
   Widget _buildFixedHeader(FThemeData theme, LearningQuestion question) {
     if (_isMemorize) return const SizedBox.shrink();
-    final originalIndex = widget.questionIds.indexOf(question.id);
-    final questionNumber =
-        question.questionNumber ??
-        (originalIndex >= 0 ? originalIndex + 1 : _currentIndex + 1);
     final judgedCount = widget.questionIds.where(repository.isJudged).length;
     final progress = widget.questionIds.isEmpty
         ? 0
@@ -553,7 +668,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         child: Row(
           children: [
             Text(
-              '$questionNumber/${widget.questionIds.length}',
+              '${_currentIndex + 1}/${_questionIds.length}',
               style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.mutedForeground,
               ),
@@ -566,7 +681,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            Expanded(child: Center(child: _buildRecentStatusDots(theme))),
+            Expanded(child: Center(child: _buildQuestionStatusDots(theme))),
             Text(
               question.typeLabel,
               style: theme.typography.bodySmall.copyWith(
@@ -597,6 +712,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         const SizedBox(height: AppSpacing.lg),
         if (question.isFillBlank)
           AppTextField(
+            key: ValueKey('${question.id}-$revealed'),
             controller: _textControllerFor(
               question,
               answerOverride: _isMemorize
@@ -606,10 +722,24 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
             label: '答案',
             hint: revealed ? null : '请输入答案',
             readOnly: revealed,
-            enabled: !revealed,
+            textInputAction: TextInputAction.done,
             onChanged: (value) => _updateTextAnswer(question, value),
           )
         else
+          const SizedBox.shrink(),
+        if (question.isFillBlank &&
+            submitted &&
+            !repository.isCorrect(question.id)) ...[
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '正确答案：${question.correctOptionIds.join('、')}',
+            style: theme.typography.bodyText.copyWith(
+              color: theme.colors.semantic.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (!question.isFillBlank)
           for (var index = 0; index < question.options.length; index++) ...[
             _buildOption(
               theme,
@@ -709,30 +839,28 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     return '$number.$text';
   }
 
-  Widget _buildRecentStatusDots(FThemeData theme) {
-    final slotCount = min(widget.questionIds.length, 6);
-    final judgedIds = repository.recentJudgedIds(
-      _questionIds,
-      limit: slotCount,
-    );
+  Widget _buildQuestionStatusDots(FThemeData theme) {
+    final slotCount = min(_questionIds.length, 6);
+    final maxStart = _questionIds.length - slotCount;
+    final windowStart = (_currentIndex - slotCount ~/ 2).clamp(0, maxStart);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (var index = 0; index < slotCount - judgedIds.length; index++) ...[
-          _buildStatusDot(theme, null, latest: false),
-          const SizedBox(width: AppSpacing.xs),
-        ],
-        for (var index = 0; index < judgedIds.length; index++) ...[
-          _buildStatusDot(
-            theme,
-            repository.isCorrect(judgedIds[index]),
-            questionNumber: _questionNumberFor(judgedIds[index]),
-            latest: index == judgedIds.length - 1,
-          ),
-          if (index != judgedIds.length - 1)
-            const SizedBox(width: AppSpacing.xs),
+        for (var offset = 0; offset < slotCount; offset++) ...[
+          _buildQuestionStatusDot(theme, windowStart + offset),
+          if (offset != slotCount - 1) const SizedBox(width: AppSpacing.xs),
         ],
       ],
+    );
+  }
+
+  Widget _buildQuestionStatusDot(FThemeData theme, int index) {
+    final questionId = _questionIds[index];
+    return _buildStatusDot(
+      theme,
+      repository.isJudged(questionId) ? repository.isCorrect(questionId) : null,
+      questionNumber: _questionNumberFor(questionId),
+      current: index == _currentIndex,
     );
   }
 
@@ -747,7 +875,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     FThemeData theme,
     bool? status, {
     int? questionNumber,
-    required bool latest,
+    required bool current,
   }) {
     final fill = status == null
         ? theme.colors.mutedForeground.withAlpha(100)
@@ -757,10 +885,10 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     return Container(
       width: 18,
       height: 18,
-      padding: EdgeInsets.all(latest ? 1.5 : 1),
+      padding: EdgeInsets.all(current ? 1.5 : 1),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: latest
+        border: current
             ? Border.all(color: theme.colors.primary, width: 1.5)
             : null,
       ),
@@ -816,7 +944,9 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
       label: '$optionLabel $optionText',
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: submitted ? null : () => _selectOption(question, option.id),
+        onTap: submitted
+            ? null
+            : () => unawaited(_selectOption(question, option.id)),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -963,7 +1093,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               child: FButton(
                 size: FButtonSizeVariant.sm,
                 variant: FButtonVariant.ghost,
-                onPress: _goNext,
+                onPress: _judgingIds.contains(question.id) ? null : _goNext,
                 suffix: const Icon(FLucideIcons.chevronRight),
                 child: const Text('下一题'),
               ),

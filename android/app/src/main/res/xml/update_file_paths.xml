@@ -3,4 +3,7 @@
     <cache-path
         name="updates"
         path="updates/" />
+    <files-path
+        name="persistent_updates"
+        path="updates/" />
 </paths>

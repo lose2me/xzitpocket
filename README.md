@@ -42,6 +42,8 @@ flutter run -d emulator-5554 --target-platform android-arm64
 
 APP 固定连接 `https://con.xuda.live`。Control 服务不可用时，OA 登录、APP 启动和其他免费功能保持可用；学习中心入口会自动禁用。
 
+调试日志默认关闭。启用 Talker 调试日志后，仅错误级别记录会脱敏并按当前学号自动上报 Control，完整请求和响应日志只保留在本地。
+
 ## 构建
 Android
 ```

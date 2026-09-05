@@ -222,17 +222,35 @@ class ControlService {
         assertedAt,
       ]),
     );
-    final response = await _request(
-      'POST',
-      '/api/v1/auth/assertions',
-      data: body,
-      headers: {
-        'Authorization': 'Device $_deviceToken',
-        'X-Device-Signature': signature,
-        'X-Device-Signed-At': assertedAt,
-        'X-Installation-ID': _installationId,
-      },
-    );
+    late final Map<String, dynamic> response;
+    try {
+      response = await _request(
+        'POST',
+        '/api/v1/auth/assertions',
+        data: body,
+        headers: {
+          'Authorization': 'Device $_deviceToken',
+          'X-Device-Signature': signature,
+          'X-Device-Signed-At': assertedAt,
+          'X-Installation-ID': _installationId,
+        },
+      );
+    } on ControlApiException catch (error) {
+      // A restored or server-recreated device can leave a valid token paired
+      // with a different installation ID. Re-register once before surfacing
+      // the failure to the caller.
+      if (!retryingDevice && _isDeviceInvalid(error)) {
+        _resetDevice();
+        await _persistState();
+        await _ensureDevice();
+        return _syncAfterOaLogin(
+          studentId: studentId,
+          displayName: displayName,
+          retryingDevice: true,
+        );
+      }
+      rethrow;
+    }
     _applySession(response, studentId: studentId);
     await _persistState();
     await _sendTelemetry('control_login_success');
@@ -389,6 +407,45 @@ class ControlService {
     } catch (error, stackTrace) {
       talker.warning('Control 事件上报失败: $type', error, stackTrace);
     }
+  }
+
+  Future<void> reportErrorLog({
+    required String eventId,
+    required DateTime occurredAt,
+    required String title,
+    required String message,
+    required String error,
+    required String stackTrace,
+    required String appVersion,
+    required String platform,
+  }) async {
+    if (!isConfigured) return;
+    await _loadState();
+    final pendingLogin = _loginFuture;
+    if (pendingLogin != null) await pendingLogin;
+    final token = await _validAccessToken();
+    if (token == null || _sessionStudentId == null) return;
+    await _request(
+      'POST',
+      '/api/v1/error-reports',
+      data: {
+        'event_id': eventId,
+        'occurred_at': occurredAt.toUtc().toIso8601String(),
+        'app_version': appVersion,
+        'platform': platform,
+        'title': _redactStudentId(title),
+        'message': _redactStudentId(message),
+        'error': _redactStudentId(error),
+        'stack_trace': _redactStudentId(stackTrace),
+      },
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  String _redactStudentId(String value) {
+    final studentId = _sessionStudentId;
+    if (studentId == null || studentId.isEmpty) return value;
+    return value.replaceAll(studentId, '<student>');
   }
 
   Future<void> logout() async {
@@ -738,7 +795,10 @@ bool isControlVersionNewer(String candidate, String current) {
 }
 
 bool _isDeviceInvalid(ControlApiException error) =>
-    error.code == 'invalid_device_token' || error.code == 'device_revoked';
+    error.code == 'invalid_device_token' ||
+    error.code == 'device_revoked' ||
+    error.code == 'installation_mismatch' ||
+    error.code == 'device_mismatch';
 
 List<int> _versionParts(String value) {
   final core = value.trim().split(RegExp(r'[+-]')).first;
