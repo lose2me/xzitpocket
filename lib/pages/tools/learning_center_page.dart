@@ -28,6 +28,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   _LearningTab _tab = _LearningTab.bank;
   bool _redeeming = false;
   final _cdkController = TextEditingController();
+  String? _selectedCdkBankId;
 
   @override
   void initState() {
@@ -134,9 +135,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       showAppSnackBar(context, '请输入 CDK', severity: ToastSeverity.warning);
       return;
     }
+    final bankId = _selectedCdkBankId;
+    if (bankId == null || bankId.isEmpty) {
+      showAppSnackBar(context, '请选择要解锁的题库', severity: ToastSeverity.warning);
+      return;
+    }
     setState(() => _redeeming = true);
     try {
-      await repository.redeemCdk(code);
+      await repository.redeemCdk(code, bankId);
       if (!mounted) return;
       _cdkController.clear();
       showAppSnackBar(context, '题库兑换成功', severity: ToastSeverity.success);
@@ -212,14 +218,16 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           children: [
             Icon(FLucideIcons.keyRound, color: theme.colors.primary),
             const SizedBox(width: AppSpacing.sm),
-            Text('兑换题库', style: theme.typography.tileTitle),
+            Text('兑换通用 CDK', style: theme.typography.tileTitle),
           ],
         ),
         const SizedBox(height: AppSpacing.md),
+        _buildCdkBankSelector(theme),
+        const SizedBox(height: AppSpacing.md),
         AppTextField(
           controller: _cdkController,
-          label: '题库 CDK',
-          hint: '输入兑换码以解锁题库',
+          label: '通用 CDK',
+          hint: '输入兑换码以解锁需要 CDK 的题库',
           prefix: const Icon(FLucideIcons.keyRound),
           textCapitalization: TextCapitalization.characters,
           textInputAction: TextInputAction.done,
@@ -239,6 +247,40 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ],
     ),
   );
+
+  Widget _buildCdkBankSelector(FThemeData theme) {
+    final banks = repository.banks.where((bank) => bank.requiresCDK).toList();
+    if (banks.isEmpty) {
+      return Text(
+        '当前没有需要 CDK 的题库',
+        style: theme.typography.bodySmall.copyWith(
+          color: theme.colors.mutedForeground,
+        ),
+      );
+    }
+    final selected = banks.any((bank) => bank.id == _selectedCdkBankId)
+        ? _selectedCdkBankId
+        : banks.first.id;
+    if (_selectedCdkBankId != selected) _selectedCdkBankId = selected;
+    return SizedBox(
+      width: double.infinity,
+      child: FSelect<String>.rich(
+        control: FSelectControl.lifted(
+          value: selected,
+          onChange: (value) {
+            if (value != null && mounted) {
+              setState(() => _selectedCdkBankId = value);
+            }
+          },
+        ),
+        format: (value) => banks.firstWhere((bank) => bank.id == value).name,
+        children: [
+          for (final bank in banks)
+            FSelectItem.item(title: Text(bank.name), value: bank.id),
+        ],
+      ),
+    );
+  }
 
   Widget _buildBankCard(
     FThemeData theme,

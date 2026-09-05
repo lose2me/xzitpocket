@@ -9,7 +9,10 @@ import 'control_service.dart';
 typedef LearningQuestionFetcher = Future<List<LearningQuestion>> Function();
 typedef LearningQuestionBankFetcher =
     Future<List<LearningQuestionBank>> Function();
-typedef LearningCdkRedeemer = Future<void> Function(String code);
+typedef LearningCdkRedeemer = Future<void> Function(
+  String code,
+  String questionBankId,
+);
 
 class LearningRepository extends ChangeNotifier {
   final PreferencesStorage preferencesStorage;
@@ -149,10 +152,10 @@ class LearningRepository extends ChangeNotifier {
     _loaded = true;
   }
 
-  Future<void> redeemCdk(String code) async {
+  Future<void> redeemCdk(String code, String questionBankId) async {
     final redeem = cdkRedeemer;
     if (redeem == null) return;
-    await redeem(code);
+    await redeem(code, questionBankId);
     await refresh();
   }
 

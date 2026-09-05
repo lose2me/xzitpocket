@@ -327,7 +327,7 @@ class ControlService {
     return [for (final bank in banks) ...bank.questions];
   }
 
-  Future<void> redeemLibraryCdk(String code) async {
+  Future<void> redeemLibraryCdk(String code, String questionBankId) async {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) {
       throw const ControlApiException('invalid_library_cdk', '请输入 CDK');
@@ -346,7 +346,7 @@ class ControlService {
     await _request(
       'POST',
       '/api/v1/library/cdks/redeem',
-      data: {'code': normalized},
+      data: {'code': normalized, 'question_bank_id': questionBankId},
       headers: {'Authorization': 'Bearer $token'},
     );
   }
