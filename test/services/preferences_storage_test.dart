@@ -94,13 +94,17 @@ void main() {
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
       await storage.setTimetableBackgroundOpacity(0.65);
       await storage.setTimetableComponentOpacity(0.72);
+      await storage.setTimetableGridOpacity(0.42);
       await storage.setShowTimetableGridLines(false);
+      await storage.setShowTodayGridLines(false);
 
       expect(storage.getThemeColor(), 'blue');
       expect(storage.getTimetableBackgroundPath(), '/tmp/background.jpg');
       expect(storage.getTimetableBackgroundOpacity(), 0.65);
       expect(storage.getTimetableComponentOpacity(), 0.72);
+      expect(storage.getTimetableGridOpacity(), 0.42);
       expect(storage.getShowTimetableGridLines(), isFalse);
+      expect(storage.getShowTodayGridLines(), isFalse);
     });
 
     test('clamps timetable background opacity', () async {
@@ -117,6 +121,14 @@ void main() {
 
       await storage.setTimetableComponentOpacity(-1);
       expect(storage.getTimetableComponentOpacity(), 0);
+    });
+
+    test('clamps timetable grid opacity', () async {
+      await storage.setTimetableGridOpacity(2);
+      expect(storage.getTimetableGridOpacity(), 1);
+
+      await storage.setTimetableGridOpacity(-1);
+      expect(storage.getTimetableGridOpacity(), 0);
     });
   });
 }

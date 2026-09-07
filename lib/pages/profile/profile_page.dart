@@ -159,13 +159,13 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 title: '宿舍号',
                 onTap: _roomIdFocusNode.requestFocus,
                 child: SizedBox(
-                  width: 112,
-                  height: 24,
+                  width: 136,
+                  height: 40,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: theme.colors.mutedForeground),
-                      ),
+                      color: theme.colors.muted.withAlpha(110),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: theme.colors.border),
                     ),
                     child: AppTextField(
                       controller: _roomIdController,
@@ -173,16 +173,21 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                       hint: '未设置',
                       size: FTextFieldSizeVariant.sm,
                       style: FTextFieldStyleDelta.delta(
-                        constraints: const BoxConstraints.tightFor(height: 24),
+                        color: FVariantsValueDelta.delta([
+                          FVariantValueDeltaOperation.all(
+                            theme.colors.muted.withAlpha(110),
+                          ),
+                        ]),
+                        constraints: const BoxConstraints.tightFor(height: 40),
                         contentPadding: const EdgeInsetsGeometryDelta.value(
-                          EdgeInsets.zero,
+                          EdgeInsets.symmetric(horizontal: 8),
                         ),
                         border: FVariantsValueDelta.delta([
                           FVariantValueDeltaOperation.all(InputBorder.none),
                         ]),
                       ),
                       textCapitalization: TextCapitalization.characters,
-                      textAlign: TextAlign.center,
+                      textAlign: TextAlign.start,
                       onSubmitted: (_) => _roomIdFocusNode.unfocus(),
                     ),
                   ),
@@ -894,6 +899,7 @@ class _ProfileUpdateCard extends StatefulWidget {
 class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
   bool _loading = true;
   ControlRelease? _release;
+  String _currentVersion = '';
   UpdateDownloadProgress? _progress;
   CancelToken? _cancelToken;
   String? _error;
@@ -906,10 +912,12 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
   }
 
   Future<void> _check() async {
+    final info = await PackageInfo.fromPlatform();
     final release = await ControlService.instance.checkForUpdate();
     if (!mounted) return;
     setState(() {
       _release = release;
+      _currentVersion = info.version;
       _loading = false;
     });
   }
@@ -969,29 +977,31 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _downloading
-                      ? FLucideIcons.loaderCircle
-                      : FLucideIcons.download,
-                  color: context.theme.colors.primary,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
+            SizedBox(
+              width: double.infinity,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Text(
                     _error == null
-                        ? '发现新版本 ${release.latestVersion}'
+                        ? '发现新版本 $_currentVersion → ${release.latestVersion}'
                         : '更新失败，点击重试',
-                    style: context.theme.typography.tileTitle,
+                    textAlign: TextAlign.center,
+                    style: context.theme.typography.bodyText.copyWith(
+                      fontWeight: FontWeight.normal,
+                    ),
                   ),
-                ),
-                if (!_downloading)
-                  Icon(
-                    FLucideIcons.chevronRight,
-                    color: context.theme.colors.mutedForeground,
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Icon(
+                      _downloading
+                          ? FLucideIcons.loaderCircle
+                          : FLucideIcons.download,
+                      color: context.theme.colors.primary,
+                    ),
                   ),
-              ],
+                ],
+              ),
             ),
             if (_downloading || _progress != null) ...[
               const SizedBox(height: AppSpacing.md),

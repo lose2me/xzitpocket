@@ -79,9 +79,11 @@ void main() {
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.timetableBackgroundPath, isNull);
-      expect(settings.timetableBackgroundOpacity, 0.24);
-      expect(settings.timetableComponentOpacity, 0.85);
+      expect(settings.timetableBackgroundOpacity, 0.5);
+      expect(settings.timetableComponentOpacity, 0.7);
+      expect(settings.timetableGridOpacity, 0.5);
       expect(settings.showTimetableGridLines, isTrue);
+      expect(settings.showTodayGridLines, isFalse);
     });
 
     test('copyWith overrides specified fields', () {
@@ -92,7 +94,9 @@ void main() {
         timetableBackgroundPath: '/tmp/background.jpg',
         timetableBackgroundOpacity: 0.6,
         timetableComponentOpacity: 0.7,
+        timetableGridOpacity: 0.45,
         showTimetableGridLines: false,
+        showTodayGridLines: false,
       );
       expect(updated.themePreference, AppThemePreference.dark);
       expect(updated.themeColor, AppThemeColor.blue);
@@ -100,7 +104,9 @@ void main() {
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
       expect(updated.timetableBackgroundOpacity, 0.6);
       expect(updated.timetableComponentOpacity, 0.7);
+      expect(updated.timetableGridOpacity, 0.45);
       expect(updated.showTimetableGridLines, isFalse);
+      expect(updated.showTodayGridLines, isFalse);
     });
 
     test('copyWith preserves unspecified fields', () {
@@ -115,8 +121,8 @@ void main() {
       expect(updated.themeColor, AppThemeColor.rose);
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
       expect(updated.timetableBackgroundPath, isNull);
-      expect(updated.timetableBackgroundOpacity, 0.24);
-      expect(updated.timetableComponentOpacity, 0.85);
+      expect(updated.timetableBackgroundOpacity, 0.5);
+      expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.showTimetableGridLines, isTrue);
     });
 

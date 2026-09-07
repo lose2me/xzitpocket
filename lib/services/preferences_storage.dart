@@ -47,7 +47,7 @@ class PreferencesStorage {
   }
 
   double getTimetableBackgroundOpacity() =>
-      (_prefs.getDouble('timetable_background_opacity') ?? 0.24)
+      (_prefs.getDouble('timetable_background_opacity') ?? 0.5)
           .clamp(0.0, 1.0)
           .toDouble();
 
@@ -57,7 +57,7 @@ class PreferencesStorage {
   );
 
   double getTimetableComponentOpacity() =>
-      (_prefs.getDouble('timetable_component_opacity') ?? 0.85)
+      (_prefs.getDouble('timetable_component_opacity') ?? 0.7)
           .clamp(0.0, 1.0)
           .toDouble();
 
@@ -66,11 +66,27 @@ class PreferencesStorage {
     value.clamp(0.0, 1.0).toDouble(),
   );
 
+  double getTimetableGridOpacity() =>
+      (_prefs.getDouble('timetable_grid_opacity') ?? 0.5)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableGridOpacity(double value) => _prefs.setDouble(
+    'timetable_grid_opacity',
+    value.clamp(0.0, 1.0).toDouble(),
+  );
+
   bool getShowTimetableGridLines() =>
       _prefs.getBool('show_timetable_grid_lines') ?? true;
 
   Future<void> setShowTimetableGridLines(bool value) =>
       _prefs.setBool('show_timetable_grid_lines', value);
+
+  bool getShowTodayGridLines() =>
+      _prefs.getBool('show_today_grid_lines') ?? false;
+
+  Future<void> setShowTodayGridLines(bool value) =>
+      _prefs.setBool('show_today_grid_lines', value);
 
   // ── Power room ──
 

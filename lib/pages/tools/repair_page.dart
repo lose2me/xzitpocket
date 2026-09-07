@@ -88,24 +88,13 @@ class _RepairPageState extends State<RepairPage> {
     }
   }
 
-  static const _knownStatuses = {
-    '已完工',
-    '已关闭',
-    '已评价',
-    '已接单',
-    '已转单',
-    '处理中',
-    '维修中',
-    '已上报',
-    '已上传照片',
-  };
-
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final visible = _records
-        .where((r) => _knownStatuses.contains(r.status))
-        .toList();
+    // Keep every record returned by the service. The repair platform can add
+    // new workflow statuses, and filtering by a local allow-list would make
+    // valid records disappear from the user's history.
+    final visible = _records;
 
     return AppPage(
       title: '我的报修',

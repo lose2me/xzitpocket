@@ -36,6 +36,7 @@ class LearningRepository extends ChangeNotifier {
   final List<String> _judgedOrder = [];
   bool _loaded = false;
   bool _libraryUnavailable = false;
+  int _libraryRevision = 0;
 
   List<LearningQuestion> get questions => List.unmodifiable(_questions);
   List<LearningQuestionBank> get banks => List.unmodifiable(_banks);
@@ -43,6 +44,7 @@ class LearningRepository extends ChangeNotifier {
   Set<String> get wrongIds => Set.unmodifiable(_wrongIds);
   bool get isLoaded => _loaded;
   bool get libraryUnavailable => _libraryUnavailable;
+  int get libraryRevision => _libraryRevision;
   bool get canRedeemCdk => cdkRedeemer != null;
   int get answeredCount =>
       _questions.where((question) => _judgedIds.contains(question.id)).length;
@@ -150,6 +152,7 @@ class LearningRepository extends ChangeNotifier {
     }
     _pruneState();
     _loaded = true;
+    _libraryRevision++;
   }
 
   Future<void> redeemCdk(String code, String questionBankId) async {
@@ -164,12 +167,14 @@ class LearningRepository extends ChangeNotifier {
     if (bankFetcher != null) {
       try {
         _libraryUnavailable = false;
-        _banks = await bankFetcher!();
+        final fetchedBanks = await bankFetcher!();
+        _banks = fetchedBanks;
+        _questions = [for (final bank in fetchedBanks) ...bank.questions];
       } on ControlApiException catch (error) {
         _libraryUnavailable = error.code == 'user_unavailable';
-        _banks = const [];
+        notifyListeners();
+        rethrow;
       }
-      _questions = [for (final bank in _banks) ...bank.questions];
     } else {
       final fetched = await fetcher!();
       _questions = fetched;
@@ -177,6 +182,7 @@ class LearningRepository extends ChangeNotifier {
     }
     _pruneState();
     _loaded = true;
+    _libraryRevision++;
     notifyListeners();
   }
 
@@ -253,6 +259,14 @@ class LearningRepository extends ChangeNotifier {
   Future<void> clearFavorites() async {
     if (_favoriteIds.isEmpty) return;
     _favoriteIds.clear();
+    await _persistState();
+    notifyListeners();
+  }
+
+  Future<void> removeFavorites(Iterable<String> questionIds) async {
+    final ids = questionIds.toSet();
+    if (ids.isEmpty || !_favoriteIds.any(ids.contains)) return;
+    _favoriteIds.removeWhere(ids.contains);
     await _persistState();
     notifyListeners();
   }

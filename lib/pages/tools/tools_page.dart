@@ -206,12 +206,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   Future<void> _openLearningCenter() async {
     final control = ControlService.instance;
-    if (!await control.checkHealth()) {
-      if (mounted) {
-        setState(() => _controlAvailable = false);
-      }
-      return;
-    }
+    if (!_controlAvailable) return;
     final repository = LearningRepository(
       preferencesStorage: ref.read(preferencesStorageProvider),
       bankFetcher: control.isConfigured
@@ -219,7 +214,6 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           : null,
       cdkRedeemer: control.isConfigured ? control.redeemLibraryCdk : null,
     );
-    await repository.load();
     if (!mounted) return;
     unawaited(
       control.track(

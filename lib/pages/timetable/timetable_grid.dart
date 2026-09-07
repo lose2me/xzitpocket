@@ -37,6 +37,8 @@ class TimetableGrid extends StatefulWidget {
   final double borderWidth;
   final double courseOpacity;
   final double courseBorderOpacity;
+  final double gridOpacity;
+  final bool showTodayGridLines;
   final String? backgroundImagePath;
   final double backgroundOpacity;
   final bool showGridLines;
@@ -59,8 +61,10 @@ class TimetableGrid extends StatefulWidget {
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
+    this.gridOpacity = 0.5,
+    this.showTodayGridLines = false,
     this.backgroundImagePath,
-    this.backgroundOpacity = 0.24,
+    this.backgroundOpacity = 0.5,
     this.showGridLines = true,
   });
 
@@ -165,7 +169,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                   child: Column(
                     children: [
                       Text(
-                        weekdays[i],
+                        '${date.day}',
                         style: theme.typography.caption.copyWith(
                           fontWeight: isToday
                               ? FontWeight.w700
@@ -177,7 +181,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                         ),
                       ),
                       Text(
-                        '${date.day}',
+                        weekdays[i],
                         style: theme.typography.caption.copyWith(
                           fontWeight: isToday
                               ? FontWeight.w700
@@ -230,6 +234,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                       ),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
+                        final date = dates[dayIndex];
+                        final isToday =
+                            date.year == today.year &&
+                            date.month == today.month &&
+                            date.day == today.day;
                         final allDayCourses = <_IndexedCourse>[
                           ...(currentByWeekday[weekday] ??
                               const <_IndexedCourse>[]),
@@ -267,12 +276,16 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             border: Border(
                                               bottom: BorderSide(
                                                 color: theme.colors.border
-                                                    .withAlpha(76),
+                                                    .withValues(
+                                                      alpha: widget.gridOpacity,
+                                                    ),
                                                 width: 0.5,
                                               ),
                                               right: BorderSide(
                                                 color: theme.colors.border
-                                                    .withAlpha(76),
+                                                    .withValues(
+                                                      alpha: widget.gridOpacity,
+                                                    ),
                                                 width: 0.5,
                                               ),
                                             ),
@@ -324,6 +337,39 @@ class _TimetableGridState extends State<TimetableGrid> {
                                     ),
                                   );
                                 }),
+                                if (isToday && widget.showTodayGridLines)
+                                  Positioned.fill(
+                                    child: IgnorePointer(
+                                      child: Stack(
+                                        children: [
+                                          Positioned(
+                                            left: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            width: 1,
+                                            child: ColoredBox(
+                                              color: theme.colors.secondary
+                                                  .withValues(
+                                                    alpha: widget.gridOpacity,
+                                                  ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            width: 1,
+                                            child: ColoredBox(
+                                              color: theme.colors.secondary
+                                                  .withValues(
+                                                    alpha: widget.gridOpacity,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
                                 ...allDisplayCourses.map((display) {
                                   final tapStartRow =
                                       sessionToRow[display.tapStartSession] ??

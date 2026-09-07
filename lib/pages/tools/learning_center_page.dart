@@ -26,9 +26,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   LearningRepository get repository => widget.repository;
 
   _LearningTab _tab = _LearningTab.bank;
-  bool _redeeming = false;
-  final _cdkController = TextEditingController();
-  String? _selectedCdkBankId;
+  List<_TermGroup>? _cachedTermGroups;
+  int _cachedLibraryRevision = -1;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -44,12 +44,47 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   @override
   void dispose() {
     repository.removeListener(_onRepositoryUpdate);
-    _cdkController.dispose();
     super.dispose();
   }
 
   void _onRepositoryUpdate() {
     if (mounted) setState(() {});
+  }
+
+  Future<void> _refreshLibrary() async {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    try {
+      await repository.refresh();
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          '题库已刷新',
+          severity: ToastSeverity.success,
+          showAboveNavBar: true,
+        );
+      }
+    } on ControlApiException catch (error) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          error.message,
+          severity: ToastSeverity.error,
+          showAboveNavBar: true,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          '刷新题库失败，请稍后重试',
+          severity: ToastSeverity.error,
+          showAboveNavBar: true,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   Future<void> _clearCurrentCollection() async {
@@ -79,15 +114,24 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _LearningTab.wrong => '错题集',
         _LearningTab.favorite => '收藏集',
       },
-      actions: !loading && _tab != _LearningTab.bank
+      actions: loading
+          ? const []
+          : _tab == _LearningTab.bank
           ? [
+              AppIconButton(
+                icon: FLucideIcons.refreshCw,
+                onPress: _refreshing ? null : _refreshLibrary,
+                tooltip: '刷新题库',
+                loading: _refreshing,
+              ),
+            ]
+          : [
               AppIconButton(
                 icon: FLucideIcons.trash2,
                 onPress: _clearCurrentCollection,
                 tooltip: _tab == _LearningTab.wrong ? '清空错题集' : '清空收藏集',
               ),
-            ]
-          : const [],
+            ],
       footer: _buildBottomNavigation(),
       child: loading
           ? const Center(
@@ -129,37 +173,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ],
   );
 
-  Future<void> _redeemCdk() async {
-    final code = _cdkController.text.trim();
-    if (code.isEmpty) {
-      showAppSnackBar(context, '请输入 CDK', severity: ToastSeverity.warning);
-      return;
-    }
-    final bankId = _selectedCdkBankId;
-    if (bankId == null || bankId.isEmpty) {
-      showAppSnackBar(context, '请选择要解锁的题库', severity: ToastSeverity.warning);
-      return;
-    }
-    setState(() => _redeeming = true);
-    try {
-      await repository.redeemCdk(code, bankId);
-      if (!mounted) return;
-      _cdkController.clear();
-      showAppSnackBar(context, '题库兑换成功', severity: ToastSeverity.success);
-    } on ControlApiException catch (error) {
-      if (!mounted) return;
-      showAppSnackBar(context, error.message, severity: ToastSeverity.error);
-    } catch (_) {
-      if (!mounted) return;
-      showAppSnackBar(context, '题库兑换失败，请稍后重试', severity: ToastSeverity.error);
-    } finally {
-      if (mounted) setState(() => _redeeming = false);
-    }
-  }
-
   Widget _buildBankPage(BuildContext context) {
-    final theme = context.theme;
-    final terms = _termGroups();
     if (repository.libraryUnavailable) {
       return const AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
@@ -174,233 +188,244 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         ],
       );
     }
+    final terms = _termGroups();
+    if (terms.isEmpty) {
+      return const AppStateView(
+        icon: FLucideIcons.library,
+        title: '题库为空',
+        description: '暂时没有可练习的题目',
+      );
+    }
+    return _buildBankSections(context.theme, {
+      for (final term in terms) term.code: term.banks,
+    });
+  }
+
+  Widget _buildBankSections(
+    FThemeData theme,
+    Map<String, List<_QuestionBankGroup>> sections, {
+    bool showSectionHeadings = true,
+    LearningListKind? collectionKind,
+  }) {
+    final entries = sections.entries.toList();
+    final displayHeadings = showSectionHeadings && entries.length > 1;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
       topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
       children: [
-        if (repository.canRedeemCdk) ...[
-          _buildCdkRedeemCard(theme),
-          if (terms.isNotEmpty) const SizedBox(height: AppSpacing.xl),
-        ],
-        if (terms.isEmpty)
-          const AppStateView(
-            icon: FLucideIcons.library,
-            title: '题库为空',
-            description: '暂时没有可练习的题目',
-          )
-        else
-          for (var termIndex = 0; termIndex < terms.length; termIndex++) ...[
-            Text(terms[termIndex].code, style: theme.typography.sectionTitle),
-            const SizedBox(height: AppSpacing.md),
-            for (
-              var bankIndex = 0;
-              bankIndex < terms[termIndex].banks.length;
-              bankIndex++
-            ) ...[
-              _buildBankCard(theme, terms[termIndex].banks[bankIndex]),
-              if (bankIndex != terms[termIndex].banks.length - 1)
-                const SizedBox(height: AppSpacing.sm),
-            ],
-            if (termIndex != terms.length - 1)
-              const SizedBox(height: AppSpacing.xl),
+        for (var index = 0; index < entries.length; index++) ...[
+          if (displayHeadings)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xs,
+                0,
+                AppSpacing.xs,
+                AppSpacing.sm,
+              ),
+              child: Text(
+                entries[index].key,
+                style: theme.typography.body.lg.copyWith(
+                  color: theme.colors.foreground,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          for (
+            var bankIndex = 0;
+            bankIndex < entries[index].value.length;
+            bankIndex++
+          ) ...[
+            _buildBankTile(
+              theme,
+              entries[index].value[bankIndex],
+              collectionKind: collectionKind,
+            ),
+            if (bankIndex != entries[index].value.length - 1)
+              const SizedBox(height: AppSpacing.md),
           ],
+          if (index != entries.length - 1)
+            const SizedBox(height: AppSpacing.section),
+        ],
       ],
     );
   }
 
-  Widget _buildCdkRedeemCard(FThemeData theme) => AppCard(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(FLucideIcons.keyRound, color: theme.colors.primary),
-            const SizedBox(width: AppSpacing.sm),
-            Text('兑换通用 CDK', style: theme.typography.tileTitle),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _buildCdkBankSelector(theme),
-        const SizedBox(height: AppSpacing.md),
-        AppTextField(
-          controller: _cdkController,
-          label: '通用 CDK',
-          hint: '输入兑换码以解锁需要 CDK 的题库',
-          prefix: const Icon(FLucideIcons.keyRound),
-          textCapitalization: TextCapitalization.characters,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _redeeming ? null : _redeemCdk(),
-          clearable: true,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        SizedBox(
-          width: double.infinity,
-          child: FButton(
-            variant: FButtonVariant.primary,
-            onPress: _redeeming ? null : _redeemCdk,
-            prefix: const Icon(FLucideIcons.unlock),
-            child: Text(_redeeming ? '兑换中...' : '兑换 CDK'),
-          ),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildCdkBankSelector(FThemeData theme) {
-    final banks = repository.banks.where((bank) => bank.requiresCDK).toList();
-    if (banks.isEmpty) {
-      return Text(
-        '当前没有需要 CDK 的题库',
-        style: theme.typography.bodySmall.copyWith(
-          color: theme.colors.mutedForeground,
-        ),
-      );
-    }
-    final selected = banks.any((bank) => bank.id == _selectedCdkBankId)
-        ? _selectedCdkBankId
-        : banks.first.id;
-    if (_selectedCdkBankId != selected) _selectedCdkBankId = selected;
-    return SizedBox(
-      width: double.infinity,
-      child: FSelect<String>.rich(
-        control: FSelectControl.lifted(
-          value: selected,
-          onChange: (value) {
-            if (value != null && mounted) {
-              setState(() => _selectedCdkBankId = value);
-            }
-          },
-        ),
-        format: (value) => banks.firstWhere((bank) => bank.id == value).name,
-        children: [
-          for (final bank in banks)
-            FSelectItem.item(title: Text(bank.name), value: bank.id),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBankCard(
+  FTile _buildBankTile(
     FThemeData theme,
     _QuestionBankGroup bank, {
     LearningListKind? collectionKind,
   }) {
     final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
-    final allQuestions = collectionKind == null
-        ? bank.questions
-        : repository.questions.where((question) {
-            final bankId = question.bankId.trim();
-            final targetId = bank.id.trim();
-            return targetId.isNotEmpty
-                ? bankId == targetId
-                : question.bankName == bank.name &&
-                      question.bankIsNew == bank.isNew;
-          }).toList();
-    final completed = allQuestions
-        .where((question) => repository.isJudged(question.id))
-        .length;
-    final progress = allQuestions.isEmpty
-        ? 0
-        : (completed / allQuestions.length * 100).round();
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      onPress: bank.locked || bank.questions.isEmpty
-          ? null
-          : () => _openQuestions(bank.questions, pageTitle: name),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Color.lerp(theme.colors.primary, Colors.black, 0.18),
-              shape: BoxShape.circle,
+    final onPress = bank.locked
+        ? () => unawaited(_openCdkRedeem(bank))
+        : bank.questions.isEmpty
+        ? null
+        : () => unawaited(
+            _openQuestions(
+              bank.questions,
+              pageTitle: name,
+              mode: collectionKind == LearningListKind.favorite
+                  ? LearningQuizMode.memorizeFlow
+                  : LearningQuizMode.normal,
+              retryIncorrect: collectionKind == LearningListKind.wrong,
+              lockMode: collectionKind == LearningListKind.favorite,
             ),
-            child: Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: theme.colors.secondary,
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                name.characters.first,
-                style: theme.typography.tileTitle.copyWith(
-                  color: theme.colors.primary,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+          );
+    final needsCdk = bank.locked;
+    final unlockedWithCdk = bank.requiresCDK && !bank.locked;
+    final collectionDetails = switch (collectionKind) {
+      LearningListKind.wrong => _CountBadge(
+        theme: theme,
+        count: bank.questions.length,
+      ),
+      LearningListKind.favorite => AppIconButton(
+        icon: FLucideIcons.x,
+        onPress: () => unawaited(_removeFavoriteBank(bank)),
+        tooltip: '删除此收藏题库',
+        size: FButtonSizeVariant.sm,
+      ),
+      _ => null,
+    };
+
+    return FTile(
+      style: FItemStyleDelta.delta(
+        shape: const RoundedRectangleBorder(side: BorderSide.none),
+        backgroundColor: FVariantsValueDelta.delta([
+          FVariantValueDeltaOperation.base(Colors.transparent),
+        ]),
+        contentDecoration: FVariantsDelta.delta([
+          FVariantOperation.all(
+            DecorationDelta.value(
+              ShapeDecoration(
+                color: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  side: BorderSide(color: theme.colors.border),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.typography.bodyText.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    if (bank.locked)
-                      Text(
-                        '需要 CDK 解锁',
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.semantic.warning,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
-                    else if (bank.questions.isEmpty)
-                      Text(
-                        '暂无题目',
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.mutedForeground,
-                        ),
-                      )
-                    else if (collectionKind == LearningListKind.wrong)
-                      Text(
-                        '剩余 ${bank.questions.length} 道错题',
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.destructive,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      )
-                    else
-                      Text(
-                        '$progress%',
-                        style: theme.typography.bodySmall.copyWith(
-                          color: theme.colors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
+        ]),
+        contentStyle: FItemContentStyleDelta.delta(
+          suffixedPadding: const EdgeInsetsGeometryDelta.value(
+            EdgeInsetsDirectional.fromSTEB(4, 2, 12, 2),
           ),
-        ],
+          unsuffixedPadding: const EdgeInsetsGeometryDelta.value(
+            EdgeInsetsDirectional.fromSTEB(4, 2, 12, 2),
+          ),
+          prefixIconSpacing: 8,
+        ),
       ),
+      prefix: _BankInitial(
+        initial: _bankInitial(name),
+        color: theme.colors.primary,
+      ),
+      title: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.typography.body.md.copyWith(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      details:
+          collectionDetails ??
+          (needsCdk
+              ? _CdkBadge(
+                  theme: theme,
+                  label: 'CDK',
+                  foreground: theme.colors.semantic.onWarningContainer,
+                  background: theme.colors.semantic.warningContainer,
+                )
+              : unlockedWithCdk
+              ? _CdkBadge(
+                  theme: theme,
+                  label: '已解锁',
+                  foreground: theme.colors.semantic.onSuccessContainer,
+                  background: theme.colors.semantic.successContainer,
+                )
+              : null),
+      onPress: onPress,
     );
   }
 
+  Future<void> _removeFavoriteBank(_QuestionBankGroup bank) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '删除收藏题库',
+      message: '确定取消收藏「${bank.name}」中的全部题目吗？',
+      confirmLabel: '删除',
+      destructive: true,
+    );
+    if (confirmed) {
+      await repository.removeFavorites(bank.questions.map((q) => q.id));
+    }
+  }
+
+  static String _bankInitial(String name) {
+    final match = RegExp(r'[一-龥]').firstMatch(name);
+    if (match != null) return match.group(0)!;
+    final first = name.runes.firstOrNull;
+    return first == null ? '题' : String.fromCharCode(first);
+  }
+
+  Future<void> _openCdkRedeem(_QuestionBankGroup bank) async {
+    final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
+    if (!repository.canRedeemCdk || bank.id.trim().isEmpty) {
+      showAppSnackBar(
+        context,
+        '此题库需要 CDK 解锁',
+        severity: ToastSeverity.warning,
+        showAboveNavBar: true,
+      );
+      return;
+    }
+    final redeemed = await showFDialog<bool>(
+      context: context,
+      builder: (context, style, animation) => FDialog(
+        animation: animation,
+        builder: (context, style) => _CdkRedeemSheet(
+          bankName: name,
+          onRedeem: (code) => repository.redeemCdk(code, bank.id),
+        ),
+      ),
+    );
+    if (redeemed != true || !mounted) return;
+    showAppSnackBar(
+      context,
+      '题库兑换成功',
+      severity: ToastSeverity.success,
+      showAboveNavBar: true,
+    );
+    final updated = _findBank(id: bank.id, name: bank.name, isNew: bank.isNew);
+    if (updated != null && !updated.locked && updated.questions.isNotEmpty) {
+      unawaited(_openQuestions(updated.questions, pageTitle: name));
+    }
+  }
+
+  _QuestionBankGroup? _findBank({
+    required String id,
+    required String name,
+    required bool? isNew,
+  }) {
+    for (final term in _termGroups()) {
+      for (final bank in term.banks) {
+        final idMatch = id.trim().isNotEmpty && bank.id.trim() == id.trim();
+        final nameMatch = bank.name == name && bank.isNew == isNew;
+        if (idMatch || nameMatch) return bank;
+      }
+    }
+    return null;
+  }
+
   List<_TermGroup> _termGroups() {
+    if (_cachedTermGroups != null &&
+        _cachedLibraryRevision == repository.libraryRevision) {
+      return _cachedTermGroups!;
+    }
     final banks = <String, _QuestionBankGroup>{};
     for (final source in repository.banks) {
       final key = source.id.trim().isNotEmpty
@@ -413,7 +438,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         isNew: source.isNew,
         requiresCDK: source.requiresCDK,
         locked: source.locked,
-        questions: [...source.questions],
+        questions: source.questions,
       );
     }
     if (banks.isEmpty) {
@@ -457,6 +482,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         return a.name.compareTo(b.name);
       });
     }
+    _cachedLibraryRevision = repository.libraryRevision;
+    _cachedTermGroups = result;
     return result;
   }
 
@@ -468,13 +495,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Widget _buildQuestionPage(BuildContext context, LearningListKind kind) {
-    final theme = context.theme;
     final groups = _groupedQuestions(kind);
-    final sections = <String, List<_QuestionBankGroup>>{};
-    for (final group in groups) {
-      final section = group.isNew == true ? '最新题库' : '往年题库';
-      sections.putIfAbsent(section, () => []).add(group);
-    }
+    final sections = <String, List<_QuestionBankGroup>>{'': groups};
     final emptyIcon = kind == LearningListKind.wrong
         ? FLucideIcons.circleCheck
         : FLucideIcons.bookmark;
@@ -486,39 +508,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 ? '完成题目后，答错的题目会显示在这里'
                 : '收藏题目后会显示在这里',
           )
-        : AppPageListView(
-            maxWidth: AppLayout.resultMaxWidth,
-            topPadding: AppSpacing.lg,
-            bottomPadding: AppSpacing.xxl,
-            children: [
-              for (
-                var sectionIndex = 0;
-                sectionIndex < sections.length;
-                sectionIndex++
-              ) ...[
-                Text(
-                  sections.keys.elementAt(sectionIndex),
-                  style: theme.typography.sectionTitle,
-                ),
-                const SizedBox(height: AppSpacing.md),
-                for (
-                  var groupIndex = 0;
-                  groupIndex < sections.values.elementAt(sectionIndex).length;
-                  groupIndex++
-                ) ...[
-                  _buildBankCard(
-                    theme,
-                    sections.values.elementAt(sectionIndex)[groupIndex],
-                    collectionKind: kind,
-                  ),
-                  if (groupIndex !=
-                      sections.values.elementAt(sectionIndex).length - 1)
-                    const SizedBox(height: AppSpacing.sm),
-                ],
-                if (sectionIndex != sections.length - 1)
-                  const SizedBox(height: AppSpacing.xl),
-              ],
-            ],
+        : _buildBankSections(
+            context.theme,
+            sections,
+            showSectionHeadings: false,
+            collectionKind: kind,
           );
   }
 
@@ -562,24 +556,118 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     });
   }
 
-  void _openQuestions(
+  Future<void> _openQuestions(
     List<LearningQuestion> questions, {
     int initialIndex = 0,
     String pageTitle = '题库',
-  }) {
+    LearningQuizMode mode = LearningQuizMode.normal,
+    bool retryIncorrect = false,
+    bool lockMode = false,
+  }) async {
     if (questions.isEmpty) return;
-    Navigator.of(context).push(
+    final questionIds = [for (final question in questions) question.id];
+    if (retryIncorrect) {
+      // Wrong-question practice is a retry flow. Clear only the judged state
+      // and answer draft; the repository deliberately keeps wrongIds until a
+      // subsequent correct submission removes the question.
+      await repository.resetProgress(questionIds);
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.learningQuiz,
         builder: (_) => LearningQuizPage(
           repository: repository,
-          questionIds: [for (final question in questions) question.id],
+          questionIds: questionIds,
           initialIndex: initialIndex,
           pageTitle: pageTitle,
+          mode: mode,
+          lockMode: lockMode,
         ),
       ),
     );
   }
+}
+
+class _BankInitial extends StatelessWidget {
+  final String initial;
+  final Color color;
+
+  const _BankInitial({required this.initial, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 48,
+    height: 48,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: Color.lerp(color, Colors.white, 0.9),
+    ),
+    padding: const EdgeInsets.all(4),
+    child: DecoratedBox(
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      child: Center(
+        child: Text(
+          initial,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 17,
+            height: 1.2,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _CdkBadge extends StatelessWidget {
+  final FThemeData theme;
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  const _CdkBadge({
+    required this.theme,
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        label,
+        style: theme.typography.caption.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _CountBadge extends StatelessWidget {
+  final FThemeData theme;
+  final int count;
+
+  const _CountBadge({required this.theme, required this.count});
+
+  @override
+  Widget build(BuildContext context) => Text(
+    '$count',
+    style: theme.typography.bodySmall.copyWith(
+      color: theme.colors.primary,
+      fontWeight: FontWeight.w700,
+    ),
+  );
 }
 
 class _QuestionBankGroup {
@@ -600,8 +688,6 @@ class _QuestionBankGroup {
     this.locked = false,
     List<LearningQuestion>? questions,
   }) : questions = questions ?? [];
-
-  String get title => isNew == true ? '最新题库' : '往年题库';
 }
 
 class _TermGroup {
@@ -609,4 +695,122 @@ class _TermGroup {
   final List<_QuestionBankGroup> banks = [];
 
   _TermGroup(this.code);
+}
+
+class _CdkRedeemSheet extends StatefulWidget {
+  final String bankName;
+  final Future<void> Function(String code) onRedeem;
+
+  const _CdkRedeemSheet({required this.bankName, required this.onRedeem});
+
+  @override
+  State<_CdkRedeemSheet> createState() => _CdkRedeemSheetState();
+}
+
+class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
+  final _controller = TextEditingController();
+  bool _redeeming = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_redeeming) return;
+    final code = _controller.text.trim();
+    if (code.isEmpty) {
+      showAppSnackBar(
+        context,
+        '请输入 CDK',
+        severity: ToastSeverity.warning,
+        showAboveNavBar: true,
+      );
+      return;
+    }
+    setState(() => _redeeming = true);
+    try {
+      await widget.onRedeem(code);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on ControlApiException catch (error) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        error.message,
+        severity: ToastSeverity.error,
+        showAboveNavBar: true,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        '题库兑换失败，请稍后重试',
+        severity: ToastSeverity.error,
+        showAboveNavBar: true,
+      );
+    } finally {
+      if (mounted) setState(() => _redeeming = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: Center(
+              child: Text(
+                '解锁题库',
+                textAlign: TextAlign.center,
+                style: theme.typography.pageTitle.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            '「${widget.bankName}」需要 CDK 解锁后才能练习',
+            style: theme.typography.bodySmall.copyWith(
+              color: theme.colors.mutedForeground,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppTextField(
+            controller: _controller,
+            hint: '输入 CDK',
+            prefix: const Icon(FLucideIcons.keyRound),
+            textCapitalization: TextCapitalization.characters,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => unawaited(_submit()),
+            enabled: !_redeeming,
+            clearable: true,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: FButton(
+              variant: FButtonVariant.primary,
+              onPress: _redeeming ? null : () => unawaited(_submit()),
+              prefix: const Icon(FLucideIcons.unlock),
+              child: Text(_redeeming ? '兑换中...' : '兑换'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

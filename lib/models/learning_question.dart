@@ -126,9 +126,10 @@ class LearningQuestion {
     }
     final rawCorrectIds = json['correctOptionIds'];
     final rawCorrectAnswer = json['correctAnswer'];
-    final parsedCorrectOptionIds = rawCorrectIds is List
-        ? {for (final value in rawCorrectIds) value.toString().trim()}
-        : _parseCorrectAnswer(rawCorrectAnswer, type);
+    final correctSource = rawCorrectIds is List && rawCorrectIds.isEmpty
+        ? rawCorrectAnswer
+        : rawCorrectIds ?? rawCorrectAnswer;
+    final parsedCorrectOptionIds = _parseCorrectAnswer(correctSource, type);
     final correctOptionIds = _resolveCorrectOptionIds(
       parsedCorrectOptionIds,
       options,
@@ -184,20 +185,49 @@ class LearningQuestion {
     LearningQuestionType type,
   ) {
     if (value is List) {
-      return {for (final item in value) item.toString().trim()};
+      if (type != LearningQuestionType.multiple) {
+        return {for (final item in value) item.toString().trim()};
+      }
+      return {
+        for (final item in value) ..._parseMultipleListItem(item.toString()),
+      };
     }
     final answer = value?.toString().trim() ?? '';
     if (answer.isEmpty) return <String>{};
     if (type == LearningQuestionType.multiple) {
-      return {
-        for (final item in answer.split(RegExp(r'[,，、]')))
-          if (item.trim().isNotEmpty) item.trim(),
-      };
+      return _splitMultipleAnswer(answer);
     }
     if (type == LearningQuestionType.trueFalse) {
       return {_normalizeTrueFalse(answer, fallback: answer)};
     }
     return {answer};
+  }
+
+  static Set<String> _splitMultipleAnswer(String value) {
+    final answer = value.trim();
+    final compact = answer.replaceAll(RegExp(r'\s+'), '');
+    if (compact.length > 1 && RegExp(r'^[A-Za-z]+$').hasMatch(compact)) {
+      return compact.toUpperCase().split('').toSet();
+    }
+    return {
+      for (final item in answer.split(RegExp(r'[,，、]')))
+        if (item.trim().isNotEmpty) item.trim(),
+    };
+  }
+
+  static Set<String> _parseMultipleListItem(String value) {
+    final item = value.trim();
+    if (item.isEmpty) return <String>{};
+    if (item.contains(RegExp(r'[,，、]'))) {
+      return {
+        for (final token in item.split(RegExp(r'[,，、]')))
+          if (token.trim().isNotEmpty) token.trim(),
+      };
+    }
+    // A list item already represents one answer. Do not split textual IDs
+    // such as `Dart` into individual characters; compact `AC` values are
+    // expanded later only when they match the available option IDs.
+    return {item};
   }
 
   static Set<String> _resolveCorrectOptionIds(
@@ -216,7 +246,26 @@ class LearningQuestion {
             .toLowerCase();
         return id == normalized || text == normalized;
       }).firstOrNull;
-      resolved.add(match?.id ?? value.trim());
+      if (match != null) {
+        resolved.add(match.id);
+        continue;
+      }
+      final compact = value.replaceAll(RegExp(r'\s+'), '');
+      if (compact.length > 1 && RegExp(r'^[A-Za-z]+$').hasMatch(compact)) {
+        final expanded = compact
+            .toUpperCase()
+            .split('')
+            .where(
+              (id) =>
+                  options.any((option) => option.id.trim().toUpperCase() == id),
+            )
+            .toSet();
+        if (expanded.length == compact.length) {
+          resolved.addAll(expanded);
+          continue;
+        }
+      }
+      resolved.add(value.trim());
     }
     return resolved;
   }

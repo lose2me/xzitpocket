@@ -186,8 +186,9 @@ void main() {
               'options': [
                 {'label': 'A', 'text': 'Windows'},
                 {'label': 'B', 'text': 'Linux'},
+                {'label': 'C', 'text': 'macOS'},
               ],
-              'correctAnswer': 'A,B',
+              'correctOptionIds': 'AC',
             },
             {
               'questionNumber': 3,
@@ -214,11 +215,27 @@ void main() {
       expect(bank.questions, hasLength(4));
       expect(bank.questions.first.bankOrderId, 12);
       expect(bank.questions[0].correctOptionIds, {'B'});
-      expect(bank.questions[1].correctOptionIds, {'A', 'B'});
+      expect(bank.questions[1].correctOptionIds, {'A', 'C'});
       expect(bank.questions[2].correctOptionIds, {'正确'});
       expect(bank.questions[3].correctOptionIds, {'1024'});
     },
   );
+
+  test('parses a comma-separated multiple answer from correctOptionIds', () {
+    final question = LearningQuestion.fromJson({
+      'id': 'multi-csv',
+      'type': '多选题',
+      'title': '多选',
+      'options': [
+        {'label': 'A', 'text': '甲'},
+        {'label': 'B', 'text': '乙'},
+        {'label': 'C', 'text': '丙'},
+      ],
+      'correctOptionIds': 'A,C',
+    });
+
+    expect(question.correctOptionIds, {'A', 'C'});
+  });
 }
 
 List<LearningQuestion> _fixtureQuestions() => [

@@ -74,16 +74,20 @@ class AppSettings {
   final String? timetableBackgroundPath;
   final double timetableBackgroundOpacity;
   final double timetableComponentOpacity;
+  final double timetableGridOpacity;
   final bool showTimetableGridLines;
+  final bool showTodayGridLines;
 
   const AppSettings({
     this.themePreference = AppThemePreference.system,
     this.themeColor = AppThemeColor.rose,
     this.classAutomationMode = ClassAutomationMode.off,
     this.timetableBackgroundPath,
-    this.timetableBackgroundOpacity = 0.24,
-    this.timetableComponentOpacity = 0.85,
+    this.timetableBackgroundOpacity = 0.5,
+    this.timetableComponentOpacity = 0.7,
+    this.timetableGridOpacity = 0.5,
     this.showTimetableGridLines = true,
+    this.showTodayGridLines = false,
   });
 
   static const _unset = Object();
@@ -95,7 +99,9 @@ class AppSettings {
     Object? timetableBackgroundPath = _unset,
     double? timetableBackgroundOpacity,
     double? timetableComponentOpacity,
+    double? timetableGridOpacity,
     bool? showTimetableGridLines,
+    bool? showTodayGridLines,
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
@@ -108,8 +114,10 @@ class AppSettings {
           timetableBackgroundOpacity ?? this.timetableBackgroundOpacity,
       timetableComponentOpacity:
           timetableComponentOpacity ?? this.timetableComponentOpacity,
+      timetableGridOpacity: timetableGridOpacity ?? this.timetableGridOpacity,
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
+      showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,
     );
   }
 }

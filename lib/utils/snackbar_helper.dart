@@ -44,11 +44,12 @@ void showAppSnackBar(
   String message, {
   Duration duration = const Duration(seconds: 3),
   ToastSeverity severity = ToastSeverity.info,
+  bool? showAboveNavBar,
 }) {
   if (!context.mounted) return;
   // 在调用方的 context 里判断是否处于“有底部导航”的根页面，
   // 而不是在复用的 Overlay host 里判断，避免详情页无导航栏时仍被当作有导航栏。
-  final showAboveNavBar = !Navigator.of(context).canPop();
+  final placeAboveNavBar = showAboveNavBar ?? !Navigator.of(context).canPop();
   // 始终挂到根 Overlay，避免第一个 toast 来自详情页的子 Overlay 时，
   // 后续路由切换把整个 toast 宿主一起卸载。
   final overlay = Overlay.of(context, rootOverlay: true);
@@ -71,7 +72,7 @@ void showAppSnackBar(
         message: message,
         duration: duration,
         severity: severity,
-        showAboveNavBar: showAboveNavBar,
+        showAboveNavBar: placeAboveNavBar,
       ),
     );
   _revision.value++;
@@ -103,7 +104,7 @@ class _ToastHost extends StatelessWidget {
       // 让 toast 完全穿透点击/滑动，不遮挡任何操作。
       ignoring: true,
       child: SafeArea(
-        bottom: !hasBottomNav,
+        bottom: false,
         child: Align(
           alignment: Alignment.bottomCenter,
           child: Padding(

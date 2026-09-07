@@ -10,8 +10,7 @@ import '../../ui/app_components.dart';
 
 enum LearningQuizMode { normal, random, memorize, memorizeFlow }
 
-/// Keeps accidental swipes from opening questions that have not been answered.
-/// Programmatic navigation (buttons and automatic progression) is unaffected.
+/// Keeps page snapping consistent while allowing the quiz to be browsed freely.
 class _QuizPageScrollPhysics extends PageScrollPhysics {
   final int Function() currentIndex;
   final bool Function(int index) canNavigateTo;
@@ -85,6 +84,7 @@ class LearningQuizPage extends StatefulWidget {
   final int initialIndex;
   final String pageTitle;
   final LearningQuizMode mode;
+  final bool lockMode;
 
   const LearningQuizPage({
     super.key,
@@ -93,6 +93,7 @@ class LearningQuizPage extends StatefulWidget {
     this.initialIndex = 0,
     this.pageTitle = '题库',
     this.mode = LearningQuizMode.normal,
+    this.lockMode = false,
   });
 
   @override
@@ -107,6 +108,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   final Map<String, String> _draftTextAnswers = {};
   final Map<String, TextEditingController> _textControllers = {};
   final Set<String> _judgingIds = {};
+  LearningQuestion? _pendingFillSubmission;
   bool _programmaticNavigation = false;
 
   LearningRepository get repository => widget.repository;
@@ -250,13 +252,31 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   void _handlePageChanged(int nextIndex) {
-    if (!_programmaticNavigation && !_canNavigateToPage(nextIndex)) {
-      _snapBackToCurrentPage();
-      return;
-    }
+    if (!_canNavigateToPage(nextIndex)) return;
+    final previousIndex = _currentIndex;
+    final previousQuestion = _question;
     _currentIndex = nextIndex;
     _loadSelection(nextIndex);
     setState(() {});
+
+    // Fill-in-the-blank questions are committed only when leaving for a later
+    // page. Submission waits until the page settles so it cannot interfere
+    // with the swipe animation. Empty answers are ignored.
+    if (nextIndex == previousIndex + 1 &&
+        previousQuestion?.isFillBlank == true &&
+        !repository.isJudged(previousQuestion!.id)) {
+      _pendingFillSubmission = previousQuestion;
+    } else if (nextIndex < previousIndex) {
+      _pendingFillSubmission = null;
+    }
+  }
+
+  void _submitPendingFillAnswer() {
+    final question = _pendingFillSubmission;
+    _pendingFillSubmission = null;
+    if (question != null) {
+      unawaited(_submitTextAnswer(question, unfocus: false));
+    }
   }
 
   Future<void> _submitAnswer(
@@ -284,15 +304,20 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     if (!correct || !mounted || _question?.id != question.id) return;
 
     // Briefly retain the correct state so the selection and status indicator
-    // can be perceived before moving to the next unanswered question.
+    // can be perceived before moving to the next page in the current order.
     await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted || _question?.id != question.id) return;
-    await _advanceToNextUnanswered(afterIndex: _currentIndex);
+    if (_currentIndex < _questionIds.length - 1) {
+      await _moveToPage(_currentIndex + 1);
+    }
   }
 
-  Future<void> _submitTextAnswer(LearningQuestion question) async {
+  Future<void> _submitTextAnswer(
+    LearningQuestion question, {
+    bool unfocus = true,
+  }) async {
     if (!question.isFillBlank || !_hasAnswer(question)) return;
-    FocusManager.instance.primaryFocus?.unfocus();
+    if (unfocus) FocusManager.instance.primaryFocus?.unfocus();
     await _submitAnswer(question);
   }
 
@@ -310,45 +335,11 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     }
   }
 
-  void _snapBackToCurrentPage() {
-    if (!_pageController.hasClients) return;
-    _programmaticNavigation = true;
-    unawaited(
-      _pageController
-          .animateToPage(
-            _currentIndex,
-            duration: AppMotion.standard,
-            curve: Curves.easeOutCubic,
-          )
-          .whenComplete(() => _programmaticNavigation = false),
-    );
-  }
-
   bool _canNavigateToPage(int index) =>
-      _isMemorize ||
-      (index < _currentIndex &&
-          index >= 0 &&
-          index < _questionIds.length &&
-          repository.isJudged(_questionIds[index]));
-
-  int? _nextUnansweredIndex({required int afterIndex}) {
-    if (_questionIds.length <= 1) return null;
-    for (var offset = 1; offset < _questionIds.length; offset++) {
-      final index = (afterIndex + offset) % _questionIds.length;
-      final questionId = _questionIds[index];
-      if (!repository.isJudged(questionId) &&
-          !_judgingIds.contains(questionId)) {
-        return index;
-      }
-    }
-    return null;
-  }
+      index >= 0 && index < _questionIds.length;
 
   void _goPrevious() {
-    if (_currentIndex == 0 ||
-        !_pageController.hasClients ||
-        (!_isMemorize &&
-            !repository.isJudged(_questionIds[_currentIndex - 1]))) {
+    if (_currentIndex == 0 || !_pageController.hasClients) {
       return;
     }
     unawaited(_moveToPage(_currentIndex - 1));
@@ -363,20 +354,14 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     }
     final question = _question;
     if (question?.isFillBlank == true && !repository.isJudged(question!.id)) {
-      await _submitTextAnswer(question);
-      return;
+      if (_hasAnswer(question)) {
+        await _submitTextAnswer(question);
+        return;
+      }
     }
     if (_currentIndex < _questionIds.length - 1) {
       await _moveToPage(_currentIndex + 1);
-      return;
     }
-    await _advanceToNextUnanswered(afterIndex: _currentIndex);
-  }
-
-  Future<void> _advanceToNextUnanswered({required int afterIndex}) async {
-    if (_isMemorize) return;
-    final targetIndex = _nextUnansweredIndex(afterIndex: afterIndex);
-    if (targetIndex != null) await _moveToPage(targetIndex);
   }
 
   Future<void> _openQuestionCard() async {
@@ -412,9 +397,9 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   crossAxisSpacing: AppSpacing.sm,
                   childAspectRatio: 1,
                 ),
-                itemCount: widget.questionIds.length,
+                itemCount: _questionIds.length,
                 itemBuilder: (context, index) {
-                  final questionId = widget.questionIds[index];
+                  final questionId = _questionIds[index];
                   final question = repository.questionById(questionId);
                   if (question == null) return const SizedBox.shrink();
                   final questionNumber = question.questionNumber ?? index + 1;
@@ -589,11 +574,12 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
             onPress: _openQuestionCard,
             tooltip: '选题卡',
           ),
-          AppIconButton(
-            icon: FLucideIcons.settings,
-            onPress: _openSettings,
-            tooltip: '刷题设置',
-          ),
+          if (!widget.lockMode)
+            AppIconButton(
+              icon: FLucideIcons.settings,
+              onPress: _openSettings,
+              tooltip: '刷题设置',
+            ),
         ],
         child: _buildMemorizeFlow(theme),
       );
@@ -625,24 +611,36 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         children: [
           if (!_isMemorize) _buildFixedHeader(theme, question),
           Expanded(
-            child: PageView.builder(
-              controller: _pageController,
-              physics: _QuizPageScrollPhysics(
-                currentIndex: () => _currentIndex,
-                canNavigateTo: (index) =>
-                    _programmaticNavigation || _canNavigateToPage(index),
-              ),
-              onPageChanged: _handlePageChanged,
-              itemCount: _questionIds.length,
-              itemBuilder: (context, index) {
-                final item = repository.questionById(_questionIds[index]);
-                return item == null
-                    ? const AppStateView(
-                        icon: FLucideIcons.circleAlert,
-                        title: '题目不存在',
-                      )
-                    : _buildQuestionView(theme, item);
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification.metrics.axis != Axis.horizontal) return false;
+                if (notification is ScrollStartNotification &&
+                    notification.dragDetails != null) {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                } else if (notification is ScrollEndNotification) {
+                  _submitPendingFillAnswer();
+                }
+                return false;
               },
+              child: PageView.builder(
+                controller: _pageController,
+                physics: _QuizPageScrollPhysics(
+                  currentIndex: () => _currentIndex,
+                  canNavigateTo: (index) =>
+                      _programmaticNavigation || _canNavigateToPage(index),
+                ),
+                onPageChanged: _handlePageChanged,
+                itemCount: _questionIds.length,
+                itemBuilder: (context, index) {
+                  final item = repository.questionById(_questionIds[index]);
+                  return item == null
+                      ? const AppStateView(
+                          icon: FLucideIcons.circleAlert,
+                          title: '题目不存在',
+                        )
+                      : _buildQuestionView(theme, item);
+                },
+              ),
             ),
           ),
         ],
@@ -829,7 +827,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     final number =
         question.questionNumber ??
         fallbackNumber ??
-        widget.questionIds.indexOf(question.id) + 1;
+        _questionIds.indexOf(question.id) + 1;
     var text = question.questionText;
     if (revealFillBlank && question.isFillBlank) {
       final answer = question.correctOptionIds.join('、');
@@ -867,7 +865,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   int _questionNumberFor(String questionId) {
     final question = repository.questionById(questionId);
     if (question?.questionNumber != null) return question!.questionNumber!;
-    final index = widget.questionIds.indexOf(questionId);
+    final index = _questionIds.indexOf(questionId);
     return index < 0 ? 0 : index + 1;
   }
 
@@ -877,13 +875,19 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     int? questionNumber,
     required bool current,
   }) {
+    final numberLength = questionNumber?.toString().length ?? 0;
+    final dotWidth = numberLength >= 4
+        ? 28.0
+        : numberLength == 3
+        ? 23.0
+        : 18.0;
     final fill = status == null
         ? theme.colors.mutedForeground.withAlpha(100)
         : status
         ? theme.colors.semantic.success
         : theme.colors.destructive;
     return Container(
-      width: 18,
+      width: dotWidth,
       height: 18,
       padding: EdgeInsets.all(current ? 1.5 : 1),
       decoration: BoxDecoration(
@@ -901,7 +905,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   '$questionNumber',
                   style: theme.typography.caption.copyWith(
                     color: Colors.white,
-                    fontSize: questionNumber >= 100 ? 7 : 8,
+                    fontSize: numberLength >= 3 ? 7 : 8,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -929,14 +933,18 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
         : showWrong
         ? theme.colors.destructive
         : selected
-        ? theme.colors.primary
+        ? theme.colors.semantic.success
         : theme.colors.border;
     final backgroundColor = showCorrect
         ? theme.colors.semantic.successContainer
         : showWrong
         ? theme.colors.destructive.withAlpha(28)
         : selected
-        ? theme.colors.secondary
+        // A multiple-choice answer is only judged once the user has selected
+        // all correct options (or an incorrect option). Until then, keep the
+        // draft selection visibly positive instead of using the theme accent,
+        // which can look like an error state.
+        ? theme.colors.semantic.successContainer
         : theme.colors.card;
     return Semantics(
       button: true,
@@ -968,7 +976,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                         : showWrong
                         ? theme.colors.destructive
                         : selected
-                        ? theme.colors.primary
+                        ? theme.colors.semantic.success
                         : theme.colors.mutedForeground,
                     fontWeight: FontWeight.w700,
                   ),

@@ -295,7 +295,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                           backgroundImagePath: settings.timetableBackgroundPath,
                           backgroundOpacity:
                               settings.timetableBackgroundOpacity,
+                          gridOpacity: settings.timetableGridOpacity,
                           showGridLines: settings.showTimetableGridLines,
+                          showTodayGridLines: settings.showTodayGridLines,
                           onCourseTap: (course, idx) {
                             final key = ref
                                 .read(scheduleProvider.notifier)
@@ -371,7 +373,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     '周次',
                     '${formatWeekRanges(course.weeks)}周',
                   ),
-                  _detailRow(FLucideIcons.tag, '编号', course.courseId),
+                  _detailRow(
+                    FLucideIcons.tag,
+                    '编号',
+                    _courseIdForDisplay(course.courseId),
+                  ),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -425,6 +431,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         ],
       ),
     );
+  }
+
+  String _courseIdForDisplay(String value) {
+    if (value.length <= 16) return value;
+    return '${value.substring(0, 16)}...';
   }
 
   void _confirmDelete(BuildContext context, int key) {

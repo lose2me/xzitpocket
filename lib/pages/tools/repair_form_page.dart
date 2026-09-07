@@ -31,7 +31,28 @@ class RepairFormPage extends StatefulWidget {
 }
 
 class _RepairFormPageState extends State<RepairFormPage> {
-  static const _maxRepairTreeDepth = 12;
+  // Repair catalog IDs are stable on the campus repair platform. Keep the
+  // picker local so opening it never waits for another network round trip.
+  static const _fixedAreas = <RepairArea>[
+    RepairArea(id: 'CA3022C72BE3C729', name: '中心校区食堂'),
+    RepairArea(id: '1856BCF51E8042E8', name: '中心校区学生公寓'),
+    RepairArea(id: '2C94F4C8BC1A35CC', name: '中心校区公共楼宇'),
+    RepairArea(id: 'DA39EB668BB1E597', name: '其他'),
+    RepairArea(id: 'B32952CB508FBA5F', name: '东校区食堂'),
+    RepairArea(id: '7A9E6F5A5BF501A6', name: '东校区学生公寓'),
+    RepairArea(id: '5BEB2EFDC8C7C5E8', name: '东校区公共楼宇'),
+  ];
+  static const _fixedItems = <RepairItem>[
+    RepairItem(id: 'D00FB300AC27BB62', name: '工程类'),
+    RepairItem(id: '97DD9C231FE9BFAF', name: '水类'),
+    RepairItem(id: 'DB5B5E53ECECEB5F', name: '电类'),
+    RepairItem(id: '07C8F6C95E5C479E', name: '木工类'),
+    RepairItem(id: 'C071F972A90F3583', name: '空调类'),
+    RepairItem(id: 'D8BFD3EA2D88680A', name: '电子门锁'),
+    RepairItem(id: '94CDAD719E648B58', name: '网络'),
+    RepairItem(id: 'B49F4623369E56BD', name: '其他'),
+    RepairItem(id: '82BCA37174827C3E', name: '刷卡机'),
+  ];
   final _service = RepairService();
   final _picker = ImagePicker();
   final _addressCtrl = TextEditingController();
@@ -39,8 +60,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
   final _areaCtrl = TextEditingController();
   final _itemCtrl = TextEditingController();
   final _images = <XFile>[];
-  final _areaChildrenCache = <String, Future<List<RepairArea>>>{};
-  final _itemChildrenCache = <String, Future<List<RepairItem>>>{};
   String? _tutorial;
 
   CasSession? _session;
@@ -110,7 +129,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _pickArea() async {
-    if (_session == null) return;
     final choice = await _pickAreaByScroll();
     if (choice != null && mounted) {
       setState(() {
@@ -122,87 +140,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
-  static int _areaSortKey(String name) {
-    if (name.contains('中心校区')) return 0;
-    if (name.contains('东校区')) return 1;
-    return 2;
-  }
-
-  static int _areaSubSortKey(String name) {
-    if (name.contains('公寓')) return 0;
-    if (name.contains('楼宇')) return 1;
-    if (name.contains('食堂')) return 2;
-    return 3;
-  }
-
-  /// 加载并排序一级区域。
-  Future<List<RepairArea>> _fetchTopAreas() async {
-    List<RepairArea> items;
-    try {
-      items = await _service.getAreas(_session!);
-    } catch (e, stackTrace) {
-      talker.error('报修区域获取失败', e, stackTrace);
-      if (mounted) {
-        showAppSnackBar(context, '获取区域失败', severity: ToastSeverity.error);
-      }
-      return const [];
-    }
-    items = items.where((a) => !a.name.contains('城南校区')).toList();
-    items.sort((a, b) {
-      final cmp = _areaSortKey(a.name).compareTo(_areaSortKey(b.name));
-      if (cmp != 0) return cmp;
-      return _areaSubSortKey(a.name).compareTo(_areaSubSortKey(b.name));
-    });
-    return items;
-  }
-
-  /// 把报修区域整棵树扁平化，生成「一级 > 二级 > …」的完整路径列表。
+  /// Returns the local repair-area catalog.
   Future<List<WheelChoice<RepairArea>>> _loadAreaChoices() async {
-    final top = await _fetchTopAreas();
-    final result = <WheelChoice<RepairArea>>[];
-    for (final area in top) {
-      await _collectAreaChoices(area, [area.name], result, depth: 0);
-    }
-    return result;
-  }
-
-  Future<void> _collectAreaChoices(
-    RepairArea area,
-    List<String> path,
-    List<WheelChoice<RepairArea>> out, {
-    required int depth,
-    Set<String> ancestors = const {},
-  }) async {
-    if (depth >= _maxRepairTreeDepth || ancestors.contains(area.id)) {
-      out.add(WheelChoice(label: path.join(' > '), value: area));
-      return;
-    }
-    final children = await _loadChildAreasSafe(area.id);
-    if (children.isEmpty) {
-      out.add(WheelChoice(label: path.join(' > '), value: area));
-      return;
-    }
-    final nextAncestors = {...ancestors, area.id};
-    for (final child in children) {
-      await _collectAreaChoices(
-        child,
-        [...path, child.name],
-        out,
-        depth: depth + 1,
-        ancestors: nextAncestors,
-      );
-    }
-  }
-
-  Future<List<RepairArea>> _loadChildAreasSafe(String areaId) async {
-    return _areaChildrenCache.putIfAbsent(areaId, () async {
-      try {
-        return await _service.getChildAreas(_session!, areaId);
-      } catch (e, stackTrace) {
-        talker.debug('报修子区域获取失败，按叶子节点处理', e, stackTrace);
-        return const [];
-      }
-    });
+    return [
+      for (final area in _fixedAreas)
+        WheelChoice(label: area.name, value: area),
+    ];
   }
 
   /// 单列滚轮选择：把整棵树合并成一个输入框，一次滚动选中最终地点。
@@ -224,7 +167,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _pickItem() async {
-    if (_session == null) return;
     if (_selectedArea == null) {
       showAppSnackBar(context, '请先选择区域', severity: ToastSeverity.warning);
       return;
@@ -238,65 +180,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
-  /// 把报修项目整棵树扁平化，生成「一级 > 二级 > …」的完整路径列表。
+  /// Returns the local repair-item catalog.
   Future<List<WheelChoice<RepairItem>>> _loadItemChoices() async {
-    final rootItems = await _loadRootItemsSafe();
-    final result = <WheelChoice<RepairItem>>[];
-    for (final item in rootItems) {
-      await _collectItemChoices(item, [item.name], result, depth: 0);
-    }
-    return result;
-  }
-
-  Future<List<RepairItem>> _loadRootItemsSafe() async {
-    try {
-      return await _service.getItems(_session!, _selectedArea!.id);
-    } catch (e, stackTrace) {
-      talker.error('报修项目获取失败', e, stackTrace);
-      if (mounted) {
-        showAppSnackBar(context, '获取项目失败', severity: ToastSeverity.error);
-      }
-      return const [];
-    }
-  }
-
-  Future<void> _collectItemChoices(
-    RepairItem item,
-    List<String> path,
-    List<WheelChoice<RepairItem>> out, {
-    required int depth,
-    Set<String> ancestors = const {},
-  }) async {
-    if (depth >= _maxRepairTreeDepth || ancestors.contains(item.id)) {
-      out.add(WheelChoice(label: path.join(' > '), value: item));
-      return;
-    }
-    final children = await _loadChildItemsSafe(item.id);
-    if (children.isEmpty) {
-      out.add(WheelChoice(label: path.join(' > '), value: item));
-      return;
-    }
-    final nextAncestors = {...ancestors, item.id};
-    for (final child in children) {
-      await _collectItemChoices(
-        child,
-        [...path, child.name],
-        out,
-        depth: depth + 1,
-        ancestors: nextAncestors,
-      );
-    }
-  }
-
-  Future<List<RepairItem>> _loadChildItemsSafe(String itemId) async {
-    return _itemChildrenCache.putIfAbsent(itemId, () async {
-      try {
-        return await _service.getChildItems(_session!, itemId);
-      } catch (e, stackTrace) {
-        talker.debug('报修子项目获取失败，按叶子节点处理', e, stackTrace);
-        return const [];
-      }
-    });
+    return [
+      for (final item in _fixedItems)
+        WheelChoice(label: item.name, value: item),
+    ];
   }
 
   /// 单列滚轮选择：把报修项目整棵树合并成一个输入框，一次滚动选中。
@@ -366,7 +255,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
-  bool get _formDisabled => _session == null || _submitting;
+  bool get _formDisabled => _sessionLoading || _session == null || _submitting;
 
   @override
   Widget build(BuildContext context) {
@@ -428,7 +317,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
           const SizedBox(height: 24),
           FButton(
             onPress: _formDisabled ? null : _submit,
-            prefix: _submitting
+            prefix: _sessionLoading || _submitting
                 ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
                 : const Icon(FLucideIcons.send),
             child: const Text('提交报修'),

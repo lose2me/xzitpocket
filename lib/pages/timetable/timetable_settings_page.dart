@@ -68,6 +68,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     .read(appSettingsProvider.notifier)
                     .setShowTimetableGridLines(value),
               ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.calendarCheck,
+                title: '显示当天边界线',
+                value: settings.showTodayGridLines,
+                onChange: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setShowTodayGridLines(value),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -98,6 +106,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
                       .setTimetableBackgroundOpacity(1 - value),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.grid2x2,
+                title: '网格透明度',
+                value:
+                    '${((1 - settings.timetableGridOpacity) * 100).round()}%',
+                onTap: () => _openOpacitySheet(
+                  title: '网格透明度',
+                  currentValue: 1 - settings.timetableGridOpacity,
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setTimetableGridOpacity(1 - value),
                 ),
               ),
             ],
