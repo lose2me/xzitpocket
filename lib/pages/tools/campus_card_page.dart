@@ -47,7 +47,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
   void initState() {
     super.initState();
     _result = widget.result;
-    _txns = _result.transactions.reversed.toList();
+    _txns = sortYktTransactionsNewestFirst(_result.transactions);
     _endDate = DateTime.now();
     _startDate = _endDate.subtract(const Duration(days: 30));
     _rangeCtrl.text = _rangeText();
@@ -84,7 +84,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
       }
       setState(() {
         _result = result;
-        _txns = result.transactions.reversed.toList();
+        _txns = sortYktTransactionsNewestFirst(result.transactions);
         _visibleCount = _pageSize;
         _refreshSucceeded = true;
       });
@@ -139,7 +139,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
       }
       setState(() {
         _result = result;
-        _txns = result.transactions.reversed.toList();
+        _txns = sortYktTransactionsNewestFirst(result.transactions);
         _visibleCount = _pageSize;
       });
     } on AuthException catch (e, stackTrace) {

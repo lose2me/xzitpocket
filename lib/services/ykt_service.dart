@@ -50,6 +50,31 @@ class YktTransaction {
   );
 }
 
+List<YktTransaction> sortYktTransactionsNewestFirst(
+  Iterable<YktTransaction> transactions,
+) {
+  final indexed = transactions.indexed.toList();
+  indexed.sort((left, right) {
+    final leftTime = _parseYktTransactionTime(left.$2.time);
+    final rightTime = _parseYktTransactionTime(right.$2.time);
+    if (leftTime == null && rightTime == null) {
+      return left.$1.compareTo(right.$1);
+    }
+    if (leftTime == null) return 1;
+    if (rightTime == null) return -1;
+    final byTime = rightTime.compareTo(leftTime);
+    return byTime != 0 ? byTime : left.$1.compareTo(right.$1);
+  });
+  return [for (final entry in indexed) entry.$2];
+}
+
+DateTime? _parseYktTransactionTime(String raw) {
+  final value = raw.trim();
+  if (value.isEmpty) return null;
+  return DateTime.tryParse(value) ??
+      DateTime.tryParse(value.replaceAll('/', '-'));
+}
+
 class YktDetailResult {
   final YktBalanceResult balance;
   final List<YktTransaction> transactions;

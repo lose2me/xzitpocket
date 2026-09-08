@@ -641,7 +641,7 @@ class ToolsDataManager extends ChangeNotifier {
     PreferencesStorage prefs,
   ) async {
     if (!_featureEnabled(AppServiceFeature.repair, prefs)) return null;
-    final success = await _repairOperation.run(
+    final success = await _repairOperation.runAfterCurrent(
       () => _loadRepair(studentId, password, prefs, forceRefresh: true),
     );
     return success ? repair : null;

@@ -60,4 +60,34 @@ void main() {
     newCompleter.complete(2);
     expect(await newFuture, 2);
   });
+
+  test('runAfterCurrent always starts after the active operation', () async {
+    final operation = InFlightOperation<int>();
+    final activeCompleter = Completer<int>();
+    var calls = 0;
+
+    final active = operation.run(() {
+      calls++;
+      return activeCompleter.future;
+    });
+    final fresh = operation.runAfterCurrent(() async => ++calls);
+
+    expect(calls, 1);
+    activeCompleter.complete(1);
+    expect(await active, 1);
+    expect(await fresh, 2);
+    expect(calls, 2);
+  });
+
+  test('runAfterCurrent proceeds after a failed active operation', () async {
+    final operation = InFlightOperation<int>();
+    final activeCompleter = Completer<int>();
+
+    final active = operation.run(() => activeCompleter.future);
+    final fresh = operation.runAfterCurrent(() async => 2);
+
+    activeCompleter.completeError(StateError('failed'));
+    await expectLater(active, throwsStateError);
+    expect(await fresh, 2);
+  });
 }

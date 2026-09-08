@@ -13,5 +13,21 @@ final class InFlightOperation<T> {
     return future;
   }
 
+  /// Waits for any active operation before starting a new one.
+  ///
+  /// Unlike [run], this guarantees that [operation] is not satisfied by a
+  /// request that started before the caller asked for fresh data.
+  Future<T> runAfterCurrent(Future<T> Function() operation) async {
+    final active = _current;
+    if (active != null) {
+      try {
+        await active;
+      } catch (_) {
+        // A failed active request must not prevent the fresh request.
+      }
+    }
+    return run(operation);
+  }
+
   void invalidate() => _current = null;
 }

@@ -61,6 +61,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
   final _itemCtrl = TextEditingController();
   final _images = <XFile>[];
   String? _tutorial;
+  late String _repairer;
+  late String _phone;
 
   CasSession? _session;
   bool _sessionLoading = true;
@@ -72,6 +74,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
   @override
   void initState() {
     super.initState();
+    _repairer = widget.userInfo.username;
+    _phone = widget.userInfo.phone;
     unawaited(_loadTutorial());
     unawaited(_createSession());
   }
@@ -79,6 +83,13 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Future<void> _createSession() async {
     try {
       final session = await _service.login(widget.studentId, widget.password);
+      RepairUserInfo? userInfo;
+      try {
+        userInfo = await _service.getUserInfo(session);
+      } catch (e, stackTrace) {
+        // Keep the cached values if refreshing the profile fails.
+        talker.warning('报修个人信息加载失败', e, stackTrace);
+      }
       if (!mounted) {
         session.close();
         return;
@@ -86,6 +97,16 @@ class _RepairFormPageState extends State<RepairFormPage> {
       setState(() {
         _session = session;
         _sessionLoading = false;
+        // Personal details are managed by the repair platform and stay hidden
+        // from this form. Prefer fresh non-empty values over the cache.
+        if (userInfo != null) {
+          if (userInfo.username.trim().isNotEmpty) {
+            _repairer = userInfo.username;
+          }
+          if (userInfo.phone.trim().isNotEmpty) {
+            _phone = userInfo.phone;
+          }
+        }
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('报修会话创建失败', e, stackTrace);
@@ -221,6 +242,12 @@ class _RepairFormPageState extends State<RepairFormPage> {
       showAppSnackBar(context, '请填写故障描述', severity: ToastSeverity.warning);
       return;
     }
+    final repairer = _repairer.trim();
+    final phone = _phone.trim();
+    if (repairer.isEmpty || phone.isEmpty) {
+      showAppSnackBar(context, '请填写完整个人信息', severity: ToastSeverity.warning);
+      return;
+    }
 
     setState(() => _submitting = true);
     try {
@@ -234,8 +261,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
         itemId: _selectedItem!.id,
         address: _addressCtrl.text.trim(),
         content: content,
-        phone: widget.userInfo.phone,
-        repairer: widget.userInfo.username,
+        phone: phone,
+        repairer: repairer,
         remark: '',
         images: imagePaths,
       );
@@ -259,7 +286,8 @@ class _RepairFormPageState extends State<RepairFormPage> {
   // form while the remote session is being established. Only submission
   // depends on that session.
   bool get _editingDisabled => _submitting;
-  bool get _submitDisabled => _sessionLoading || _session == null || _submitting;
+  bool get _submitDisabled =>
+      _sessionLoading || _session == null || _submitting;
 
   @override
   Widget build(BuildContext context) {
@@ -301,9 +329,9 @@ class _RepairFormPageState extends State<RepairFormPage> {
           ),
           const SizedBox(height: 12),
           AppTextField(
-              controller: _contentCtrl,
-              label: '故障描述',
-              enabled: !_editingDisabled,
+            controller: _contentCtrl,
+            label: '故障描述',
+            enabled: !_editingDisabled,
             minLines: 3,
             maxLines: null,
             keyboardType: TextInputType.multiline,
