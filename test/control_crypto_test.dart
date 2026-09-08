@@ -45,6 +45,39 @@ void main() {
     expect(isControlVersionNewer('2.0.3', '2.0.10'), isFalse);
     expect(isControlVersionNewer('2.1.0+8', '2.0.9+99'), isTrue);
   });
+
+  test('update downloads allow only configured HTTPS hosts', () {
+    final controlUri = Uri.parse('https://con.xuda.live');
+
+    expect(
+      isAllowedControlDownloadUrl(
+        controlUri,
+        Uri.parse('https://con.xuda.live/app.apk'),
+      ),
+      isTrue,
+    );
+    expect(
+      isAllowedControlDownloadUrl(
+        controlUri,
+        Uri.parse('https://xuda.live/app.apk'),
+      ),
+      isTrue,
+    );
+    expect(
+      isAllowedControlDownloadUrl(
+        controlUri,
+        Uri.parse('http://xuda.live/app.apk'),
+      ),
+      isFalse,
+    );
+    expect(
+      isAllowedControlDownloadUrl(
+        controlUri,
+        Uri.parse('https://xuda.live.example.com/app.apk'),
+      ),
+      isFalse,
+    );
+  });
 }
 
 String _withPadding(String value) =>

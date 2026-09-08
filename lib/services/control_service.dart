@@ -381,9 +381,7 @@ class ControlService {
       final controlUri = Uri.parse(baseUrl);
       if (latestVersion.isEmpty ||
           downloadUrl == null ||
-          !downloadUrl.hasScheme ||
-          downloadUrl.scheme != 'https' ||
-          downloadUrl.host != controlUri.host ||
+          !isAllowedControlDownloadUrl(controlUri, downloadUrl) ||
           !isControlVersionNewer(latestVersion, info.version)) {
         return null;
       }
@@ -789,6 +787,12 @@ bool isControlVersionNewer(String candidate, String current) {
   }
   return false;
 }
+
+bool isAllowedControlDownloadUrl(Uri controlUri, Uri downloadUri) =>
+    downloadUri.hasScheme &&
+    downloadUri.scheme == 'https' &&
+    (downloadUri.host == controlUri.host ||
+        configuredUpdateDownloadHosts.contains(downloadUri.host));
 
 bool _isDeviceInvalid(ControlApiException error) =>
     error.code == 'invalid_device_token' ||

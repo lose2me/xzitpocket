@@ -14,6 +14,7 @@ import 'services/control_service.dart';
 import 'services/talker.dart';
 import 'services/widget_service.dart';
 import 'ui/app_theme.dart';
+import 'ui/update_prompt.dart';
 
 class App extends ConsumerStatefulWidget {
   final CourseStorage courseStorage;
@@ -31,9 +32,21 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_checkForStartupUpdate());
+    });
     _heartbeatTimer = Timer.periodic(const Duration(minutes: 10), (_) {
       unawaited(ControlService.instance.track('heartbeat'));
     });
+  }
+
+  Future<void> _checkForStartupUpdate() async {
+    await ControlService.instance.initialize();
+    final release = await ControlService.instance.checkForUpdate();
+    if (!mounted || release == null) return;
+    final promptContext = HomePage.globalKey.currentContext;
+    if (promptContext == null || !promptContext.mounted) return;
+    await showAppUpdatePrompt(context: promptContext, release: release);
   }
 
   @override
