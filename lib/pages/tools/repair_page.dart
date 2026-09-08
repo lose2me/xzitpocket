@@ -17,7 +17,6 @@ class RepairPage extends StatefulWidget {
   final String studentId;
   final String password;
   final PreferencesStorage preferencesStorage;
-  final bool autoRefresh;
 
   const RepairPage({
     super.key,
@@ -25,7 +24,6 @@ class RepairPage extends StatefulWidget {
     required this.studentId,
     required this.password,
     required this.preferencesStorage,
-    this.autoRefresh = false,
   });
 
   @override
@@ -36,31 +34,53 @@ class _RepairPageState extends State<RepairPage> {
   late List<RepairRecord> _records;
   late RepairUserInfo _userInfo;
   bool _isRefreshing = false;
+  bool _refreshSucceeded = false;
 
   @override
   void initState() {
     super.initState();
     _records = widget.initialResult.records;
     _userInfo = widget.initialResult.userInfo;
-    if (widget.autoRefresh) unawaited(_refresh());
+    unawaited(_load());
   }
 
-  Future<void> _refresh() async {
+  Future<void> _load({bool forceRefresh = false}) async {
     setState(() => _isRefreshing = true);
     try {
-      final result = await ToolsDataManager.instance.refreshRepair(
-        widget.studentId,
-        widget.password,
-        widget.preferencesStorage,
-      );
+      final manager = ToolsDataManager.instance;
+      final requestedRefresh =
+          forceRefresh ||
+          !PreferencesStorage.isCacheValid(
+            widget.preferencesStorage.getRepairCacheTime(),
+            const Duration(minutes: 5),
+          );
+      RepairResult? result;
+      bool success;
+      if (forceRefresh) {
+        result = await manager.refreshRepair(
+          widget.studentId,
+          widget.password,
+          widget.preferencesStorage,
+        );
+        success = result != null;
+      } else {
+        success = await manager.loadRepair(
+          widget.studentId,
+          widget.password,
+          widget.preferencesStorage,
+        );
+        result = manager.repair;
+      }
       if (!mounted) return;
       if (result == null) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
         return;
       }
+      final refreshed = result;
       setState(() {
-        _records = result.records;
-        _userInfo = result.userInfo;
+        _records = refreshed.records;
+        _userInfo = refreshed.userInfo;
+        if (requestedRefresh && success) _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('报修详情刷新失败', e, stackTrace);
@@ -89,7 +109,7 @@ class _RepairPageState extends State<RepairPage> {
       ),
     );
     if (submitted == true) {
-      await _refresh();
+      await _load(forceRefresh: true);
     }
   }
 
@@ -106,9 +126,10 @@ class _RepairPageState extends State<RepairPage> {
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : _refresh,
+          onPress: _isRefreshing ? null : () => _load(forceRefresh: true),
           tooltip: '刷新报修',
           loading: _isRefreshing,
+          completed: _refreshSucceeded,
         ),
         FHeaderAction(
           icon: const Icon(FLucideIcons.plus),

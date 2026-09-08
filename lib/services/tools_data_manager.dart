@@ -49,7 +49,7 @@ class ToolsDataManager extends ChangeNotifier {
   JpStatusResult? jp;
   bool jpLoading = false;
 
-  final _powerOperation = InFlightOperation<void>();
+  final _powerOperation = InFlightOperation<bool>();
   final _yktOperation = InFlightOperation<bool>();
   final _examOperation = InFlightOperation<bool>();
   final _repairOperation = InFlightOperation<bool>();
@@ -68,12 +68,13 @@ class ToolsDataManager extends ChangeNotifier {
     CampusNetworkStatus.unavailable => false,
   };
 
-  static const _powerTtl = Duration(days: 1);
-  static const _yktTtl = Duration(minutes: 10);
-  static const _examTtl = Duration(minutes: 10);
-  static const _repairTtl = Duration(hours: 1);
-  static const _netAuthTtl = Duration(minutes: 10);
-  static const _jpTtl = Duration(hours: 3);
+  static const _dataCacheTtl = Duration(minutes: 5);
+  static const _powerTtl = _dataCacheTtl;
+  static const _yktTtl = _dataCacheTtl;
+  static const _examTtl = _dataCacheTtl;
+  static const _repairTtl = _dataCacheTtl;
+  static const _netAuthTtl = _dataCacheTtl;
+  static const _jpTtl = _dataCacheTtl;
 
   // ── Connectivity watch ──
   StreamSubscription<List<ConnectivityResult>>? _connSub;
@@ -186,7 +187,7 @@ class ToolsDataManager extends ChangeNotifier {
     talker.info('[ACTION] 后台数据加载\n完成');
   }
 
-  Future<void> refreshOnTabSwitch({
+  Future<bool?> refreshOnTabSwitch({
     required String studentId,
     required String password,
     required PreferencesStorage prefs,
@@ -194,35 +195,88 @@ class ToolsDataManager extends ChangeNotifier {
     bool loadYktData = true,
     bool loadPowerData = true,
     bool loadExamData = true,
+    bool forceRefresh = false,
   }) async {
     _savedPrefs = prefs;
     final hasNet = await checkInternetAvailable();
     if (!hasNet) {
       _setCampusNetworkStatus(CampusNetworkStatus.unavailable);
       _loadAllCaches(prefs);
-      return;
+      return false;
     }
 
-    final futures = <Future<void>>[];
+    final futures = <Future<bool>>[];
+    var requestedRefresh = false;
 
     if (loadPowerData && roomId != null && roomId.isNotEmpty) {
       final campusOk = await checkCampusNetwork();
       if (campusOk) {
-        futures.add(refreshPower(roomId, prefs).then((_) {}));
+        final needsRefresh =
+            forceRefresh ||
+            !PreferencesStorage.isCacheValid(
+              prefs.getPowerCacheTime(),
+              _powerTtl,
+            ) ||
+            power == null;
+        requestedRefresh = requestedRefresh || needsRefresh;
+        futures.add(
+          forceRefresh
+              ? refreshPower(roomId, prefs).then((result) => result != null)
+              : loadPower(roomId, prefs),
+        );
       } else {
         _restorePowerCache(prefs, roomId: roomId);
         notifyListeners();
+        if (forceRefresh ||
+            !PreferencesStorage.isCacheValid(
+              prefs.getPowerCacheTime(),
+              _powerTtl,
+            )) {
+          requestedRefresh = true;
+          futures.add(Future.value(false));
+        }
       }
     }
 
     if (loadYktData) {
-      futures.add(refreshYkt(studentId, password, prefs).then((_) {}));
+      final needsRefresh =
+          forceRefresh ||
+          !PreferencesStorage.isCacheValid(prefs.getYktCacheTime(), _yktTtl) ||
+          ykt == null;
+      requestedRefresh = requestedRefresh || needsRefresh;
+      futures.add(
+        forceRefresh
+            ? refreshYkt(
+                studentId,
+                password,
+                prefs,
+              ).then((result) => result != null)
+            : loadYkt(studentId, password, prefs),
+      );
     }
     if (loadExamData) {
-      futures.add(refreshExam(studentId, password, prefs).then((_) {}));
+      final needsRefresh =
+          forceRefresh ||
+          !PreferencesStorage.isCacheValid(
+            prefs.getExamCacheTime(),
+            _examTtl,
+          ) ||
+          exams == null;
+      requestedRefresh = requestedRefresh || needsRefresh;
+      futures.add(
+        forceRefresh
+            ? refreshExam(
+                studentId,
+                password,
+                prefs,
+              ).then((result) => result != null)
+            : loadExam(studentId, password, prefs),
+      );
     }
 
-    await Future.wait(futures);
+    if (futures.isEmpty || !requestedRefresh) return null;
+    final results = await Future.wait(futures);
+    return results.every((success) => success);
   }
 
   // ── Campus network check ──
@@ -293,8 +347,10 @@ class ToolsDataManager extends ChangeNotifier {
 
   // ── Individual loaders ──
 
-  Future<void> loadPower(String roomId, PreferencesStorage prefs) {
-    if (!_featureEnabled(AppServiceFeature.power, prefs)) return Future.value();
+  Future<bool> loadPower(String roomId, PreferencesStorage prefs) {
+    if (!_featureEnabled(AppServiceFeature.power, prefs)) {
+      return Future.value(false);
+    }
     _savedPrefs = prefs;
     return _powerOperation.run(() => _loadPower(roomId, prefs));
   }
@@ -304,13 +360,15 @@ class ToolsDataManager extends ChangeNotifier {
     PreferencesStorage prefs,
   ) async {
     if (!_featureEnabled(AppServiceFeature.power, prefs)) return null;
-    await _powerOperation.run(
+    final success = await _powerOperation.run(
       () => _loadPower(roomId, prefs, forceRefresh: true),
     );
-    return powerError == null && _powerRoomId == roomId ? power : null;
+    return success && powerError == null && _powerRoomId == roomId
+        ? power
+        : null;
   }
 
-  Future<void> _loadPower(
+  Future<bool> _loadPower(
     String roomId,
     PreferencesStorage prefs, {
     bool forceRefresh = false,
@@ -325,13 +383,13 @@ class ToolsDataManager extends ChangeNotifier {
         power != null) {
       powerError = null;
       notifyListeners();
-      return;
+      return true;
     }
 
     if (!isCampusNetworkAvailable) {
       powerError = '请连接校园网';
       notifyListeners();
-      return;
+      return false;
     }
 
     powerLoading = true;
@@ -342,23 +400,24 @@ class ToolsDataManager extends ChangeNotifier {
       final result = await PowerService().queryRoom(roomId);
       if (generation != _dataGeneration ||
           powerGeneration != _powerGeneration) {
-        return;
+        return false;
       }
       power = result;
       _powerRoomId = roomId;
       powerError = null;
       await prefs.setPowerCache(jsonEncode(result.toJson()), roomId: roomId);
+      return true;
     } on PowerQueryException catch (e, stackTrace) {
       if (generation != _dataGeneration ||
           powerGeneration != _powerGeneration) {
-        return;
+        return false;
       }
       powerError = e.message;
       talker.error('电费后台加载失败', e, stackTrace);
     } catch (e, stackTrace) {
       if (generation != _dataGeneration ||
           powerGeneration != _powerGeneration) {
-        return;
+        return false;
       }
       powerError = '查询失败';
       talker.error('电费后台加载异常', e, stackTrace);
@@ -369,6 +428,7 @@ class ToolsDataManager extends ChangeNotifier {
         notifyListeners();
       }
     }
+    return false;
   }
 
   void _restorePowerCache(PreferencesStorage prefs, {String? roomId}) {
@@ -402,13 +462,15 @@ class ToolsDataManager extends ChangeNotifier {
     }
   }
 
-  Future<void> loadYkt(
+  Future<bool> loadYkt(
     String studentId,
     String password,
     PreferencesStorage prefs,
-  ) async {
-    if (!_featureEnabled(AppServiceFeature.campusCard, prefs)) return;
-    await _yktOperation.run(() => _loadYkt(studentId, password, prefs));
+  ) {
+    if (!_featureEnabled(AppServiceFeature.campusCard, prefs)) {
+      return Future.value(false);
+    }
+    return _yktOperation.run(() => _loadYkt(studentId, password, prefs));
   }
 
   Future<YktDetailResult?> refreshYkt(
@@ -493,13 +555,15 @@ class ToolsDataManager extends ChangeNotifier {
     return false;
   }
 
-  Future<void> loadExam(
+  Future<bool> loadExam(
     String studentId,
     String password,
     PreferencesStorage prefs,
-  ) async {
-    if (!_featureEnabled(AppServiceFeature.exams, prefs)) return;
-    await _examOperation.run(() => _loadExam(studentId, password, prefs));
+  ) {
+    if (!_featureEnabled(AppServiceFeature.exams, prefs)) {
+      return Future.value(false);
+    }
+    return _examOperation.run(() => _loadExam(studentId, password, prefs));
   }
 
   Future<ExamResult?> refreshExam(
@@ -560,13 +624,15 @@ class ToolsDataManager extends ChangeNotifier {
     return false;
   }
 
-  Future<void> loadRepair(
+  Future<bool> loadRepair(
     String studentId,
     String password,
     PreferencesStorage prefs,
-  ) async {
-    if (!_featureEnabled(AppServiceFeature.repair, prefs)) return;
-    await _repairOperation.run(() => _loadRepair(studentId, password, prefs));
+  ) {
+    if (!_featureEnabled(AppServiceFeature.repair, prefs)) {
+      return Future.value(false);
+    }
+    return _repairOperation.run(() => _loadRepair(studentId, password, prefs));
   }
 
   Future<RepairResult?> refreshRepair(
@@ -609,10 +675,7 @@ class ToolsDataManager extends ChangeNotifier {
 
     try {
       final service = RepairService();
-      final result = await _retryOnce(
-        () => service.fetchAll(studentId, password),
-        canRetry: () => generation == _dataGeneration,
-      );
+      final result = await service.fetchAll(studentId, password);
       if (generation != _dataGeneration) return false;
       repair = result;
       await prefs.setRepairCache(jsonEncode(result.toJson()));
@@ -632,13 +695,17 @@ class ToolsDataManager extends ChangeNotifier {
     return false;
   }
 
-  Future<void> loadNetAuth(
+  Future<bool> loadNetAuth(
     String studentId,
     String password,
     PreferencesStorage prefs,
-  ) async {
-    if (!_featureEnabled(AppServiceFeature.network, prefs)) return;
-    await _netAuthOperation.run(() => _loadNetAuth(studentId, password, prefs));
+  ) {
+    if (!_featureEnabled(AppServiceFeature.network, prefs)) {
+      return Future.value(false);
+    }
+    return _netAuthOperation.run(
+      () => _loadNetAuth(studentId, password, prefs),
+    );
   }
 
   Future<NetAuthResult?> refreshNetAuth(
@@ -682,10 +749,7 @@ class ToolsDataManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _retryOnce(
-        () => NetAuthService().login(studentId, password),
-        canRetry: () => generation == _dataGeneration,
-      );
+      final result = await NetAuthService().login(studentId, password);
       if (generation != _dataGeneration) return false;
       netAuth = result;
       await prefs.setNetauthCache(jsonEncode(result.toJson()));
@@ -705,13 +769,15 @@ class ToolsDataManager extends ChangeNotifier {
     return false;
   }
 
-  Future<void> loadJp(
+  Future<bool> loadJp(
     String studentId,
     String password,
     PreferencesStorage prefs,
-  ) async {
-    if (!_featureEnabled(AppServiceFeature.teacherEvaluation, prefs)) return;
-    await _jpOperation.run(() => _loadJp(studentId, password, prefs));
+  ) {
+    if (!_featureEnabled(AppServiceFeature.teacherEvaluation, prefs)) {
+      return Future.value(false);
+    }
+    return _jpOperation.run(() => _loadJp(studentId, password, prefs));
   }
 
   Future<JpStatusResult?> refreshJp(
@@ -757,10 +823,7 @@ class ToolsDataManager extends ChangeNotifier {
 
     try {
       final service = JpService();
-      final result = await _retryOnce(
-        () => service.queryStatus(studentId, password),
-        canRetry: () => generation == _dataGeneration,
-      );
+      final result = await service.queryStatus(studentId, password);
       if (generation != _dataGeneration) return false;
       jp = result;
       await prefs.setJpCache(jsonEncode(result.toJson()));
@@ -960,29 +1023,21 @@ class ToolsDataManager extends ChangeNotifier {
       !prefs.getHiddenServiceFeatures().contains(feature.storageValue);
 
   Future<void> _loadLearningBanks() async {
+    final prefs = _savedPrefs;
+    if (prefs == null ||
+        PreferencesStorage.isCacheValid(
+          prefs.getLearningQuestionBankCacheTime(),
+          _dataCacheTtl,
+        )) {
+      return;
+    }
     try {
       final banks = await ControlService.instance.fetchLearningQuestionBanks();
-      final prefs = _savedPrefs;
-      if (prefs == null) return;
       await prefs.setLearningQuestionBankCache(
         jsonEncode([for (final bank in banks) bank.toJson()]),
       );
     } catch (error, stackTrace) {
       talker.warning('学习中心后台加载失败', error, stackTrace);
-    }
-  }
-
-  static Future<T> _retryOnce<T>(
-    Future<T> Function() fn, {
-    bool Function()? canRetry,
-  }) async {
-    try {
-      return await fn();
-    } on AuthException {
-      if (canRetry != null && !canRetry()) rethrow;
-      await Future.delayed(const Duration(seconds: 1));
-      if (canRetry != null && !canRetry()) rethrow;
-      return await fn();
     }
   }
 }

@@ -36,9 +36,12 @@ class GradeQueryPage extends StatefulWidget {
 }
 
 class _GradeQueryPageState extends State<GradeQueryPage> {
+  static const _cacheTtl = Duration(minutes: 5);
+
   GradeResult? _result;
   AcademicStatus? _academic;
   bool _loading = false;
+  bool _refreshSucceeded = false;
   int _yearIndex = 0;
   int _termIndex = 0;
   GradeResult? _semesterOptionsSource;
@@ -84,7 +87,20 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool forceRefresh = false}) async {
+    final hasFreshCache =
+        _result != null &&
+        _academic != null &&
+        PreferencesStorage.isCacheValid(
+          widget.preferencesStorage.getGradeCacheTime(),
+          _cacheTtl,
+        ) &&
+        PreferencesStorage.isCacheValid(
+          widget.preferencesStorage.getAcademicCacheTime(),
+          _cacheTtl,
+        );
+    if (!forceRefresh && hasFreshCache) return;
+
     setState(() => _loading = true);
     try {
       final (grades, academic) = await AuthService().fetchGradesAndAcademic(
@@ -101,6 +117,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       setState(() {
         _result = grades;
         _academic = academic;
+        _refreshSucceeded = true;
         _yearIndex = 0;
         // 默认显示最新学期：最新学年 + 该学年最后一个学期
         final latestYear = grades.years.isNotEmpty ? grades.years.first : null;
@@ -161,9 +178,10 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
-          onPress: _loading ? null : _load,
+          onPress: _loading ? null : () => _load(forceRefresh: true),
           tooltip: '刷新成绩',
           loading: _loading,
+          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageBody(

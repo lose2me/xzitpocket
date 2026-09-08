@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -31,14 +33,21 @@ class ExamQueryPage extends StatefulWidget {
 class _ExamQueryPageState extends State<ExamQueryPage> {
   late ExamResult _result;
   bool _isRefreshing = false;
+  bool _refreshSucceeded = false;
 
   @override
   void initState() {
     super.initState();
     _result = widget.result;
+    if (!PreferencesStorage.isCacheValid(
+      widget.preferencesStorage.getExamCacheTime(),
+      const Duration(minutes: 5),
+    )) {
+      unawaited(_refresh(showError: false));
+    }
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool showError = true}) async {
     setState(() => _isRefreshing = true);
     try {
       final result = await ToolsDataManager.instance.refreshExam(
@@ -48,18 +57,23 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
       );
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+        if (showError) {
+          showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+        }
         return;
       }
-      setState(() => _result = result);
+      setState(() {
+        _result = result;
+        _refreshSucceeded = true;
+      });
     } on AuthException catch (e, stackTrace) {
       talker.error('考试详情刷新失败', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, e.message, severity: ToastSeverity.error);
       }
     } catch (e, stackTrace) {
       talker.error('考试详情况刷新异常', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
     } finally {
@@ -103,6 +117,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
           onPress: _isRefreshing ? null : _refresh,
           tooltip: '刷新考试',
           loading: _isRefreshing,
+          completed: _refreshSucceeded,
         ),
       ],
       child: exams.isEmpty

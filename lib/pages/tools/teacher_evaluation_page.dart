@@ -8,20 +8,16 @@ import '../../providers/config_provider.dart';
 import '../../services/cas_service.dart';
 import '../../services/jp_service.dart';
 import '../../services/credential_storage.dart';
+import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 
 class TeacherEvaluationPage extends ConsumerStatefulWidget {
-  const TeacherEvaluationPage({
-    super.key,
-    this.result,
-    this.autoRefresh = false,
-  });
+  const TeacherEvaluationPage({super.key, this.result});
 
   final JpStatusResult? result;
-  final bool autoRefresh;
 
   @override
   ConsumerState<TeacherEvaluationPage> createState() =>
@@ -33,6 +29,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   final _manager = ToolsDataManager.instance;
   bool _isLoading = false;
   bool _isEvaluating = false;
+  bool _refreshSucceeded = false;
   JpStatusResult? _status;
   int _currentPage = 0;
   final _pageController = PageController();
@@ -52,12 +49,8 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   void initState() {
     super.initState();
     _manager.addListener(_onCampusNetworkChanged);
-    if (widget.result != null) {
-      _status = widget.result;
-      if (widget.autoRefresh) unawaited(_loadStatus());
-    } else {
-      unawaited(_loadStatus());
-    }
+    _status = widget.result;
+    unawaited(_loadStatus());
   }
 
   @override
@@ -87,7 +80,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     return false;
   }
 
-  Future<void> _loadStatus() async {
+  Future<void> _loadStatus({bool forceRefresh = false}) async {
     if (_isLoading) return;
     if (!_requireCampusNetwork()) return;
     final config = ref.read(configProvider);
@@ -96,14 +89,24 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     if (password == null || password.isEmpty) return;
     if (!_requireCampusNetwork()) return;
     final prefs = ref.read(preferencesStorageProvider);
+    final requestedRefresh =
+        forceRefresh ||
+        !PreferencesStorage.isCacheValid(
+          prefs.getJpCacheTime(),
+          const Duration(minutes: 5),
+        );
 
     setState(() => _isLoading = true);
     try {
-      final result = await _manager.refreshJp(
-        config.studentId!,
-        password,
-        prefs,
-      );
+      JpStatusResult? result;
+      bool success;
+      if (forceRefresh) {
+        result = await _manager.refreshJp(config.studentId!, password, prefs);
+        success = result != null;
+      } else {
+        success = await _manager.loadJp(config.studentId!, password, prefs);
+        result = _manager.jp;
+      }
       if (!mounted) return;
       if (result == null) {
         showAppSnackBar(context, '查询失败', severity: ToastSeverity.error);
@@ -112,6 +115,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
       setState(() {
         _status = result;
         _currentPage = 0;
+        if (requestedRefresh && success) _refreshSucceeded = true;
       });
       if (_pageController.hasClients) {
         _pageController.jumpToPage(0);
@@ -174,7 +178,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
           severity: ToastSeverity.success,
         );
       }
-      await _loadStatus();
+      await _loadStatus(forceRefresh: true);
     } on AuthException catch (e, stackTrace) {
       talker.error('教师评价自动评教失败', e, stackTrace);
       if (!mounted) return;
@@ -206,9 +210,12 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
-          onPress: _isLoading || !_campusAvailable ? null : _loadStatus,
+          onPress: _isLoading || !_campusAvailable
+              ? null
+              : () => _loadStatus(forceRefresh: true),
           tooltip: '刷新评价',
           loading: _isLoading,
+          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageBody(

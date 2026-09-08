@@ -18,7 +18,6 @@ class DioFactory {
     Duration? receiveTimeout,
     String userAgent = kUserAgent,
     bool bypassProxy = false,
-    bool ignoreCertificate = false,
   }) {
     final dio = Dio(
       BaseOptions(
@@ -31,14 +30,11 @@ class DioFactory {
         validateStatus: (status) => status != null && status < 400,
       ),
     );
-    if (bypassProxy || ignoreCertificate) {
+    if (bypassProxy) {
       dio.httpClientAdapter = IOHttpClientAdapter(
         createHttpClient: () {
           final client = HttpClient();
           if (bypassProxy) client.findProxy = (_) => 'DIRECT';
-          if (ignoreCertificate) {
-            client.badCertificateCallback = (_, _, _) => true;
-          }
           return client;
         },
       );
@@ -53,7 +49,6 @@ class DioFactory {
     Duration? connectTimeout,
     Duration? receiveTimeout,
     String userAgent = kUserAgent,
-    bool ignoreCertificate = false,
   }) {
     final dio = Dio(
       BaseOptions(
@@ -61,19 +56,10 @@ class DioFactory {
         receiveTimeout: receiveTimeout,
         headers: {'User-Agent': userAgent},
         followRedirects: true,
-        maxRedirects: 10,
+        maxRedirects: 5,
         validateStatus: (status) => status != null && status < 400,
       ),
     );
-    if (ignoreCertificate) {
-      dio.httpClientAdapter = IOHttpClientAdapter(
-        createHttpClient: () {
-          final client = HttpClient();
-          client.badCertificateCallback = (_, _, _) => true;
-          return client;
-        },
-      );
-    }
     dio.interceptors.add(_LenientCookieManager(cookieJar));
     dio.interceptors.add(talkerDioLogger);
     return dio;
@@ -102,7 +88,8 @@ class _LenientCookieManager extends CookieManager {
         try {
           cookies.add(Cookie.fromSetCookieValue(raw));
         } catch (e, stackTrace) {
-          talker.warning('Set-Cookie 解析失败\n$raw', e, stackTrace);
+          // Never include the raw header: it may contain a session cookie.
+          talker.warning('Set-Cookie 解析失败', e, stackTrace);
         }
       }
       if (cookies.isNotEmpty) {

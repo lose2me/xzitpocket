@@ -3,6 +3,7 @@ package live.xuda.xzitpocket
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -12,8 +13,28 @@ import live.xuda.xzitpocket.automation.ClassAutomationController
 import live.xuda.xzitpocket.widget.WidgetDataSynchronizer
 import live.xuda.xzitpocket.widget.WidgetUpdateHelper
 import java.io.File
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
+    private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Ask Android to schedule frames at the panel's high refresh rate when
+        // available. Flutter still falls back automatically on 60 Hz devices.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            window.attributes = window.attributes.apply {
+                preferredRefreshRate = 120f
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        backgroundExecutor.shutdownNow()
+        super.onDestroy()
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -119,7 +140,12 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun installApk(filePath: String) {
-        val apkFile = File(filePath)
+        val apkFile = File(filePath).canonicalFile
+        val updatesRoot = File(filesDir, "updates").canonicalFile
+        require(
+            apkFile.path.startsWith(updatesRoot.path + File.separator) &&
+                apkFile.extension.equals("apk", ignoreCase = true),
+        ) { "更新包路径无效" }
         require(apkFile.exists()) { "更新包不存在" }
         val apkUri = FileProvider.getUriForFile(
             this,
@@ -139,7 +165,7 @@ class MainActivity : FlutterActivity() {
         result: MethodChannel.Result,
         task: () -> Unit,
     ) {
-        Thread {
+        backgroundExecutor.execute {
             try {
                 task()
                 runOnUiThread { result.success(null) }
@@ -148,6 +174,6 @@ class MainActivity : FlutterActivity() {
                     result.error("widget_bridge_error", e.message, null)
                 }
             }
-        }.start()
+        }
     }
 }

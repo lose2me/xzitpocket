@@ -66,6 +66,11 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     await _reload();
   }
 
+  Future<void> deleteCoursesByCourseId(String courseId) async {
+    await _storage.deleteCoursesByCourseId(courseId);
+    await _reload();
+  }
+
   Future<void> syncCourseFields(
     String courseId, {
     required int excludeKey,

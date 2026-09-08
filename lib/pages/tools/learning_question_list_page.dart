@@ -101,6 +101,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
     final theme = context.theme;
     final questions = _questions;
     final groups = _groupedQuestions;
+    final rows = _buildRows(groups);
     return AppPage(
       title: _title,
       actions: [
@@ -131,51 +132,60 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
                   ? '暂时没有可练习的题目'
                   : '完成题目或收藏题目后会显示在这里',
             )
-          : AppPageListView(
+          : AppPageListViewBuilder(
               maxWidth: AppLayout.resultMaxWidth,
               topPadding: AppSpacing.lg,
               bottomPadding: AppSpacing.xxl,
-              children: [
-                Text(
-                  '${questions.length} 道题目',
-                  style: theme.typography.bodySmall.copyWith(
-                    color: theme.colors.mutedForeground,
+              itemCount: rows.length,
+              itemBuilder: (context, index) {
+                final row = rows[index];
+                return switch (row.type) {
+                  _QuestionRowType.count => Text(
+                    '${questions.length} 道题目',
+                    style: theme.typography.bodySmall.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                for (
-                  var groupIndex = 0;
-                  groupIndex < groups.length;
-                  groupIndex++
-                ) ...[
-                  if (groups.length > 1) ...[
-                    Text(
-                      groups[groupIndex].title,
-                      style: theme.typography.sectionTitle,
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                  for (
-                    var index = 0;
-                    index < groups[groupIndex].questions.length;
-                    index++
-                  ) ...[
-                    _buildQuestionCard(
-                      theme,
-                      groups[groupIndex].questions,
-                      groups[groupIndex].questions[index],
-                      index,
-                      groups[groupIndex].name,
-                    ),
-                    if (index != groups[groupIndex].questions.length - 1)
-                      const SizedBox(height: AppSpacing.sm),
-                  ],
-                  if (groupIndex != groups.length - 1)
-                    const SizedBox(height: AppSpacing.xl),
-                ],
-              ],
+                  _QuestionRowType.heading => Text(
+                    row.heading!,
+                    style: theme.typography.sectionTitle,
+                  ),
+                  _QuestionRowType.card => _buildQuestionCard(
+                    theme,
+                    row.group!.questions,
+                    row.group!.questions[row.questionIndex!],
+                    row.questionIndex!,
+                    row.group!.name,
+                  ),
+                  _QuestionRowType.spacer => SizedBox(height: row.height),
+                };
+              },
             ),
     );
+  }
+
+  List<_QuestionListRow> _buildRows(List<_QuestionBankGroup> groups) {
+    final rows = <_QuestionListRow>[
+      const _QuestionListRow.count(),
+      const _QuestionListRow.spacer(AppSpacing.sm),
+    ];
+    for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+      final group = groups[groupIndex];
+      if (groups.length > 1) {
+        rows.add(_QuestionListRow.heading(group.title));
+        rows.add(const _QuestionListRow.spacer(AppSpacing.md));
+      }
+      for (var index = 0; index < group.questions.length; index++) {
+        rows.add(_QuestionListRow.card(group, index));
+        if (index != group.questions.length - 1) {
+          rows.add(const _QuestionListRow.spacer(AppSpacing.sm));
+        }
+      }
+      if (groupIndex != groups.length - 1) {
+        rows.add(const _QuestionListRow.spacer(AppSpacing.xl));
+      }
+    }
+    return rows;
   }
 
   Future<void> _clearData() async {
@@ -353,6 +363,40 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
       ),
     ),
   );
+}
+
+enum _QuestionRowType { count, heading, card, spacer }
+
+class _QuestionListRow {
+  final _QuestionRowType type;
+  final String? heading;
+  final _QuestionBankGroup? group;
+  final int? questionIndex;
+  final double height;
+
+  const _QuestionListRow.count()
+    : type = _QuestionRowType.count,
+      heading = null,
+      group = null,
+      questionIndex = null,
+      height = 0;
+
+  const _QuestionListRow.heading(this.heading)
+    : type = _QuestionRowType.heading,
+      group = null,
+      questionIndex = null,
+      height = 0;
+
+  const _QuestionListRow.card(this.group, this.questionIndex)
+    : type = _QuestionRowType.card,
+      heading = null,
+      height = 0;
+
+  const _QuestionListRow.spacer(this.height)
+    : type = _QuestionRowType.spacer,
+      heading = null,
+      group = null,
+      questionIndex = null;
 }
 
 class _QuestionBankGroup {

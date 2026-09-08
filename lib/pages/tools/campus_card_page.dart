@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -30,6 +32,7 @@ class CampusCardPage extends StatefulWidget {
 class _CampusCardPageState extends State<CampusCardPage> {
   static const _pageSize = 7;
   bool _isRefreshing = false;
+  bool _refreshSucceeded = false;
   bool _isQuerying = false;
   final _scrollController = ScrollController();
   int _visibleCount = _pageSize;
@@ -49,6 +52,12 @@ class _CampusCardPageState extends State<CampusCardPage> {
     _startDate = _endDate.subtract(const Duration(days: 30));
     _rangeCtrl.text = _rangeText();
     _scrollController.addListener(_onScroll);
+    if (!PreferencesStorage.isCacheValid(
+      widget.preferencesStorage.getYktCacheTime(),
+      const Duration(minutes: 5),
+    )) {
+      unawaited(_refresh(showError: false));
+    }
   }
 
   @override
@@ -58,7 +67,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
     super.dispose();
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool showError = true}) async {
     setState(() => _isRefreshing = true);
     try {
       final result = await ToolsDataManager.instance.refreshYkt(
@@ -68,22 +77,25 @@ class _CampusCardPageState extends State<CampusCardPage> {
       );
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+        if (showError) {
+          showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+        }
         return;
       }
       setState(() {
         _result = result;
         _txns = result.transactions.reversed.toList();
         _visibleCount = _pageSize;
+        _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('一卡通详情刷新失败', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, e.message, severity: ToastSeverity.error);
       }
     } catch (e, stackTrace) {
       talker.error('一卡通详情刷新异常', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
     } finally {
@@ -197,6 +209,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
           onPress: _isRefreshing ? null : _refresh,
           tooltip: '刷新一卡通',
           loading: _isRefreshing,
+          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageListView(

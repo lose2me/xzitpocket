@@ -3,9 +3,8 @@ import 'package:talker_flutter/talker_flutter.dart';
 
 /// Application-wide Talker instance used by the UI, services, and Dio.
 ///
-/// Request and response data are intentionally available in the local
-/// diagnostic view. When Talker is enabled, error-level records are also
-/// sent to Control after sensitive fields are redacted.
+/// Request and response data are available in the local diagnostic view.
+/// When Talker is enabled, error-level records are also sent to Control.
 final talker = TalkerFlutter.init(
   settings: TalkerSettings(
     enabled: false,

@@ -49,13 +49,10 @@ class TalkerNetworkReporter {
           await ControlService.instance.reportErrorLog(
             eventId: controlRandomToken(18),
             occurredAt: data.time,
-            title: _sanitize(data.title ?? data.key ?? 'error', 128),
-            message: _sanitize(data.message ?? '', 4096),
-            error: _sanitize(
-              data.error?.toString() ?? data.exception?.toString() ?? '',
-              4096,
-            ),
-            stackTrace: _sanitize(data.stackTrace?.toString() ?? '', 16384),
+            title: data.title ?? data.key ?? 'error',
+            message: data.message ?? '',
+            error: data.error?.toString() ?? data.exception?.toString() ?? '',
+            stackTrace: data.stackTrace?.toString() ?? '',
             appVersion: info.version,
             platform: Platform.operatingSystem,
           );
@@ -68,22 +65,5 @@ class TalkerNetworkReporter {
     } finally {
       _sending = false;
     }
-  }
-
-  String _sanitize(String value, int maxLength) {
-    var result = value
-        .replaceAll(
-          RegExp(
-            r'(password|passwd|token|ticket|authorization|cookie|student_id)([=:])[^\s&]+',
-            caseSensitive: false,
-          ),
-          r'$1$2<redacted>',
-        )
-        .replaceAll(
-          RegExp(r'Bearer\s+[^\s]+', caseSensitive: false),
-          'Bearer <redacted>',
-        );
-    if (result.length > maxLength) result = result.substring(0, maxLength);
-    return result;
   }
 }

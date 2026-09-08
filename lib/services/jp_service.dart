@@ -178,7 +178,6 @@ class JpService {
     cookieJar: CookieJar(),
     connectTimeout: requestTimeout,
     receiveTimeout: requestTimeout,
-    ignoreCertificate: true,
   );
 
   Future<String> _ssoToZlbz4(String username) async {

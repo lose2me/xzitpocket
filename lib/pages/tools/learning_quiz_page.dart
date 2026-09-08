@@ -30,6 +30,9 @@ class _QuizPageScrollPhysics extends PageScrollPhysics {
       );
 
   @override
+  double get dragStartDistanceMotionThreshold => 8.0;
+
+  @override
   double applyBoundaryConditions(ScrollMetrics position, double value) {
     if (position is! PageMetrics || position.outOfRange) {
       return super.applyBoundaryConditions(position, value);

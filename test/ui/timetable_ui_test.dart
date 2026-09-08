@@ -76,7 +76,7 @@ void main() {
     );
   });
 
-  testWidgets('editing a course keeps the form visible above delete footer', (
+  testWidgets('editing a course keeps the form visible above its footer', (
     tester,
   ) async {
     final course = Course(
@@ -98,7 +98,6 @@ void main() {
           session: course.startSession,
           existingCourse: course,
           onSave: (_) async {},
-          onDelete: () async {},
         ),
       ),
     );
@@ -109,7 +108,7 @@ void main() {
     expect(find.text('地点'), findsOneWidget);
     expect(find.text('校区'), findsOneWidget);
     expect(find.text('周次'), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
     expect(tester.getSize(find.byType(ListView)).height, greaterThan(300));
   });
 

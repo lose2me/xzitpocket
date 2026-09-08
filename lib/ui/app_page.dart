@@ -236,3 +236,62 @@ class AppPageListView extends StatelessWidget {
     return content;
   }
 }
+
+/// Lazy counterpart of [AppPageListView] for long result sets. Keeping this
+/// separate preserves the simple `children` API for short static pages while
+/// allowing large lists to build only the rows that are visible.
+class AppPageListViewBuilder extends StatelessWidget {
+  final IndexedWidgetBuilder itemBuilder;
+  final int itemCount;
+  final double maxWidth;
+  final double topPadding;
+  final double bottomPadding;
+  final ScrollController? controller;
+  final ScrollPhysics? physics;
+  final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
+  final bool primary;
+  final bool safeArea;
+
+  const AppPageListViewBuilder({
+    super.key,
+    required this.itemBuilder,
+    required this.itemCount,
+    this.maxWidth = AppLayout.contentMaxWidth,
+    this.topPadding = AppSpacing.md,
+    this.bottomPadding = AppSpacing.xl,
+    this.controller,
+    this.physics,
+    this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
+    this.primary = true,
+    this.safeArea = true,
+  }) : assert(itemCount >= 0);
+
+  @override
+  Widget build(BuildContext context) {
+    Widget content = LayoutBuilder(
+      builder: (context, constraints) {
+        final gutter = AppLayout.pageGutter(context);
+        final contentWidth = (constraints.maxWidth - gutter * 2)
+            .clamp(0.0, maxWidth)
+            .toDouble();
+        final horizontal = (constraints.maxWidth - contentWidth) / 2;
+        return ListView.builder(
+          controller: controller,
+          physics: physics,
+          primary: controller == null ? primary : false,
+          keyboardDismissBehavior: keyboardDismissBehavior,
+          padding: EdgeInsets.fromLTRB(
+            horizontal,
+            topPadding,
+            horizontal,
+            bottomPadding,
+          ),
+          itemCount: itemCount,
+          itemBuilder: itemBuilder,
+        );
+      },
+    );
+    if (safeArea) content = SafeArea(child: content);
+    return content;
+  }
+}

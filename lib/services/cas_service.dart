@@ -69,6 +69,10 @@ class CasService {
       } on _RestUnavailableException {
         _restAvailable = false;
         talker.info('[AUTH] CAS REST\n不可用, 回退HTML');
+      } on AuthException catch (error, stackTrace) {
+        if (error.message != '教务系统 SSO 登录失败') rethrow;
+        _restAvailable = false;
+        talker.warning('CAS REST JW SSO 失败，回退 HTML', error, stackTrace);
       }
     }
     return _htmlLoginJw(username, password);
@@ -131,9 +135,7 @@ class CasService {
         if (resp.statusCode == 301 || resp.statusCode == 302) {
           final loc = resp.headers.value('location');
           if (loc == null || loc.isEmpty) break;
-          url = loc.startsWith('http')
-              ? loc
-              : Uri.parse(url).resolve(loc).toString();
+          url = _resolveRedirect(url, loc);
           continue;
         }
 
@@ -237,9 +239,7 @@ class CasService {
       if (resp.statusCode == 301 || resp.statusCode == 302) {
         final loc = resp.headers.value('location');
         if (loc == null || loc.isEmpty) break;
-        ssoUrl = loc.startsWith('http')
-            ? loc
-            : Uri.parse(ssoUrl).resolve(loc).toString();
+        ssoUrl = _resolveRedirect(ssoUrl, loc);
         continue;
       }
 
@@ -322,7 +322,6 @@ class CasService {
 
       final errMsg = _extractErrorMsg(resp.data as String? ?? '');
       dio.close(force: true);
-
       final isCredentialErr = errMsg.contains('密码') || errMsg.contains('用户名');
       if (isCredentialErr && attempt < maxAttempts) {
         talker.info(
@@ -352,7 +351,6 @@ class CasService {
       cookieJar: jar,
       connectTimeout: requestTimeout,
       receiveTimeout: requestTimeout,
-      ignoreCertificate: true,
     );
   }
 
@@ -410,13 +408,17 @@ Future<Response<String>> followRedirectsManually(
     if (resp.statusCode == 301 || resp.statusCode == 302) {
       final loc = resp.headers.value('location');
       if (loc == null || loc.isEmpty) return resp;
-      currentUrl = loc.startsWith('http')
-          ? loc
-          : Uri.parse(currentUrl).resolve(loc).toString();
+      currentUrl = _resolveRedirect(currentUrl, loc);
       continue;
     }
 
     return resp;
   }
   throw AuthException('重定向次数过多');
+}
+
+String _resolveRedirect(String currentUrl, String location) {
+  return location.startsWith('http')
+      ? location
+      : Uri.parse(currentUrl).resolve(location).toString();
 }

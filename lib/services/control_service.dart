@@ -87,7 +87,7 @@ class ControlService {
     return uri != null &&
         uri.hasScheme &&
         uri.host.isNotEmpty &&
-        (uri.scheme == 'http' || uri.scheme == 'https');
+        uri.scheme == 'https';
   }
 
   Future<void> initialize() {
@@ -378,10 +378,12 @@ class ControlService {
       final downloadUrl = Uri.tryParse(
         response['downloadUrl']?.toString().trim() ?? '',
       );
+      final controlUri = Uri.parse(baseUrl);
       if (latestVersion.isEmpty ||
           downloadUrl == null ||
           !downloadUrl.hasScheme ||
-          (downloadUrl.scheme != 'http' && downloadUrl.scheme != 'https') ||
+          downloadUrl.scheme != 'https' ||
+          downloadUrl.host != controlUri.host ||
           !isControlVersionNewer(latestVersion, info.version)) {
         return null;
       }
@@ -433,19 +435,13 @@ class ControlService {
         'occurred_at': occurredAt.toUtc().toIso8601String(),
         'app_version': appVersion,
         'platform': platform,
-        'title': _redactStudentId(title),
-        'message': _redactStudentId(message),
-        'error': _redactStudentId(error),
-        'stack_trace': _redactStudentId(stackTrace),
+        'title': title,
+        'message': message,
+        'error': error,
+        'stack_trace': stackTrace,
       },
       headers: {'Authorization': 'Bearer $token'},
     );
-  }
-
-  String _redactStudentId(String value) {
-    final studentId = _sessionStudentId;
-    if (studentId == null || studentId.isEmpty) return value;
-    return value.replaceAll(studentId, '<student>');
   }
 
   Future<void> logout() async {

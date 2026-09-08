@@ -46,8 +46,10 @@ android {
 
     buildTypes {
         release {
-            signingConfig =
-                signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
+            // Never fall back to the debug keystore for a release artifact.
+            // The signing certificate is part of the installation identity;
+            // release builds are signed only when key.properties is supplied.
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -70,4 +72,17 @@ dependencies {
 
 flutter {
     source = "../.."
+}
+
+// AGP silently falls back to a debug signer when a release signing config is
+// absent. Refuse release task graphs without the explicitly configured key.
+gradle.taskGraph.whenReady {
+    if (!hasReleaseKeystore && allTasks.any {
+            it.name.contains("Release", ignoreCase = true) &&
+                (it.name.startsWith("assemble") || it.name.startsWith("bundle"))
+        }) {
+        throw GradleException(
+            "Missing android/key.properties; refusing to sign a release artifact with the debug keystore",
+        )
+    }
 }

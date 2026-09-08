@@ -31,6 +31,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   static const _pageSize = 7;
   int _currentPage = 0;
   bool _isRefreshing = false;
+  bool _refreshSucceeded = false;
   late DateTime _selectedMonth;
 
   late PowerQueryData _baseResult;
@@ -43,6 +44,12 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     _baseResult = widget.result;
     _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
     _updateDisplayUsage(widget.result.dailyUsage, isCurrentMonth: true);
+    if (!PreferencesStorage.isCacheValid(
+      widget.preferencesStorage.getPowerCacheTime(),
+      const Duration(minutes: 5),
+    )) {
+      unawaited(_refresh(showError: false));
+    }
   }
 
   @override
@@ -68,11 +75,13 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     }
   }
 
-  Future<void> _refresh({String? startDate}) async {
+  Future<void> _refresh({String? startDate, bool showError = true}) async {
     final roomId = widget.roomId;
     if (roomId == null || roomId.isEmpty) return;
     if (!_canRefresh) {
-      showAppSnackBar(context, '请连接校园网', severity: ToastSeverity.warning);
+      if (showError) {
+        showAppSnackBar(context, '请连接校园网', severity: ToastSeverity.warning);
+      }
       return;
     }
     setState(() => _isRefreshing = true);
@@ -85,11 +94,13 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       }
       if (!mounted) return;
       if (result == null) {
-        showAppSnackBar(
-          context,
-          _manager.powerError ?? '刷新失败',
-          severity: ToastSeverity.error,
-        );
+        if (showError) {
+          showAppSnackBar(
+            context,
+            _manager.powerError ?? '刷新失败',
+            severity: ToastSeverity.error,
+          );
+        }
         return;
       }
       final loadedResult = result;
@@ -101,15 +112,16 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
           isCurrentMonth: _isCurrentMonth,
         );
         _currentPage = 0;
+        if (isCurrent) _refreshSucceeded = true;
       });
     } on PowerQueryException catch (e, stackTrace) {
       talker.error('电费详情刷新失败', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, e.message, severity: ToastSeverity.error);
       }
     } catch (e, stackTrace) {
       talker.error('电费详情刷新异常', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
     } finally {
@@ -168,6 +180,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
           onPress: _isRefreshing || !_canRefresh ? null : () => _refresh(),
           tooltip: '刷新电费',
           loading: _isRefreshing,
+          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageListView(

@@ -15,6 +15,8 @@ typedef LearningCdkRedeemer = Future<void> Function(
 );
 
 class LearningRepository extends ChangeNotifier {
+  static const _libraryCacheTtl = Duration(minutes: 5);
+
   final PreferencesStorage preferencesStorage;
   final LearningQuestionFetcher? fetcher;
   final LearningQuestionBankFetcher? bankFetcher;
@@ -28,6 +30,7 @@ class LearningRepository extends ChangeNotifier {
   });
 
   List<LearningQuestion> _questions = const [];
+  Map<String, LearningQuestion>? _questionIndex;
   List<LearningQuestionBank> _banks = const [];
   final Set<String> _favoriteIds = {};
   final Set<String> _wrongIds = {};
@@ -38,6 +41,7 @@ class LearningRepository extends ChangeNotifier {
   bool _libraryUnavailable = false;
   int _libraryRevision = 0;
   bool _loadedFromCache = false;
+  bool _loadedFromNetwork = false;
 
   List<LearningQuestion> get questions => List.unmodifiable(_questions);
   List<LearningQuestionBank> get banks => List.unmodifiable(_banks);
@@ -48,14 +52,27 @@ class LearningRepository extends ChangeNotifier {
   int get libraryRevision => _libraryRevision;
   bool get canRedeemCdk => cdkRedeemer != null;
   bool get loadedFromCache => _loadedFromCache;
+  bool get loadedFromNetwork => _loadedFromNetwork;
+  bool get isLibraryCacheFresh => PreferencesStorage.isCacheValid(
+    preferencesStorage.getLearningQuestionBankCacheTime(),
+    _libraryCacheTtl,
+  );
   int get answeredCount =>
       _questions.where((question) => _judgedIds.contains(question.id)).length;
 
   LearningQuestion? questionById(String id) {
-    for (final question in _questions) {
-      if (question.id == id) return question;
+    final index = _questionIndex ??= <String, LearningQuestion>{};
+    if (index.isEmpty && _questions.isNotEmpty) {
+      for (final question in _questions) {
+        index.putIfAbsent(question.id, () => question);
+      }
     }
-    return null;
+    return index[id];
+  }
+
+  void _setQuestions(List<LearningQuestion> questions) {
+    _questions = questions;
+    _questionIndex = null;
   }
 
   bool isFavorite(String questionId) => _favoriteIds.contains(questionId);
@@ -100,7 +117,7 @@ class LearningRepository extends ChangeNotifier {
     final cachedBanks = cachedRaw == null ? null : _decodeBanks(cachedRaw);
     if (cachedBanks != null) {
       _banks = cachedBanks;
-      _questions = [for (final bank in _banks) ...bank.questions];
+      _setQuestions([for (final bank in _banks) ...bank.questions]);
       _loadedFromCache = true;
     }
     _restoreState();
@@ -130,11 +147,12 @@ class LearningRepository extends ChangeNotifier {
     if (!_loaded && fetcher != null) {
       try {
         final fetched = await fetcher!();
-        _questions = fetched;
+        _setQuestions(fetched);
         _banks = _deriveBanks(fetched);
         await _saveBankCache();
+        _loadedFromNetwork = true;
       } catch (_) {
-        _questions = const [];
+        _setQuestions(const []);
       }
     }
     if (_banks.isEmpty && _questions.isNotEmpty) {
@@ -211,7 +229,8 @@ class LearningRepository extends ChangeNotifier {
           for (final question in bank.questions) question.id,
     };
     _banks = fetchedBanks;
-    _questions = [for (final bank in fetchedBanks) ...bank.questions];
+    _setQuestions([for (final bank in fetchedBanks) ...bank.questions]);
+    _loadedFromNetwork = true;
 
     var stateChanged = _dropQuestions(removedQuestionIds);
     stateChanged = _pruneState() || stateChanged;
@@ -235,12 +254,13 @@ class LearningRepository extends ChangeNotifier {
     _judgedIds.retainAll(questionIds);
     changed = _judgedIds.length != judgedCount || changed;
     final judgedOrderCount = _judgedOrder.length;
+    final judgedOrderIds = _judgedOrder.toSet();
     _judgedOrder
       ..removeWhere((questionId) => !questionIds.contains(questionId))
       ..addAll([
         for (final question in _questions)
           if (_judgedIds.contains(question.id) &&
-              !_judgedOrder.contains(question.id))
+              !judgedOrderIds.contains(question.id))
             question.id,
       ]);
     changed = _judgedOrder.length != judgedOrderCount || changed;

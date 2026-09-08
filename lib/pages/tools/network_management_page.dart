@@ -17,7 +17,6 @@ class NetworkManagementPage extends StatefulWidget {
   final String account;
   final String password;
   final PreferencesStorage preferencesStorage;
-  final bool autoRefresh;
 
   const NetworkManagementPage({
     super.key,
@@ -25,7 +24,6 @@ class NetworkManagementPage extends StatefulWidget {
     required this.account,
     required this.password,
     required this.preferencesStorage,
-    this.autoRefresh = false,
   });
 
   @override
@@ -37,31 +35,53 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
   late List<NetAuthDevice> _devices;
   String? _unbindingMac;
   bool _isRefreshing = false;
+  bool _refreshSucceeded = false;
 
   @override
   void initState() {
     super.initState();
     _info = widget.result.info;
     _devices = widget.result.devices;
-    if (widget.autoRefresh) unawaited(_refresh());
+    unawaited(_load());
   }
 
-  Future<void> _refresh() async {
+  Future<void> _load({bool forceRefresh = false}) async {
     setState(() => _isRefreshing = true);
     try {
-      final result = await ToolsDataManager.instance.refreshNetAuth(
-        widget.account,
-        widget.password,
-        widget.preferencesStorage,
-      );
+      final manager = ToolsDataManager.instance;
+      final requestedRefresh =
+          forceRefresh ||
+          !PreferencesStorage.isCacheValid(
+            widget.preferencesStorage.getNetauthCacheTime(),
+            const Duration(minutes: 5),
+          );
+      NetAuthResult? result;
+      bool success;
+      if (forceRefresh) {
+        result = await manager.refreshNetAuth(
+          widget.account,
+          widget.password,
+          widget.preferencesStorage,
+        );
+        success = result != null;
+      } else {
+        success = await manager.loadNetAuth(
+          widget.account,
+          widget.password,
+          widget.preferencesStorage,
+        );
+        result = manager.netAuth;
+      }
       if (!mounted) return;
       if (result == null) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
         return;
       }
+      final refreshed = result;
       setState(() {
-        _info = result.info;
-        _devices = result.devices;
+        _info = refreshed.info;
+        _devices = refreshed.devices;
+        if (requestedRefresh && success) _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('网络管理详情刷新失败', e, stackTrace);
@@ -95,7 +115,7 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
       );
       if (!mounted) return;
       showAppSnackBar(context, msg, severity: ToastSeverity.success);
-      await _refresh();
+      await _load(forceRefresh: true);
     } on AuthException catch (e, stackTrace) {
       talker.error('网络管理设备解绑失败', e, stackTrace);
       if (mounted) {
@@ -120,9 +140,10 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : _refresh,
+          onPress: _isRefreshing ? null : () => _load(forceRefresh: true),
           tooltip: '刷新网络状态',
           loading: _isRefreshing,
+          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageListView(

@@ -42,6 +42,16 @@ class CourseStorage {
     await _courseBox.delete(key);
   }
 
+  Future<void> deleteCoursesByCourseId(String courseId) async {
+    final normalized = courseId.trim();
+    if (normalized.isEmpty) return;
+    final keys = [
+      for (final entry in _courseBox.toMap().entries)
+        if (entry.value.courseId.trim() == normalized) entry.key,
+    ];
+    if (keys.isNotEmpty) await _courseBox.deleteAll(keys);
+  }
+
   Future<void> updateCoursesByCourseId(
     String courseId, {
     required int excludeKey,

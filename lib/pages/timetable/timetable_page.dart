@@ -291,7 +291,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                   );
                   return PageView.builder(
                     controller: _pageController,
-                    physics: const _LessSensitivePagePhysics(),
+                    physics: const _ResponsivePagePhysics(),
                     itemCount: maxDisplayWeek,
                     // Pre-build the neighbouring weeks while the current page is
                     // idle so the left/right swipe only moves an already-built
@@ -405,27 +405,42 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      FButton(
-                        variant: FButtonVariant.destructive,
-                        size: FButtonSizeVariant.md,
-                        mainAxisSize: MainAxisSize.min,
-                        onPress: () {
-                          Navigator.pop(ctx);
-                          _confirmDelete(context, key);
-                        },
-                        child: const Text('删除'),
+                      if (course.courseId.isNotEmpty) ...[
+                        Expanded(
+                          child: FButton(
+                            variant: FButtonVariant.destructive,
+                            size: FButtonSizeVariant.md,
+                            onPress: () {
+                              Navigator.pop(ctx);
+                              _confirmGlobalDelete(context, course);
+                            },
+                            child: const Text('全局删除'),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                      ],
+                      Expanded(
+                        child: FButton(
+                          variant: FButtonVariant.destructive,
+                          size: FButtonSizeVariant.md,
+                          onPress: () {
+                            Navigator.pop(ctx);
+                            _confirmSingleDelete(context, key);
+                          },
+                          child: const Text('单次删除'),
+                        ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      FButton(
-                        size: FButtonSizeVariant.md,
-                        mainAxisSize: MainAxisSize.min,
-                        onPress: () {
-                          Navigator.pop(ctx);
-                          _editCourse(context, course, key);
-                        },
-                        child: const Text('编辑'),
+                      Expanded(
+                        child: FButton(
+                          size: FButtonSizeVariant.md,
+                          onPress: () {
+                            Navigator.pop(ctx);
+                            _editCourse(context, course, key);
+                          },
+                          child: const Text('编辑课程'),
+                        ),
                       ),
                     ],
                   ),
@@ -463,11 +478,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     return '${value.substring(0, 16)}...';
   }
 
-  void _confirmDelete(BuildContext context, int key) {
-    unawaited(_deleteCourseAfterConfirmation(context, key));
+  void _confirmSingleDelete(BuildContext context, int key) {
+    unawaited(_deleteSingleCourseAfterConfirmation(context, key));
   }
 
-  Future<void> _deleteCourseAfterConfirmation(
+  Future<void> _deleteSingleCourseAfterConfirmation(
     BuildContext context,
     int key,
   ) async {
@@ -486,6 +501,39 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         showAppSnackBar(
           this.context,
           '课程已删除，但$e',
+          severity: ToastSeverity.warning,
+        );
+      }
+    }
+  }
+
+  void _confirmGlobalDelete(BuildContext context, Course course) {
+    unawaited(_deleteGlobalCourseAfterConfirmation(context, course));
+  }
+
+  Future<void> _deleteGlobalCourseAfterConfirmation(
+    BuildContext context,
+    Course course,
+  ) async {
+    final courseId = course.courseId.trim();
+    if (courseId.isEmpty) return;
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '全局删除课程',
+      message: '将删除“${course.title}”的全部关联课程，确定继续吗？',
+      confirmLabel: '全局删除',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    try {
+      await ref
+          .read(scheduleProvider.notifier)
+          .deleteCoursesByCourseId(courseId);
+    } on WidgetSyncException catch (e) {
+      if (mounted) {
+        showAppSnackBar(
+          this.context,
+          '课程已全局删除，但$e',
           severity: ToastSeverity.warning,
         );
       }
@@ -563,32 +611,22 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               );
             }
           },
-          onDelete: () async {
-            try {
-              await ref.read(scheduleProvider.notifier).deleteCourse(key);
-            } on WidgetSyncException catch (e) {
-              if (!mounted) return;
-              showAppSnackBar(
-                this.context,
-                '课程已删除，但$e',
-                severity: ToastSeverity.warning,
-              );
-            }
-          },
         ),
       ),
     );
   }
 }
 
-class _LessSensitivePagePhysics extends PageScrollPhysics {
-  const _LessSensitivePagePhysics({super.parent});
+class _ResponsivePagePhysics extends PageScrollPhysics {
+  const _ResponsivePagePhysics({super.parent});
 
   @override
-  _LessSensitivePagePhysics applyTo(ScrollPhysics? ancestor) {
-    return _LessSensitivePagePhysics(parent: buildParent(ancestor));
+  _ResponsivePagePhysics applyTo(ScrollPhysics? ancestor) {
+    return _ResponsivePagePhysics(parent: buildParent(ancestor));
   }
 
   @override
-  double get dragStartDistanceMotionThreshold => 24.0;
+  // Keep a small threshold so a light finger movement starts paging
+  // immediately, while still filtering accidental taps.
+  double get dragStartDistanceMotionThreshold => 8.0;
 }

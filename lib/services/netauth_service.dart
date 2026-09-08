@@ -281,8 +281,11 @@ class NetAuthService {
 
     final location = loginResp.headers.value('location') ?? '';
     if (!location.contains('dashboard')) {
+      final redirectUrl = Uri.tryParse(location)?.hasScheme == true
+          ? location
+          : Uri.parse(netAuthBaseUrl).resolve(location).toString();
       final redirect = await dio.get<String>(
-        'http://211.87.126.147:8080$location',
+        redirectUrl,
         options: Options(
           responseType: ResponseType.plain,
           validateStatus: (s) => s != null && s < 500,

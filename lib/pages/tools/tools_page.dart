@@ -134,16 +134,14 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     required String logLabel,
     required String routeName,
     required T? Function() getData,
-    required Future<void> Function(
+    required Future<bool> Function(
       String sid,
       String pwd,
       PreferencesStorage prefs,
     )
     load,
-    required Widget Function(T data, String sid, String pwd, bool autoRefresh)
-    buildPage,
+    required Widget Function(T data, String sid, String pwd) buildPage,
     bool requiresCampus = false,
-    bool forceRefresh = false,
   }) async {
     if (loading) return;
     talker.info('[ACTION] $logLabel');
@@ -178,12 +176,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     Navigator.of(context).push(
       appRoute(
         name: routeName,
-        builder: (_) => buildPage(
-          getData() as T,
-          creds.studentId,
-          creds.password,
-          forceRefresh && hadData,
-        ),
+        builder: (_) =>
+            buildPage(getData() as T, creds.studentId, creds.password),
       ),
     );
   }
@@ -194,7 +188,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     routeName: AppRouteNames.exams,
     getData: () => _manager.exams,
     load: _manager.loadExam,
-    buildPage: (data, sid, pwd, _) => ExamQueryPage(
+    buildPage: (data, sid, pwd) => ExamQueryPage(
       result: data,
       studentId: sid,
       password: pwd,
@@ -208,7 +202,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     routeName: AppRouteNames.campusCard,
     getData: () => _manager.ykt,
     load: _manager.loadYkt,
-    buildPage: (data, sid, pwd, _) => CampusCardPage(
+    buildPage: (data, sid, pwd) => CampusCardPage(
       result: data,
       studentId: sid,
       password: pwd,
@@ -221,16 +215,12 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     logLabel: '打开极速报修',
     routeName: AppRouteNames.repair,
     getData: () => _manager.repair,
-    load: (sid, pwd, prefs) async {
-      await _manager.refreshRepair(sid, pwd, prefs);
-    },
-    forceRefresh: true,
-    buildPage: (data, sid, pwd, autoRefresh) => RepairPage(
+    load: _manager.loadRepair,
+    buildPage: (data, sid, pwd) => RepairPage(
       initialResult: data,
       studentId: sid,
       password: pwd,
       preferencesStorage: ref.read(preferencesStorageProvider),
-      autoRefresh: autoRefresh,
     ),
   );
 
@@ -264,16 +254,12 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     logLabel: '打开网络管理',
     routeName: AppRouteNames.networkManagement,
     getData: () => _manager.netAuth,
-    load: (sid, pwd, prefs) async {
-      await _manager.refreshNetAuth(sid, pwd, prefs);
-    },
-    forceRefresh: true,
-    buildPage: (data, sid, pwd, autoRefresh) => NetworkManagementPage(
+    load: _manager.loadNetAuth,
+    buildPage: (data, sid, pwd) => NetworkManagementPage(
       result: data,
       account: sid,
       password: pwd,
       preferencesStorage: ref.read(preferencesStorageProvider),
-      autoRefresh: autoRefresh,
     ),
   );
 
@@ -293,13 +279,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       logLabel: '打开教师评价',
       routeName: AppRouteNames.teacherEvaluation,
       getData: () => _manager.jp,
-      load: (sid, pwd, prefs) async {
-        await _manager.refreshJp(sid, pwd, prefs);
-      },
+      load: _manager.loadJp,
       requiresCampus: true,
-      forceRefresh: true,
-      buildPage: (data, _, _, autoRefresh) =>
-          TeacherEvaluationPage(result: data, autoRefresh: autoRefresh),
+      buildPage: (data, _, _) => TeacherEvaluationPage(result: data),
     );
   }
 
@@ -474,16 +456,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     }
 
     return AppPage(
-      title: '服务',
+      title: '便捷服务',
       root: true,
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _refreshingTabData ? null : refreshData,
-          tooltip: '刷新服务数据',
-          loading: _refreshingTabData,
-        ),
-      ],
       headerStyle: FHeaderStyleDelta.delta(
         titleTextStyle: TextStyleDelta.value(
           context.theme.typography.display.xl.copyWith(

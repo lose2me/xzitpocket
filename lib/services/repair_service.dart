@@ -160,7 +160,6 @@ class RepairService {
         cookieJar: jar,
         connectTimeout: requestTimeout,
         receiveTimeout: requestTimeout,
-        ignoreCertificate: true,
       );
       try {
         // zflogintoken validates ST → redirects to OAuth2 authorize

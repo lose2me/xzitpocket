@@ -118,12 +118,14 @@ class PreferencesStorage {
   int? getPowerCacheTime() => _prefs.getInt('saved_power_cache_time');
 
   Future<void> setPowerCache(String json, {required String roomId}) async {
-    await _prefs.setString('saved_power_cache', json);
-    await _prefs.setString('saved_power_cache_room_id', roomId);
-    await _prefs.setInt(
-      'saved_power_cache_time',
-      DateTime.now().millisecondsSinceEpoch,
-    );
+    await Future.wait([
+      _prefs.setString('saved_power_cache', json),
+      _prefs.setString('saved_power_cache_room_id', roomId),
+      _prefs.setInt(
+        'saved_power_cache_time',
+        DateTime.now().millisecondsSinceEpoch,
+      ),
+    ]);
   }
 
   Future<void> clearPowerCache() async {
@@ -197,9 +199,14 @@ class PreferencesStorage {
 
   String? getLearningQuestionBankCache() =>
       _prefs.getString('learning_question_bank_cache');
+  int? getLearningQuestionBankCacheTime() =>
+      _prefs.getInt('learning_question_bank_cache_time');
 
-  Future<void> setLearningQuestionBankCache(String json) =>
-      _prefs.setString('learning_question_bank_cache', json);
+  Future<void> setLearningQuestionBankCache(String json) => _setCache(
+    'learning_question_bank_cache',
+    'learning_question_bank_cache_time',
+    json,
+  );
 
   String? getLearningStateCache() => _prefs.getString('learning_state_cache');
 
@@ -207,12 +214,19 @@ class PreferencesStorage {
       _prefs.setString('learning_state_cache', json);
 
   Future<void> clearLearningCache() async {
-    await _prefs.remove('learning_question_bank_cache');
-    await _prefs.remove('learning_state_cache');
+    await Future.wait([
+      _clearCache(
+        'learning_question_bank_cache',
+        'learning_question_bank_cache_time',
+      ),
+      _prefs.remove('learning_state_cache'),
+    ]);
   }
 
-  Future<void> clearLearningQuestionBankCache() =>
-      _prefs.remove('learning_question_bank_cache');
+  Future<void> clearLearningQuestionBankCache() => _clearCache(
+    'learning_question_bank_cache',
+    'learning_question_bank_cache_time',
+  );
 
   Future<void> clearUserToolCaches() async {
     await Future.wait([

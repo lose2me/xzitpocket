@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
@@ -17,7 +16,6 @@ class CourseFormPage extends StatefulWidget {
   final Course? existingCourse;
   final Color? defaultColor;
   final Future<void> Function(Course) onSave;
-  final Future<void> Function()? onDelete;
 
   const CourseFormPage({
     super.key,
@@ -26,7 +24,6 @@ class CourseFormPage extends StatefulWidget {
     this.existingCourse,
     this.defaultColor,
     required this.onSave,
-    this.onDelete,
   });
 
   bool get isEditing => existingCourse != null;
@@ -156,14 +153,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
   Widget build(BuildContext context) {
     return AppPage(
       title: widget.isEditing ? '编辑课程' : '添加课程',
-      actions: [
-        if (widget.onDelete != null)
-          FHeaderAction(
-            icon: const Icon(FLucideIcons.trash2),
-            semanticsLabel: '删除',
-            onPress: _confirmDelete,
-          ),
-      ],
       footer: SafeArea(
         child: Padding(
           padding: EdgeInsets.fromLTRB(
@@ -401,23 +390,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
     Navigator.pop(context);
   }
 
-  void _confirmDelete() {
-    unawaited(_deleteAfterConfirmation());
-  }
-
-  Future<void> _deleteAfterConfirmation() async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '删除课程',
-      message: '确定要删除这门课程吗？',
-      confirmLabel: '删除',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    await widget.onDelete!();
-    if (!mounted) return;
-    Navigator.pop(context);
-  }
 }
 
 class _HexColorInputFormatter extends TextInputFormatter {

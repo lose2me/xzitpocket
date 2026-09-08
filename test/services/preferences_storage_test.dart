@@ -81,6 +81,28 @@ void main() {
     });
   });
 
+  group('learning cache metadata', () {
+    late PreferencesStorage storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = PreferencesStorage();
+      await storage.init();
+    });
+
+    test('stores and clears the question bank cache timestamp', () async {
+      await storage.setLearningQuestionBankCache('[{"id":"bank-1"}]');
+
+      expect(storage.getLearningQuestionBankCache(), '[{"id":"bank-1"}]');
+      expect(storage.getLearningQuestionBankCacheTime(), isNotNull);
+
+      await storage.clearLearningQuestionBankCache();
+
+      expect(storage.getLearningQuestionBankCache(), isNull);
+      expect(storage.getLearningQuestionBankCacheTime(), isNull);
+    });
+  });
+
   group('appearance settings', () {
     late PreferencesStorage storage;
 

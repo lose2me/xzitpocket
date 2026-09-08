@@ -255,7 +255,11 @@ class _RepairFormPageState extends State<RepairFormPage> {
     }
   }
 
-  bool get _formDisabled => _sessionLoading || _session == null || _submitting;
+  // Area/item catalogs and text fields are local, so users can complete the
+  // form while the remote session is being established. Only submission
+  // depends on that session.
+  bool get _editingDisabled => _submitting;
+  bool get _submitDisabled => _sessionLoading || _session == null || _submitting;
 
   @override
   Widget build(BuildContext context) {
@@ -292,14 +296,14 @@ class _RepairFormPageState extends State<RepairFormPage> {
             child: AppTextField(
               controller: _addressCtrl,
               label: '详细地址',
-              enabled: !_formDisabled,
+              enabled: !_editingDisabled,
             ),
           ),
           const SizedBox(height: 12),
           AppTextField(
-            controller: _contentCtrl,
-            label: '故障描述',
-            enabled: !_formDisabled,
+              controller: _contentCtrl,
+              label: '故障描述',
+              enabled: !_editingDisabled,
             minLines: 3,
             maxLines: null,
             keyboardType: TextInputType.multiline,
@@ -316,7 +320,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
           ),
           const SizedBox(height: 24),
           FButton(
-            onPress: _formDisabled ? null : _submit,
+            onPress: _submitDisabled ? null : _submit,
             prefix: _sessionLoading || _submitting
                 ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
                 : const Icon(FLucideIcons.send),
@@ -368,7 +372,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
       label: label,
       hint: '请选择',
       readOnly: true,
-      enabled: !_formDisabled,
+      enabled: !_editingDisabled,
       onTap: onTap,
       suffix: const Icon(FLucideIcons.chevronDown),
     );
@@ -407,7 +411,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
 
   Widget _buildAddImageTile(FThemeData theme) {
     return FTappable(
-      onPress: _formDisabled ? null : _pickImage,
+      onPress: _editingDisabled ? null : _pickImage,
       child: SizedBox(
         width: 90,
         height: 90,
