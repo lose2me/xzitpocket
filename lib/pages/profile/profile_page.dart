@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -118,6 +119,12 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
     final savedRoomId = ref.watch(savedRoomIdProvider);
 
+    ref.listen(savedRoomIdProvider, (previous, next) {
+      if (next != _roomIdController.text) {
+        _roomIdController.text = next ?? '';
+      }
+    });
+
     if (!_roomIdInitialized) {
       _roomIdController.text = savedRoomId ?? '';
       _roomIdInitialized = true;
@@ -159,28 +166,25 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 title: '宿舍号',
                 onTap: _roomIdFocusNode.requestFocus,
                 child: SizedBox(
-                  width: 136,
-                  height: 40,
+                  width: 112,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: theme.colors.muted.withAlpha(110),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: theme.colors.border),
+                      border: Border(
+                        bottom: BorderSide(color: theme.colors.border),
+                      ),
                     ),
                     child: AppTextField(
                       controller: _roomIdController,
                       focusNode: _roomIdFocusNode,
-                      hint: '未设置',
+                      hint: '如 7B216',
                       size: FTextFieldSizeVariant.sm,
                       style: FTextFieldStyleDelta.delta(
                         color: FVariantsValueDelta.delta([
-                          FVariantValueDeltaOperation.all(
-                            theme.colors.muted.withAlpha(110),
-                          ),
+                          FVariantValueDeltaOperation.all(Colors.transparent),
                         ]),
-                        constraints: const BoxConstraints.tightFor(height: 40),
+                        constraints: const BoxConstraints.tightFor(height: 32),
                         contentPadding: const EdgeInsetsGeometryDelta.value(
-                          EdgeInsets.symmetric(horizontal: 8),
+                          EdgeInsets.symmetric(horizontal: 2, vertical: 2),
                         ),
                         border: FVariantsValueDelta.delta([
                           FVariantValueDeltaOperation.all(InputBorder.none),
@@ -712,7 +716,10 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     final result = await ref.read(authProvider.notifier).login(sid, pwd);
     if (result != null) {
       _pwdCtrl.clear();
-      final (loginResult, examResult) = result;
+      final loginResult = result.$1;
+      final examResult = result.$2;
+      final gradeResult = result.$3;
+      final academicStatus = result.$4;
       await CredentialStorage.setSavedPassword(pwd);
 
       try {
@@ -731,10 +738,20 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         return;
       }
 
-      await ToolsDataManager.instance.setExams(
-        examResult,
-        ref.read(preferencesStorageProvider),
-      );
+      final prefs = ref.read(preferencesStorageProvider);
+      if (examResult != null) {
+        await ToolsDataManager.instance.setExams(examResult, prefs);
+      }
+      final cacheWrites = <Future<void>>[];
+      if (gradeResult != null) {
+        cacheWrites.add(prefs.setGradeCache(jsonEncode(gradeResult.toJson())));
+      }
+      if (academicStatus != null) {
+        cacheWrites.add(
+          prefs.setAcademicCache(jsonEncode(academicStatus.toJson())),
+        );
+      }
+      await Future.wait(cacheWrites);
 
       if (mounted) {
         setState(() => _isLoggingIn = false);
@@ -742,13 +759,13 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         HomePage.globalKey.currentState?.switchToTimetable();
       }
 
-      final prefs = ref.read(preferencesStorageProvider);
       unawaited(
         ToolsDataManager.instance.startBackgroundLoading(
           studentId: sid,
           password: pwd,
           prefs: prefs,
           roomId: prefs.getSavedPowerRoomId(),
+          displayName: loginResult.studentName ?? '',
         ),
       );
     } else if (mounted) {

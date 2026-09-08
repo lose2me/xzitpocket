@@ -84,6 +84,7 @@ void main() {
       expect(settings.timetableGridOpacity, 0.5);
       expect(settings.showTimetableGridLines, isTrue);
       expect(settings.showTodayGridLines, isFalse);
+      expect(settings.hiddenServiceFeatures, isEmpty);
     });
 
     test('copyWith overrides specified fields', () {
@@ -97,6 +98,10 @@ void main() {
         timetableGridOpacity: 0.45,
         showTimetableGridLines: false,
         showTodayGridLines: false,
+        hiddenServiceFeatures: {
+          AppServiceFeature.power,
+          AppServiceFeature.teacherEvaluation,
+        },
       );
       expect(updated.themePreference, AppThemePreference.dark);
       expect(updated.themeColor, AppThemeColor.blue);
@@ -107,6 +112,10 @@ void main() {
       expect(updated.timetableGridOpacity, 0.45);
       expect(updated.showTimetableGridLines, isFalse);
       expect(updated.showTodayGridLines, isFalse);
+      expect(updated.hiddenServiceFeatures, {
+        AppServiceFeature.power,
+        AppServiceFeature.teacherEvaluation,
+      });
     });
 
     test('copyWith preserves unspecified fields', () {

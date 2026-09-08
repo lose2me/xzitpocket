@@ -8,6 +8,7 @@ class AppIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPress;
   final String tooltip;
+  final Color? iconColor;
   final FButtonVariant variant;
   final FButtonSizeVariant size;
   final bool loading;
@@ -17,6 +18,7 @@ class AppIconButton extends StatelessWidget {
     required this.icon,
     required this.onPress,
     required this.tooltip,
+    this.iconColor,
     this.variant = FButtonVariant.ghost,
     this.size = FButtonSizeVariant.sm,
     this.loading = false,
@@ -31,7 +33,7 @@ class AppIconButton extends StatelessWidget {
       semanticsLabel: tooltip,
       child: loading
           ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-          : Icon(icon),
+          : Icon(icon, color: iconColor),
     );
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),

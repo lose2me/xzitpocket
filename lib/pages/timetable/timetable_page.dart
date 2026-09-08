@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
@@ -134,7 +135,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
       final result = await ref.read(authProvider.notifier).login(sid, pwd);
       if (result != null) {
-        final (loginResult, examResult) = result;
+        final loginResult = result.$1;
+        final examResult = result.$2;
+        final gradeResult = result.$3;
+        final academicStatus = result.$4;
         try {
           await ref
               .read(scheduleProvider.notifier)
@@ -153,13 +157,34 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           }
           return;
         }
-        await ToolsDataManager.instance.setExams(
-          examResult,
-          ref.read(preferencesStorageProvider),
-        );
+        final prefs = ref.read(preferencesStorageProvider);
+        if (examResult != null) {
+          await ToolsDataManager.instance.setExams(examResult, prefs);
+        }
+        final cacheWrites = <Future<void>>[];
+        if (gradeResult != null) {
+          cacheWrites.add(
+            prefs.setGradeCache(jsonEncode(gradeResult.toJson())),
+          );
+        }
+        if (academicStatus != null) {
+          cacheWrites.add(
+            prefs.setAcademicCache(jsonEncode(academicStatus.toJson())),
+          );
+        }
+        await Future.wait(cacheWrites);
         if (mounted) {
           showAppSnackBar(context, '同步成功', severity: ToastSeverity.success);
         }
+        unawaited(
+          ToolsDataManager.instance.startBackgroundLoading(
+            studentId: loginResult.studentId ?? sid,
+            password: pwd,
+            prefs: ref.read(preferencesStorageProvider),
+            roomId: ref.read(preferencesStorageProvider).getSavedPowerRoomId(),
+            displayName: loginResult.studentName ?? '',
+          ),
+        );
       } else {
         final authState = ref.read(authProvider);
         if (mounted) {

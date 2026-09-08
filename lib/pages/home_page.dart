@@ -1,23 +1,26 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
+import '../models/app_settings.dart';
+import '../providers/app_settings_provider.dart';
 import 'tools/tools_page.dart';
 import 'timetable/timetable_page.dart';
 import 'profile/profile_page.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
   /// Global key to access state from widget click handler.
   static final globalKey = GlobalKey<HomePageState>();
 
   @override
-  State<HomePage> createState() => HomePageState();
+  ConsumerState<HomePage> createState() => HomePageState();
 }
 
-class HomePageState extends State<HomePage> {
+class HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
   late final PageController _pageController;
 
@@ -65,21 +68,30 @@ class HomePageState extends State<HomePage> {
   }
 
   Widget _buildShell(BuildContext context, MediaQueryData ambientMediaQuery) {
+    final settings = ref.watch(appSettingsProvider);
+    final showServices = !AppServiceFeature.values.every(
+      settings.hiddenServiceFeatures.contains,
+    );
+    final visibleTabs = showServices ? const [0, 1, 2] : const [0, 2];
+    final selectedNavigationIndex = visibleTabs.contains(_currentIndex)
+        ? visibleTabs.indexOf(_currentIndex)
+        : 0;
     final shell = FScaffold(
       resizeToAvoidBottomInset: false,
       childPad: false,
       footer: FBottomNavigationBar(
-        index: _currentIndex,
+        index: selectedNavigationIndex,
         onChange: (i) {
-          if (_currentIndex == 2 && i != 2) {
+          final targetTab = visibleTabs[i];
+          if (_currentIndex == 2 && targetTab != 2) {
             ProfilePage.globalKey.currentState?.finishRoomIdEditing();
           }
-          if (_currentIndex == i) return;
-          setState(() => _currentIndex = i);
+          if (_currentIndex == targetTab) return;
+          setState(() => _currentIndex = targetTab);
           if (_pageController.hasClients) {
-            _pageController.jumpToPage(i);
+            _pageController.jumpToPage(targetTab);
           }
-          if (i == 1) {
+          if (targetTab == 1) {
             // The page is lazy-built, so its state may not exist until the
             // jump has been laid out.
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -88,15 +100,16 @@ class HomePageState extends State<HomePage> {
             });
           }
         },
-        children: const [
+        children: [
           FBottomNavigationBarItem(
             icon: Icon(FLucideIcons.calendarDays),
             label: Text('课表'),
           ),
-          FBottomNavigationBarItem(
-            icon: Icon(FLucideIcons.layoutGrid),
-            label: Text('服务'),
-          ),
+          if (showServices)
+            const FBottomNavigationBarItem(
+              icon: Icon(FLucideIcons.layoutGrid),
+              label: Text('服务'),
+            ),
           FBottomNavigationBarItem(
             icon: Icon(FLucideIcons.userRound),
             label: Text('我的'),

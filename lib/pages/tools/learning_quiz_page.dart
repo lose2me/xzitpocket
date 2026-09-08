@@ -110,6 +110,9 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   final Set<String> _judgingIds = {};
   LearningQuestion? _pendingFillSubmission;
   bool _programmaticNavigation = false;
+  bool _autoAdvanceLocked = false;
+
+  bool get _navigationLocked => _autoAdvanceLocked || _judgingIds.isNotEmpty;
 
   LearningRepository get repository => widget.repository;
   bool get _isMemorize =>
@@ -252,6 +255,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   void _handlePageChanged(int nextIndex) {
+    if (_navigationLocked && !_programmaticNavigation) return;
     if (!_canNavigateToPage(nextIndex)) return;
     final previousIndex = _currentIndex;
     final previousQuestion = _question;
@@ -305,10 +309,17 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
 
     // Briefly retain the correct state so the selection and status indicator
     // can be perceived before moving to the next page in the current order.
-    await Future<void>.delayed(const Duration(milliseconds: 280));
-    if (!mounted || _question?.id != question.id) return;
-    if (_currentIndex < _questionIds.length - 1) {
-      await _moveToPage(_currentIndex + 1);
+    _autoAdvanceLocked = true;
+    if (mounted) setState(() {});
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 280));
+      if (!mounted || _question?.id != question.id) return;
+      if (_currentIndex < _questionIds.length - 1) {
+        await _moveToPage(_currentIndex + 1, automatic: true);
+      }
+    } finally {
+      _autoAdvanceLocked = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -321,7 +332,8 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     await _submitAnswer(question);
   }
 
-  Future<void> _moveToPage(int index) async {
+  Future<void> _moveToPage(int index, {bool automatic = false}) async {
+    if (_navigationLocked && !automatic) return;
     if (!_pageController.hasClients || index == _currentIndex) return;
     _programmaticNavigation = true;
     try {
@@ -339,13 +351,16 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
       index >= 0 && index < _questionIds.length;
 
   void _goPrevious() {
-    if (_currentIndex == 0 || !_pageController.hasClients) {
+    if (_navigationLocked ||
+        _currentIndex == 0 ||
+        !_pageController.hasClients) {
       return;
     }
     unawaited(_moveToPage(_currentIndex - 1));
   }
 
   Future<void> _goNext() async {
+    if (_navigationLocked) return;
     if (_isMemorize) {
       if (_currentIndex < _questionIds.length - 1) {
         unawaited(_moveToPage(_currentIndex + 1));
@@ -627,7 +642,8 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                 physics: _QuizPageScrollPhysics(
                   currentIndex: () => _currentIndex,
                   canNavigateTo: (index) =>
-                      _programmaticNavigation || _canNavigateToPage(index),
+                      _programmaticNavigation ||
+                      (!_navigationLocked && _canNavigateToPage(index)),
                 ),
                 onPageChanged: _handlePageChanged,
                 itemCount: _questionIds.length,
@@ -1074,7 +1090,9 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               child: FButton(
                 size: FButtonSizeVariant.sm,
                 variant: FButtonVariant.ghost,
-                onPress: _currentIndex == 0 ? null : _goPrevious,
+                onPress: _navigationLocked || _currentIndex == 0
+                    ? null
+                    : _goPrevious,
                 prefix: const Icon(FLucideIcons.chevronLeft),
                 child: const Text('上一题'),
               ),
@@ -1093,6 +1111,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   : FLucideIcons.bookmark,
               onPress: _toggleFavorite,
               tooltip: favorite ? '取消收藏' : '收藏',
+              iconColor: favorite ? theme.colors.primary : null,
               variant: FButtonVariant.ghost,
               size: FButtonSizeVariant.sm,
             ),
@@ -1101,7 +1120,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               child: FButton(
                 size: FButtonSizeVariant.sm,
                 variant: FButtonVariant.ghost,
-                onPress: _judgingIds.contains(question.id) ? null : _goNext,
+                onPress: _navigationLocked ? null : _goNext,
                 suffix: const Icon(FLucideIcons.chevronRight),
                 child: const Text('下一题'),
               ),

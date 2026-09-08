@@ -88,6 +88,13 @@ class PreferencesStorage {
   Future<void> setShowTodayGridLines(bool value) =>
       _prefs.setBool('show_today_grid_lines', value);
 
+  Set<String> getHiddenServiceFeatures() =>
+      (_prefs.getStringList('hidden_service_features') ?? const <String>[])
+          .toSet();
+
+  Future<void> setHiddenServiceFeatures(Iterable<String> values) =>
+      _prefs.setStringList('hidden_service_features', values.toSet().toList());
+
   // ── Power room ──
 
   String? getSavedPowerRoomId() => _prefs.getString('saved_power_room_id');
@@ -100,6 +107,8 @@ class PreferencesStorage {
     }
     await _prefs.setString('saved_power_room_id', value);
   }
+
+  Future<void> clearSavedPowerRoomId() => _prefs.remove('saved_power_room_id');
 
   // ── Power cache ──
 
@@ -160,6 +169,16 @@ class PreferencesStorage {
   Future<void> setExamCache(String json) =>
       _setCache('exam_cache', 'exam_cache_time', json);
 
+  String? getGradeCache() => _prefs.getString('grade_cache');
+  int? getGradeCacheTime() => _prefs.getInt('grade_cache_time');
+  Future<void> setGradeCache(String json) =>
+      _setCache('grade_cache', 'grade_cache_time', json);
+
+  String? getAcademicCache() => _prefs.getString('academic_cache');
+  int? getAcademicCacheTime() => _prefs.getInt('academic_cache_time');
+  Future<void> setAcademicCache(String json) =>
+      _setCache('academic_cache', 'academic_cache_time', json);
+
   // ── YKT cache ──
 
   String? getYktCache() => _prefs.getString('ykt_cache');
@@ -200,6 +219,8 @@ class PreferencesStorage {
       _clearCache('jp_cache', 'jp_cache_time'),
       _clearCache('repair_cache', 'repair_cache_time'),
       _clearCache('exam_cache', 'exam_cache_time'),
+      _clearCache('grade_cache', 'grade_cache_time'),
+      _clearCache('academic_cache', 'academic_cache_time'),
       _clearCache('ykt_cache', 'ykt_cache_time'),
       _clearCache('netauth_cache', 'netauth_cache_time'),
       clearLearningCache(),

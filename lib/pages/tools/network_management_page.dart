@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -15,6 +17,7 @@ class NetworkManagementPage extends StatefulWidget {
   final String account;
   final String password;
   final PreferencesStorage preferencesStorage;
+  final bool autoRefresh;
 
   const NetworkManagementPage({
     super.key,
@@ -22,6 +25,7 @@ class NetworkManagementPage extends StatefulWidget {
     required this.account,
     required this.password,
     required this.preferencesStorage,
+    this.autoRefresh = false,
   });
 
   @override
@@ -39,6 +43,7 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
     super.initState();
     _info = widget.result.info;
     _devices = widget.result.devices;
+    if (widget.autoRefresh) unawaited(_refresh());
   }
 
   Future<void> _refresh() async {

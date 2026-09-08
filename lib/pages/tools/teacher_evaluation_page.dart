@@ -14,9 +14,14 @@ import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 
 class TeacherEvaluationPage extends ConsumerStatefulWidget {
-  const TeacherEvaluationPage({super.key, this.result});
+  const TeacherEvaluationPage({
+    super.key,
+    this.result,
+    this.autoRefresh = false,
+  });
 
   final JpStatusResult? result;
+  final bool autoRefresh;
 
   @override
   ConsumerState<TeacherEvaluationPage> createState() =>
@@ -49,6 +54,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     _manager.addListener(_onCampusNetworkChanged);
     if (widget.result != null) {
       _status = widget.result;
+      if (widget.autoRefresh) unawaited(_loadStatus());
     } else {
       unawaited(_loadStatus());
     }

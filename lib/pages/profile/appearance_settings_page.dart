@@ -33,6 +33,21 @@ class AppearanceSettingsPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+          const ProfileSectionLabel(title: '隐藏功能入口'),
+          ProfileSettingsGroup(
+            children: [
+              for (final feature in AppServiceFeature.values)
+                ProfileSettingsCheckboxTile(
+                  icon: _featureIcon(feature),
+                  title: feature.title,
+                  value: !settings.hiddenServiceFeatures.contains(feature),
+                  onChange: (visible) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setServiceFeatureVisible(feature, visible),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '软件主题色'),
           SizedBox(
             height: 32,
@@ -65,6 +80,18 @@ class AppearanceSettingsPage extends ConsumerWidget {
         AppThemePreference.light => '浅色模式',
         AppThemePreference.dark => '深色模式',
       };
+
+  static IconData _featureIcon(AppServiceFeature feature) => switch (feature) {
+    AppServiceFeature.campusCard => FLucideIcons.creditCard,
+    AppServiceFeature.power => FLucideIcons.zap,
+    AppServiceFeature.exams => FLucideIcons.fileQuestion,
+    AppServiceFeature.academic => FLucideIcons.graduationCap,
+    AppServiceFeature.network => FLucideIcons.wifi,
+    AppServiceFeature.repair => FLucideIcons.wrench,
+    AppServiceFeature.learning => FLucideIcons.layoutGrid,
+    AppServiceFeature.calendar => FLucideIcons.calendarDays,
+    AppServiceFeature.teacherEvaluation => FLucideIcons.messageSquareMore,
+  };
 
   static Future<void> _openThemeSheet(
     BuildContext context,

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xzitpocket/models/app_settings.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 
 void main() {
@@ -105,6 +106,18 @@ void main() {
       expect(storage.getTimetableGridOpacity(), 0.42);
       expect(storage.getShowTimetableGridLines(), isFalse);
       expect(storage.getShowTodayGridLines(), isFalse);
+    });
+
+    test('roundtrips hidden service features', () async {
+      await storage.setHiddenServiceFeatures([
+        AppServiceFeature.power.storageValue,
+        AppServiceFeature.learning.storageValue,
+      ]);
+
+      expect(storage.getHiddenServiceFeatures(), {
+        AppServiceFeature.power.storageValue,
+        AppServiceFeature.learning.storageValue,
+      });
     });
 
     test('clamps timetable background opacity', () async {

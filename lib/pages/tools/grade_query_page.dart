@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
@@ -6,6 +7,7 @@ import 'package:forui/forui.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
@@ -20,11 +22,13 @@ typedef _SemesterOption = ({
 class GradeQueryPage extends StatefulWidget {
   final String studentId;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const GradeQueryPage({
     super.key,
     required this.studentId,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -43,7 +47,36 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   @override
   void initState() {
     super.initState();
+    _restoreCache();
     unawaited(_load());
+  }
+
+  void _restoreCache() {
+    try {
+      final gradeJson = widget.preferencesStorage.getGradeCache();
+      final academicJson = widget.preferencesStorage.getAcademicCache();
+      if (gradeJson != null && gradeJson.isNotEmpty) {
+        _result = GradeResult.fromJson(
+          jsonDecode(gradeJson) as Map<String, dynamic>,
+        );
+        final latestYear = _result!.years.isNotEmpty
+            ? _result!.years.first
+            : null;
+        final latestTerms = latestYear == null
+            ? const <String>[]
+            : (_result!.termsByYear[latestYear] ?? const <String>[]);
+        _termIndex = latestTerms.isEmpty ? 0 : latestTerms.length - 1;
+      }
+      if (academicJson != null && academicJson.isNotEmpty) {
+        _academic = AcademicStatus.fromJson(
+          jsonDecode(academicJson) as Map<String, dynamic>,
+        );
+      }
+    } catch (error, stackTrace) {
+      talker.warning('学业缓存解析失败', error, stackTrace);
+      _result = null;
+      _academic = null;
+    }
   }
 
   @override
@@ -58,6 +91,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         widget.studentId,
         widget.password,
       );
+      await Future.wait([
+        widget.preferencesStorage.setGradeCache(jsonEncode(grades.toJson())),
+        widget.preferencesStorage.setAcademicCache(
+          jsonEncode(academic.toJson()),
+        ),
+      ]);
       if (!mounted) return;
       setState(() {
         _result = grades;
@@ -284,9 +323,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
   /// 学分 / 绩点摘要行：无边框胶囊、小字号，左对齐。
   Widget _buildSummaryRow(FThemeData theme, double totalCredit, double gpa) {
-    // 学分靠左、绩点靠右，与下方成绩卡片左右边缘对齐。
-    return SizedBox(
-      width: double.infinity,
+    // 学分靠左、绩点靠右，并比页面边缘再收进一层。
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

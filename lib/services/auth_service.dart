@@ -143,6 +143,59 @@ class GradeResult {
     required this.years,
     required this.termsByYear,
   });
+
+  Map<String, dynamic> toJson() => {
+    'grades': [
+      for (final grade in grades)
+        {
+          'name': grade.name,
+          'score': grade.score,
+          'credit': grade.credit,
+          'gradePoint': grade.gradePoint,
+          'type': grade.type,
+          'category': grade.category,
+          'teacher': grade.teacher,
+          'examMethod': grade.examMethod,
+          'year': grade.year,
+          'term': grade.term,
+        },
+    ],
+    'years': years,
+    'termsByYear': termsByYear,
+  };
+
+  factory GradeResult.fromJson(Map<String, dynamic> json) => GradeResult(
+    grades: [
+      for (final raw in (json['grades'] as List<dynamic>? ?? const []))
+        GradeItem(
+          name: '${(raw as Map<String, dynamic>)['name'] ?? ''}',
+          score: '${raw['score'] ?? ''}',
+          credit: _asDouble(raw['credit']),
+          gradePoint: _asDouble(raw['gradePoint']),
+          type: '${raw['type'] ?? ''}',
+          category: '${raw['category'] ?? ''}',
+          teacher: '${raw['teacher'] ?? ''}',
+          examMethod: '${raw['examMethod'] ?? ''}',
+          year: '${raw['year'] ?? ''}',
+          term: '${raw['term'] ?? ''}',
+        ),
+    ],
+    years: [
+      for (final value in (json['years'] as List<dynamic>? ?? const []))
+        value.toString(),
+    ],
+    termsByYear: {
+      for (final entry
+          in (json['termsByYear'] as Map<String, dynamic>? ?? const {}).entries)
+        entry.key: [
+          for (final value in (entry.value as List<dynamic>? ?? const []))
+            value.toString(),
+        ],
+    },
+  );
+
+  static double _asDouble(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
 }
 
 class AcademicCategory {
@@ -169,6 +222,33 @@ class AcademicCategory {
     this.completed = false,
     this.children = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'reqCredits': reqCredits,
+    'earnedCredits': earnedCredits,
+    'missingCredits': missingCredits,
+    'isDirectory': isDirectory,
+    'completed': completed,
+    'children': [for (final child in children) child.toJson()],
+  };
+
+  factory AcademicCategory.fromJson(Map<String, dynamic> json) =>
+      AcademicCategory(
+        name: '${json['name'] ?? ''}',
+        reqCredits: _asDouble(json['reqCredits']),
+        earnedCredits: _asDouble(json['earnedCredits']),
+        missingCredits: _asDouble(json['missingCredits']),
+        isDirectory: json['isDirectory'] == true,
+        completed: json['completed'] == true,
+        children: [
+          for (final raw in (json['children'] as List<dynamic>? ?? const []))
+            AcademicCategory.fromJson(raw as Map<String, dynamic>),
+        ],
+      );
+
+  static double _asDouble(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
 }
 
 class AcademicStatus {
@@ -183,6 +263,26 @@ class AcademicStatus {
     required this.totalEarned,
     required this.categories,
   });
+
+  Map<String, dynamic> toJson() => {
+    'gpa': gpa,
+    'totalRequired': totalRequired,
+    'totalEarned': totalEarned,
+    'categories': [for (final category in categories) category.toJson()],
+  };
+
+  factory AcademicStatus.fromJson(Map<String, dynamic> json) => AcademicStatus(
+    gpa: _asDouble(json['gpa']),
+    totalRequired: _asDouble(json['totalRequired']),
+    totalEarned: _asDouble(json['totalEarned']),
+    categories: [
+      for (final raw in (json['categories'] as List<dynamic>? ?? const []))
+        AcademicCategory.fromJson(raw as Map<String, dynamic>),
+    ],
+  );
+
+  static double _asDouble(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
 }
 
 class AuthService {
@@ -206,17 +306,32 @@ class AuthService {
     }
   }
 
-  Future<(LoginResult, ExamResult)> loginAndFetchAll(
+  Future<(LoginResult, ExamResult?, GradeResult?, AcademicStatus?)>
+  loginAndFetchAll(
     String studentId,
-    String password,
-  ) async {
+    String password, {
+    bool fetchExams = true,
+    bool fetchGrades = true,
+    bool fetchAcademic = true,
+  }) async {
     final session = await _casService.loginJw(studentId, password);
     try {
-      final results = await Future.wait([
+      final results = await Future.wait<Object?>([
         _fetchSchedule(session.dio),
-        _fetchExams(session.dio),
+        fetchExams ? _fetchExams(session.dio) : Future<ExamResult?>.value(null),
+        fetchGrades
+            ? _fetchGrades(session.dio)
+            : Future<GradeResult?>.value(null),
+        fetchAcademic
+            ? _fetchAcademicStatus(session.dio)
+            : Future<AcademicStatus?>.value(null),
       ]);
-      return (results[0] as LoginResult, results[1] as ExamResult);
+      return (
+        results[0] as LoginResult,
+        results[1] as ExamResult?,
+        results[2] as GradeResult?,
+        results[3] as AcademicStatus?,
+      );
     } finally {
       session.close();
     }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -15,6 +17,7 @@ class RepairPage extends StatefulWidget {
   final String studentId;
   final String password;
   final PreferencesStorage preferencesStorage;
+  final bool autoRefresh;
 
   const RepairPage({
     super.key,
@@ -22,6 +25,7 @@ class RepairPage extends StatefulWidget {
     required this.studentId,
     required this.password,
     required this.preferencesStorage,
+    this.autoRefresh = false,
   });
 
   @override
@@ -38,6 +42,7 @@ class _RepairPageState extends State<RepairPage> {
     super.initState();
     _records = widget.initialResult.records;
     _userInfo = widget.initialResult.userInfo;
+    if (widget.autoRefresh) unawaited(_refresh());
   }
 
   Future<void> _refresh() async {

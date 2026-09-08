@@ -36,7 +36,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     repository.addListener(_onRepositoryUpdate);
     unawaited(
       repository.load().then((_) {
-        if (mounted) setState(() {});
+        if (!mounted) return;
+        setState(() {});
+        if (repository.loadedFromCache) {
+          unawaited(_refreshLibrary(showToast: false));
+        }
       }),
     );
   }
@@ -51,12 +55,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _refreshLibrary() async {
+  Future<void> _refreshLibrary({bool showToast = true}) async {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
       await repository.refresh();
-      if (mounted) {
+      if (mounted && showToast) {
         showAppSnackBar(
           context,
           '题库已刷新',
@@ -276,9 +280,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final needsCdk = bank.locked;
     final unlockedWithCdk = bank.requiresCDK && !bank.locked;
     final collectionDetails = switch (collectionKind) {
-      LearningListKind.wrong => _CountBadge(
-        theme: theme,
-        count: bank.questions.length,
+      LearningListKind.wrong => Padding(
+        padding: const EdgeInsets.only(right: AppSpacing.sm),
+        child: _CountBadge(theme: theme, count: bank.questions.length),
       ),
       LearningListKind.favorite => AppIconButton(
         icon: FLucideIcons.x,
@@ -301,7 +305,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               ShapeDecoration(
                 color: Colors.transparent,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(22),
                   side: BorderSide(color: theme.colors.border),
                 ),
               ),
@@ -320,7 +324,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
       prefix: _BankInitial(
         initial: _bankInitial(name),
-        color: theme.colors.primary,
+        outerColor: theme.colors.primary,
+        innerColor: theme.colors.secondary,
       ),
       title: Text(
         name,
@@ -591,28 +596,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
 class _BankInitial extends StatelessWidget {
   final String initial;
-  final Color color;
+  final Color outerColor;
+  final Color innerColor;
 
-  const _BankInitial({required this.initial, required this.color});
+  const _BankInitial({
+    required this.initial,
+    required this.outerColor,
+    required this.innerColor,
+  });
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     alignment: Alignment.center,
-    decoration: BoxDecoration(
-      shape: BoxShape.circle,
-      color: Color.lerp(color, Colors.white, 0.9),
-    ),
-    padding: const EdgeInsets.all(4),
+    decoration: BoxDecoration(shape: BoxShape.circle, color: outerColor),
+    padding: const EdgeInsets.all(2),
     child: DecoratedBox(
-      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: innerColor),
       child: Center(
         child: Text(
           initial,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 17,
+          style: TextStyle(
+            color: outerColor,
+            fontSize: 16,
             height: 1.2,
             fontWeight: FontWeight.w500,
           ),

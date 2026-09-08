@@ -67,6 +67,23 @@ enum ClassAutomationMode {
   }
 }
 
+enum AppServiceFeature {
+  campusCard('campus_card', '一卡通查询'),
+  power('power', '电费查询'),
+  exams('exams', '考试查询'),
+  academic('academic', '学业情况'),
+  network('network', '网络管理'),
+  repair('repair', '极速报修'),
+  learning('learning', '学习中心'),
+  calendar('calendar', '学校校历'),
+  teacherEvaluation('teacher_evaluation', '教师评价');
+
+  final String storageValue;
+  final String title;
+
+  const AppServiceFeature(this.storageValue, this.title);
+}
+
 class AppSettings {
   final AppThemePreference themePreference;
   final AppThemeColor themeColor;
@@ -77,6 +94,7 @@ class AppSettings {
   final double timetableGridOpacity;
   final bool showTimetableGridLines;
   final bool showTodayGridLines;
+  final Set<AppServiceFeature> hiddenServiceFeatures;
 
   const AppSettings({
     this.themePreference = AppThemePreference.system,
@@ -88,6 +106,7 @@ class AppSettings {
     this.timetableGridOpacity = 0.5,
     this.showTimetableGridLines = true,
     this.showTodayGridLines = false,
+    this.hiddenServiceFeatures = const {},
   });
 
   static const _unset = Object();
@@ -102,6 +121,7 @@ class AppSettings {
     double? timetableGridOpacity,
     bool? showTimetableGridLines,
     bool? showTodayGridLines,
+    Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
@@ -118,6 +138,8 @@ class AppSettings {
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
       showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,
+      hiddenServiceFeatures:
+          hiddenServiceFeatures ?? this.hiddenServiceFeatures,
     );
   }
 }

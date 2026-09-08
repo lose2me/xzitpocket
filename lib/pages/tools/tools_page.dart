@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
 import '../../providers/config_provider.dart';
+import '../../models/app_settings.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/credential_storage.dart';
 import '../../services/talker.dart';
@@ -41,8 +43,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   final _manager = ToolsDataManager.instance;
   Timer? _controlHealthTimer;
-  bool _controlHealthChecking = true;
   bool _controlAvailable = false;
+  bool _refreshingTabData = false;
 
   @override
   void initState() {
@@ -68,28 +70,45 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   Future<void> _refreshControlAvailability() async {
     if (!mounted) return;
-    setState(() => _controlHealthChecking = true);
+    if (ref
+        .read(appSettingsProvider)
+        .hiddenServiceFeatures
+        .contains(AppServiceFeature.learning)) {
+      if (_controlAvailable) setState(() => _controlAvailable = false);
+      return;
+    }
     final available = await ControlService.instance.checkHealth();
     if (!mounted) return;
     setState(() {
       _controlAvailable = available;
-      _controlHealthChecking = false;
     });
   }
 
   Future<void> refreshData() async {
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) return;
-    final password = await CredentialStorage.getSavedPassword();
-    if (password == null || password.isEmpty) return;
+    if (_refreshingTabData) return;
+    setState(() => _refreshingTabData = true);
+    unawaited(_refreshControlAvailability());
+    try {
+      final config = ref.read(configProvider);
+      if (config.studentId == null || config.studentId!.isEmpty) return;
+      final password = await CredentialStorage.getSavedPassword();
+      if (password == null || password.isEmpty) return;
 
-    final prefs = ref.read(preferencesStorageProvider);
-    await _manager.refreshOnTabSwitch(
-      studentId: config.studentId!,
-      password: password,
-      prefs: prefs,
-      roomId: prefs.getSavedPowerRoomId(),
-    );
+      final prefs = ref.read(preferencesStorageProvider);
+      final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;
+      bool visible(AppServiceFeature feature) => !hidden.contains(feature);
+      await _manager.refreshOnTabSwitch(
+        studentId: config.studentId!,
+        password: password,
+        prefs: prefs,
+        roomId: prefs.getSavedPowerRoomId(),
+        loadYktData: visible(AppServiceFeature.campusCard),
+        loadPowerData: visible(AppServiceFeature.power),
+        loadExamData: visible(AppServiceFeature.exams),
+      );
+    } finally {
+      if (mounted) setState(() => _refreshingTabData = false);
+    }
   }
 
   // ── Open methods ──
@@ -121,8 +140,10 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       PreferencesStorage prefs,
     )
     load,
-    required Widget Function(T data, String sid, String pwd) buildPage,
+    required Widget Function(T data, String sid, String pwd, bool autoRefresh)
+    buildPage,
     bool requiresCampus = false,
+    bool forceRefresh = false,
   }) async {
     if (loading) return;
     talker.info('[ACTION] $logLabel');
@@ -148,7 +169,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
 
-    if (getData() == null) {
+    final hadData = getData() != null;
+    if (!hadData) {
       final prefs = ref.read(preferencesStorageProvider);
       await load(creds.studentId, creds.password, prefs);
       if (!mounted || getData() == null) return;
@@ -156,8 +178,12 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     Navigator.of(context).push(
       appRoute(
         name: routeName,
-        builder: (_) =>
-            buildPage(getData() as T, creds.studentId, creds.password),
+        builder: (_) => buildPage(
+          getData() as T,
+          creds.studentId,
+          creds.password,
+          forceRefresh && hadData,
+        ),
       ),
     );
   }
@@ -168,7 +194,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     routeName: AppRouteNames.exams,
     getData: () => _manager.exams,
     load: _manager.loadExam,
-    buildPage: (data, sid, pwd) => ExamQueryPage(
+    buildPage: (data, sid, pwd, _) => ExamQueryPage(
       result: data,
       studentId: sid,
       password: pwd,
@@ -182,7 +208,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     routeName: AppRouteNames.campusCard,
     getData: () => _manager.ykt,
     load: _manager.loadYkt,
-    buildPage: (data, sid, pwd) => CampusCardPage(
+    buildPage: (data, sid, pwd, _) => CampusCardPage(
       result: data,
       studentId: sid,
       password: pwd,
@@ -195,12 +221,16 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     logLabel: '打开极速报修',
     routeName: AppRouteNames.repair,
     getData: () => _manager.repair,
-    load: _manager.loadRepair,
-    buildPage: (data, sid, pwd) => RepairPage(
+    load: (sid, pwd, prefs) async {
+      await _manager.refreshRepair(sid, pwd, prefs);
+    },
+    forceRefresh: true,
+    buildPage: (data, sid, pwd, autoRefresh) => RepairPage(
       initialResult: data,
       studentId: sid,
       password: pwd,
       preferencesStorage: ref.read(preferencesStorageProvider),
+      autoRefresh: autoRefresh,
     ),
   );
 
@@ -234,12 +264,16 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     logLabel: '打开网络管理',
     routeName: AppRouteNames.networkManagement,
     getData: () => _manager.netAuth,
-    load: _manager.loadNetAuth,
-    buildPage: (data, sid, pwd) => NetworkManagementPage(
+    load: (sid, pwd, prefs) async {
+      await _manager.refreshNetAuth(sid, pwd, prefs);
+    },
+    forceRefresh: true,
+    buildPage: (data, sid, pwd, autoRefresh) => NetworkManagementPage(
       result: data,
       account: sid,
       password: pwd,
       preferencesStorage: ref.read(preferencesStorageProvider),
+      autoRefresh: autoRefresh,
     ),
   );
 
@@ -259,9 +293,13 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       logLabel: '打开教师评价',
       routeName: AppRouteNames.teacherEvaluation,
       getData: () => _manager.jp,
-      load: _manager.loadJp,
+      load: (sid, pwd, prefs) async {
+        await _manager.refreshJp(sid, pwd, prefs);
+      },
       requiresCampus: true,
-      buildPage: (data, _, _) => TeacherEvaluationPage(result: data),
+      forceRefresh: true,
+      buildPage: (data, _, _, autoRefresh) =>
+          TeacherEvaluationPage(result: data, autoRefresh: autoRefresh),
     );
   }
 
@@ -281,6 +319,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         builder: (_) => GradeQueryPage(
           studentId: creds.studentId,
           password: creds.password,
+          preferencesStorage: ref.read(preferencesStorageProvider),
         ),
       ),
     );
@@ -327,36 +366,124 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   Widget build(BuildContext context) {
     super.build(context);
     final theme = context.theme;
+    final settings = ref.watch(appSettingsProvider);
+    final hidden = settings.hiddenServiceFeatures;
+    bool visible(AppServiceFeature feature) => !hidden.contains(feature);
     final roomId = ref.watch(savedRoomIdProvider);
     final hasRoom = roomId != null && roomId.isNotEmpty;
     final campusAvailable = _manager.isCampusNetworkAvailable;
-    final campusStatusText = switch (_manager.campusNetworkStatus) {
-      CampusNetworkStatus.checking => '正在检测校园网',
-      CampusNetworkStatus.available => null,
-      CampusNetworkStatus.unavailable => '请连接校园网',
-    };
     final config = ref.watch(configProvider);
     final learningLoggedIn = config.studentId?.isNotEmpty == true;
     final learningEnabled = _controlAvailable && learningLoggedIn;
-    final learningSubtitle = _controlHealthChecking
-        ? '正在检查服务'
-        : !_controlAvailable
-        ? '服务不可用'
-        : !learningLoggedIn
-        ? '请先登录'
-        : null;
 
     ref.listen(savedRoomIdProvider, (prev, next) {
       _manager.clearPower();
-      if (next != null && next.isNotEmpty) {
+      if (visible(AppServiceFeature.power) && next != null && next.isNotEmpty) {
         final prefs = ref.read(preferencesStorageProvider);
         unawaited(_manager.loadPower(next, prefs));
       }
     });
 
+    final cards = <Widget>[];
+    void addCard(Widget card) {
+      if (cards.isNotEmpty) cards.add(const SizedBox(height: AppSpacing.md));
+      cards.add(card);
+    }
+
+    final showCampusCard = visible(AppServiceFeature.campusCard);
+    final showPower = visible(AppServiceFeature.power);
+    if (showCampusCard && showPower) {
+      addCard(
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildYktCard(theme)),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: _buildPowerCard(theme, hasRoom, roomId)),
+            ],
+          ),
+        ),
+      );
+    } else if (showCampusCard) {
+      addCard(_buildYktCard(theme));
+    } else if (showPower) {
+      addCard(_buildPowerCard(theme, hasRoom, roomId));
+    }
+
+    if (visible(AppServiceFeature.exams)) addCard(_buildExamCard(theme));
+    if (visible(AppServiceFeature.academic)) {
+      addCard(
+        _buildSimpleCard(
+          theme,
+          icon: FLucideIcons.graduationCap,
+          title: '学业情况',
+          onTap: _openGradeQuery,
+        ),
+      );
+    }
+    if (visible(AppServiceFeature.network)) {
+      addCard(
+        _buildSimpleCard(
+          theme,
+          icon: FLucideIcons.wifi,
+          title: '网络管理',
+          onTap: _manager.netAuthLoading ? null : _openNetAuth,
+        ),
+      );
+    }
+    if (visible(AppServiceFeature.repair)) {
+      addCard(
+        _buildSimpleCard(
+          theme,
+          icon: FLucideIcons.wrench,
+          title: '极速报修',
+          onTap: _manager.repairLoading ? null : _openRepair,
+        ),
+      );
+    }
+    if (visible(AppServiceFeature.learning)) {
+      addCard(
+        _buildSimpleCard(
+          theme,
+          icon: FLucideIcons.graduationCap,
+          title: '学习中心',
+          onTap: learningEnabled ? _openLearningCenter : null,
+        ),
+      );
+    }
+    if (visible(AppServiceFeature.calendar)) {
+      addCard(
+        _buildSimpleCard(
+          theme,
+          icon: FLucideIcons.calendarDays,
+          title: '学校校历',
+          onTap: _openSchoolCalendar,
+        ),
+      );
+    }
+    if (visible(AppServiceFeature.teacherEvaluation)) {
+      addCard(
+        _buildSimpleCard(
+          theme,
+          icon: FLucideIcons.messageSquareMore,
+          title: '教师评价',
+          onTap: campusAvailable && !_manager.jpLoading ? _openJp : null,
+        ),
+      );
+    }
+
     return AppPage(
       title: '服务',
       root: true,
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.refreshCw,
+          onPress: _refreshingTabData ? null : refreshData,
+          tooltip: '刷新服务数据',
+          loading: _refreshingTabData,
+        ),
+      ],
       headerStyle: FHeaderStyleDelta.delta(
         titleTextStyle: TextStyleDelta.value(
           context.theme.typography.display.xl.copyWith(
@@ -370,68 +497,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
-        children: [
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _buildYktCard(theme)),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(child: _buildPowerCard(theme, hasRoom, roomId)),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildExamCard(theme),
-          const SizedBox(height: AppSpacing.md),
-          _buildSimpleCard(
-            theme,
-            icon: FLucideIcons.graduationCap,
-            title: '学业情况',
-            onTap: _openGradeQuery,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildSimpleCard(
-            theme,
-            icon: FLucideIcons.wifi,
-            title: '网络管理',
-            loading: _manager.netAuthLoading,
-            onTap: _openNetAuth,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildSimpleCard(
-            theme,
-            icon: FLucideIcons.wrench,
-            title: '极速报修',
-            loading: _manager.repairLoading,
-            onTap: _openRepair,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildSimpleCard(
-            theme,
-            icon: FLucideIcons.graduationCap,
-            title: '学习中心',
-            subtitle: learningSubtitle,
-            loading: _controlHealthChecking,
-            onTap: learningEnabled ? _openLearningCenter : null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildSimpleCard(
-            theme,
-            icon: FLucideIcons.calendarDays,
-            title: '学校校历',
-            onTap: _openSchoolCalendar,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _buildSimpleCard(
-            theme,
-            icon: FLucideIcons.messageSquareMore,
-            title: '教师评价',
-            subtitle: campusStatusText,
-            loading: campusAvailable && _manager.jpLoading,
-            onTap: campusAvailable ? _openJp : null,
-          ),
-        ],
+        children: cards,
       ),
     );
   }
@@ -465,7 +531,14 @@ class ToolsPageState extends ConsumerState<ToolsPage>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: theme.typography.tileTitle),
+                Text(
+                  title,
+                  style: theme.typography.tileTitle.copyWith(
+                    color: enabled
+                        ? theme.colors.foreground
+                        : theme.colors.mutedForeground,
+                  ),
+                ),
                 if (subtitle != null)
                   Text(
                     subtitle,
@@ -732,18 +805,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                     ),
                   ],
                 ),
-                if (_manager.powerLoading && hasRoom && data == null)
-                  const Padding(
-                    padding: EdgeInsets.only(top: AppSpacing.sm),
-                    child: SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: FCircularProgress(
-                        size: FCircularProgressSizeVariant.sm,
-                      ),
-                    ),
-                  )
-                else if (statusText.isNotEmpty) ...[
+                if (statusText.isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     statusText,
@@ -755,7 +817,13 @@ class ToolsPageState extends ConsumerState<ToolsPage>
               ],
             ),
           ),
-          if (hasRoom && data != null)
+          if (_manager.powerLoading)
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+            )
+          else if (hasRoom && data != null)
             Icon(FLucideIcons.chevronRight, color: theme.colors.mutedForeground)
           else if (hasRoom && campusAvailable && !_manager.powerLoading)
             AppIconButton(

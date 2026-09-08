@@ -30,7 +30,7 @@ void main() {
       expect(value.questions.any((question) => question.isMultiple), isTrue);
       expect(value.questions.any((question) => question.isTrueFalse), isTrue);
       expect(value.questions.any((question) => question.isFillBlank), isTrue);
-      expect(storage.getLearningQuestionBankCache(), isNull);
+      expect(storage.getLearningQuestionBankCache(), isNotNull);
     },
   );
 
@@ -69,6 +69,38 @@ void main() {
       expect(value.banks.single.locked, isTrue);
       expect(value.banks.single.requiresCDK, isTrue);
       expect(value.questions, isEmpty);
+    },
+  );
+
+  test(
+    'removes a question bank removed by control and its saved collections',
+    () async {
+      var availableBanks = <LearningQuestionBank>[
+        _fixtureBank('QB-KEEP', '保留题库', 'keep-question'),
+        _fixtureBank('QB-REMOVE', '已删除题库', 'removed-question'),
+      ];
+      final value = LearningRepository(
+        preferencesStorage: storage,
+        bankFetcher: () async => availableBanks,
+      );
+
+      await value.load();
+      await value.toggleFavorite('removed-question');
+      await value.submitAnswer('removed-question', {'wrong'});
+      expect(value.favoriteIds, contains('removed-question'));
+      expect(value.wrongIds, contains('removed-question'));
+
+      availableBanks = [_fixtureBank('QB-KEEP', '保留题库', 'keep-question')];
+      await value.refresh();
+
+      expect(value.banks.map((bank) => bank.id), ['QB-KEEP']);
+      expect(value.questions.map((question) => question.id), ['keep-question']);
+      expect(value.favoriteIds, isNot(contains('removed-question')));
+      expect(value.wrongIds, isNot(contains('removed-question')));
+      expect(
+        storage.getLearningStateCache(),
+        isNot(contains('removed-question')),
+      );
     },
   );
 
@@ -237,6 +269,31 @@ void main() {
     expect(question.correctOptionIds, {'A', 'C'});
   });
 }
+
+LearningQuestionBank _fixtureBank(String id, String name, String questionId) =>
+    LearningQuestionBank(
+      id: id,
+      name: name,
+      isNew: true,
+      orderId: 1,
+      questions: [
+        LearningQuestion(
+          id: questionId,
+          bankId: id,
+          bankName: name,
+          bankIsNew: true,
+          bankOrderId: 1,
+          questionNumber: 1,
+          title: name,
+          type: LearningQuestionType.single,
+          options: const [
+            LearningOption(id: 'A', text: '正确'),
+            LearningOption(id: 'B', text: '错误'),
+          ],
+          correctOptionIds: const {'A'},
+        ),
+      ],
+    );
 
 List<LearningQuestion> _fixtureQuestions() => [
   LearningQuestion(

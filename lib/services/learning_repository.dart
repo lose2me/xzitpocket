@@ -37,6 +37,7 @@ class LearningRepository extends ChangeNotifier {
   bool _loaded = false;
   bool _libraryUnavailable = false;
   int _libraryRevision = 0;
+  bool _loadedFromCache = false;
 
   List<LearningQuestion> get questions => List.unmodifiable(_questions);
   List<LearningQuestionBank> get banks => List.unmodifiable(_banks);
@@ -46,6 +47,7 @@ class LearningRepository extends ChangeNotifier {
   bool get libraryUnavailable => _libraryUnavailable;
   int get libraryRevision => _libraryRevision;
   bool get canRedeemCdk => cdkRedeemer != null;
+  bool get loadedFromCache => _loadedFromCache;
   int get answeredCount =>
       _questions.where((question) => _judgedIds.contains(question.id)).length;
 
@@ -94,28 +96,43 @@ class LearningRepository extends ChangeNotifier {
 
   Future<void> load() async {
     if (_loaded) return;
-    await preferencesStorage.clearLearningQuestionBankCache();
+    final cachedRaw = preferencesStorage.getLearningQuestionBankCache();
+    final cachedBanks = cachedRaw == null ? null : _decodeBanks(cachedRaw);
+    if (cachedBanks != null) {
+      _banks = cachedBanks;
+      _questions = [for (final bank in _banks) ...bank.questions];
+      _loadedFromCache = true;
+    }
+    _restoreState();
+
+    if (_loadedFromCache) {
+      if (_pruneState()) await _persistState();
+      _loaded = true;
+      _libraryRevision++;
+      notifyListeners();
+      return;
+    }
 
     if (bankFetcher != null) {
       try {
-        _libraryUnavailable = false;
-        _banks = await bankFetcher!();
-        _questions = [for (final bank in _banks) ...bank.questions];
-      } on ControlApiException catch (error) {
-        _libraryUnavailable = error.code == 'user_unavailable';
-        _banks = const [];
-        _questions = const [];
+        await refresh();
       } catch (_) {
-        _libraryUnavailable = false;
-        _banks = const [];
-        _questions = const [];
+        // Cached data remains visible when the control service is unavailable.
+        if (!_loaded) {
+          _loaded = true;
+          _libraryRevision++;
+          notifyListeners();
+        }
       }
-    } else if (fetcher != null) {
+      return;
+    }
+
+    if (!_loaded && fetcher != null) {
       try {
         final fetched = await fetcher!();
-        if (fetched.isNotEmpty) {
-          _questions = fetched;
-        }
+        _questions = fetched;
+        _banks = _deriveBanks(fetched);
+        await _saveBankCache();
       } catch (_) {
         _questions = const [];
       }
@@ -123,36 +140,39 @@ class LearningRepository extends ChangeNotifier {
     if (_banks.isEmpty && _questions.isNotEmpty) {
       _banks = _deriveBanks(_questions);
     }
-    final stateJson = preferencesStorage.getLearningStateCache();
-    if (stateJson != null && stateJson.isNotEmpty) {
-      try {
-        final state = jsonDecode(stateJson) as Map<String, dynamic>;
-        _favoriteIds
-          ..clear()
-          ..addAll(_stringSet(state['favoriteIds']));
-        _wrongIds
-          ..clear()
-          ..addAll(_stringSet(state['wrongIds']));
-        _judgedIds
-          ..clear()
-          ..addAll(_stringSet(state['judgedIds']));
-        _judgedOrder
-          ..clear()
-          ..addAll(_stringSet(state['judgedOrder']));
-        _answers
-          ..clear()
-          ..addAll(_answersFromJson(state['answers']));
-      } catch (_) {
-        _favoriteIds.clear();
-        _wrongIds.clear();
-        _judgedIds.clear();
-        _judgedOrder.clear();
-        _answers.clear();
-      }
-    }
-    _pruneState();
+    if (_pruneState()) await _persistState();
     _loaded = true;
     _libraryRevision++;
+    notifyListeners();
+  }
+
+  void _restoreState() {
+    final stateJson = preferencesStorage.getLearningStateCache();
+    if (stateJson == null || stateJson.isEmpty) return;
+    try {
+      final state = jsonDecode(stateJson) as Map<String, dynamic>;
+      _favoriteIds
+        ..clear()
+        ..addAll(_stringSet(state['favoriteIds']));
+      _wrongIds
+        ..clear()
+        ..addAll(_stringSet(state['wrongIds']));
+      _judgedIds
+        ..clear()
+        ..addAll(_stringSet(state['judgedIds']));
+      _judgedOrder
+        ..clear()
+        ..addAll(_stringSet(state['judgedOrder']));
+      _answers
+        ..clear()
+        ..addAll(_answersFromJson(state['answers']));
+    } catch (_) {
+      _favoriteIds.clear();
+      _wrongIds.clear();
+      _judgedIds.clear();
+      _judgedOrder.clear();
+      _answers.clear();
+    }
   }
 
   Future<void> redeemCdk(String code, String questionBankId) async {
@@ -164,12 +184,12 @@ class LearningRepository extends ChangeNotifier {
 
   Future<void> refresh() async {
     if (fetcher == null && bankFetcher == null) return;
+    final previousBanks = _banks;
+    List<LearningQuestionBank> fetchedBanks;
     if (bankFetcher != null) {
       try {
         _libraryUnavailable = false;
-        final fetchedBanks = await bankFetcher!();
-        _banks = fetchedBanks;
-        _questions = [for (final bank in fetchedBanks) ...bank.questions];
+        fetchedBanks = await bankFetcher!();
       } on ControlApiException catch (error) {
         _libraryUnavailable = error.code == 'user_unavailable';
         notifyListeners();
@@ -177,20 +197,44 @@ class LearningRepository extends ChangeNotifier {
       }
     } else {
       final fetched = await fetcher!();
-      _questions = fetched;
-      _banks = _deriveBanks(fetched);
+      fetchedBanks = _deriveBanks(fetched);
     }
-    _pruneState();
+
+    final fetchedBankIds = {
+      for (final bank in fetchedBanks)
+        if (bank.id.trim().isNotEmpty) bank.id.trim(),
+    };
+    final removedQuestionIds = {
+      for (final bank in previousBanks)
+        if (bank.id.trim().isNotEmpty &&
+            !fetchedBankIds.contains(bank.id.trim()))
+          for (final question in bank.questions) question.id,
+    };
+    _banks = fetchedBanks;
+    _questions = [for (final bank in fetchedBanks) ...bank.questions];
+
+    var stateChanged = _dropQuestions(removedQuestionIds);
+    stateChanged = _pruneState() || stateChanged;
+    await _saveBankCache();
+    if (stateChanged) await _persistState();
     _loaded = true;
     _libraryRevision++;
     notifyListeners();
   }
 
-  void _pruneState() {
+  bool _pruneState() {
     final questionIds = _questions.map((question) => question.id).toSet();
+    var changed = false;
+    final favoriteCount = _favoriteIds.length;
     _favoriteIds.retainAll(questionIds);
+    changed = _favoriteIds.length != favoriteCount || changed;
+    final wrongCount = _wrongIds.length;
     _wrongIds.retainAll(questionIds);
+    changed = _wrongIds.length != wrongCount || changed;
+    final judgedCount = _judgedIds.length;
     _judgedIds.retainAll(questionIds);
+    changed = _judgedIds.length != judgedCount || changed;
+    final judgedOrderCount = _judgedOrder.length;
     _judgedOrder
       ..removeWhere((questionId) => !questionIds.contains(questionId))
       ..addAll([
@@ -199,7 +243,52 @@ class LearningRepository extends ChangeNotifier {
               !_judgedOrder.contains(question.id))
             question.id,
       ]);
+    changed = _judgedOrder.length != judgedOrderCount || changed;
+    final answerCount = _answers.length;
     _answers.removeWhere((questionId, _) => !questionIds.contains(questionId));
+    changed = _answers.length != answerCount || changed;
+    return changed;
+  }
+
+  bool _dropQuestions(Iterable<String> questionIds) {
+    final ids = questionIds.toSet();
+    if (ids.isEmpty) return false;
+
+    var changed = false;
+    final favoriteCount = _favoriteIds.length;
+    _favoriteIds.removeWhere(ids.contains);
+    changed = _favoriteIds.length != favoriteCount || changed;
+    final wrongCount = _wrongIds.length;
+    _wrongIds.removeWhere(ids.contains);
+    changed = _wrongIds.length != wrongCount || changed;
+    final judgedCount = _judgedIds.length;
+    _judgedIds.removeWhere(ids.contains);
+    changed = _judgedIds.length != judgedCount || changed;
+    final judgedOrderCount = _judgedOrder.length;
+    _judgedOrder.removeWhere(ids.contains);
+    changed = _judgedOrder.length != judgedOrderCount || changed;
+    final answerCount = _answers.length;
+    _answers.removeWhere((questionId, _) => ids.contains(questionId));
+    changed = _answers.length != answerCount || changed;
+    return changed;
+  }
+
+  Future<void> _saveBankCache() =>
+      preferencesStorage.setLearningQuestionBankCache(
+        jsonEncode([for (final bank in _banks) bank.toJson()]),
+      );
+
+  static List<LearningQuestionBank>? _decodeBanks(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      return [
+        for (final item in decoded)
+          if (item is Map<String, dynamic>) LearningQuestionBank.fromJson(item),
+      ];
+    } catch (_) {
+      return null;
+    }
   }
 
   static List<LearningQuestionBank> _deriveBanks(

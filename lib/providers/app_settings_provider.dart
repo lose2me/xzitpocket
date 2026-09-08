@@ -33,6 +33,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
       showTodayGridLines: _storage.getShowTodayGridLines(),
+      hiddenServiceFeatures: {
+        for (final value in _storage.getHiddenServiceFeatures())
+          ...AppServiceFeature.values.where(
+            (feature) => feature.storageValue == value,
+          ),
+      },
     );
   }
 
@@ -93,5 +99,21 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setShowTodayGridLines(bool value) async {
     await _storage.setShowTodayGridLines(value);
     state = state.copyWith(showTodayGridLines: value);
+  }
+
+  Future<void> setServiceFeatureVisible(
+    AppServiceFeature feature,
+    bool visible,
+  ) async {
+    final hidden = {...state.hiddenServiceFeatures};
+    if (visible) {
+      hidden.remove(feature);
+    } else {
+      hidden.add(feature);
+    }
+    await _storage.setHiddenServiceFeatures(
+      hidden.map((item) => item.storageValue),
+    );
+    state = state.copyWith(hiddenServiceFeatures: hidden);
   }
 }

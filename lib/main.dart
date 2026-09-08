@@ -55,8 +55,9 @@ Future<void> _finishStartup(
 ) async {
   ToolsDataManager.instance.initialize(preferencesStorage);
   await ControlService.instance.initialize();
+  final controlAvailable = await ControlService.instance.checkHealth();
   final studentId = preferencesStorage.getStudentId();
-  if (studentId != null && studentId.isNotEmpty) {
+  if (controlAvailable && studentId != null && studentId.isNotEmpty) {
     unawaited(
       ControlService.instance.syncAfterOaLogin(
         studentId: studentId,

@@ -70,10 +70,12 @@ class ConfigNotifier extends Notifier<UserConfig> {
     ToolsDataManager.instance.clear();
     await Future.wait([
       _storage.clearStudentInfo(),
+      _storage.clearSavedPowerRoomId(),
       _storage.clearUserToolCaches(),
       _storage.clearPowerCache(),
       CredentialStorage.clearPassword(),
     ]);
+    ref.read(savedRoomIdProvider.notifier).set(null);
     state = const UserConfig();
   }
 }

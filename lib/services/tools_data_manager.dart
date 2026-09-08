@@ -5,10 +5,11 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/app_settings.dart';
 import '../utils/in_flight_operation.dart';
 import 'auth_service.dart';
 import 'cas_service.dart';
-import 'credential_storage.dart';
+import 'control_service.dart';
 import 'jp_service.dart';
 import 'netauth_service.dart';
 import 'power_service.dart';
@@ -82,9 +83,7 @@ class ToolsDataManager extends ChangeNotifier {
   int _dataGeneration = 0;
   int _powerGeneration = 0;
   bool _initialized = false;
-  String? _savedStudentId;
   PreferencesStorage? _savedPrefs;
-  String? _savedRoomId;
   String? _powerRoomId;
   List<ConnectivityResult> _lastConnectivity = [];
 
@@ -93,14 +92,13 @@ class ToolsDataManager extends ChangeNotifier {
   void initialize(PreferencesStorage prefs) {
     if (_initialized) return;
     _initialized = true;
-    _savedStudentId = prefs.getStudentId();
     _savedPrefs = prefs;
-    _savedRoomId = prefs.getSavedPowerRoomId();
     _loadAllCaches(prefs);
     unawaited(_initializeNetworkMonitoring());
   }
 
   Future<void> setExams(ExamResult result, PreferencesStorage prefs) async {
+    if (!_featureEnabled(AppServiceFeature.exams, prefs)) return;
     exams = result;
     await prefs.setExamCache(jsonEncode(result.toJson()));
     notifyListeners();
@@ -109,7 +107,6 @@ class ToolsDataManager extends ChangeNotifier {
   void clearPower() {
     _powerGeneration++;
     _powerOperation.invalidate();
-    _savedRoomId = null;
     power = null;
     _powerRoomId = null;
     powerLoading = false;
@@ -122,9 +119,7 @@ class ToolsDataManager extends ChangeNotifier {
     _powerGeneration++;
     _invalidateOperations();
     _connectivityDebounce?.cancel();
-    _savedStudentId = null;
     _savedPrefs = null;
-    _savedRoomId = null;
     power = null;
     _powerRoomId = null;
     powerError = null;
@@ -142,13 +137,17 @@ class ToolsDataManager extends ChangeNotifier {
     required String password,
     required PreferencesStorage prefs,
     String? roomId,
+    String displayName = '',
+    bool loadYktData = true,
+    bool loadPowerData = true,
+    bool loadRepairData = true,
+    bool loadNetAuthData = true,
+    bool loadJpData = true,
   }) async {
     final generation = ++_dataGeneration;
     _invalidateOperations();
     _resetLoadingFlags();
-    _savedStudentId = studentId;
     _savedPrefs = prefs;
-    _savedRoomId = roomId;
     initialize(prefs);
 
     talker.info('[ACTION] 后台数据加载\n开始');
@@ -164,6 +163,12 @@ class ToolsDataManager extends ChangeNotifier {
 
     final campusOk = await checkCampusNetwork();
     if (generation != _dataGeneration) return;
+
+    await ControlService.instance.syncAfterOaLogin(
+      studentId: studentId,
+      displayName: displayName,
+    );
+    if (generation != _dataGeneration) return;
     await _loadBackgroundData(
       studentId: studentId,
       password: password,
@@ -171,6 +176,11 @@ class ToolsDataManager extends ChangeNotifier {
       roomId: roomId,
       campusAvailable: campusOk,
       generation: generation,
+      loadYktData: loadYktData,
+      loadPowerData: loadPowerData,
+      loadRepairData: loadRepairData,
+      loadNetAuthData: loadNetAuthData,
+      loadJpData: loadJpData,
     );
 
     talker.info('[ACTION] 后台数据加载\n完成');
@@ -181,10 +191,11 @@ class ToolsDataManager extends ChangeNotifier {
     required String password,
     required PreferencesStorage prefs,
     String? roomId,
+    bool loadYktData = true,
+    bool loadPowerData = true,
+    bool loadExamData = true,
   }) async {
-    _savedStudentId = studentId;
     _savedPrefs = prefs;
-    _savedRoomId = roomId;
     final hasNet = await checkInternetAvailable();
     if (!hasNet) {
       _setCampusNetworkStatus(CampusNetworkStatus.unavailable);
@@ -194,18 +205,22 @@ class ToolsDataManager extends ChangeNotifier {
 
     final futures = <Future<void>>[];
 
-    if (roomId != null && roomId.isNotEmpty) {
+    if (loadPowerData && roomId != null && roomId.isNotEmpty) {
       final campusOk = await checkCampusNetwork();
       if (campusOk) {
-        futures.add(loadPower(roomId, prefs));
+        futures.add(refreshPower(roomId, prefs).then((_) {}));
       } else {
         _restorePowerCache(prefs, roomId: roomId);
         notifyListeners();
       }
     }
 
-    futures.add(loadYkt(studentId, password, prefs));
-    futures.add(loadExam(studentId, password, prefs));
+    if (loadYktData) {
+      futures.add(refreshYkt(studentId, password, prefs).then((_) {}));
+    }
+    if (loadExamData) {
+      futures.add(refreshExam(studentId, password, prefs).then((_) {}));
+    }
 
     await Future.wait(futures);
   }
@@ -279,8 +294,8 @@ class ToolsDataManager extends ChangeNotifier {
   // ── Individual loaders ──
 
   Future<void> loadPower(String roomId, PreferencesStorage prefs) {
+    if (!_featureEnabled(AppServiceFeature.power, prefs)) return Future.value();
     _savedPrefs = prefs;
-    _savedRoomId = roomId;
     return _powerOperation.run(() => _loadPower(roomId, prefs));
   }
 
@@ -288,6 +303,7 @@ class ToolsDataManager extends ChangeNotifier {
     String roomId,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.power, prefs)) return null;
     await _powerOperation.run(
       () => _loadPower(roomId, prefs, forceRefresh: true),
     );
@@ -391,6 +407,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.campusCard, prefs)) return;
     await _yktOperation.run(() => _loadYkt(studentId, password, prefs));
   }
 
@@ -399,6 +416,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.campusCard, prefs)) return null;
     final success = await _yktOperation.run(
       () => _loadYkt(studentId, password, prefs, forceRefresh: true),
     );
@@ -480,6 +498,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.exams, prefs)) return;
     await _examOperation.run(() => _loadExam(studentId, password, prefs));
   }
 
@@ -488,6 +507,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.exams, prefs)) return null;
     final success = await _examOperation.run(
       () => _loadExam(studentId, password, prefs, forceRefresh: true),
     );
@@ -545,6 +565,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.repair, prefs)) return;
     await _repairOperation.run(() => _loadRepair(studentId, password, prefs));
   }
 
@@ -553,6 +574,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.repair, prefs)) return null;
     final success = await _repairOperation.run(
       () => _loadRepair(studentId, password, prefs, forceRefresh: true),
     );
@@ -615,6 +637,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.network, prefs)) return;
     await _netAuthOperation.run(() => _loadNetAuth(studentId, password, prefs));
   }
 
@@ -623,6 +646,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.network, prefs)) return null;
     final success = await _netAuthOperation.run(
       () => _loadNetAuth(studentId, password, prefs, forceRefresh: true),
     );
@@ -686,6 +710,7 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.teacherEvaluation, prefs)) return;
     await _jpOperation.run(() => _loadJp(studentId, password, prefs));
   }
 
@@ -694,6 +719,9 @@ class ToolsDataManager extends ChangeNotifier {
     String password,
     PreferencesStorage prefs,
   ) async {
+    if (!_featureEnabled(AppServiceFeature.teacherEvaluation, prefs)) {
+      return null;
+    }
     final success = await _jpOperation.run(
       () => _loadJp(studentId, password, prefs, forceRefresh: true),
     );
@@ -855,27 +883,6 @@ class ToolsDataManager extends ChangeNotifier {
       '[ACTION] 网络变化\n${wasOffline ? "恢复连接" : "切换网络"}, '
       '校园网${campusOk ? "可达" : "不可达"}',
     );
-
-    final sid = _savedStudentId;
-    final prefs = _savedPrefs;
-    final dataGeneration = _dataGeneration;
-    if (sid == null || prefs == null) return;
-
-    final pwd = await CredentialStorage.getSavedPassword();
-    if (pwd == null ||
-        dataGeneration != _dataGeneration ||
-        sid != _savedStudentId) {
-      return;
-    }
-
-    await _loadBackgroundData(
-      studentId: sid,
-      password: pwd,
-      prefs: prefs,
-      roomId: _savedRoomId,
-      campusAvailable: campusOk,
-      generation: dataGeneration,
-    );
   }
 
   // ── Helpers ──
@@ -905,24 +912,64 @@ class ToolsDataManager extends ChangeNotifier {
     required String? roomId,
     required bool campusAvailable,
     required int generation,
+    required bool loadYktData,
+    required bool loadPowerData,
+    required bool loadRepairData,
+    required bool loadNetAuthData,
+    required bool loadJpData,
   }) async {
     if (generation != _dataGeneration) return;
     final futures = <Future<void>>[];
+    final canLoadPower =
+        loadPowerData && _featureEnabled(AppServiceFeature.power, prefs);
+    final canLoadYkt =
+        loadYktData && _featureEnabled(AppServiceFeature.campusCard, prefs);
+    final canLoadRepair =
+        loadRepairData && _featureEnabled(AppServiceFeature.repair, prefs);
+    final canLoadNetAuth =
+        loadNetAuthData && _featureEnabled(AppServiceFeature.network, prefs);
+    final canLoadJp =
+        loadJpData &&
+        _featureEnabled(AppServiceFeature.teacherEvaluation, prefs);
 
-    if (campusAvailable && roomId != null && roomId.isNotEmpty) {
+    if (canLoadPower &&
+        campusAvailable &&
+        roomId != null &&
+        roomId.isNotEmpty) {
       futures.add(loadPower(roomId, prefs));
-    } else if (!campusAvailable) {
+    } else if (canLoadPower && !campusAvailable) {
       _restorePowerCache(prefs, roomId: roomId);
       notifyListeners();
     }
-    futures.add(loadYkt(studentId, password, prefs));
-    futures.add(loadRepair(studentId, password, prefs));
-    futures.add(loadNetAuth(studentId, password, prefs));
-    if (campusAvailable) {
+    if (canLoadYkt) futures.add(loadYkt(studentId, password, prefs));
+    if (canLoadRepair) futures.add(loadRepair(studentId, password, prefs));
+    if (canLoadNetAuth) futures.add(loadNetAuth(studentId, password, prefs));
+    if (canLoadJp && campusAvailable) {
       futures.add(loadJp(studentId, password, prefs));
     }
 
+    if (_featureEnabled(AppServiceFeature.learning, prefs) &&
+        ControlService.instance.isConfigured) {
+      futures.add(_loadLearningBanks());
+    }
+
     await Future.wait(futures);
+  }
+
+  bool _featureEnabled(AppServiceFeature feature, PreferencesStorage prefs) =>
+      !prefs.getHiddenServiceFeatures().contains(feature.storageValue);
+
+  Future<void> _loadLearningBanks() async {
+    try {
+      final banks = await ControlService.instance.fetchLearningQuestionBanks();
+      final prefs = _savedPrefs;
+      if (prefs == null) return;
+      await prefs.setLearningQuestionBankCache(
+        jsonEncode([for (final bank in banks) bank.toJson()]),
+      );
+    } catch (error, stackTrace) {
+      talker.warning('学习中心后台加载失败', error, stackTrace);
+    }
   }
 
   static Future<T> _retryOnce<T>(

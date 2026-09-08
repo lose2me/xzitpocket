@@ -348,7 +348,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             bottom: 0,
                                             width: 1,
                                             child: ColoredBox(
-                                              color: theme.colors.secondary
+                                              color: theme.colors.primary
                                                   .withValues(
                                                     alpha: widget.gridOpacity,
                                                   ),
@@ -360,7 +360,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             bottom: 0,
                                             width: 1,
                                             child: ColoredBox(
-                                              color: theme.colors.secondary
+                                              color: theme.colors.primary
                                                   .withValues(
                                                     alpha: widget.gridOpacity,
                                                   ),
