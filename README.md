@@ -99,30 +99,6 @@ node_app -->|"检查更新"| node_updates
 node_app -.->|"上报"| node_diagnostics
 node_ci -->|"运行"| node_build
 
-click node_main "https://github.com/lose2me/xzitpocket/blob/main/lib/main.dart"
-click node_app "https://github.com/lose2me/xzitpocket/blob/main/lib/app.dart"
-click node_routes "https://github.com/lose2me/xzitpocket/blob/main/lib/ui/app_routes.dart"
-click node_home "https://github.com/lose2me/xzitpocket/blob/main/lib/pages/home_page.dart"
-click node_tools "https://github.com/lose2me/xzitpocket/blob/main/lib/pages/tools/tools_page.dart"
-click node_state "https://github.com/lose2me/xzitpocket/blob/main/lib/providers/auth_provider.dart"
-click node_storage "https://github.com/lose2me/xzitpocket/blob/main/lib/services/preferences_storage.dart"
-click node_timetable "https://github.com/lose2me/xzitpocket/blob/main/lib/pages/timetable/timetable_page.dart"
-click node_schedule_state "https://github.com/lose2me/xzitpocket/blob/main/lib/pages/timetable/timetable_providers.dart"
-click node_course "https://github.com/lose2me/xzitpocket/blob/main/lib/models/course.dart"
-click node_grid "https://github.com/lose2me/xzitpocket/blob/main/lib/pages/timetable/timetable_grid.dart"
-click node_calendar_rules "https://github.com/lose2me/xzitpocket/blob/main/lib/constants/semester_config.dart"
-click node_campus_clients "https://github.com/lose2me/xzitpocket/blob/main/lib/services/cas_service.dart"
-click node_http "https://github.com/lose2me/xzitpocket/blob/main/lib/services/dio_factory.dart"
-click node_native_bridge "https://github.com/lose2me/xzitpocket/blob/main/lib/services/widget_service.dart"
-click node_android_host "https://github.com/lose2me/xzitpocket/blob/main/android/app/src/main/kotlin/live/xuda/xzitpocket/MainActivity.kt"
-click node_widget_pipeline "https://github.com/lose2me/xzitpocket/blob/main/android/app/src/main/kotlin/live/xuda/xzitpocket/widget/WidgetDataSynchronizer.kt"
-click node_widget_scheduler "https://github.com/lose2me/xzitpocket/blob/main/android/app/src/main/kotlin/live/xuda/xzitpocket/widget/WidgetWorkManager.kt"
-click node_automation "https://github.com/lose2me/xzitpocket/blob/main/android/app/src/main/kotlin/live/xuda/xzitpocket/automation/ClassAutomationManager.kt"
-click node_updates "https://github.com/lose2me/xzitpocket/blob/main/lib/services/update_service.dart"
-click node_diagnostics "https://github.com/lose2me/xzitpocket/blob/main/lib/services/talker.dart"
-click node_build "https://github.com/lose2me/xzitpocket/blob/main/android/app/build.gradle.kts"
-click node_ci "https://github.com/lose2me/xzitpocket/blob/main/.github/workflows/android-build.yml"
-
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
 classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
 classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
