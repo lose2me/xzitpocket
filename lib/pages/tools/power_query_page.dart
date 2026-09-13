@@ -378,7 +378,9 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         ),
         child: FTappable(
           onPress: () => setState(() => _showMoney = !_showMoney),
-          child: card,
+          // Leave a narrow gap so the themed outer border remains visible
+          // above the opaque AppCard decoration.
+          child: Padding(padding: const EdgeInsets.all(1.5), child: card),
         ),
       );
     }
