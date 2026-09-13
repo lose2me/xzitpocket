@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/widgets.dart';
@@ -137,8 +136,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       if (result != null) {
         final loginResult = result.$1;
         final examResult = result.$2;
-        final gradeResult = result.$3;
-        final academicStatus = result.$4;
         try {
           await ref
               .read(scheduleProvider.notifier)
@@ -161,18 +158,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         if (examResult != null) {
           await ToolsDataManager.instance.setExams(examResult, prefs);
         }
-        final cacheWrites = <Future<void>>[];
-        if (gradeResult != null) {
-          cacheWrites.add(
-            prefs.setGradeCache(jsonEncode(gradeResult.toJson())),
-          );
-        }
-        if (academicStatus != null) {
-          cacheWrites.add(
-            prefs.setAcademicCache(jsonEncode(academicStatus.toJson())),
-          );
-        }
-        await Future.wait(cacheWrites);
         if (mounted) {
           showAppSnackBar(context, '同步成功', severity: ToastSeverity.success);
         }
@@ -271,6 +256,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                 calendar: semesterCalendar,
                 selectedWeek: ref.watch(selectedWeekProvider),
                 onSync: _isSyncing ? null : _onSync,
+                syncing: _isSyncing,
                 onSettings: () => Navigator.of(context).push(
                   appRoute(
                     name: AppRouteNames.timetableSettings,
@@ -323,11 +309,16 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                           gridOpacity: settings.timetableGridOpacity,
                           showGridLines: settings.showTimetableGridLines,
                           showTodayGridLines: settings.showTodayGridLines,
-                          onCourseTap: (course, idx) {
-                            final key = ref
-                                .read(scheduleProvider.notifier)
-                                .keyAt(idx);
-                            _showCourseDetail(context, course, key);
+                          onCourseTap: (course, sourceIndex) {
+                            final notifier = ref.read(
+                              scheduleProvider.notifier,
+                            );
+                            final key = notifier.keyForCourse(
+                              course,
+                              sourceIndex: sourceIndex,
+                            );
+                            if (key == null) return;
+                            _showCourseDetail(context, course, key, week);
                           },
                           onEmptyTap: (weekday, session) =>
                               _onEmptySlotTap(context, weekday, session),
@@ -353,7 +344,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     );
   }
 
-  void _showCourseDetail(BuildContext context, Course course, int key) {
+  void _showCourseDetail(
+    BuildContext context,
+    Course course,
+    int key,
+    int week,
+  ) {
     unawaited(
       showAppSheet(
         context: context,
@@ -420,18 +416,20 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         ),
                         const SizedBox(width: AppSpacing.sm),
                       ],
-                      Expanded(
-                        child: FButton(
-                          variant: FButtonVariant.destructive,
-                          size: FButtonSizeVariant.md,
-                          onPress: () {
-                            Navigator.pop(ctx);
-                            _confirmSingleDelete(context, key);
-                          },
-                          child: const Text('单次删除'),
+                      if (course.isInWeek(week))
+                        Expanded(
+                          child: FButton(
+                            variant: FButtonVariant.destructive,
+                            size: FButtonSizeVariant.md,
+                            onPress: () {
+                              Navigator.pop(ctx);
+                              _confirmSingleDelete(context, key, week);
+                            },
+                            child: const Text('单次删除'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
+                      if (course.isInWeek(week))
+                        const SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: FButton(
                           size: FButtonSizeVariant.md,
@@ -478,24 +476,27 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     return '${value.substring(0, 16)}...';
   }
 
-  void _confirmSingleDelete(BuildContext context, int key) {
-    unawaited(_deleteSingleCourseAfterConfirmation(context, key));
+  void _confirmSingleDelete(BuildContext context, int key, int week) {
+    unawaited(_deleteSingleCourseAfterConfirmation(context, key, week));
   }
 
   Future<void> _deleteSingleCourseAfterConfirmation(
     BuildContext context,
     int key,
+    int week,
   ) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除课程',
-      message: '确定要删除这门课程吗？',
+      message: '仅删除第$week周的这次课程，确定继续吗？',
       confirmLabel: '删除',
       destructive: true,
     );
     if (!confirmed) return;
     try {
-      await ref.read(scheduleProvider.notifier).deleteCourse(key);
+      await ref
+          .read(scheduleProvider.notifier)
+          .deleteCourseOccurrence(key, week);
     } on WidgetSyncException catch (e) {
       if (mounted) {
         showAppSnackBar(

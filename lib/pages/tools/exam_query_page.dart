@@ -63,7 +63,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
         return;
       }
       setState(() {
-        _result = result;
+        if (!identical(result, _result)) _result = result;
         _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {

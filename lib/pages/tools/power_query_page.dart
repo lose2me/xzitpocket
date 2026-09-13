@@ -9,10 +9,13 @@ import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../../ui/date_range_calendar_sheet.dart';
+import '../../widgets/power_usage_chart.dart';
 
 class PowerQueryPage extends StatefulWidget {
   final PowerQueryData result;
   final String? roomId;
+  final String? studentId;
   final PreferencesStorage preferencesStorage;
 
   const PowerQueryPage({
@@ -20,6 +23,7 @@ class PowerQueryPage extends StatefulWidget {
     required this.result,
     required this.preferencesStorage,
     this.roomId,
+    this.studentId,
   });
 
   @override
@@ -28,11 +32,15 @@ class PowerQueryPage extends StatefulWidget {
 
 class _PowerQueryPageState extends State<PowerQueryPage> {
   final _manager = ToolsDataManager.instance;
-  static const _pageSize = 7;
-  int _currentPage = 0;
+  static const _loadBatchSize = 14;
+  final _scrollController = ScrollController();
+  int _visibleCount = _loadBatchSize;
   bool _isRefreshing = false;
   bool _refreshSucceeded = false;
-  late DateTime _selectedMonth;
+  bool _showMoney = false;
+  late DateTime _startDate;
+  late DateTime _endDate;
+  late final TextEditingController _rangeCtrl;
 
   late PowerQueryData _baseResult;
   late List<PowerDailyUsage> _displayUsage;
@@ -42,8 +50,12 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     super.initState();
     _manager.addListener(_onCampusNetworkChanged);
     _baseResult = widget.result;
-    _selectedMonth = DateTime(DateTime.now().year, DateTime.now().month);
-    _updateDisplayUsage(widget.result.dailyUsage, isCurrentMonth: true);
+    final today = _today;
+    _endDate = today;
+    _startDate = today.subtract(const Duration(days: 30));
+    _rangeCtrl = TextEditingController(text: _rangeText());
+    _scrollController.addListener(_onScroll);
+    _updateDisplayUsage(widget.result.dailyUsage);
     if (!PreferencesStorage.isCacheValid(
       widget.preferencesStorage.getPowerCacheTime(),
       const Duration(minutes: 5),
@@ -55,6 +67,8 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   @override
   void dispose() {
     _manager.removeListener(_onCampusNetworkChanged);
+    _scrollController.dispose();
+    _rangeCtrl.dispose();
     super.dispose();
   }
 
@@ -64,18 +78,43 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
   bool get _canRefresh => _manager.isCampusNetworkAvailable;
 
-  void _updateDisplayUsage(
-    List<PowerDailyUsage> usage, {
-    required bool isCurrentMonth,
-  }) {
-    if (isCurrentMonth) {
-      _displayUsage = usage.reversed.toList();
-    } else {
-      _displayUsage = List.of(usage);
+  DateTime get _today {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime get _historyStart {
+    return studentHistoryStartDate(widget.studentId, today: _today);
+  }
+
+  void _updateDisplayUsage(List<PowerDailyUsage> usage) {
+    _displayUsage = List.of(usage)
+      ..sort((a, b) => b.dateValue.compareTo(a.dateValue));
+    _visibleCount = _loadBatchSize.clamp(0, _displayUsage.length);
+  }
+
+  void _onScroll() {
+    if (!mounted || _visibleCount >= _displayUsage.length) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 240) {
+      setState(() {
+        _visibleCount = (_visibleCount + _loadBatchSize)
+            .clamp(0, _displayUsage.length)
+            .toInt();
+      });
     }
   }
 
-  Future<void> _refresh({String? startDate, bool showError = true}) async {
+  String _fmtDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  String _rangeText() => '${_fmtDate(_startDate)} ~ ${_fmtDate(_endDate)}';
+
+  Future<void> _refresh({
+    DateTime? startDate,
+    DateTime? endDate,
+    bool showError = true,
+  }) async {
     final roomId = widget.roomId;
     if (roomId == null || roomId.isEmpty) return;
     if (!_canRefresh) {
@@ -87,10 +126,15 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     setState(() => _isRefreshing = true);
     try {
       final PowerQueryData? result;
-      if (startDate == null) {
+      final isDefault = startDate == null && endDate == null;
+      if (isDefault) {
         result = await _manager.refreshPower(roomId, widget.preferencesStorage);
       } else {
-        result = await PowerService().queryRoom(roomId, startDate: startDate);
+        result = await PowerService().queryRoom(
+          roomId,
+          startDate: _fmtDate(startDate ?? _startDate),
+          endDate: _fmtDate(endDate ?? _endDate),
+        );
       }
       if (!mounted) return;
       if (result == null) {
@@ -104,15 +148,20 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         return;
       }
       final loadedResult = result;
-      final isCurrent = startDate == null;
+      final changed = !identical(loadedResult, _baseResult);
       setState(() {
-        if (isCurrent) _baseResult = loadedResult;
-        _updateDisplayUsage(
-          loadedResult.dailyUsage,
-          isCurrentMonth: _isCurrentMonth,
-        );
-        _currentPage = 0;
-        if (isCurrent) _refreshSucceeded = true;
+        if (isDefault && changed) {
+          _baseResult = loadedResult;
+        }
+        if (isDefault) {
+          _endDate = _today;
+          _startDate = _endDate.subtract(const Duration(days: 30));
+          _rangeCtrl.text = _rangeText();
+        }
+        if (!isDefault || changed) {
+          _updateDisplayUsage(loadedResult.dailyUsage);
+        }
+        _refreshSucceeded = true;
       });
     } on PowerQueryException catch (e, stackTrace) {
       talker.error('电费详情刷新失败', e, stackTrace);
@@ -129,45 +178,51 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     }
   }
 
-  void _changeMonth(int delta) {
+  Future<void> _pickRange() async {
+    final picked = await showAppSheet<(DateTime, DateTime)>(
+      context: context,
+      maxHeightRatio: 0.9,
+      builder: (_) => AppDateRangeCalendarSheet(
+        initial: (_startDate, _endDate),
+        minDate: _historyStart,
+      ),
+    );
+    if (picked == null || !mounted) return;
+    final (start, end) = picked;
     setState(() {
-      _selectedMonth = DateTime(
-        _selectedMonth.year,
-        _selectedMonth.month + delta,
-      );
+      _startDate = start;
+      _endDate = end;
+      _rangeCtrl.text = _rangeText();
     });
-    if (_isCurrentMonth) {
-      unawaited(_refresh());
-    } else {
-      final formatted =
-          '${_selectedMonth.year}-${_selectedMonth.month.toString().padLeft(2, '0')}';
-      unawaited(_refresh(startDate: formatted));
-    }
+    await _refresh(startDate: start, endDate: end);
   }
 
-  int get _totalPages =>
-      (_displayUsage.length / _pageSize).ceil().clamp(1, 999);
-
-  List<PowerDailyUsage> _pageItems(int page) {
-    final start = page * _pageSize;
-    final end = (start + _pageSize).clamp(0, _displayUsage.length);
-    return _displayUsage.sublist(start, end);
-  }
-
-  bool get _isCurrentMonth {
-    final now = DateTime.now();
-    return _selectedMonth.year == now.year && _selectedMonth.month == now.month;
-  }
+  Widget _buildRangeField(FThemeData theme) => AppTextField(
+    controller: _rangeCtrl,
+    hint: '请选择日期范围',
+    readOnly: true,
+    enabled: !_isRefreshing,
+    onTap: _pickRange,
+    suffix: _isRefreshing
+        ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+        : const Icon(FLucideIcons.chevronDown),
+  );
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
 
     final metrics = <_MetricItem>[
-      _MetricItem('剩余电量', '${_baseResult.available} 度'),
-      _MetricItem('电价', '${_baseResult.price} 元/度'),
+      _MetricItem(
+        _showMoney ? '剩余金额' : '剩余电量',
+        '${_formatAmount(_baseResult.available)} ${_showMoney ? '元' : '度'}',
+      ),
+      _MetricItem('电价', '${_baseResult.price} 元/度', interactive: true),
       if (_baseResult.monthUsage != null)
-        _MetricItem('本月用电', '${_baseResult.monthUsage} 度'),
+        _MetricItem(
+          _showMoney ? '本月电费' : '本月用电',
+          '${_formatAmount(_baseResult.monthUsage!)} ${_showMoney ? '元' : '度'}',
+        ),
       if (_baseResult.estDays != null)
         _MetricItem('预计可用', _formatEstDays(_baseResult.estDays!)),
     ];
@@ -184,6 +239,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         ),
       ],
       child: AppPageListView(
+        controller: _scrollController,
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
@@ -227,53 +283,23 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                 ],
               ),
               const SizedBox(height: AppSpacing.xl),
+              _buildRangeField(theme),
+              const SizedBox(height: AppSpacing.lg),
+              PowerUsageChart(
+                usage: _displayUsage,
+                showMoney: _showMoney,
+                price: _baseResult.price,
+              ),
+              const SizedBox(height: AppSpacing.xl),
               Row(
                 children: [
-                  AppIconButton(
-                    icon: FLucideIcons.chevronLeft,
-                    onPress: _isRefreshing || !_canRefresh
-                        ? null
-                        : () => _changeMonth(-1),
-                    tooltip: '上个月',
-                    size: FButtonSizeVariant.xs,
-                  ),
                   Text(
-                    '${_selectedMonth.year}年${_selectedMonth.month}月',
+                    '每日用电明细',
                     style: theme.typography.tileTitle.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  AppIconButton(
-                    icon: FLucideIcons.chevronRight,
-                    onPress: _isRefreshing || _isCurrentMonth || !_canRefresh
-                        ? null
-                        : () => _changeMonth(1),
-                    tooltip: '下个月',
-                    size: FButtonSizeVariant.xs,
-                  ),
                   const Spacer(),
-                  if (_displayUsage.length > _pageSize) ...[
-                    AppIconButton(
-                      icon: FLucideIcons.chevronLeft,
-                      onPress: _currentPage > 0
-                          ? () => setState(() => _currentPage--)
-                          : null,
-                      tooltip: '上一页',
-                      size: FButtonSizeVariant.xs,
-                    ),
-                    Text(
-                      '${_currentPage + 1}/$_totalPages',
-                      style: theme.typography.body.md,
-                    ),
-                    AppIconButton(
-                      icon: FLucideIcons.chevronRight,
-                      onPress: _currentPage < _totalPages - 1
-                          ? () => setState(() => _currentPage++)
-                          : null,
-                      tooltip: '下一页',
-                      size: FButtonSizeVariant.xs,
-                    ),
-                  ],
                 ],
               ),
               if (_isRefreshing)
@@ -283,8 +309,15 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                 )
               else if (_displayUsage.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
-                ..._pageItems(_currentPage)
+                ..._displayUsage
+                    .take(_visibleCount)
                     .map((item) => _buildUsageRow(theme, item)),
+                if (_visibleCount < _displayUsage.length)
+                  const Center(
+                    child: FCircularProgress(
+                      size: FCircularProgressSizeVariant.sm,
+                    ),
+                  ),
               ] else ...[
                 const SizedBox(height: AppSpacing.xl),
                 Text(
@@ -308,8 +341,16 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     return value;
   }
 
+  String _formatAmount(String value) {
+    if (!_showMoney) return value;
+    final amount = double.tryParse(value);
+    final price = double.tryParse(_baseResult.price);
+    if (amount == null || price == null) return '-';
+    return (amount * price).toStringAsFixed(2);
+  }
+
   Widget _buildMetricCell(FThemeData theme, _MetricItem item) {
-    return AppCard(
+    Widget card = AppCard(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
@@ -328,6 +369,20 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         ],
       ),
     );
+    if (item.interactive) {
+      card = DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border.all(color: theme.colors.primary, width: 1.5),
+          color: theme.colors.secondary.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: FTappable(
+          onPress: () => setState(() => _showMoney = !_showMoney),
+          child: card,
+        ),
+      );
+    }
+    return card;
   }
 
   Widget _buildUsageRow(FThemeData theme, PowerDailyUsage item) {
@@ -342,7 +397,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
           children: [
             Expanded(child: Text(item.date, style: theme.typography.body.md)),
             Text(
-              '${item.usage} 度',
+              '${_formatAmount(item.usage)} ${_showMoney ? '元' : '度'}',
               style: theme.typography.body.md.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -357,6 +412,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 class _MetricItem {
   final String label;
   final String value;
+  final bool interactive;
 
-  const _MetricItem(this.label, this.value);
+  const _MetricItem(this.label, this.value, {this.interactive = false});
 }

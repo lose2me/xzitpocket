@@ -59,10 +59,13 @@ class ConfigNotifier extends Notifier<UserConfig> {
       ]);
     }
     await Future.wait([
-      _storage.setStudentId(studentId),
-      _storage.setStudentName(studentName),
+      if (state.studentId != studentId) _storage.setStudentId(studentId),
+      if (state.studentName != studentName)
+        _storage.setStudentName(studentName),
     ]);
-    state = state.copyWith(studentId: studentId, studentName: studentName);
+    if (state.studentId != studentId || state.studentName != studentName) {
+      state = state.copyWith(studentId: studentId, studentName: studentName);
+    }
   }
 
   Future<void> logout() async {

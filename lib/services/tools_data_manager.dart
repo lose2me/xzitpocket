@@ -100,9 +100,11 @@ class ToolsDataManager extends ChangeNotifier {
 
   Future<void> setExams(ExamResult result, PreferencesStorage prefs) async {
     if (!_featureEnabled(AppServiceFeature.exams, prefs)) return;
-    exams = result;
-    await prefs.setExamCache(jsonEncode(result.toJson()));
-    notifyListeners();
+    final encoded = jsonEncode(result.toJson());
+    final unchanged = _matchesJson(exams?.toJson(), encoded);
+    if (!unchanged) exams = result;
+    await prefs.setExamCache(encoded);
+    if (!unchanged) notifyListeners();
   }
 
   void clearPower() {
@@ -402,10 +404,13 @@ class ToolsDataManager extends ChangeNotifier {
           powerGeneration != _powerGeneration) {
         return false;
       }
-      power = result;
+      final encoded = jsonEncode(result.toJson());
+      final unchanged =
+          _powerRoomId == roomId && _matchesJson(power?.toJson(), encoded);
+      if (!unchanged) power = result;
       _powerRoomId = roomId;
       powerError = null;
-      await prefs.setPowerCache(jsonEncode(result.toJson()), roomId: roomId);
+      await prefs.setPowerCache(encoded, roomId: roomId);
       return true;
     } on PowerQueryException catch (e, stackTrace) {
       if (generation != _dataGeneration ||
@@ -537,8 +542,10 @@ class ToolsDataManager extends ChangeNotifier {
     try {
       final result = await YktService().getDetail(studentId, password);
       if (generation != _dataGeneration) return false;
-      ykt = result;
-      await prefs.setYktCache(jsonEncode(result.toJson()));
+      final encoded = jsonEncode(result.toJson());
+      final unchanged = _matchesJson(ykt?.toJson(), encoded);
+      if (!unchanged) ykt = result;
+      await prefs.setYktCache(encoded);
       return true;
     } on AuthException catch (e, stackTrace) {
       if (generation != _dataGeneration) return false;
@@ -606,8 +613,10 @@ class ToolsDataManager extends ChangeNotifier {
     try {
       final result = await AuthService().fetchExams(studentId, password);
       if (generation != _dataGeneration) return false;
-      exams = result;
-      await prefs.setExamCache(jsonEncode(result.toJson()));
+      final encoded = jsonEncode(result.toJson());
+      final unchanged = _matchesJson(exams?.toJson(), encoded);
+      if (!unchanged) exams = result;
+      await prefs.setExamCache(encoded);
       return true;
     } on AuthException catch (e, stackTrace) {
       if (generation != _dataGeneration) return false;
@@ -677,8 +686,10 @@ class ToolsDataManager extends ChangeNotifier {
       final service = RepairService();
       final result = await service.fetchAll(studentId, password);
       if (generation != _dataGeneration) return false;
-      repair = result;
-      await prefs.setRepairCache(jsonEncode(result.toJson()));
+      final encoded = jsonEncode(result.toJson());
+      final unchanged = _matchesJson(repair?.toJson(), encoded);
+      if (!unchanged) repair = result;
+      await prefs.setRepairCache(encoded);
       return true;
     } on AuthException catch (e, stackTrace) {
       if (generation != _dataGeneration) return false;
@@ -751,8 +762,10 @@ class ToolsDataManager extends ChangeNotifier {
     try {
       final result = await NetAuthService().login(studentId, password);
       if (generation != _dataGeneration) return false;
-      netAuth = result;
-      await prefs.setNetauthCache(jsonEncode(result.toJson()));
+      final encoded = jsonEncode(result.toJson());
+      final unchanged = _matchesJson(netAuth?.toJson(), encoded);
+      if (!unchanged) netAuth = result;
+      await prefs.setNetauthCache(encoded);
       return true;
     } on AuthException catch (e, stackTrace) {
       if (generation != _dataGeneration) return false;
@@ -825,8 +838,10 @@ class ToolsDataManager extends ChangeNotifier {
       final service = JpService();
       final result = await service.queryStatus(studentId, password);
       if (generation != _dataGeneration) return false;
-      jp = result;
-      await prefs.setJpCache(jsonEncode(result.toJson()));
+      final encoded = jsonEncode(result.toJson());
+      final unchanged = _matchesJson(jp?.toJson(), encoded);
+      if (!unchanged) jp = result;
+      await prefs.setJpCache(encoded);
       return true;
     } on AuthException catch (e, stackTrace) {
       if (generation != _dataGeneration) return false;
@@ -874,6 +889,9 @@ class ToolsDataManager extends ChangeNotifier {
       return null;
     }
   }
+
+  bool _matchesJson(Map<String, dynamic>? current, String encoded) =>
+      current != null && jsonEncode(current) == encoded;
 
   // ── Connectivity watch ──
 

@@ -10,6 +10,7 @@ class WeekHeader extends StatelessWidget {
   final int selectedWeek;
   final VoidCallback? onSync;
   final VoidCallback? onSettings;
+  final bool syncing;
 
   const WeekHeader({
     super.key,
@@ -17,6 +18,7 @@ class WeekHeader extends StatelessWidget {
     required this.selectedWeek,
     this.onSync,
     this.onSettings,
+    this.syncing = false,
   });
 
   @override
@@ -56,8 +58,9 @@ class WeekHeader extends StatelessWidget {
           ),
           AppIconButton(
             icon: FLucideIcons.refreshCw,
-            onPress: onSync,
+            onPress: syncing ? null : onSync,
             tooltip: '同步课表',
+            loading: syncing,
           ),
           AppIconButton(
             icon: FLucideIcons.settings,

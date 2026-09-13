@@ -319,10 +319,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         ]),
         contentStyle: FItemContentStyleDelta.delta(
           suffixedPadding: const EdgeInsetsGeometryDelta.value(
-            EdgeInsetsDirectional.fromSTEB(4, 2, 12, 2),
+            EdgeInsetsDirectional.fromSTEB(0, 2, 12, 2),
           ),
           unsuffixedPadding: const EdgeInsetsGeometryDelta.value(
-            EdgeInsetsDirectional.fromSTEB(4, 2, 12, 2),
+            EdgeInsetsDirectional.fromSTEB(0, 2, 12, 2),
           ),
           prefixIconSpacing: 8,
         ),

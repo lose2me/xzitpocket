@@ -203,6 +203,8 @@ class LearningRepository extends ChangeNotifier {
   Future<void> refresh() async {
     if (fetcher == null && bankFetcher == null) return;
     final previousBanks = _banks;
+    final wasLoaded = _loaded;
+    final wasLibraryUnavailable = _libraryUnavailable;
     List<LearningQuestionBank> fetchedBanks;
     if (bankFetcher != null) {
       try {
@@ -216,6 +218,21 @@ class LearningRepository extends ChangeNotifier {
     } else {
       final fetched = await fetcher!();
       fetchedBanks = _deriveBanks(fetched);
+    }
+
+    final encoded = jsonEncode([
+      for (final bank in fetchedBanks) bank.toJson(),
+    ]);
+    final currentEncoded = jsonEncode([
+      for (final bank in _banks) bank.toJson(),
+    ]);
+    if (currentEncoded == encoded) {
+      await preferencesStorage.setLearningQuestionBankCache(encoded);
+      _loadedFromNetwork = true;
+      _loaded = true;
+      _libraryRevision++;
+      if (!wasLoaded || wasLibraryUnavailable) notifyListeners();
+      return;
     }
 
     final fetchedBankIds = {

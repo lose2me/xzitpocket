@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -718,8 +717,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
       _pwdCtrl.clear();
       final loginResult = result.$1;
       final examResult = result.$2;
-      final gradeResult = result.$3;
-      final academicStatus = result.$4;
       await CredentialStorage.setSavedPassword(pwd);
 
       try {
@@ -742,17 +739,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
       if (examResult != null) {
         await ToolsDataManager.instance.setExams(examResult, prefs);
       }
-      final cacheWrites = <Future<void>>[];
-      if (gradeResult != null) {
-        cacheWrites.add(prefs.setGradeCache(jsonEncode(gradeResult.toJson())));
-      }
-      if (academicStatus != null) {
-        cacheWrites.add(
-          prefs.setAcademicCache(jsonEncode(academicStatus.toJson())),
-        );
-      }
-      await Future.wait(cacheWrites);
-
       if (mounted) {
         setState(() => _isLoggingIn = false);
         showAppSnackBar(context, '登录成功', severity: ToastSeverity.success);
@@ -870,11 +856,10 @@ class ProfilePageState extends ConsumerState<ProfilePage>
       if (!mounted) return;
       showAppSnackBar(context, '保存成功', severity: ToastSeverity.success);
     } else {
+      _roomIdController.clear();
       showAppSnackBar(context, '无此房间号', severity: ToastSeverity.error);
     }
   }
-
-  // ── Helpers ──
 
   // ── Logout ──
 

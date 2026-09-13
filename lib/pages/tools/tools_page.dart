@@ -382,7 +382,14 @@ class ToolsPageState extends ConsumerState<ToolsPage>
             children: [
               Expanded(child: _buildYktCard(theme)),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: _buildPowerCard(theme, hasRoom, roomId)),
+              Expanded(
+                child: _buildPowerCard(
+                  theme,
+                  hasRoom,
+                  roomId,
+                  config.studentId,
+                ),
+              ),
             ],
           ),
         ),
@@ -390,7 +397,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     } else if (showCampusCard) {
       addCard(_buildYktCard(theme));
     } else if (showPower) {
-      addCard(_buildPowerCard(theme, hasRoom, roomId));
+      addCard(_buildPowerCard(theme, hasRoom, roomId, config.studentId));
     }
 
     if (visible(AppServiceFeature.exams)) addCard(_buildExamCard(theme));
@@ -706,7 +713,12 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     );
   }
 
-  Widget _buildPowerCard(FThemeData theme, bool hasRoom, String? roomId) {
+  Widget _buildPowerCard(
+    FThemeData theme,
+    bool hasRoom,
+    String? roomId,
+    String? studentId,
+  ) {
     final data = _manager.power;
     final campusAvailable = _manager.isCampusNetworkAvailable;
     final campusChecking =
@@ -750,6 +762,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                 builder: (_) => PowerQueryPage(
                   result: data,
                   roomId: roomId,
+                  studentId: studentId,
                   preferencesStorage: ref.read(preferencesStorageProvider),
                 ),
               ),

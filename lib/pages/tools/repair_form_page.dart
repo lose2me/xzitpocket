@@ -267,7 +267,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
         images: imagePaths,
       );
       if (!mounted) return;
-      showAppSnackBar(context, '提交成功', severity: ToastSeverity.success);
       Navigator.of(context).pop(true);
     } on AuthException catch (e, stackTrace) {
       talker.error('报修提交失败', e, stackTrace);

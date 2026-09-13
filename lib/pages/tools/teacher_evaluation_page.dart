@@ -112,12 +112,15 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
         showAppSnackBar(context, '查询失败', severity: ToastSeverity.error);
         return;
       }
+      final changed = !identical(result, _status);
       setState(() {
-        _status = result;
-        _currentPage = 0;
+        if (changed) {
+          _status = result;
+          _currentPage = 0;
+        }
         if (requestedRefresh && success) _refreshSucceeded = true;
       });
-      if (_pageController.hasClients) {
+      if (changed && _pageController.hasClients) {
         _pageController.jumpToPage(0);
       }
     } on AuthException catch (e, stackTrace) {
@@ -220,7 +223,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
       ],
       child: AppPageBody(
         maxWidth: AppLayout.resultMaxWidth,
-        child: _isLoading
+        child: _isLoading && _status == null
             ? const Center(child: FCircularProgress())
             : tasks.isEmpty
             ? AppStateView(

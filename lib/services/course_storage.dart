@@ -8,18 +8,27 @@ const _courseBoxName = 'courses';
 class CourseStorage {
   late Box<Course> _courseBox;
 
-  Future<void> init() async {
-    await Hive.initFlutter();
-    Hive.registerAdapter(CourseAdapter());
+  Future<void> init({String? path}) async {
+    if (path == null) {
+      await Hive.initFlutter();
+    } else {
+      Hive.init(path);
+    }
+    if (!Hive.isAdapterRegistered(CourseAdapter().typeId)) {
+      Hive.registerAdapter(CourseAdapter());
+    }
     _courseBox = await Hive.openBox<Course>(_courseBoxName);
   }
 
   List<Course> getCourses() => _courseBox.values.toList();
 
   (List<int> keys, List<Course> courses) getCoursesWithKeys() {
-    final map = _courseBox.toMap();
-    final keys = map.keys.cast<int>().toList();
-    final courses = map.values.toList();
+    final keys = <int>[];
+    final courses = <Course>[];
+    for (final entry in _courseBox.toMap().entries) {
+      keys.add(entry.key as int);
+      courses.add(entry.value);
+    }
     return (keys, courses);
   }
 
@@ -38,8 +47,23 @@ class CourseStorage {
     await _courseBox.put(key, course);
   }
 
-  Future<void> deleteCourse(int key) async {
-    await _courseBox.delete(key);
+  /// Removes one occurrence of a recurring course from [week].
+  ///
+  /// A course may be scheduled in multiple weeks. Keep the record (and its
+  /// stable key) while other weeks remain; only remove it completely when the
+  /// selected week was its last occurrence.
+  Future<void> deleteCourseOccurrence(int key, int week) async {
+    final course = _courseBox.get(key);
+    if (course == null || !course.weeks.contains(week)) return;
+
+    final remainingWeeks = course.weeks
+        .where((value) => value != week)
+        .toList();
+    if (remainingWeeks.isEmpty) {
+      await _courseBox.delete(key);
+    } else {
+      await _courseBox.put(key, course.copyWith(weeks: remainingWeeks));
+    }
   }
 
   Future<void> deleteCoursesByCourseId(String courseId) async {

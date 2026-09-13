@@ -44,7 +44,7 @@ class _RepairPageState extends State<RepairPage> {
     unawaited(_load());
   }
 
-  Future<void> _load({bool forceRefresh = false}) async {
+  Future<bool> _load({bool forceRefresh = false, bool showError = true}) async {
     setState(() => _isRefreshing = true);
     try {
       final manager = ToolsDataManager.instance;
@@ -71,27 +71,37 @@ class _RepairPageState extends State<RepairPage> {
         );
         result = manager.repair;
       }
-      if (!mounted) return;
+      if (!mounted) return false;
       if (result == null) {
-        showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
-        return;
+        if (showError) {
+          showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
+        }
+        return false;
       }
       final refreshed = result;
+      final changed =
+          !identical(refreshed.records, _records) ||
+          !identical(refreshed.userInfo, _userInfo);
       setState(() {
-        _records = refreshed.records;
-        _userInfo = refreshed.userInfo;
+        if (changed) {
+          _records = refreshed.records;
+          _userInfo = refreshed.userInfo;
+        }
         if (requestedRefresh && success) _refreshSucceeded = true;
       });
+      return true;
     } on AuthException catch (e, stackTrace) {
       talker.error('报修详情刷新失败', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, e.message, severity: ToastSeverity.error);
       }
+      return false;
     } catch (e, stackTrace) {
       talker.error('报修详情刷新异常', e, stackTrace);
-      if (mounted) {
+      if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
+      return false;
     } finally {
       if (mounted) setState(() => _isRefreshing = false);
     }
@@ -109,7 +119,14 @@ class _RepairPageState extends State<RepairPage> {
       ),
     );
     if (submitted == true) {
-      await _load(forceRefresh: true);
+      final refreshed = await _load(forceRefresh: true, showError: false);
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          refreshed ? '提交成功' : '提交成功，但列表刷新失败',
+          severity: refreshed ? ToastSeverity.success : ToastSeverity.warning,
+        );
+      }
     }
   }
 

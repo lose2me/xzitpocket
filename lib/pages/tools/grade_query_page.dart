@@ -82,11 +82,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
   Future<void> _load({bool forceRefresh = false}) async {
     final hasFreshCache =
         _result != null &&
@@ -114,17 +109,24 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         ),
       ]);
       if (!mounted) return;
+      final gradesChanged =
+          jsonEncode(_result?.toJson()) != jsonEncode(grades.toJson());
+      final academicChanged =
+          jsonEncode(_academic?.toJson()) != jsonEncode(academic.toJson());
       setState(() {
-        _result = grades;
-        _academic = academic;
+        if (gradesChanged) _result = grades;
+        if (academicChanged) _academic = academic;
         _refreshSucceeded = true;
-        _yearIndex = 0;
-        // 默认显示最新学期：最新学年 + 该学年最后一个学期
-        final latestYear = grades.years.isNotEmpty ? grades.years.first : null;
-        final latestTerms = latestYear == null
-            ? const <String>[]
-            : (grades.termsByYear[latestYear] ?? const <String>[]);
-        _termIndex = latestTerms.isEmpty ? 0 : latestTerms.length - 1;
+        if (gradesChanged) {
+          _yearIndex = 0;
+          final latestYear = grades.years.isNotEmpty
+              ? grades.years.first
+              : null;
+          final latestTerms = latestYear == null
+              ? const <String>[]
+              : (grades.termsByYear[latestYear] ?? const <String>[]);
+          _termIndex = latestTerms.isEmpty ? 0 : latestTerms.length - 1;
+        }
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('学业情况查询失败', e, stackTrace);

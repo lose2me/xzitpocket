@@ -52,6 +52,7 @@ List<int>? parseWeekRanges(String text, {bool allowParity = true}) {
       .replaceAll('）', ')')
       .replaceAll('，', ',')
       .replaceAll('周次', '')
+      .replaceAll('第', '')
       .replaceAll('周', '');
 
   if (normalized.isEmpty) return null;

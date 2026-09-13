@@ -389,7 +389,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
     if (!mounted) return;
     Navigator.pop(context);
   }
-
 }
 
 class _HexColorInputFormatter extends TextInputFormatter {

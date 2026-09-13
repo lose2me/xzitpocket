@@ -1,21 +1,12 @@
 import 'dart:convert';
-import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
-import 'package:pointycastle/export.dart';
 
 import '../constants/network_config.dart';
 import 'cas_service.dart';
 import 'talker.dart';
 import 'dio_factory.dart';
-
-const _aggPublicKeyB64 =
-    'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDBKw11ggtOzD1XfvcicMM3EIUg'
-    'lOuOrEDiE7so9f9TogYvchS8FoxOrqW0520GwDrZLP5tc/DXo0lETPgZyW5RNhu4'
-    '4NGqEo37iAbfdnDyFYzQw48WnxhsvHcbeO/Ni+wNnjG8PMtVX2xt0yTBZz/MUTeN'
-    'U7pEe6Rr4LxPDCWC5QIDAQAB';
 
 class JpTaskCourse {
   final String pjjgid;
@@ -129,49 +120,28 @@ class JpService {
     if (st != null) {
       final dio = _createZlbzDio();
       try {
-        final r = await followRedirectsManually(
+        return await _loginThroughAggregation(
           dio,
           '$aggBaseUrl8080/loginSSO/?ticket=$st',
+          username,
         );
-        if (r.statusCode != 200) throw AuthException('聚合平台登录失败');
-
-        final m = RegExp(r"var userCode = '([^']+)'").firstMatch(r.data ?? '');
-        if (m == null) throw AuthException('聚合平台登录失败');
-
-        final r2 = await followRedirectsManually(
-          dio,
-          '$aggBaseUrl8070/loginSSO?code=${Uri.encodeComponent(m.group(1)!)}',
-        );
-        if (r2.statusCode != 200) throw AuthException('聚合平台登录失败');
       } finally {
         dio.close(force: true);
       }
-      return await _ssoToZlbz4(username);
     }
 
     // Fallback: HTML CAS login with cookies
     final session = await cas.loginCas(username, password);
     final dio = session.dio;
     try {
-      await _ssoToAggregation(dio);
-      return await _ssoToZlbz4(username);
+      return await _loginThroughAggregation(
+        dio,
+        '$aggBaseUrl8080/loginSSO',
+        username,
+      );
     } finally {
       session.close();
     }
-  }
-
-  Future<void> _ssoToAggregation(Dio dio) async {
-    final r = await followRedirectsManually(dio, '$aggBaseUrl8080/loginSSO');
-    if (r.statusCode != 200) throw AuthException('聚合平台登录失败');
-
-    final m = RegExp(r"var userCode = '([^']+)'").firstMatch(r.data ?? '');
-    if (m == null) throw AuthException('聚合平台登录失败');
-
-    final r2 = await followRedirectsManually(
-      dio,
-      '$aggBaseUrl8070/loginSSO?code=${Uri.encodeComponent(m.group(1)!)}',
-    );
-    if (r2.statusCode != 200) throw AuthException('聚合平台登录失败');
   }
 
   Dio _createZlbzDio() => DioFactory.createNaked(
@@ -180,52 +150,144 @@ class JpService {
     receiveTimeout: requestTimeout,
   );
 
-  Future<String> _ssoToZlbz4(String username) async {
-    final payload = jsonEncode({
-      'userCode': username,
-      'role': 'ROLE_STUDENT',
-      'url': '',
-    });
-    final encryptedCode = _pkcs1Encrypt(payload, _aggPublicKeyB64);
+  Future<String> _loginThroughAggregation(
+    Dio dio,
+    String initialUrl,
+    String username,
+  ) async {
+    final userCode = await _findAggregationUserCode(dio, initialUrl);
 
-    final dio = _createZlbzDio();
+    // 8080's userCode is only an intermediate credential for the 8070
+    // integration portal. That portal issues the encrypted code consumed by
+    // the quality-platform backend.
+    final sso = await dio.get<String>(
+      '$aggBaseUrl8070/loginSSO',
+      queryParameters: {'code': userCode},
+      options: Options(
+        responseType: ResponseType.plain,
+        followRedirects: false,
+        validateStatus: (s) => s != null && s < 400,
+      ),
+    );
+    final authentication = _authenticationCookie(sso);
+    if (authentication == null) throw AuthException('聚合平台登录失败');
 
-    try {
-      final r = await dio.get(
-        '$zlbzBackendUrl/integration/loginSSO',
-        queryParameters: {'code': encryptedCode},
+    final encryptedResponse = await dio.post<dynamic>(
+      '$aggBaseUrl8070/common/encrypt',
+      data: {'userCode': username, 'role': '', 'url': ''},
+      options: Options(
+        headers: {'Authentication': authentication},
+        validateStatus: (s) => s != null && s < 500,
+      ),
+    );
+    final encrypted = _encryptedCode(encryptedResponse.data);
+    if (encrypted == null) throw AuthException('聚合平台登录失败');
+
+    final quality = await dio.get<String>(
+      '$zlbzBackendUrl/integration/loginSSO',
+      queryParameters: {'code': encrypted},
+      options: Options(
+        responseType: ResponseType.plain,
+        followRedirects: false,
+        validateStatus: (s) => s != null && s < 400,
+      ),
+    );
+    if (quality.statusCode != 302) {
+      throw AuthException('质量平台登录失败');
+    }
+    final location = quality.headers.value('location');
+    if (location == null || location.isEmpty) {
+      throw AuthException('质量平台登录失败');
+    }
+    final login = _qualityLoginFromUrl(
+      Uri.parse(zlbzBackendUrl).resolve(location),
+    );
+    if (login == null) throw AuthException('质量平台登录失败');
+
+    final r = await dio.post(
+      '$zlbzFrontendUrl/manage/integration/doLogin',
+      queryParameters: {
+        'loginname': login.$1,
+        'roleName': login.$2,
+        'response500': 'false',
+      },
+      options: Options(validateStatus: (s) => s != null && s < 500),
+    );
+    if (r.statusCode != 200) throw AuthException('质量平台登录失败');
+
+    final data = r.data as Map<String, dynamic>?;
+    final token = (data?['data'] as Map<String, dynamic>?)?['accessToken'];
+    if (token is! String || token.isEmpty) {
+      final message = data?['message'] ?? data?['msg'];
+      throw AuthException(
+        message is String && message.isNotEmpty ? message : '质量平台登录失败',
+      );
+    }
+    return token;
+  }
+
+  /// Follows the aggregation SSO flow and extracts the intermediate code
+  /// emitted by 8080. The code is exchanged through 8070 below.
+  Future<String> _findAggregationUserCode(Dio dio, String initialUrl) async {
+    var url = initialUrl;
+    for (var i = 0; i < 12; i++) {
+      final r = await dio.get<String>(
+        url,
         options: Options(
+          responseType: ResponseType.plain,
           followRedirects: false,
-          validateStatus: (s) => s != null && (s < 400 || s == 302),
+          validateStatus: (s) =>
+              s != null && (s < 400 || s == 301 || s == 302 || s == 303),
         ),
       );
-      if (r.statusCode != 302) throw AuthException('质量平台登录失败');
 
       final location = r.headers.value('location') ?? '';
-      if (!location.contains('?')) throw AuthException('质量平台登录失败');
 
-      final query = Uri.parse(location).queryParameters;
-      final loginname = query['loginname'] ?? '';
-      final roleName = query['roleName'] ?? '';
-      if (loginname.isEmpty || roleName.isEmpty) {
-        throw AuthException('质量平台登录失败');
+      if (r.statusCode == 301 || r.statusCode == 302 || r.statusCode == 303) {
+        if (location.isEmpty) break;
+        url = Uri.parse(url).resolve(location).toString();
+        continue;
       }
 
-      final r2 = await dio.post(
-        '$zlbzFrontendUrl/manage/integration/doLogin'
-        '?loginname=$loginname&roleName=$roleName&response500=false',
-        options: Options(validateStatus: (s) => s != null && s < 500),
-      );
-      if (r2.statusCode != 200) throw AuthException('质量平台登录失败');
-
-      final data = r2.data as Map<String, dynamic>;
-      final token =
-          (data['data'] as Map<String, dynamic>?)?['accessToken'] as String?;
-      if (token == null) throw AuthException('质量平台登录失败');
-      return token;
-    } finally {
-      dio.close(force: true);
+      final body = r.data ?? '';
+      final userCode = RegExp(r'''var userCode = ['"]([^'"]+)['"]''')
+          .firstMatch(body)
+          ?.group(1);
+      if (userCode != null && userCode.isNotEmpty) return userCode;
+      break;
     }
+    throw AuthException('聚合平台登录失败');
+  }
+
+  String? _authenticationCookie(Response<dynamic> response) {
+    final headers = response.headers['set-cookie'] ?? const <String>[];
+    for (final header in headers) {
+      final match = RegExp(r'(?:^|[, ])Authentication=([^; ,]+)')
+          .firstMatch(header);
+      if (match != null) return match.group(1);
+    }
+    return null;
+  }
+
+  String? _encryptedCode(dynamic value) {
+    dynamic body = value;
+    if (body is String) {
+      try {
+        body = jsonDecode(body);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (body is! Map) return null;
+    final code = body['data'];
+    return code is String && code.isNotEmpty ? code : null;
+  }
+
+  (String, String)? _qualityLoginFromUrl(Uri uri) {
+    if (uri.path != '/ymtzjcpg') return null;
+    final loginname = uri.queryParameters['loginname'] ?? '';
+    if (loginname.isEmpty) return null;
+    return (loginname, uri.queryParameters['roleName'] ?? '');
   }
 
   // ── Query & Auto-evaluate ──
@@ -650,95 +712,4 @@ class JpService {
   }
 
   static String _pad(int n) => n.toString().padLeft(2, '0');
-
-  static String _pkcs1Encrypt(String plaintext, String pubkeyB64) {
-    final derBytes = base64.decode(pubkeyB64);
-    final publicKey = _parsePublicKeyFromDer(derBytes);
-
-    final random = Random.secure();
-    final seeds = List<int>.generate(32, (_) => random.nextInt(256));
-    final secureRandom = FortunaRandom()
-      ..seed(KeyParameter(Uint8List.fromList(seeds)));
-
-    final encryptor = PKCS1Encoding(RSAEngine())
-      ..init(
-        true,
-        ParametersWithRandom(
-          PublicKeyParameter<RSAPublicKey>(publicKey),
-          secureRandom,
-        ),
-      );
-
-    final inputBytes = utf8.encode(plaintext);
-    final keySize = publicKey.modulus!.bitLength ~/ 8;
-    final maxChunk = keySize - 11;
-    final chunks = <int>[];
-
-    for (var i = 0; i < inputBytes.length; i += maxChunk) {
-      final end = (i + maxChunk > inputBytes.length)
-          ? inputBytes.length
-          : i + maxChunk;
-      final block = Uint8List.fromList(inputBytes.sublist(i, end));
-      chunks.addAll(encryptor.process(block));
-    }
-
-    return base64.encode(chunks);
-  }
-
-  static RSAPublicKey _parsePublicKeyFromDer(Uint8List der) {
-    int offset = 0;
-
-    (int tag, int length, int headerLen) readTlv(int pos) {
-      final tag = der[pos];
-      pos++;
-      int length = der[pos];
-      pos++;
-      int headerLen = 2;
-      if (length & 0x80 != 0) {
-        final numBytes = length & 0x7f;
-        length = 0;
-        for (var i = 0; i < numBytes; i++) {
-          length = (length << 8) | der[pos];
-          pos++;
-          headerLen++;
-        }
-      }
-      return (tag, length, headerLen);
-    }
-
-    BigInt readInteger(int pos) {
-      final (_, len, hLen) = readTlv(pos);
-      final start = pos + hLen;
-      final bytes = der.sublist(start, start + len);
-      final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-      return BigInt.parse(hex, radix: 16);
-    }
-
-    // Outer SEQUENCE
-    var (_, _, hLen) = readTlv(offset);
-    offset += hLen;
-
-    // AlgorithmIdentifier SEQUENCE - skip it
-    var (_, algLen, algHLen) = readTlv(offset);
-    offset += algHLen + algLen;
-
-    // BIT STRING
-    var (_, _, bsHLen) = readTlv(offset);
-    offset += bsHLen;
-    offset++; // skip unused bits byte
-
-    // Inner SEQUENCE (RSAPublicKey)
-    var (_, _, innerHLen) = readTlv(offset);
-    offset += innerHLen;
-
-    // Modulus INTEGER
-    final modulus = readInteger(offset);
-    final (_, modLen, modHLen) = readTlv(offset);
-    offset += modHLen + modLen;
-
-    // Exponent INTEGER
-    final exponent = readInteger(offset);
-
-    return RSAPublicKey(modulus, exponent);
-  }
 }

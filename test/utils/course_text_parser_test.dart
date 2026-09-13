@@ -106,6 +106,10 @@ void main() {
     test('strips 周 and 周次 prefixes', () {
       expect(parseWeekRanges('周次1-3周'), [1, 2, 3]);
     });
+
+    test('strips 第 prefix from week values', () {
+      expect(parseWeekRanges('第6周'), [6]);
+    });
   });
 
   group('formatWeekRanges', () {

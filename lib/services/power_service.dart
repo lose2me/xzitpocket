@@ -25,16 +25,56 @@ class PowerQueryException implements Exception {
 class PowerDailyUsage {
   final String date;
   final String usage;
+  final String? isoDate;
 
-  const PowerDailyUsage({required this.date, required this.usage});
+  const PowerDailyUsage({
+    required this.date,
+    required this.usage,
+    this.isoDate,
+  });
 
-  Map<String, dynamic> toJson() => {'date': date, 'usage': usage};
+  Map<String, dynamic> toJson() => {
+    'date': date,
+    'usage': usage,
+    if (isoDate != null) 'isoDate': isoDate,
+  };
 
   factory PowerDailyUsage.fromJson(Map<String, dynamic> json) =>
       PowerDailyUsage(
         date: json['date'] as String,
         usage: json['usage'] as String,
+        isoDate: json['isoDate'] as String?,
       );
+
+  /// Stable date key used by sorting and charts.
+  ///
+  /// Older caches only contain the localized label, so keep that format as a
+  /// backwards-compatible fallback while new responses persist [isoDate].
+  DateTime get dateValue {
+    final iso = isoDate == null ? null : DateTime.tryParse(isoDate!);
+    if (iso != null) return iso;
+
+    final isoMatch = RegExp(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})')
+        .firstMatch(date);
+    if (isoMatch != null) {
+      return DateTime(
+        int.parse(isoMatch.group(1)!),
+        int.parse(isoMatch.group(2)!),
+        int.parse(isoMatch.group(3)!),
+      );
+    }
+
+    final chineseMatch = RegExp(r'^(\d{1,2})月(\d{1,2})日').firstMatch(date);
+    if (chineseMatch != null) {
+      final now = DateTime.now();
+      return DateTime(
+        now.year,
+        int.parse(chineseMatch.group(1)!),
+        int.parse(chineseMatch.group(2)!),
+      );
+    }
+    return DateTime.fromMillisecondsSinceEpoch(0);
+  }
 }
 
 class PowerQueryData {
@@ -79,7 +119,7 @@ class PowerService {
   static const _requestTimeout = Duration(seconds: 10);
   static const _estDaysMin = 7;
 
-  static final Map<String, _EndpointConfig> _endpoints = {
+  static const Map<String, _EndpointConfig> _endpoints = {
     'zx': _EndpointConfig(
       url: 'http://211.87.126.94/zx',
       mode: _EndpointMode.legacy,
@@ -150,23 +190,41 @@ class PowerService {
               startDate: startDate,
               endDate: endDate,
             )
-          : await _queryLegacyRoom(dio, room, endpoint, startDate: startDate);
+          : await _queryLegacyRoom(
+              dio,
+              room,
+              endpoint,
+              startDate: startDate,
+              endDate: endDate,
+            );
       var result = _buildQueryData(raw, endpoint);
 
-      if (result.estDays == '样本不足' && startDate == null) {
+      if (result.estDays == '样本不足' && startDate == null && endDate == null) {
+        // The default query already covers the latest 30 days. Only fetch the
+        // portion immediately before that window, otherwise the overlap would
+        // bias the average daily usage used for the estimate.
         final now = DateTime.now();
-        final prev = DateTime(now.year, now.month - 1);
-        final prevStart =
-            '${prev.year}-${prev.month.toString().padLeft(2, '0')}';
+        final currentStart = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(const Duration(days: 30));
+        final previousEnd = currentStart.subtract(const Duration(days: 1));
+        final previousStart = DateTime(previousEnd.year, previousEnd.month, 1);
         List<PowerDailyUsage> extraUsage;
         if (endpoint.mode == _EndpointMode.dxq) {
-          extraUsage = await _fetchDxqUsageRecords(dio, startDate: prevStart);
+          extraUsage = await _fetchDxqUsageRecords(
+            dio,
+            startDate: _formatIsoDate(previousStart),
+            endDate: _formatIsoDate(previousEnd),
+          );
         } else {
           final extraRaw = await _queryLegacyRoom(
             dio,
             room,
             endpoint,
-            startDate: prevStart,
+            startDate: _formatIsoDate(previousStart),
+            endDate: _formatIsoDate(previousEnd),
           );
           extraUsage =
               (extraRaw['dailyUsage'] as List<PowerDailyUsage>?) ?? const [];
@@ -254,30 +312,51 @@ class PowerService {
     RoomRecord room,
     _EndpointConfig endpoint, {
     String? startDate,
+    String? endDate,
   }) async {
     await _loginLegacy(dio, room, endpoint);
 
-    final dateSuffix = _buildLegacyDateQuery(startDate);
-    final historyPath = '${endpoint.consumeHistoryPath}$dateSuffix';
+    final range = _resolveDateRange(startDate, endDate);
+    final cursor = DateTime(range.start.year, range.start.month);
+    final lastMonth = DateTime(range.end.year, range.end.month);
+    final dailyUsage = <PowerDailyUsage>[];
+    String monthUsage = '';
+    String available = '';
 
-    final queryYear = startDate != null
-        ? int.tryParse(startDate.split('-').first) ?? DateTime.now().year
-        : DateTime.now().year;
-    final queryMonth = startDate != null
-        ? int.tryParse(startDate.split('-').last) ?? DateTime.now().month
-        : DateTime.now().month;
+    // Both legacy hosts expose the same server-rendered consumeHistory page.
+    // A range spanning multiple months is therefore queried once per month;
+    // no JSON probe or alternate endpoint is involved.
+    var month = cursor;
+    while (!month.isAfter(lastMonth)) {
+      final dateSuffix = _buildLegacyDateQuery(
+        '${month.year}-${month.month.toString().padLeft(2, '0')}',
+      );
+      final consumeHtml = await _requestText(
+        dio,
+        'GET',
+        '${endpoint.consumeHistoryPath}$dateSuffix',
+      );
+      final parsed = _parseLegacyConsumeHistory(
+        consumeHtml,
+        month.year,
+        month.month,
+      );
+      monthUsage = parsed['monthUsage'] as String? ?? monthUsage;
+      available = parsed['available'] as String? ?? available;
+      final records =
+          (parsed['dailyUsage'] as List<PowerDailyUsage>?) ?? const [];
+      dailyUsage.addAll(
+        records.where((item) => _legacyDateInRange(item.date, month, range)),
+      );
+      month = DateTime(month.year, month.month + 1);
+    }
 
-    final ajaxResult = await _tryLegacyAjax(
-      dio,
-      endpoint,
-      dateSuffix: dateSuffix,
-      year: queryYear,
-      month: queryMonth,
-    );
-    if (ajaxResult != null) return ajaxResult;
-
-    final consumeHtml = await _requestText(dio, 'GET', historyPath);
-    return _parseLegacyConsumeHistory(consumeHtml, queryYear, queryMonth);
+    _sortDailyUsage(dailyUsage);
+    return {
+      'monthUsage': monthUsage,
+      'available': available,
+      'dailyUsage': dailyUsage,
+    };
   }
 
   String _buildLegacyDateQuery(String? startDate) {
@@ -287,70 +366,6 @@ class PowerService {
     final year = match.group(1)!;
     final month = int.parse(match.group(2)!);
     return '?nYear=$year&nMonth=$month';
-  }
-
-  Future<Map<String, Object>?> _tryLegacyAjax(
-    Dio dio,
-    _EndpointConfig endpoint, {
-    String dateSuffix = '',
-    required int year,
-    required int month,
-  }) async {
-    try {
-      final resp = await _requestText(
-        dio,
-        'GET',
-        '${endpoint.consumeHistoryPath}$dateSuffix',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'Accept': 'application/json, text/javascript, */*',
-        },
-      );
-
-      final trimmed = resp.trim();
-      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        final parsed = jsonDecode(trimmed);
-        if (parsed is Map<String, dynamic>) {
-          talker.debug('[NET] 电费AJAX\n获取到JSON数据');
-          return _parseLegacyAjaxJson(parsed, year, month);
-        }
-      }
-    } catch (e, stackTrace) {
-      talker.debug('电费旧版 AJAX 探测失败，继续回退', e, stackTrace);
-    }
-    return null;
-  }
-
-  Map<String, Object>? _parseLegacyAjaxJson(
-    Map<String, dynamic> json,
-    int year,
-    int month,
-  ) {
-    final available = json['balance'] ?? json['available'] ?? json['ye'];
-    final monthUsage = json['monthUsage'] ?? json['byyd'] ?? json['usage'];
-    if (available == null) return null;
-
-    final dailyUsage = <PowerDailyUsage>[];
-    final dailyList = json['dailyUsage'] ?? json['daily'] ?? json['list'];
-    if (dailyList is List) {
-      for (final item in dailyList) {
-        if (item is Map<String, dynamic>) {
-          var date = '${item['date'] ?? item['rq'] ?? ''}';
-          final usage =
-              '${item['usage'] ?? item['ydl'] ?? item['amount'] ?? ''}';
-          if (date.isNotEmpty && usage.isNotEmpty) {
-            date = _addDateSuffix(date, year, month);
-            dailyUsage.add(PowerDailyUsage(date: date, usage: usage));
-          }
-        }
-      }
-    }
-
-    return {
-      'available': '$available',
-      if (monthUsage != null) 'monthUsage': '$monthUsage',
-      'dailyUsage': dailyUsage,
-    };
   }
 
   Future<void> _loginLegacy(
@@ -402,48 +417,14 @@ class PowerService {
     final building = room.roomId.substring(0, 2);
     final floor = room.roomId.substring(0, 4);
 
-    // Try WebMethod JSON API first
-    final webMethodResult = await _tryDxqWebMethod(
-      dio,
-      room.roomId,
-      startDate: startDate,
-      endDate: endDate,
-    );
-    if (webMethodResult != null) return webMethodResult;
-
-    // Try single-step postback
+    // DXQ requires the ASP.NET selection postback chain. A direct WebMethod
+    // request is not exposed by this endpoint, and submitting all selections
+    // in one step only returns the selection page without balance data.
     final landingHtml = await _requestText(dio, 'GET', '/');
     final landingDoc = html_parser.parse(landingHtml);
     final initViewState = _getInputValue(landingDoc, '__VIEWSTATE');
     final initViewStateGen = _getInputValue(landingDoc, '__VIEWSTATEGENERATOR');
 
-    final singleResult = await _tryDxqSinglePost(
-      dio,
-      viewState: initViewState,
-      viewStateGenerator: initViewStateGen,
-      building: building,
-      floor: floor,
-      roomId: room.roomId,
-    );
-    if (singleResult != null) {
-      talker.debug('[NET] 电费DXQ\n单步查询成功');
-      final result = _parseDxqResult(
-        singleResult,
-        startDate: startDate,
-        endDate: endDate,
-      );
-      if ((result['dailyUsage'] as List?)?.isEmpty ?? true) {
-        final usage = await _fetchDxqUsageRecords(
-          dio,
-          startDate: startDate,
-          endDate: endDate,
-        );
-        if (usage.isNotEmpty) result['dailyUsage'] = usage;
-      }
-      return result;
-    }
-
-    // Fallback: 3-step postback chain
     final buildingHtml = await _postDxqForm(
       dio,
       viewState: initViewState,
@@ -474,20 +455,16 @@ class PowerService {
       submit: true,
     );
 
-    final result = _parseDxqResult(
-      resultHtml,
+    final dailyUsage = await _fetchDxqUsageRecords(
+      dio,
       startDate: startDate,
       endDate: endDate,
     );
-    if ((result['dailyUsage'] as List?)?.isEmpty ?? true) {
-      final usage = await _fetchDxqUsageRecords(
-        dio,
-        startDate: startDate,
-        endDate: endDate,
-      );
-      if (usage.isNotEmpty) result['dailyUsage'] = usage;
-    }
-    return result;
+    talker.debug('[NET] 电费DXQ\n三步 postback 查询成功');
+    return {
+      'available': _parseDxqAvailable(resultHtml),
+      'dailyUsage': dailyUsage,
+    };
   }
 
   Future<List<PowerDailyUsage>> _fetchDxqUsageRecords(
@@ -495,77 +472,129 @@ class PowerService {
     String? startDate,
     String? endDate,
   }) async {
-    try {
-      final html = await _requestText(dio, 'GET', '/allRecord.aspx');
-      final doc = html_parser.parse(html);
-      final vs =
-          doc.querySelector('input#__VIEWSTATE')?.attributes['value'] ?? '';
-      final vsg =
-          doc
-              .querySelector('input#__VIEWSTATEGENERATOR')
-              ?.attributes['value'] ??
-          '';
-      final ev =
-          doc.querySelector('input#__EVENTVALIDATION')?.attributes['value'] ??
-          '';
-      if (vs.isEmpty || ev.isEmpty) return const [];
-
-      final now = DateTime.now();
-      String fmtDate(DateTime d) =>
-          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-      String txtStart;
-      String txtEnd;
-      if (startDate != null && startDate.isNotEmpty) {
-        final m = RegExp(r'(\d{4})-(\d{1,2})').firstMatch(startDate);
-        if (m != null) {
-          final y = int.parse(m.group(1)!);
-          final mo = int.parse(m.group(2)!);
-          txtStart = fmtDate(DateTime(y, mo, 1));
-          txtEnd = fmtDate(DateTime(y, mo + 1, 0));
-        } else {
-          txtStart = fmtDate(now.subtract(const Duration(days: 30)));
-          txtEnd = fmtDate(now);
-        }
-      } else {
-        txtStart = fmtDate(now.subtract(const Duration(days: 30)));
-        txtEnd = fmtDate(now);
-      }
-
-      final resultHtml = await _requestText(
-        dio,
-        'POST',
-        '/allRecord.aspx',
-        data: {
-          '__EVENTTARGET': '',
-          '__EVENTARGUMENT': '',
-          '__VIEWSTATE': vs,
-          '__VIEWSTATEGENERATOR': vsg,
-          '__EVENTVALIDATION': ev,
-          'txtstart': txtStart,
-          'txtend': txtEnd,
-          'btnser': '查询',
-        },
-      );
-
-      final records = _parseAllRecordUsage(resultHtml);
-
-      final totalPages = _parseAllRecordTotalPages(resultHtml);
-      for (var page = 2; page <= totalPages && page <= 6; page++) {
-        final pageHtml = await _requestText(
-          dio,
-          'GET',
-          '/allRecord.aspx?pu=$page',
-        );
-        records.addAll(_parseAllRecordUsage(pageHtml));
-      }
-
-      talker.debug('[NET] 电费DXQ\nallRecord 获取${records.length}条用电记录');
-      return records;
-    } catch (e, stackTrace) {
-      talker.debug('电费用电记录获取失败', e, stackTrace);
-      return const [];
+    final range = _resolveDateRange(startDate, endDate);
+    final html = await _requestText(dio, 'GET', '/allRecord.aspx');
+    final doc = html_parser.parse(html);
+    final vs =
+        doc.querySelector('input#__VIEWSTATE')?.attributes['value'] ?? '';
+    final vsg =
+        doc.querySelector('input#__VIEWSTATEGENERATOR')?.attributes['value'] ??
+        '';
+    final ev =
+        doc.querySelector('input#__EVENTVALIDATION')?.attributes['value'] ?? '';
+    if (vs.isEmpty || ev.isEmpty) {
+      throw const PowerQueryException('dxq 用电记录页面结构异常');
     }
+
+    final resultHtml = await _requestText(
+      dio,
+      'POST',
+      '/allRecord.aspx',
+      data: {
+        '__EVENTTARGET': '',
+        '__EVENTARGUMENT': '',
+        '__VIEWSTATE': vs,
+        '__VIEWSTATEGENERATOR': vsg,
+        '__EVENTVALIDATION': ev,
+        'txtstart': _formatIsoDate(range.start),
+        'txtend': _formatIsoDate(range.end),
+        'btnser': '查询',
+      },
+    );
+
+    final records = _parseAllRecordUsage(resultHtml);
+    final totalPages = _parseAllRecordTotalPages(resultHtml);
+    for (var page = 2; page <= totalPages; page++) {
+      final pageHtml = await _requestText(
+        dio,
+        'GET',
+        '/allRecord.aspx?pu=$page',
+      );
+      records.addAll(_parseAllRecordUsage(pageHtml));
+    }
+
+    _sortDailyUsage(records);
+    talker.debug(
+      '[NET] 电费DXQ\n${_formatIsoDate(range.start)} 至 ${_formatIsoDate(range.end)} 获取${records.length}条用电记录',
+    );
+    return records;
+  }
+
+  ({DateTime start, DateTime end}) _resolveDateRange(
+    String? startDate,
+    String? endDate,
+  ) {
+    final startInput = startDate?.trim() ?? '';
+    final endInput = endDate?.trim() ?? '';
+    if (startInput.isEmpty && endInput.isEmpty) {
+      final now = DateTime.now();
+      return (
+        start: DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(const Duration(days: 30)),
+        end: DateTime(now.year, now.month, now.day),
+      );
+    }
+
+    final end = endInput.isNotEmpty
+        ? _parseQueryDate(endInput, monthEnd: true)
+        : _parseQueryDate(startInput, monthEnd: true);
+    final start = startInput.isNotEmpty
+        ? _parseQueryDate(startInput)
+        : end?.subtract(const Duration(days: 30));
+    if (start == null || end == null) {
+      throw const PowerQueryException('日期格式无效');
+    }
+    if (end.isBefore(start)) {
+      throw const PowerQueryException('结束日期不能早于开始日期');
+    }
+
+    return (start: start, end: end);
+  }
+
+  DateTime? _parseQueryDate(String value, {bool monthEnd = false}) {
+    final match = RegExp(r'^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$')
+        .firstMatch(value);
+    if (match == null) return null;
+
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final dayText = match.group(3);
+    if (month < 1 || month > 12) return null;
+    final day = dayText != null
+        ? int.parse(dayText)
+        : monthEnd
+        ? DateTime(year, month + 1, 0).day
+        : 1;
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return null;
+    }
+    return date;
+  }
+
+  String _formatIsoDate(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  bool _legacyDateInRange(
+    String value,
+    DateTime month,
+    ({DateTime start, DateTime end}) range,
+  ) {
+    final match = RegExp(r'^(\d{1,2})月(\d{1,2})日').firstMatch(value);
+    if (match == null) return false;
+    final date = DateTime(
+      month.year,
+      int.parse(match.group(1)!),
+      int.parse(match.group(2)!),
+    );
+    return !date.isBefore(range.start) && !date.isAfter(range.end);
+  }
+
+  void _sortDailyUsage(List<PowerDailyUsage> usage) {
+    usage.sort((a, b) => b.dateValue.compareTo(a.dateValue));
   }
 
   List<PowerDailyUsage> _parseAllRecordUsage(String html) {
@@ -583,7 +612,11 @@ class PowerService {
         if (RegExp(r'\d{4}-\d{1,2}-\d{1,2}').hasMatch(rawDate) &&
             RegExp(r'\d').hasMatch(usage)) {
           result.add(
-            PowerDailyUsage(date: _formatChineseDate(rawDate), usage: usage),
+            PowerDailyUsage(
+              date: _formatChineseDate(rawDate),
+              usage: usage,
+              isoDate: _normalizeIsoDate(rawDate),
+            ),
           );
         }
       }
@@ -615,6 +648,12 @@ class PowerService {
     return suffix != null ? '$month月$day日 [$suffix]' : '$month月$day日';
   }
 
+  String? _normalizeIsoDate(String value) {
+    final match = RegExp(r'^(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(value);
+    if (match == null) return null;
+    return '${match.group(1)}-${int.parse(match.group(2)!).toString().padLeft(2, '0')}-${int.parse(match.group(3)!).toString().padLeft(2, '0')}';
+  }
+
   String _addDateSuffix(String dateStr, int year, int month) {
     final m = RegExp(r'(\d{1,2})月(\d{1,2})日').firstMatch(dateStr);
     if (m != null) {
@@ -636,151 +675,6 @@ class PowerService {
       return int.tryParse(match.group(1)!) ?? 1;
     }
     return 1;
-  }
-
-  Future<Map<String, Object>?> _tryDxqWebMethod(
-    Dio dio,
-    String roomId, {
-    String? startDate,
-    String? endDate,
-  }) async {
-    final methods = ['GetBalance', 'GetRoomInfo', 'GetElecInfo'];
-    for (final method in methods) {
-      try {
-        final resp = await dio.post<String>(
-          '/$method',
-          data: jsonEncode({
-            'roomId': roomId,
-            'startDate': ?startDate,
-            'endDate': ?endDate,
-          }),
-          options: Options(
-            contentType: 'application/json; charset=utf-8',
-            responseType: ResponseType.plain,
-            validateStatus: (s) => s != null,
-          ),
-        );
-
-        if (resp.statusCode == 200) {
-          final body = (resp.data ?? '').trim();
-          if (body.startsWith('{')) {
-            final json = jsonDecode(body) as Map<String, dynamic>;
-            final d = json['d'];
-            final data = d is Map<String, dynamic> ? d : json;
-            final available =
-                data['balance'] ?? data['available'] ?? data['ye'];
-            if (available != null) {
-              talker.debug('[NET] 电费DXQ WebMethod\n$method 成功');
-              return _parseDxqJsonResult(data);
-            }
-          }
-        }
-      } catch (e, stackTrace) {
-        talker.debug('电费 DXQ WebMethod $method 失败', e, stackTrace);
-      }
-    }
-    return null;
-  }
-
-  Map<String, Object>? _parseDxqJsonResult(Map<String, dynamic> data) {
-    final available = data['balance'] ?? data['available'] ?? data['ye'];
-    if (available == null) return null;
-
-    final dailyUsage = <PowerDailyUsage>[];
-    final dailyList = data['daily'] ?? data['dailyCharges'] ?? data['list'];
-    if (dailyList is List) {
-      for (final item in dailyList) {
-        if (item is Map<String, dynamic>) {
-          final date = '${item['date'] ?? item['rq'] ?? ''}';
-          final usage =
-              '${item['amount'] ?? item['usage'] ?? item['je'] ?? ''}';
-          if (date.isNotEmpty && usage.isNotEmpty) {
-            dailyUsage.add(PowerDailyUsage(date: date, usage: usage));
-          }
-        }
-      }
-    }
-
-    return {'available': '$available', 'dailyUsage': dailyUsage};
-  }
-
-  Future<String?> _tryDxqSinglePost(
-    Dio dio, {
-    required String viewState,
-    required String viewStateGenerator,
-    required String building,
-    required String floor,
-    required String roomId,
-  }) async {
-    try {
-      final html = await _postDxqForm(
-        dio,
-        viewState: viewState,
-        viewStateGenerator: viewStateGenerator,
-        building: building,
-        floor: floor,
-        roomId: roomId,
-        submit: true,
-      );
-      if (html.contains('number orange') || html.contains('剩余')) {
-        return html;
-      }
-    } catch (e, stackTrace) {
-      talker.debug('电费 DXQ 单步查询失败，继续回退', e, stackTrace);
-    }
-    return null;
-  }
-
-  Map<String, Object> _parseDxqResult(
-    String html, {
-    String? startDate,
-    String? endDate,
-  }) {
-    final available = _parseDxqAvailable(html);
-    final dailyUsage = _parseDxqDailyUsage(html);
-    return {
-      'available': available,
-      if (dailyUsage.isNotEmpty) 'dailyUsage': dailyUsage,
-    };
-  }
-
-  List<PowerDailyUsage> _parseDxqDailyUsage(String html) {
-    final result = <PowerDailyUsage>[];
-    final document = html_parser.parse(html);
-
-    // Try parsing daily usage tables if present in result page
-    for (final table in document.querySelectorAll('table')) {
-      final rows = table.querySelectorAll('tr');
-      for (final row in rows) {
-        final cells = row.querySelectorAll('td');
-        if (cells.length >= 2) {
-          final dateText = _normalizeText(cells[0].text);
-          final usageText = _normalizeText(
-            cells.length > 2 ? cells[2].text : cells[1].text,
-          );
-          if (RegExp(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}').hasMatch(dateText) &&
-              RegExp(r'\d').hasMatch(usageText)) {
-            result.add(PowerDailyUsage(date: dateText, usage: usageText));
-          }
-        }
-      }
-    }
-
-    // Try parsing span-based layout
-    if (result.isEmpty) {
-      final spans = document.querySelectorAll('span');
-      for (var i = 0; i < spans.length - 1; i++) {
-        final dateText = _normalizeText(spans[i].text);
-        final usageText = _normalizeText(spans[i + 1].text);
-        if (RegExp(r'\d{4}[-/]\d{1,2}[-/]\d{1,2}').hasMatch(dateText) &&
-            RegExp(r'^\d+\.?\d*$').hasMatch(usageText)) {
-          result.add(PowerDailyUsage(date: dateText, usage: usageText));
-          i++;
-        }
-      }
-    }
-
-    return result;
   }
 
   Future<String> _postDxqForm(
@@ -1000,7 +894,11 @@ class PowerService {
       }
 
       date = _addDateSuffix(date, year, month);
-      result.add(PowerDailyUsage(date: date, usage: usage));
+      final dateMatch = RegExp(r'^(\d{1,2})月(\d{1,2})日').firstMatch(date);
+      final isoDate = dateMatch == null
+          ? null
+          : '$year-${int.parse(dateMatch.group(1)!).toString().padLeft(2, '0')}-${int.parse(dateMatch.group(2)!).toString().padLeft(2, '0')}';
+      result.add(PowerDailyUsage(date: date, usage: usage, isoDate: isoDate));
     }
 
     return result;
@@ -1050,8 +948,10 @@ class PowerService {
     _EndpointConfig endpoint,
   ) {
     if (endpoint.mode == _EndpointMode.dxq) {
-      final dailyUsage =
-          (raw['dailyUsage'] as List<PowerDailyUsage>?) ?? const [];
+      final dailyUsage = List<PowerDailyUsage>.of(
+        (raw['dailyUsage'] as List<PowerDailyUsage>?) ?? const [],
+      );
+      _sortDailyUsage(dailyUsage);
       final available = raw['available'] as String? ?? '-';
       String? monthUsage;
       if (dailyUsage.isNotEmpty) {
@@ -1074,8 +974,10 @@ class PowerService {
       raw['available'] as String? ?? '',
       endpoint,
     );
-    final dailyUsage =
-        (raw['dailyUsage'] as List<PowerDailyUsage>? ?? const []);
+    final dailyUsage = List<PowerDailyUsage>.of(
+      (raw['dailyUsage'] as List<PowerDailyUsage>?) ?? const [],
+    );
+    _sortDailyUsage(dailyUsage);
     return PowerQueryData(
       price: endpoint.price,
       available: available,

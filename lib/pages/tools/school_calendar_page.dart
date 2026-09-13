@@ -225,9 +225,7 @@ class SchoolCalendarPage extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isToday
-              ? theme.colors.semantic.info
-              : theme.colors.border,
+          color: isToday ? theme.colors.semantic.info : theme.colors.border,
           width: isToday ? 1.5 : 0.5,
         ),
       ),

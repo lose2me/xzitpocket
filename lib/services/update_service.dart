@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -48,8 +47,7 @@ class UpdateService {
       connectTimeout: const Duration(seconds: 20),
       sendTimeout: const Duration(seconds: 20),
       receiveTimeout: const Duration(minutes: 10),
-      followRedirects: true,
-      maxRedirects: 5,
+      followRedirects: false,
     ),
   );
 
@@ -58,6 +56,10 @@ class UpdateService {
     required ValueChanged<UpdateDownloadProgress> onProgress,
     CancelToken? cancelToken,
   }) async {
+    final controlUri = Uri.parse(ControlService.instance.baseUrl);
+    if (!isAllowedControlDownloadUrl(controlUri, release.downloadUrl)) {
+      throw const UpdateException('更新地址无效');
+    }
     if (!Platform.isAndroid) {
       final opened = await launchUrl(
         release.downloadUrl,
@@ -98,11 +100,11 @@ class UpdateService {
       if (await marker.exists()) await marker.delete();
       try {
         final stopwatch = Stopwatch()..start();
-        await _downloadClient.download(
-          release.downloadUrl.toString(),
-          target.path,
+        await _downloadApk(
+          release.downloadUrl,
+          target,
+          controlUri: controlUri,
           cancelToken: cancelToken,
-          deleteOnError: true,
           onReceiveProgress: (received, total) {
             final elapsed = stopwatch.elapsedMilliseconds;
             onProgress(
@@ -151,6 +153,43 @@ class UpdateService {
       });
     } on PlatformException catch (error) {
       throw UpdateException(error.message ?? '无法启动系统安装器');
+    }
+  }
+
+  static Future<void> _downloadApk(
+    Uri initialUri,
+    File target, {
+    required Uri controlUri,
+    required ProgressCallback onReceiveProgress,
+    CancelToken? cancelToken,
+  }) async {
+    var uri = initialUri;
+    for (var redirectCount = 0; redirectCount <= 5; redirectCount++) {
+      if (!isAllowedControlDownloadUrl(controlUri, uri)) {
+        throw const UpdateException('更新地址重定向到了不受信任的服务器');
+      }
+      final response = await _downloadClient.download(
+        uri.toString(),
+        target.path,
+        cancelToken: cancelToken,
+        deleteOnError: true,
+        onReceiveProgress: onReceiveProgress,
+        options: Options(
+          followRedirects: false,
+          validateStatus: (status) => status != null && status < 400,
+        ),
+      );
+      final status = response.statusCode ?? 0;
+      if (status >= 200 && status < 300) return;
+      if (redirectCount == 5) {
+        throw const UpdateException('更新地址重定向次数过多');
+      }
+      final location = response.headers.value('location');
+      final redirect = location == null ? null : Uri.tryParse(location);
+      if (redirect == null) {
+        throw const UpdateException('更新地址返回了无效的重定向');
+      }
+      uri = uri.resolveUri(redirect);
     }
   }
 

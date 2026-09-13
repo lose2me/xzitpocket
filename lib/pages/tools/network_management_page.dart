@@ -78,9 +78,14 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
         return;
       }
       final refreshed = result;
+      final changed =
+          !identical(refreshed.info, _info) ||
+          !identical(refreshed.devices, _devices);
       setState(() {
-        _info = refreshed.info;
-        _devices = refreshed.devices;
+        if (changed) {
+          _info = refreshed.info;
+          _devices = refreshed.devices;
+        }
         if (requestedRefresh && success) _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {

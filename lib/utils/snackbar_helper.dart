@@ -24,6 +24,7 @@ enum ToastSeverity {
 final List<_ToastData> _queue = [];
 OverlayEntry? _hostEntry;
 final ValueNotifier<int> _revision = ValueNotifier(0);
+final NavigatorObserver appToastRouteObserver = _AppToastRouteObserver();
 
 class _ToastData {
   final String message;
@@ -76,6 +77,36 @@ void showAppSnackBar(
       ),
     );
   _revision.value++;
+}
+
+void dismissAppSnackBar() {
+  if (_queue.isEmpty && _hostEntry == null) return;
+  _queue.clear();
+  _revision.value++;
+  _hostEntry?.remove();
+  _hostEntry = null;
+}
+
+class _AppToastRouteObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (previousRoute != null) dismissAppSnackBar();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    dismissAppSnackBar();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    dismissAppSnackBar();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    dismissAppSnackBar();
+  }
 }
 
 void _removeToast(_ToastData data) {

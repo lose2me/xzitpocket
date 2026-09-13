@@ -118,14 +118,14 @@ class PreferencesStorage {
   int? getPowerCacheTime() => _prefs.getInt('saved_power_cache_time');
 
   Future<void> setPowerCache(String json, {required String roomId}) async {
-    await Future.wait([
-      _prefs.setString('saved_power_cache', json),
-      _prefs.setString('saved_power_cache_room_id', roomId),
-      _prefs.setInt(
-        'saved_power_cache_time',
-        DateTime.now().millisecondsSinceEpoch,
-      ),
-    ]);
+    final writes = <Future<bool>>[
+      if (_prefs.getString('saved_power_cache') != json)
+        _prefs.setString('saved_power_cache', json),
+      if (_prefs.getString('saved_power_cache_room_id') != roomId)
+        _prefs.setString('saved_power_cache_room_id', roomId),
+    ];
+    await Future.wait(writes);
+    await _touchCacheTime('saved_power_cache_time');
   }
 
   Future<void> clearPowerCache() async {
@@ -138,9 +138,14 @@ class PreferencesStorage {
   // ── Generic cache helpers ──
 
   Future<void> _setCache(String dataKey, String timeKey, String json) async {
-    await _prefs.setString(dataKey, json);
-    await _prefs.setInt(timeKey, DateTime.now().millisecondsSinceEpoch);
+    if (_prefs.getString(dataKey) != json) {
+      await _prefs.setString(dataKey, json);
+    }
+    await _touchCacheTime(timeKey);
   }
+
+  Future<void> _touchCacheTime(String timeKey) =>
+      _prefs.setInt(timeKey, DateTime.now().millisecondsSinceEpoch);
 
   Future<void> _clearCache(String dataKey, String timeKey) async {
     await _prefs.remove(dataKey);
