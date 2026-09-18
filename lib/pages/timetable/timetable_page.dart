@@ -45,6 +45,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   @override
   void initState() {
     super.initState();
+    semesterCalendar.addListener(_onCalendarChanged);
     final initialWeek = semesterCalendar
         .weekOf(DateTime.now())
         .clamp(1, _maxDisplayWeek());
@@ -70,9 +71,27 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   @override
   void dispose() {
+    semesterCalendar.removeListener(_onCalendarChanged);
     _conflictCountdownController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _onCalendarChanged() {
+    if (!mounted) return;
+    final maxWeek = _maxDisplayWeek();
+    final selected = ref.read(selectedWeekProvider);
+    final week = selected.clamp(1, maxWeek).toInt();
+    if (week != selected) {
+      ref.read(selectedWeekProvider.notifier).set(week);
+    }
+    if (_pageController.hasClients) {
+      final currentPage = _pageController.page?.round();
+      if (currentPage != null && currentPage != week - 1) {
+        _pageController.jumpToPage(week - 1);
+      }
+    }
+    setState(() {});
   }
 
   void jumpToCurrentWeek() {
@@ -143,6 +162,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                 courses: loginResult.courses,
                 studentId: loginResult.studentId ?? sid,
                 studentName: loginResult.studentName ?? '',
+                majorName: loginResult.majorName ?? '',
+                className: loginResult.className ?? '',
               );
         } on WidgetSyncException catch (e) {
           if (mounted) {
@@ -246,99 +267,104 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final courseOpacity = settings.timetableComponentOpacity;
     final courseBorderOpacity = settings.timetableComponentOpacity;
 
-    return AppPage(
-      root: true,
-      child: SafeArea(
-        child: Column(
-          children: [
-            Consumer(
-              builder: (context, ref, child) => WeekHeader(
-                calendar: semesterCalendar,
-                selectedWeek: ref.watch(selectedWeekProvider),
-                onSync: _isSyncing ? null : _onSync,
-                syncing: _isSyncing,
-                onSettings: () => Navigator.of(context).push(
-                  appRoute(
-                    name: AppRouteNames.timetableSettings,
-                    builder: (_) => const TimetableSettingsPage(),
+    return ListenableBuilder(
+      listenable: semesterCalendar,
+      builder: (context, _) => AppPage(
+        root: true,
+        child: SafeArea(
+          child: Column(
+            children: [
+              Consumer(
+                builder: (context, ref, child) => WeekHeader(
+                  calendar: semesterCalendar,
+                  selectedWeek: ref.watch(selectedWeekProvider),
+                  onSync: _isSyncing ? null : _onSync,
+                  syncing: _isSyncing,
+                  onSettings: () => Navigator.of(context).push(
+                    appRoute(
+                      name: AppRouteNames.timetableSettings,
+                      builder: (_) => const TimetableSettingsPage(),
+                    ),
                   ),
                 ),
               ),
-            ),
-            Expanded(
-              child: coursesAsync.when(
-                data: (courses) {
-                  if (courses.isEmpty) {
-                    return _buildEmptyView();
-                  }
-                  final maxDisplayWeek = _maxDisplayWeek(courses);
-                  final hide56 = !courses.any(
-                    (c) => c.sessions.contains(5) || c.sessions.contains(6),
-                  );
-                  return PageView.builder(
-                    controller: _pageController,
-                    physics: const _ResponsivePagePhysics(),
-                    itemCount: maxDisplayWeek,
-                    // Pre-build the neighbouring weeks while the current page is
-                    // idle so the left/right swipe only moves an already-built
-                    // grid instead of doing the (heavy) layout synchronously in
-                    // the middle of the gesture.
-                    allowImplicitScrolling: true,
-                    onPageChanged: (page) {
-                      ref.read(selectedWeekProvider.notifier).set(page + 1);
-                    },
-                    itemBuilder: (context, index) {
-                      final week = index + 1;
-                      return RepaintBoundary(
-                        child: TimetableGrid(
-                          courses: courses,
-                          week: week,
-                          rotationTick: _conflictRotationTick,
-                          showNonCurrentWeekCourses: showNonCurrentWeekCourses,
-                          showWeekendColumns: showWeekendColumns,
-                          calendar: semesterCalendar,
-                          hiddenSlots: hide56 ? const {5, 6} : const {},
-                          countdownAnimation: _conflictCountdownController,
-                          borderColor: courseBorderColor,
-                          borderWidth: 0.5,
-                          courseOpacity: courseOpacity,
-                          courseBorderOpacity: courseBorderOpacity,
-                          backgroundImagePath: settings.timetableBackgroundPath,
-                          backgroundOpacity:
-                              settings.timetableBackgroundOpacity,
-                          gridOpacity: settings.timetableGridOpacity,
-                          showGridLines: settings.showTimetableGridLines,
-                          showTodayGridLines: settings.showTodayGridLines,
-                          onCourseTap: (course, sourceIndex) {
-                            final notifier = ref.read(
-                              scheduleProvider.notifier,
-                            );
-                            final key = notifier.keyForCourse(
-                              course,
-                              sourceIndex: sourceIndex,
-                            );
-                            if (key == null) return;
-                            _showCourseDetail(context, course, key, week);
-                          },
-                          onEmptyTap: (weekday, session) =>
-                              _onEmptySlotTap(context, weekday, session),
-                        ),
-                      );
-                    },
-                  );
-                },
-                loading: () => const Center(child: FCircularProgress()),
-                error: (e, _) => Center(
-                  child: AppStateView(
-                    icon: FLucideIcons.triangleAlert,
-                    title: '加载失败',
-                    description: '$e',
-                    destructive: true,
+              Expanded(
+                child: coursesAsync.when(
+                  data: (courses) {
+                    if (courses.isEmpty) {
+                      return _buildEmptyView();
+                    }
+                    final maxDisplayWeek = _maxDisplayWeek(courses);
+                    final hide56 = !courses.any(
+                      (c) => c.sessions.contains(5) || c.sessions.contains(6),
+                    );
+                    return PageView.builder(
+                      controller: _pageController,
+                      physics: const _ResponsivePagePhysics(),
+                      itemCount: maxDisplayWeek,
+                      // Pre-build the neighbouring weeks while the current page is
+                      // idle so the left/right swipe only moves an already-built
+                      // grid instead of doing the (heavy) layout synchronously in
+                      // the middle of the gesture.
+                      allowImplicitScrolling: true,
+                      onPageChanged: (page) {
+                        ref.read(selectedWeekProvider.notifier).set(page + 1);
+                      },
+                      itemBuilder: (context, index) {
+                        final week = index + 1;
+                        return RepaintBoundary(
+                          child: TimetableGrid(
+                            courses: courses,
+                            week: week,
+                            rotationTick: _conflictRotationTick,
+                            showNonCurrentWeekCourses:
+                                showNonCurrentWeekCourses,
+                            showWeekendColumns: showWeekendColumns,
+                            calendar: semesterCalendar,
+                            hiddenSlots: hide56 ? const {5, 6} : const {},
+                            countdownAnimation: _conflictCountdownController,
+                            borderColor: courseBorderColor,
+                            borderWidth: 0.5,
+                            courseOpacity: courseOpacity,
+                            courseBorderOpacity: courseBorderOpacity,
+                            backgroundImagePath:
+                                settings.timetableBackgroundPath,
+                            backgroundOpacity:
+                                settings.timetableBackgroundOpacity,
+                            gridOpacity: settings.timetableGridOpacity,
+                            showGridLines: settings.showTimetableGridLines,
+                            showTodayGridLines: settings.showTodayGridLines,
+                            onCourseTap: (course, sourceIndex) {
+                              final notifier = ref.read(
+                                scheduleProvider.notifier,
+                              );
+                              final key = notifier.keyForCourse(
+                                course,
+                                sourceIndex: sourceIndex,
+                              );
+                              if (key == null) return;
+                              _showCourseDetail(context, course, key, week);
+                            },
+                            onEmptyTap: (weekday, session) =>
+                                _onEmptySlotTap(context, weekday, session),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  loading: () => const Center(child: FCircularProgress()),
+                  error: (e, _) => Center(
+                    child: AppStateView(
+                      icon: FLucideIcons.triangleAlert,
+                      title: '加载失败',
+                      description: '$e',
+                      destructive: true,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

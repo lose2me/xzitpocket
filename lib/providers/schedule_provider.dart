@@ -5,6 +5,9 @@ import '../constants/semester_config.dart';
 import '../models/course.dart';
 import '../services/course_storage.dart';
 import '../services/widget_service.dart';
+import '../services/control_service.dart';
+import '../utils/course_adjustments.dart';
+import 'app_settings_provider.dart';
 import 'config_provider.dart';
 
 final scheduleProvider =
@@ -63,12 +66,51 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     required List<Course> courses,
     required String studentId,
     required String studentName,
+    required String majorName,
+    required String className,
   }) async {
     await ref
         .read(configProvider.notifier)
-        .updateFromLogin(studentId: studentId, studentName: studentName);
-    if (_sameCourses(_courses, courses)) return;
-    await _storage.saveCourses(courses);
+        .updateFromLogin(
+          studentId: studentId,
+          studentName: studentName,
+          majorName: majorName,
+          className: className,
+        );
+    var adjustedCourses = courses;
+    final settings = ref.read(appSettingsProvider);
+    final local = parseCourseAdjustments(settings.courseAdjustmentsJson);
+    final cloud = <String, String>{};
+    if (settings.cloudCourseAdjustmentsEnabled) {
+      try {
+        final prefs = ref.read(preferencesStorageProvider);
+        final versions = await ControlService.instance.fetchConfigVersions();
+        final cachedJson = prefs.getCourseAdjustmentsCloudCache();
+        if (cachedJson == null ||
+            prefs.getCourseAdjustmentsCloudVersion() !=
+                versions.courseAdjustments) {
+          cloud.addAll(await ControlService.instance.fetchCourseAdjustments());
+          await ref
+              .read(appSettingsProvider.notifier)
+              .setCloudCourseAdjustmentsJson(courseAdjustmentsToJson(cloud));
+          await prefs.setCourseAdjustmentsCloudVersion(
+            versions.courseAdjustments,
+          );
+        } else {
+          cloud.addAll(parseCourseAdjustments(cachedJson));
+        }
+      } catch (_) {
+        // Cloud adjustments are optional. Reuse the last valid response when
+        // the control service is temporarily unavailable.
+        cloud.addAll(
+          parseCourseAdjustments(settings.cloudCourseAdjustmentsJson),
+        );
+      }
+    }
+    final merged = {...cloud, ...local};
+    adjustedCourses = applyCourseAdjustments(courses, merged);
+    if (_sameCourses(_courses, adjustedCourses)) return;
+    await _storage.saveCourses(adjustedCourses);
     await _reload();
   }
 

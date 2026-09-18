@@ -8,6 +8,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../constants/control_config.dart';
 import '../models/learning_question.dart';
+import '../models/school_calendar.dart';
 import 'control_crypto.dart';
 import 'talker.dart';
 
@@ -18,6 +19,18 @@ class ControlRelease {
   const ControlRelease({
     required this.latestVersion,
     required this.downloadUrl,
+  });
+}
+
+class ControlConfigVersions {
+  final String appRelease;
+  final String schoolCalendar;
+  final String courseAdjustments;
+
+  const ControlConfigVersions({
+    required this.appRelease,
+    required this.schoolCalendar,
+    required this.courseAdjustments,
   });
 }
 
@@ -139,6 +152,9 @@ class ControlService {
   Future<void> syncAfterOaLogin({
     required String studentId,
     required String displayName,
+    String majorName = '',
+    String className = '',
+    bool forceProfileUpdate = false,
   }) async {
     if (!isConfigured) return;
     final normalizedStudentId = studentId.trim();
@@ -148,6 +164,9 @@ class ControlService {
     final future = _syncAfterOaLogin(
       studentId: normalizedStudentId,
       displayName: displayName.trim(),
+      majorName: majorName.trim(),
+      className: className.trim(),
+      forceProfileUpdate: forceProfileUpdate,
     );
     _loginFuture = future;
     try {
@@ -162,11 +181,16 @@ class ControlService {
   Future<void> _syncAfterOaLogin({
     required String studentId,
     required String displayName,
+    required String majorName,
+    required String className,
+    required bool forceProfileUpdate,
     bool retryingDevice = false,
   }) async {
     await _loadState();
     await _ensureDevice();
-    if (_sessionStudentId == studentId && await _validAccessToken() != null) {
+    if (!forceProfileUpdate &&
+        _sessionStudentId == studentId &&
+        await _validAccessToken() != null) {
       return;
     }
 
@@ -185,6 +209,9 @@ class ControlService {
         return _syncAfterOaLogin(
           studentId: studentId,
           displayName: displayName,
+          majorName: majorName,
+          className: className,
+          forceProfileUpdate: forceProfileUpdate,
           retryingDevice: true,
         );
       }
@@ -208,20 +235,25 @@ class ControlService {
       'student_id': studentId,
       'student_alias': alias,
       'display_name': displayName,
+      'major_name': majorName,
+      'class_name': className,
       'asserted_at': assertedAt,
     };
-    final signature = _deviceKey!.sign(
-      controlCanonicalLines([
-        'xzitpocket-control-login',
-        challengeId,
-        challenge,
-        _deviceSerial!,
-        studentId,
-        alias,
-        displayName,
-        assertedAt,
-      ]),
-    );
+    final signedFields = <String>[
+      'xzitpocket-control-login',
+      challengeId,
+      challenge,
+      _deviceSerial!,
+      studentId,
+      alias,
+      displayName,
+      if (majorName.isNotEmpty || className.isNotEmpty) ...[
+        majorName,
+        className,
+      ],
+      assertedAt,
+    ];
+    final signature = _deviceKey!.sign(controlCanonicalLines(signedFields));
     late final Map<String, dynamic> response;
     try {
       response = await _request(
@@ -246,6 +278,9 @@ class ControlService {
         return _syncAfterOaLogin(
           studentId: studentId,
           displayName: displayName,
+          majorName: majorName,
+          className: className,
+          forceProfileUpdate: forceProfileUpdate,
           retryingDevice: true,
         );
       }
@@ -393,6 +428,54 @@ class ControlService {
       talker.warning('检查新版本失败', error, stackTrace);
       return null;
     }
+  }
+
+  Future<ControlConfigVersions> fetchConfigVersions() async {
+    if (!isConfigured) {
+      throw const ControlApiException(
+        'control_not_configured',
+        'Control 服务地址未配置',
+      );
+    }
+    final response = await _request('GET', '/api/v1/config/versions');
+    return ControlConfigVersions(
+      appRelease: response['appRelease']?.toString() ?? '',
+      schoolCalendar: response['schoolCalendar']?.toString() ?? '',
+      courseAdjustments: response['courseAdjustments']?.toString() ?? '',
+    );
+  }
+
+  /// Loads the administrator-managed school calendar. This endpoint is public
+  /// because the calendar contains no account-specific information.
+  Future<List<SchoolDay>> fetchSchoolCalendar() async {
+    if (!isConfigured) {
+      throw const ControlApiException(
+        'control_not_configured',
+        'Control 服务地址未配置',
+      );
+    }
+    final response = await _request('GET', '/api/v1/school-calendar');
+    try {
+      return schoolCalendarDaysFromJson(jsonEncode(response));
+    } catch (error) {
+      final message = error is FormatException
+          ? error.message
+          : 'Control 返回的校历数据格式无效';
+      throw ControlApiException('invalid_school_calendar', message);
+    }
+  }
+
+  /// Loads the administrator-managed course date adjustment map. An empty
+  /// object means no server-side adjustments are configured.
+  Future<Map<String, String>> fetchCourseAdjustments() async {
+    if (!isConfigured) return const {};
+    final response = await _request('GET', '/api/v1/course-adjustments');
+    final raw = response['adjustments'];
+    if (raw is! Map) return const {};
+    return {
+      for (final entry in raw.entries)
+        entry.key.toString(): entry.value.toString(),
+    };
   }
 
   Future<void> track(

@@ -217,7 +217,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         _showMoney ? '剩余金额' : '剩余电量',
         '${_formatAmount(_baseResult.available)} ${_showMoney ? '元' : '度'}',
       ),
-      _MetricItem('电价', '${_baseResult.price} 元/度', interactive: true),
+      _MetricItem('电价(点击改变单位)', _formatPrice(), interactive: true),
       if (_baseResult.monthUsage != null)
         _MetricItem(
           _showMoney ? '本月电费' : '本月用电',
@@ -349,6 +349,17 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     return (amount * price).toStringAsFixed(2);
   }
 
+  String _formatPrice() {
+    final raw = _baseResult.price;
+    if (!_showMoney) return '$raw 元/度';
+
+    final price = double.tryParse(raw);
+    if (price == null || price == 0) return '- 度/元';
+    final reciprocal = (1 / price).toStringAsFixed(4);
+    final formatted = reciprocal.replaceFirst(RegExp(r'\.?0+$'), '');
+    return '$formatted 度/元';
+  }
+
   Widget _buildMetricCell(FThemeData theme, _MetricItem item) {
     Widget card = AppCard(
       padding: const EdgeInsets.symmetric(
@@ -370,18 +381,10 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       ),
     );
     if (item.interactive) {
-      card = DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(color: theme.colors.primary, width: 1.5),
-          color: theme.colors.secondary.withValues(alpha: 0.35),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: FTappable(
-          onPress: () => setState(() => _showMoney = !_showMoney),
-          // Leave a narrow gap so the themed outer border remains visible
-          // above the opaque AppCard decoration.
-          child: Padding(padding: const EdgeInsets.all(1.5), child: card),
-        ),
+      card = FTappable(
+        onPress: () => setState(() => _showMoney = !_showMoney),
+        behavior: HitTestBehavior.opaque,
+        child: card,
       );
     }
     return card;

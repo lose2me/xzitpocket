@@ -94,6 +94,9 @@ class AppSettings {
   final double timetableGridOpacity;
   final bool showTimetableGridLines;
   final bool showTodayGridLines;
+  final bool cloudCourseAdjustmentsEnabled;
+  final String cloudCourseAdjustmentsJson;
+  final String courseAdjustmentsJson;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
   const AppSettings({
@@ -106,6 +109,9 @@ class AppSettings {
     this.timetableGridOpacity = 0.5,
     this.showTimetableGridLines = true,
     this.showTodayGridLines = false,
+    this.cloudCourseAdjustmentsEnabled = true,
+    this.cloudCourseAdjustmentsJson = '{}',
+    this.courseAdjustmentsJson = '{}',
     this.hiddenServiceFeatures = const {},
   });
 
@@ -121,6 +127,9 @@ class AppSettings {
     double? timetableGridOpacity,
     bool? showTimetableGridLines,
     bool? showTodayGridLines,
+    bool? cloudCourseAdjustmentsEnabled,
+    String? cloudCourseAdjustmentsJson,
+    String? courseAdjustmentsJson,
     Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
     return AppSettings(
@@ -138,6 +147,12 @@ class AppSettings {
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
       showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,
+      cloudCourseAdjustmentsEnabled:
+          cloudCourseAdjustmentsEnabled ?? this.cloudCourseAdjustmentsEnabled,
+      cloudCourseAdjustmentsJson:
+          cloudCourseAdjustmentsJson ?? this.cloudCourseAdjustmentsJson,
+      courseAdjustmentsJson:
+          courseAdjustmentsJson ?? this.courseAdjustmentsJson,
       hiddenServiceFeatures:
           hiddenServiceFeatures ?? this.hiddenServiceFeatures,
     );

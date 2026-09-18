@@ -170,6 +170,9 @@ class ToolsDataManager extends ChangeNotifier {
     await ControlService.instance.syncAfterOaLogin(
       studentId: studentId,
       displayName: displayName,
+      majorName: prefs.getMajorName() ?? '',
+      className: prefs.getClassName() ?? '',
+      forceProfileUpdate: true,
     );
     if (generation != _dataGeneration) return;
     await _loadBackgroundData(

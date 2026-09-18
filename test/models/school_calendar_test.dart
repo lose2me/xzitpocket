@@ -74,4 +74,27 @@ void main() {
       expect(empty.festivalNamesInWeek(1), isEmpty);
     });
   });
+
+  test('encodes and decodes a control-service calendar payload', () {
+    final days = [
+      SchoolDay(date: DateTime(2027, 2, 23), weekday: 2, holiday: false),
+      SchoolDay(
+        date: DateTime(2027, 2, 22),
+        weekday: 1,
+        holiday: true,
+        festival: '校庆',
+      ),
+    ];
+    final decoded = schoolCalendarDaysFromJson(schoolCalendarDaysToJson(days));
+    expect(decoded, [days[1], days[0]]);
+  });
+
+  test('rejects non-contiguous calendar data', () {
+    expect(
+      () => schoolCalendarDaysFromJson(
+        '[{"date":"2027-02-22","weekday":1,"holiday":false},{"date":"2027-02-24","weekday":3,"holiday":false}]',
+      ),
+      throwsFormatException,
+    );
+  });
 }

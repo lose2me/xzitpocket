@@ -16,9 +16,19 @@ class PreferencesStorage {
   Future<void> setStudentName(String name) =>
       _prefs.setString('student_name', name);
 
+  String? getMajorName() => _prefs.getString('major_name');
+  Future<void> setMajorName(String name) =>
+      _prefs.setString('major_name', name);
+
+  String? getClassName() => _prefs.getString('class_name');
+  Future<void> setClassName(String name) =>
+      _prefs.setString('class_name', name);
+
   Future<void> clearStudentInfo() async {
     await _prefs.remove('student_id');
     await _prefs.remove('student_name');
+    await _prefs.remove('major_name');
+    await _prefs.remove('class_name');
   }
 
   // ── Settings ──
@@ -87,6 +97,57 @@ class PreferencesStorage {
 
   Future<void> setShowTodayGridLines(bool value) =>
       _prefs.setBool('show_today_grid_lines', value);
+
+  bool getCloudCourseAdjustmentsEnabled() =>
+      _prefs.getBool('cloud_course_adjustments_enabled') ?? true;
+
+  Future<void> setCloudCourseAdjustmentsEnabled(bool value) =>
+      _prefs.setBool('cloud_course_adjustments_enabled', value);
+
+  String getCourseAdjustmentsJson() =>
+      _prefs.getString('course_adjustments_json') ?? '{}';
+
+  Future<void> setCourseAdjustmentsJson(String value) =>
+      _prefs.setString('course_adjustments_json', value);
+
+  String? getCourseAdjustmentsCloudCache() =>
+      _prefs.getString('course_adjustments_cloud_cache');
+
+  String? getCourseAdjustmentsCloudVersion() =>
+      _prefs.getString('course_adjustments_cloud_version');
+
+  Future<void> setCourseAdjustmentsCloudCache(String value) => _setCache(
+    'course_adjustments_cloud_cache',
+    'course_adjustments_cloud_cache_time',
+    value,
+  );
+
+  Future<void> setCourseAdjustmentsCloudVersion(String value) =>
+      _prefs.setString('course_adjustments_cloud_version', value);
+
+  Future<void> clearCourseAdjustmentsCloudCache() => _clearCache(
+    'course_adjustments_cloud_cache',
+    'course_adjustments_cloud_cache_time',
+  );
+
+  // ── School calendar cache ──
+
+  String? getSchoolCalendarCache() => _prefs.getString('school_calendar_cache');
+
+  String? getSchoolCalendarVersion() =>
+      _prefs.getString('school_calendar_version');
+
+  int? getSchoolCalendarCacheTime() =>
+      _prefs.getInt('school_calendar_cache_time');
+
+  Future<void> setSchoolCalendarCache(String json) =>
+      _setCache('school_calendar_cache', 'school_calendar_cache_time', json);
+
+  Future<void> setSchoolCalendarVersion(String value) =>
+      _prefs.setString('school_calendar_version', value);
+
+  Future<void> clearSchoolCalendarCache() =>
+      _clearCache('school_calendar_cache', 'school_calendar_cache_time');
 
   Set<String> getHiddenServiceFeatures() =>
       (_prefs.getStringList('hidden_service_features') ?? const <String>[])

@@ -43,12 +43,16 @@ class ConfigNotifier extends Notifier<UserConfig> {
     return UserConfig(
       studentId: _storage.getStudentId(),
       studentName: _storage.getStudentName(),
+      majorName: _storage.getMajorName(),
+      className: _storage.getClassName(),
     );
   }
 
   Future<void> updateFromLogin({
     required String studentId,
     required String studentName,
+    required String majorName,
+    required String className,
   }) async {
     final previousStudentId = _storage.getStudentId();
     if (previousStudentId != null && previousStudentId != studentId) {
@@ -62,9 +66,19 @@ class ConfigNotifier extends Notifier<UserConfig> {
       if (state.studentId != studentId) _storage.setStudentId(studentId),
       if (state.studentName != studentName)
         _storage.setStudentName(studentName),
+      if (state.majorName != majorName) _storage.setMajorName(majorName),
+      if (state.className != className) _storage.setClassName(className),
     ]);
-    if (state.studentId != studentId || state.studentName != studentName) {
-      state = state.copyWith(studentId: studentId, studentName: studentName);
+    if (state.studentId != studentId ||
+        state.studentName != studentName ||
+        state.majorName != majorName ||
+        state.className != className) {
+      state = state.copyWith(
+        studentId: studentId,
+        studentName: studentName,
+        majorName: majorName,
+        className: className,
+      );
     }
   }
 

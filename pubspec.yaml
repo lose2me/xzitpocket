@@ -1,7 +1,7 @@
 name: xzitpocket
 description: "掌上徐工"
 publish_to: 'none'
-version: 2.0.5+2005
+version: 2.0.6+2006
 
 environment:
   sdk: ^3.13.0

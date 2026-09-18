@@ -1,8 +1,12 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+
 /// 校历信息：一学期的每日标记。
 ///
-/// The source snapshot is kept in `fmd/semester_calendar.json`; this compact
-/// const representation is used at runtime so the app does not need to parse
-/// an additional asset on every startup.
+/// The bundled snapshot is used as an offline fallback. A validated calendar
+/// downloaded from xzitpocket-control can replace the global instance at
+/// startup without requiring an app release each semester.
 class SchoolDay {
   final DateTime date;
   final int weekday; // 1=周一 … 7=周日
@@ -15,6 +19,57 @@ class SchoolDay {
     required this.holiday,
     this.festival,
   });
+
+  Map<String, dynamic> toJson() => {
+    'date':
+        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+    'weekday': weekday,
+    'holiday': holiday,
+    'festival': festival,
+  };
+
+  factory SchoolDay.fromJson(Map<String, dynamic> json) {
+    final rawDate = json['date']?.toString() ?? '';
+    final match = RegExp(r'^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$')
+        .firstMatch(rawDate.trim());
+    if (match == null) {
+      throw const FormatException('校历日期格式无效');
+    }
+    final year = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final day = int.parse(match.group(3)!);
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      throw const FormatException('校历日期格式无效');
+    }
+    final weekday = (json['weekday'] as num?)?.toInt() ?? date.weekday;
+    if (weekday < 1 || weekday > 7 || weekday != date.weekday) {
+      throw const FormatException('校历星期格式无效');
+    }
+    final holiday = json['holiday'];
+    if (holiday is! bool) throw const FormatException('校历假期标记无效');
+    final rawFestival = json['festival'];
+    final festival = rawFestival == null || rawFestival == false
+        ? null
+        : rawFestival.toString().trim();
+    return SchoolDay(
+      date: date,
+      weekday: weekday,
+      holiday: holiday,
+      festival: festival == null || festival.isEmpty ? null : festival,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is SchoolDay &&
+      other.date == date &&
+      other.weekday == weekday &&
+      other.holiday == holiday &&
+      other.festival == festival;
+
+  @override
+  int get hashCode => Object.hash(date, weekday, holiday, festival);
 }
 
 /// 每日原始数据：(年, 月, 日, 星期几, 放假, 节日)。
@@ -166,14 +221,29 @@ List<SchoolDay> schoolCalendarDays() => [
 ];
 
 /// 基于校历数据的学期日历：提供周号、周区间、该周假期等查询。
-class SemesterCalendar {
-  final List<SchoolDay> days;
-  final DateTime start;
-  final DateTime end;
+class SemesterCalendar extends ChangeNotifier {
+  static final _fallbackStart = DateTime(2026, 8, 31);
+  static final _fallbackEnd = DateTime(2027, 1, 10);
 
-  SemesterCalendar(this.days)
-    : start = days.isEmpty ? DateTime(2026, 8, 31) : _mondayOf(days.first.date),
-      end = days.isEmpty ? DateTime(2027, 1, 10) : _dateOnly(days.last.date);
+  List<SchoolDay> _days;
+
+  SemesterCalendar(List<SchoolDay> days) : _days = _sortedDays(days);
+
+  List<SchoolDay> get days => List.unmodifiable(_days);
+
+  DateTime get start =>
+      _days.isEmpty ? _fallbackStart : _mondayOf(_days.first.date);
+
+  DateTime get end => _days.isEmpty ? _fallbackEnd : _dateOnly(_days.last.date);
+
+  /// Replaces the active calendar while preserving the global instance used by
+  /// timetable, school-calendar and widget consumers.
+  void replaceDays(Iterable<SchoolDay> days) {
+    final sorted = _sortedDays(days);
+    if (listEquals(_days, sorted)) return;
+    _days = sorted;
+    notifyListeners();
+  }
 
   /// 学期实际开学日，即校历数据中的第一天。
   ///
@@ -225,6 +295,43 @@ class SemesterCalendar {
   bool get hasStarted => weekOf(DateTime.now()) > 0;
 }
 
+List<SchoolDay> _sortedDays(Iterable<SchoolDay> days) {
+  final result = List<SchoolDay>.from(days);
+  result.sort((a, b) => a.date.compareTo(b.date));
+  return result;
+}
+
+/// Decodes the control-service calendar payload. The payload may be either a
+/// bare list or an object containing a `days` list for compatibility.
+List<SchoolDay> schoolCalendarDaysFromJson(String source) {
+  final decoded = jsonDecode(source);
+  final raw = decoded is List
+      ? decoded
+      : decoded is Map
+      ? decoded['days']
+      : null;
+  if (raw is! List || raw.isEmpty) {
+    throw const FormatException('校历数据为空');
+  }
+  final days = [
+    for (final item in raw)
+      if (item is Map) SchoolDay.fromJson(item.cast<String, dynamic>()),
+  ];
+  if (days.length != raw.length) {
+    throw const FormatException('校历数据格式无效');
+  }
+  final sorted = _sortedDays(days);
+  for (var index = 1; index < sorted.length; index++) {
+    if (sorted[index].date.difference(sorted[index - 1].date).inDays != 1) {
+      throw const FormatException('校历日期必须连续且不能重复');
+    }
+  }
+  return sorted;
+}
+
+String schoolCalendarDaysToJson(Iterable<SchoolDay> days) =>
+    jsonEncode([for (final day in _sortedDays(days)) day.toJson()]);
+
 DateTime _dateOnly(DateTime value) =>
     DateTime(value.year, value.month, value.day);
 
@@ -233,7 +340,7 @@ DateTime _mondayOf(DateTime value) {
   return date.subtract(Duration(days: date.weekday - 1));
 }
 
-/// 全局学期日历（从内置校历数据构建）。
+/// 全局学期日历（默认从内置校历数据构建，可由控制端覆盖）。
 final SemesterCalendar semesterCalendar = SemesterCalendar(
   schoolCalendarDays(),
 );

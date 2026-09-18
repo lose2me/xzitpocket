@@ -726,6 +726,8 @@ class ProfilePageState extends ConsumerState<ProfilePage>
               courses: loginResult.courses,
               studentId: loginResult.studentId ?? sid,
               studentName: loginResult.studentName ?? '',
+              majorName: loginResult.majorName ?? '',
+              className: loginResult.className ?? '',
             );
       } on WidgetSyncException catch (e) {
         if (mounted) {
@@ -951,6 +953,7 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
           if (mounted) setState(() => _progress = progress);
         },
       );
+      if (mounted) setState(() => _progress = null);
     } on UpdateException catch (error) {
       if (mounted && error.message != '已取消下载') {
         setState(() => _error = error.message);
@@ -971,6 +974,24 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
   Widget build(BuildContext context) {
     final release = _release;
     if (_loading || release == null) return const SizedBox.shrink();
+    if (!_downloading && _progress == null && _error == null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.md),
+        child: FTappable(
+          onPress: _download,
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+            child: Center(
+              child: Text(
+                '发现新版本 $_currentVersion → ${release.latestVersion}',
+                style: context.theme.typography.bodyText,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: AppCard(

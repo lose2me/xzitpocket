@@ -76,6 +76,55 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
   );
 }
 
+class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {
+  final IconData icon;
+  final String title;
+  final String? value;
+  final bool expanded;
+  final Widget child;
+  final VoidCallback onTap;
+
+  const ProfileSettingsExpandableTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.expanded,
+    required this.child,
+    required this.onTap,
+    this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) => FTile.raw(
+    style: _profileTileStyle,
+    semanticsExpanded: expanded,
+    onPress: onTap,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: context.theme.colors.foreground),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(title)),
+            if (value != null) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Text(value!),
+            ],
+            const SizedBox(width: AppSpacing.sm),
+            Icon(
+              expanded ? FLucideIcons.chevronDown : FLucideIcons.chevronRight,
+              size: 18,
+              color: context.theme.colors.mutedForeground,
+            ),
+          ],
+        ),
+        if (expanded) ...[const SizedBox(height: AppSpacing.md), child],
+      ],
+    ),
+  );
+}
+
 class ProfileSettingsControlTile extends StatelessWidget with FTileMixin {
   final IconData icon;
   final String title;

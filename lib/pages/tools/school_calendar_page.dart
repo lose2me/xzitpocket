@@ -15,60 +15,68 @@ class SchoolCalendarPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-    final calendar = semesterCalendar;
-    final days = calendar.days;
-    if (days.isEmpty) {
-      return AppPage(
-        title: '校历',
-        child: AppPageBody(
-          child: AppStateView(icon: FLucideIcons.calendarOff, title: '校历数据为空'),
-        ),
-      );
-    }
+    return ListenableBuilder(
+      listenable: semesterCalendar,
+      builder: (context, _) {
+        final theme = context.theme;
+        final calendar = semesterCalendar;
+        final days = calendar.days;
+        if (days.isEmpty) {
+          return AppPage(
+            title: '校历',
+            child: AppPageBody(
+              child: AppStateView(
+                icon: FLucideIcons.calendarOff,
+                title: '校历数据为空',
+              ),
+            ),
+          );
+        }
 
-    return AppPage(
-      title: '学校校历',
-      child: AppPageListView(
-        maxWidth: AppLayout.resultMaxWidth,
-        topPadding: 0,
-        bottomPadding: AppSpacing.xxl,
-        children: [
-          // 图例靠左，右侧提示文字；整体上移。
-          Row(
+        return AppPage(
+          title: '学校校历',
+          child: AppPageListView(
+            maxWidth: AppLayout.resultMaxWidth,
+            topPadding: 0,
+            bottomPadding: AppSpacing.xxl,
             children: [
+              // 图例靠左，右侧提示文字；整体上移。
               Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _legendDot(
-                    theme,
-                    theme.colors.semantic.warningContainer,
-                    '周末',
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _legendDot(
+                        theme,
+                        theme.colors.semantic.warningContainer,
+                        '周末',
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      _legendDot(theme, theme.colors.secondary, '节假日'),
+                      const SizedBox(width: AppSpacing.sm),
+                      _legendDot(theme, theme.colors.semantic.info, '今日'),
+                    ],
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  _legendDot(theme, theme.colors.secondary, '节假日'),
-                  const SizedBox(width: AppSpacing.sm),
-                  _legendDot(theme, theme.colors.semantic.info, '今日'),
+                  Expanded(
+                    child: Text(
+                      '实际安排可能会发生变动',
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.typography.caption.copyWith(
+                        color: theme.colors.mutedForeground,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Text(
-                  '实际安排可能会发生变动',
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.typography.caption.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-              ),
+              const SizedBox(height: AppSpacing.lg),
+              _buildGrid(theme, calendar),
             ],
           ),
-          const SizedBox(height: AppSpacing.lg),
-          _buildGrid(theme, calendar),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -81,6 +81,33 @@ void main() {
     });
   });
 
+  group('student profile', () {
+    late PreferencesStorage storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = PreferencesStorage();
+      await storage.init();
+    });
+
+    test('stores and clears major and class with the student', () async {
+      await storage.setStudentId('2023000001');
+      await storage.setStudentName('测试用户');
+      await storage.setMajorName('计算机科学与技术');
+      await storage.setClassName('计科2301班');
+
+      expect(storage.getMajorName(), '计算机科学与技术');
+      expect(storage.getClassName(), '计科2301班');
+
+      await storage.clearStudentInfo();
+
+      expect(storage.getStudentId(), isNull);
+      expect(storage.getStudentName(), isNull);
+      expect(storage.getMajorName(), isNull);
+      expect(storage.getClassName(), isNull);
+    });
+  });
+
   group('learning cache metadata', () {
     late PreferencesStorage storage;
 

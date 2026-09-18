@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:html/dom.dart' as html_dom;
 import 'package:html/parser.dart' as html_parser;
@@ -5,6 +7,7 @@ import 'package:html/parser.dart' as html_parser;
 import '../constants/network_config.dart';
 import '../constants/time_slots.dart';
 import '../models/course.dart';
+import '../models/book_list.dart';
 import '../utils/course_text_parser.dart';
 import '../utils/week_calculator.dart';
 import 'cas_service.dart';
@@ -12,9 +15,17 @@ import 'cas_service.dart';
 class LoginResult {
   final String? studentId;
   final String? studentName;
+  final String? majorName;
+  final String? className;
   final List<Course> courses;
 
-  LoginResult({this.studentId, this.studentName, required this.courses});
+  LoginResult({
+    this.studentId,
+    this.studentName,
+    this.majorName,
+    this.className,
+    required this.courses,
+  });
 }
 
 class ExamItem {
@@ -285,6 +296,204 @@ class AcademicStatus {
       value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
 }
 
+BookListResult parseBookListPayload(dynamic payload) {
+  if (payload is Map) {
+    final rawItems = payload['items'] ?? payload['data'] ?? payload['rows'];
+    if (rawItems is List) {
+      return _bookListFromMaps(rawItems);
+    }
+  }
+  if (payload is List) return _bookListFromMaps(payload);
+
+  final source = payload?.toString() ?? '';
+  if (source.trim().isEmpty) {
+    return const BookListResult(items: []);
+  }
+  try {
+    final decoded = jsonDecode(source);
+    if (!identical(decoded, payload)) return parseBookListPayload(decoded);
+  } catch (_) {
+    // The endpoint normally returns HTML. Continue with table parsing.
+  }
+
+  final document = html_parser.parse(source);
+  final candidates = document.querySelectorAll('table');
+  html_dom.Element? selected;
+  var selectedScore = 0;
+  for (final table in candidates) {
+    final rows = table.querySelectorAll('tr');
+    final score = rows.fold<int>(0, (total, row) {
+      final cells = row.querySelectorAll('th, td').length;
+      return total + (cells >= 2 ? cells : 0);
+    });
+    if (score > selectedScore) {
+      selected = table;
+      selectedScore = score;
+    }
+  }
+  final rows =
+      selected?.querySelectorAll('tr') ?? document.querySelectorAll('tr');
+  if (rows.isEmpty) {
+    return const BookListResult(items: []);
+  }
+
+  final values = [
+    for (final row in rows)
+      [
+        for (final cell in row.querySelectorAll('th, td'))
+          _cleanBookText(cell.text),
+      ],
+  ].where((row) => row.any((value) => value.isNotEmpty)).toList();
+  if (values.isEmpty) {
+    return const BookListResult(items: []);
+  }
+
+  final headerRow = values.first;
+  final hasHeaderCells = rows.first.querySelectorAll('th').isNotEmpty;
+  final columnCount = values.fold<int>(
+    headerRow.length,
+    (max, row) => row.length > max ? row.length : max,
+  );
+  final columns = hasHeaderCells
+      ? [
+          for (var index = 0; index < columnCount; index++)
+            index < headerRow.length && headerRow[index].trim().isNotEmpty
+                ? headerRow[index]
+                : '字段 ${index + 1}',
+        ]
+      : [for (var index = 0; index < columnCount; index++) '字段 ${index + 1}'];
+  final dataRows = hasHeaderCells ? values.skip(1) : values;
+  return _bookListFromMaps([
+    for (final row in dataRows)
+      {
+        for (var index = 0; index < columns.length; index++)
+          columns[index]: index < row.length ? row[index] : '',
+      },
+  ]);
+}
+
+BookListSemesterCatalog buildBookListSemesterCatalog(
+  GradeResult grades,
+  String studentId,
+) {
+  final semesters = <String, BookListSemesterOption>{};
+  for (final yearLabel in grades.years) {
+    final academicYear = RegExp(r'20\d{2}').firstMatch(yearLabel)?.group(0);
+    if (academicYear == null) continue;
+    for (final termLabel in grades.termsByYear[yearLabel] ?? const <String>[]) {
+      final term = _bookTermNumber(termLabel);
+      if (term == null) continue;
+      final option = _bookSemesterOption(int.parse(academicYear), term);
+      semesters[option.key] = option;
+    }
+  }
+
+  final historical = semesters.values.toList()..sort(_compareBookSemesters);
+  final BookListSemesterOption? current;
+  if (historical.isNotEmpty) {
+    current = _nextBookSemester(historical.first);
+  } else {
+    final enrollmentYear = _studentEnrollmentYear(studentId);
+    current = enrollmentYear == null
+        ? null
+        : _bookSemesterOption(enrollmentYear, 1);
+  }
+  if (current != null) semesters[current.key] = current;
+  final options = semesters.values.toList()..sort(_compareBookSemesters);
+  return BookListSemesterCatalog(options: options, current: current);
+}
+
+int? _bookTermNumber(String value) {
+  final term = value.trim();
+  if (term == '3' || term.contains('一')) return 1;
+  if (term == '12' || term.contains('二')) return 2;
+  final number = int.tryParse(term);
+  return number == 1 || number == 2 ? number : null;
+}
+
+int? _studentEnrollmentYear(String studentId) {
+  final value = studentId.trim();
+  final fullYear = RegExp(r'^(20\d{2})').firstMatch(value)?.group(1);
+  if (fullYear != null) return int.tryParse(fullYear);
+  final shortYear = RegExp(r'^(\d{2})').firstMatch(value)?.group(1);
+  final parsed = int.tryParse(shortYear ?? '');
+  return parsed == null ? null : 2000 + parsed;
+}
+
+BookListSemesterOption _bookSemesterOption(int academicYear, int term) {
+  final shortYear = (academicYear % 100).toString().padLeft(2, '0');
+  return BookListSemesterOption(
+    academicYear: academicYear.toString(),
+    termCode: term == 1 ? '3' : '12',
+    label: '$shortYear学年第$term学期',
+  );
+}
+
+BookListSemesterOption _nextBookSemester(BookListSemesterOption latest) {
+  final year = int.parse(latest.academicYear);
+  return latest.termCode == '3'
+      ? _bookSemesterOption(year, 2)
+      : _bookSemesterOption(year + 1, 1);
+}
+
+int _compareBookSemesters(
+  BookListSemesterOption left,
+  BookListSemesterOption right,
+) {
+  final yearOrder = int.parse(right.academicYear)
+      .compareTo(int.parse(left.academicYear));
+  if (yearOrder != 0) return yearOrder;
+  final leftTerm = left.termCode == '12' ? 2 : 1;
+  final rightTerm = right.termCode == '12' ? 2 : 1;
+  return rightTerm.compareTo(leftTerm);
+}
+
+BookListResult _bookListFromMaps(List<dynamic> rawItems) {
+  final items = <BookListItem>[];
+  for (final raw in rawItems) {
+    if (raw is! Map) continue;
+    final fields = <String, String>{
+      for (final entry in raw.entries)
+        _normalizeBookFieldName(entry.key.toString()): _cleanBookText(
+          entry.value?.toString() ?? '',
+        ),
+    };
+    final courseName = _firstBookField(fields, const ['kcmc', '课程名称', '课程']);
+    if (courseName.isEmpty) continue;
+    final textbook = _firstBookField(fields, const ['jcxx', '教材信息', '教材']);
+    if (textbook.isEmpty) continue;
+    final parts = textbook.split('/');
+    final textbookName = parts.isEmpty ? '' : parts.first.trim();
+    if (textbookName.isEmpty) continue;
+    final tags = [
+      for (final part in parts.skip(1))
+        if (part.trim().isNotEmpty) part.trim(),
+    ];
+    items.add(
+      BookListItem(
+        courseName: courseName,
+        textbookName: textbookName,
+        textbookTags: tags,
+      ),
+    );
+  }
+  return BookListResult(items: items);
+}
+
+String _normalizeBookFieldName(String value) =>
+    value.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+
+String _firstBookField(Map<String, String> fields, List<String> names) {
+  for (final name in names) {
+    final value = fields[_normalizeBookFieldName(name)] ?? '';
+    if (value.isNotEmpty) return value;
+  }
+  return '';
+}
+
+String _cleanBookText(String value) =>
+    value.replaceAll('\u00a0', ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+
 class AuthService {
   final _casService = CasService();
 
@@ -301,6 +510,51 @@ class AuthService {
     final session = await _casService.loginJw(studentId, password);
     try {
       return await _fetchExams(session.dio);
+    } finally {
+      session.close();
+    }
+  }
+
+  Future<BookListPageResult> fetchBookListPage(
+    String studentId,
+    String password,
+  ) async {
+    final session = await _casService.loginJw(studentId, password);
+    try {
+      final grades = await _fetchGrades(session.dio);
+      final catalog = buildBookListSemesterCatalog(grades, studentId);
+      final selected = catalog.current;
+      if (catalog.options.isEmpty || selected == null) {
+        throw AuthException('未获取到可查询的书单学期');
+      }
+      final books = await _fetchBookList(
+        session.dio,
+        academicYear: selected.academicYear,
+        termCode: selected.termCode,
+      );
+      return BookListPageResult(
+        semesters: catalog.options,
+        selectedSemester: selected,
+        books: books,
+      );
+    } finally {
+      session.close();
+    }
+  }
+
+  Future<BookListResult> fetchBookList(
+    String studentId,
+    String password, {
+    required String academicYear,
+    required String termCode,
+  }) async {
+    final session = await _casService.loginJw(studentId, password);
+    try {
+      return await _fetchBookList(
+        session.dio,
+        academicYear: academicYear,
+        termCode: termCode,
+      );
     } finally {
       session.close();
     }
@@ -428,10 +682,37 @@ class AuthService {
     final xsxx = (data['xsxx'] as Map<String, dynamic>?) ?? {};
 
     return LoginResult(
-      studentId: xsxx['XH'] as String?,
-      studentName: xsxx['XM'] as String?,
+      studentId: xsxx['XH']?.toString().trim(),
+      studentName: xsxx['XM']?.toString().trim(),
+      majorName: xsxx['ZYMC']?.toString().trim(),
+      className: xsxx['BJMC']?.toString().trim(),
       courses: courses,
     );
+  }
+
+  Future<BookListResult> _fetchBookList(
+    Dio dio, {
+    required String academicYear,
+    required String termCode,
+  }) async {
+    final response = await dio.get(
+      '$jwBaseUrl/xsxk/tjxkyzb_cxXkResultTjxkYzb.html?doType=query',
+      queryParameters: {
+        'xkxnm': academicYear,
+        'xkxqm': termCode,
+        'queryModel.showCount': '1500',
+        'queryModel.currentPage': '1',
+        'queryModel.sortName': '',
+        'queryModel.sortOrder': 'asc',
+        'time': '0',
+      },
+      options: Options(responseType: ResponseType.json),
+    );
+    final payload = response.data;
+    if (payload is String && payload.contains('用户登录')) {
+      throw AuthException('会话已过期');
+    }
+    return parseBookListPayload(payload);
   }
 
   Future<ExamResult> _fetchExams(Dio dio) async {

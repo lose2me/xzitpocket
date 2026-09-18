@@ -25,6 +25,7 @@ import 'power_query_page.dart';
 import 'repair_page.dart';
 import 'teacher_evaluation_page.dart';
 import 'school_calendar_page.dart';
+import 'book_list_page.dart';
 import 'learning_center_page.dart';
 
 class ToolsPage extends ConsumerStatefulWidget {
@@ -272,6 +273,25 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     );
   }
 
+  Future<void> _openBookList() async {
+    final hasNet = await _manager.checkInternetAvailable();
+    if (!hasNet) {
+      if (mounted) {
+        showAppSnackBar(context, '请连接网络', severity: ToastSeverity.warning);
+      }
+      return;
+    }
+    final creds = await _ensureCredentials();
+    if (creds == null || !mounted) return;
+    await Navigator.of(context).push(
+      appRoute(
+        name: AppRouteNames.bookList,
+        builder: (_) =>
+            BookListPage(studentId: creds.studentId, password: creds.password),
+      ),
+    );
+  }
+
   Future<void> _openJp() async {
     if (!_manager.isCampusNetworkAvailable) return;
     await _openTool(
@@ -451,6 +471,14 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         ),
       );
     }
+    addCard(
+      _buildSimpleCard(
+        theme,
+        icon: FLucideIcons.bookOpen,
+        title: '书单查询',
+        onTap: _openBookList,
+      ),
+    );
     if (visible(AppServiceFeature.teacherEvaluation)) {
       addCard(
         _buildSimpleCard(

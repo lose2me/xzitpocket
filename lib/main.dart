@@ -7,6 +7,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 
 import 'app.dart';
 import 'constants/semester_config.dart';
+import 'models/school_calendar.dart';
 import 'pages/home_page.dart';
 import 'providers/config_provider.dart';
 import 'services/course_storage.dart';
@@ -28,6 +29,17 @@ void main() async {
   // Run them concurrently; platform widget sync and network probes happen
   // after the first frame so a cold launch can paint immediately.
   await Future.wait([courseStorage.init(), preferencesStorage.init()]);
+
+  // Apply the last successfully downloaded calendar before the first frame;
+  // the bundled calendar remains the fallback when no cache is available.
+  final cachedCalendar = preferencesStorage.getSchoolCalendarCache();
+  if (cachedCalendar != null) {
+    try {
+      semesterCalendar.replaceDays(schoolCalendarDaysFromJson(cachedCalendar));
+    } catch (error, stackTrace) {
+      talker.warning('本地校历缓存无效，继续使用内置校历', error, stackTrace);
+    }
+  }
 
   // Listen for widget clicks → switch to timetable tab
   HomeWidget.widgetClicked.listen((_) {
@@ -56,12 +68,34 @@ Future<void> _finishStartup(
   ToolsDataManager.instance.initialize(preferencesStorage);
   await ControlService.instance.initialize();
   final controlAvailable = await ControlService.instance.checkHealth();
+  if (controlAvailable) {
+    try {
+      final versions = await ControlService.instance.fetchConfigVersions();
+      final cached = preferencesStorage.getSchoolCalendarCache();
+      if (cached == null ||
+          preferencesStorage.getSchoolCalendarVersion() !=
+              versions.schoolCalendar) {
+        final days = await ControlService.instance.fetchSchoolCalendar();
+        semesterCalendar.replaceDays(days);
+        await preferencesStorage.setSchoolCalendarCache(
+          schoolCalendarDaysToJson(days),
+        );
+        await preferencesStorage.setSchoolCalendarVersion(
+          versions.schoolCalendar,
+        );
+      }
+    } catch (error, stackTrace) {
+      talker.warning('读取在线校历失败，继续使用本地校历', error, stackTrace);
+    }
+  }
   final studentId = preferencesStorage.getStudentId();
   if (controlAvailable && studentId != null && studentId.isNotEmpty) {
     unawaited(
       ControlService.instance.syncAfterOaLogin(
         studentId: studentId,
         displayName: preferencesStorage.getStudentName() ?? '',
+        majorName: preferencesStorage.getMajorName() ?? '',
+        className: preferencesStorage.getClassName() ?? '',
       ),
     );
   }
