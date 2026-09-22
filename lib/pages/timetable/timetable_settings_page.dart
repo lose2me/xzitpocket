@@ -11,7 +11,6 @@ import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/native_automation_service.dart';
 import '../../services/talker.dart';
-import '../../utils/course_adjustments.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import '../profile/profile_components.dart';
@@ -27,25 +26,14 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
 
 class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   final _imagePicker = ImagePicker();
-  late final TextEditingController _courseAdjustmentsController;
-  bool _cloudJsonExpanded = false;
-  bool _localJsonExpanded = false;
 
   @override
   void initState() {
     super.initState();
-    _courseAdjustmentsController = TextEditingController(
-      text: courseAdjustmentsToJson(
-        parseCourseAdjustments(
-          ref.read(appSettingsProvider).courseAdjustmentsJson,
-        ),
-      ),
-    );
   }
 
   @override
   void dispose() {
-    _courseAdjustmentsController.dispose();
     super.dispose();
   }
 
@@ -64,40 +52,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         children: [
-          const ProfileSectionLabel(title: '课程调整'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.cloud,
-                title: '启用云端课程调整',
-                value: settings.cloudCourseAdjustmentsEnabled,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setCloudCourseAdjustmentsEnabled(value),
-              ),
-              ProfileSettingsExpandableTile(
-                icon: FLucideIcons.cloud,
-                title: '云端课程调整 JSON',
-                value: _adjustmentSummary(settings.cloudCourseAdjustmentsJson),
-                expanded: _cloudJsonExpanded,
-                child: _cloudAdjustmentJson(
-                  settings.cloudCourseAdjustmentsJson,
-                ),
-                onTap: () =>
-                    setState(() => _cloudJsonExpanded = !_cloudJsonExpanded),
-              ),
-              ProfileSettingsExpandableTile(
-                icon: FLucideIcons.fileText,
-                title: '本地课程调整 JSON',
-                value: _adjustmentSummary(settings.courseAdjustmentsJson),
-                expanded: _localJsonExpanded,
-                child: _localAdjustmentEditor(),
-                onTap: () =>
-                    setState(() => _localJsonExpanded = !_localJsonExpanded),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '显示'),
           ProfileSettingsGroup(
             children: [
@@ -213,74 +167,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         ],
       ),
     );
-  }
-
-  String _adjustmentSummary(String source) {
-    final count = parseCourseAdjustments(source).length;
-    return count == 0 ? '未设置' : '$count 条规则';
-  }
-
-  Widget _cloudAdjustmentJson(String source) {
-    final formatted = courseAdjustmentsToJson(parseCourseAdjustments(source));
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SelectableText(formatted),
-      ),
-    );
-  }
-
-  Widget _localAdjustmentEditor() => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      TextField(
-        controller: _courseAdjustmentsController,
-        minLines: 8,
-        maxLines: 16,
-        keyboardType: TextInputType.multiline,
-        decoration: const InputDecoration(
-          border: OutlineInputBorder(),
-          hintText: '{"20260916": "20260917"}',
-          helperText: '查看云端JSON照葫芦画瓢',
-        ),
-      ),
-      const SizedBox(height: AppSpacing.md),
-      Align(
-        alignment: Alignment.centerRight,
-        child: FButton(
-          onPress: _saveCourseAdjustments,
-          prefix: const Icon(FLucideIcons.save),
-          child: const Text('保存本地配置'),
-        ),
-      ),
-    ],
-  );
-
-  Future<void> _saveCourseAdjustments() async {
-    final source = _courseAdjustmentsController.text;
-    final parsed = parseCourseAdjustments(source);
-    // Reject non-empty input that did not contain any valid mapping instead
-    // of silently losing a typo in the local configuration.
-    if (source.trim().isNotEmpty && source.trim() != '{}' && parsed.isEmpty) {
-      showAppSnackBar(context, '课程调整 JSON 格式无效', severity: ToastSeverity.error);
-      return;
-    }
-    final normalized = courseAdjustmentsToJson(parsed);
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setCourseAdjustmentsJson(normalized);
-    _courseAdjustmentsController.value = TextEditingValue(
-      text: normalized,
-      selection: TextSelection.collapsed(offset: normalized.length),
-    );
-    if (mounted) {
-      showAppSnackBar(
-        context,
-        '本地课程调整已保存，下次同步课表时生效',
-        severity: ToastSeverity.success,
-      );
-    }
   }
 
   String _automationLabel(ClassAutomationMode mode) => switch (mode) {

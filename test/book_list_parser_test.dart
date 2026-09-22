@@ -35,6 +35,22 @@ void main() {
     expect(result.items, isEmpty);
   });
 
+  test('treats br tags and line breaks as additional textbooks', () {
+    final result = parseBookListPayload({
+      'items': [
+        {'kcmc': '大学英语', 'jcxx': '英语综合教程/外研社<br>英语视听说/外研社/第二版\n英语阅读/高教社'},
+      ],
+    });
+
+    expect(result.items.map((item) => item.textbookName), [
+      '英语综合教程',
+      '英语视听说',
+      '英语阅读',
+    ]);
+    expect(result.items[1].courseName, '大学英语');
+    expect(result.items[1].textbookTags, ['外研社', '第二版']);
+  });
+
   test('infers the current semester after the latest graded semester', () {
     final catalog = buildBookListSemesterCatalog(
       const GradeResult(

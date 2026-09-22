@@ -98,38 +98,6 @@ class PreferencesStorage {
   Future<void> setShowTodayGridLines(bool value) =>
       _prefs.setBool('show_today_grid_lines', value);
 
-  bool getCloudCourseAdjustmentsEnabled() =>
-      _prefs.getBool('cloud_course_adjustments_enabled') ?? true;
-
-  Future<void> setCloudCourseAdjustmentsEnabled(bool value) =>
-      _prefs.setBool('cloud_course_adjustments_enabled', value);
-
-  String getCourseAdjustmentsJson() =>
-      _prefs.getString('course_adjustments_json') ?? '{}';
-
-  Future<void> setCourseAdjustmentsJson(String value) =>
-      _prefs.setString('course_adjustments_json', value);
-
-  String? getCourseAdjustmentsCloudCache() =>
-      _prefs.getString('course_adjustments_cloud_cache');
-
-  String? getCourseAdjustmentsCloudVersion() =>
-      _prefs.getString('course_adjustments_cloud_version');
-
-  Future<void> setCourseAdjustmentsCloudCache(String value) => _setCache(
-    'course_adjustments_cloud_cache',
-    'course_adjustments_cloud_cache_time',
-    value,
-  );
-
-  Future<void> setCourseAdjustmentsCloudVersion(String value) =>
-      _prefs.setString('course_adjustments_cloud_version', value);
-
-  Future<void> clearCourseAdjustmentsCloudCache() => _clearCache(
-    'course_adjustments_cloud_cache',
-    'course_adjustments_cloud_cache_time',
-  );
-
   // ── School calendar cache ──
 
   String? getSchoolCalendarCache() => _prefs.getString('school_calendar_cache');

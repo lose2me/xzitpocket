@@ -33,11 +33,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
       showTodayGridLines: _storage.getShowTodayGridLines(),
-      cloudCourseAdjustmentsEnabled: _storage
-          .getCloudCourseAdjustmentsEnabled(),
-      cloudCourseAdjustmentsJson:
-          _storage.getCourseAdjustmentsCloudCache() ?? '{}',
-      courseAdjustmentsJson: _storage.getCourseAdjustmentsJson(),
       hiddenServiceFeatures: {
         for (final value in _storage.getHiddenServiceFeatures())
           ...AppServiceFeature.values.where(
@@ -104,21 +99,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setShowTodayGridLines(bool value) async {
     await _storage.setShowTodayGridLines(value);
     state = state.copyWith(showTodayGridLines: value);
-  }
-
-  Future<void> setCloudCourseAdjustmentsEnabled(bool value) async {
-    await _storage.setCloudCourseAdjustmentsEnabled(value);
-    state = state.copyWith(cloudCourseAdjustmentsEnabled: value);
-  }
-
-  Future<void> setCloudCourseAdjustmentsJson(String value) async {
-    await _storage.setCourseAdjustmentsCloudCache(value);
-    state = state.copyWith(cloudCourseAdjustmentsJson: value);
-  }
-
-  Future<void> setCourseAdjustmentsJson(String value) async {
-    await _storage.setCourseAdjustmentsJson(value);
-    state = state.copyWith(courseAdjustmentsJson: value);
   }
 
   Future<void> setServiceFeatureVisible(

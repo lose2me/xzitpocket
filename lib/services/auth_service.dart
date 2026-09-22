@@ -341,7 +341,7 @@ BookListResult parseBookListPayload(dynamic payload) {
     for (final row in rows)
       [
         for (final cell in row.querySelectorAll('th, td'))
-          _cleanBookText(cell.text),
+          _bookTableCellText(cell),
       ],
   ].where((row) => row.any((value) => value.isNotEmpty)).toList();
   if (values.isEmpty) {
@@ -454,28 +454,30 @@ BookListResult _bookListFromMaps(List<dynamic> rawItems) {
     if (raw is! Map) continue;
     final fields = <String, String>{
       for (final entry in raw.entries)
-        _normalizeBookFieldName(entry.key.toString()): _cleanBookText(
-          entry.value?.toString() ?? '',
-        ),
+        _normalizeBookFieldName(entry.key.toString()):
+            entry.value?.toString() ?? '',
     };
-    final courseName = _firstBookField(fields, const ['kcmc', '课程名称', '课程']);
+    final courseName = _cleanBookText(
+      _firstBookField(fields, const ['kcmc', '课程名称', '课程']),
+    );
     if (courseName.isEmpty) continue;
     final textbook = _firstBookField(fields, const ['jcxx', '教材信息', '教材']);
-    if (textbook.isEmpty) continue;
-    final parts = textbook.split('/');
-    final textbookName = parts.isEmpty ? '' : parts.first.trim();
-    if (textbookName.isEmpty) continue;
-    final tags = [
-      for (final part in parts.skip(1))
-        if (part.trim().isNotEmpty) part.trim(),
-    ];
-    items.add(
-      BookListItem(
-        courseName: courseName,
-        textbookName: textbookName,
-        textbookTags: tags,
-      ),
-    );
+    for (final entry in _splitTextbookEntries(textbook)) {
+      final parts = entry.split('/');
+      final textbookName = parts.isEmpty ? '' : parts.first.trim();
+      if (textbookName.isEmpty) continue;
+      final tags = [
+        for (final part in parts.skip(1))
+          if (part.trim().isNotEmpty) part.trim(),
+      ];
+      items.add(
+        BookListItem(
+          courseName: courseName,
+          textbookName: textbookName,
+          textbookTags: tags,
+        ),
+      );
+    }
   }
   return BookListResult(items: items);
 }
@@ -486,9 +488,31 @@ String _normalizeBookFieldName(String value) =>
 String _firstBookField(Map<String, String> fields, List<String> names) {
   for (final name in names) {
     final value = fields[_normalizeBookFieldName(name)] ?? '';
-    if (value.isNotEmpty) return value;
+    if (value.trim().isNotEmpty) return value;
   }
   return '';
+}
+
+List<String> _splitTextbookEntries(String value) {
+  final normalized = value
+      .replaceAll(RegExp(r'&lt;br\s*/?&gt;', caseSensitive: false), '\n')
+      .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+      .replaceAll('\r\n', '\n')
+      .replaceAll('\r', '\n');
+  return [
+    for (final line in normalized.split('\n'))
+      if (_cleanBookText(line).isNotEmpty) _cleanBookText(line),
+  ];
+}
+
+String _bookTableCellText(html_dom.Element cell) {
+  final source = cell.innerHtml.replaceAll(
+    RegExp(r'<br\s*/?>', caseSensitive: false),
+    '\n',
+  );
+  return (html_parser.parseFragment(source).text ?? '')
+      .replaceAll('\u00a0', ' ')
+      .trim();
 }
 
 String _cleanBookText(String value) =>

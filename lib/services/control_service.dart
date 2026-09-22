@@ -25,12 +25,10 @@ class ControlRelease {
 class ControlConfigVersions {
   final String appRelease;
   final String schoolCalendar;
-  final String courseAdjustments;
 
   const ControlConfigVersions({
     required this.appRelease,
     required this.schoolCalendar,
-    required this.courseAdjustments,
   });
 }
 
@@ -441,7 +439,6 @@ class ControlService {
     return ControlConfigVersions(
       appRelease: response['appRelease']?.toString() ?? '',
       schoolCalendar: response['schoolCalendar']?.toString() ?? '',
-      courseAdjustments: response['courseAdjustments']?.toString() ?? '',
     );
   }
 
@@ -463,19 +460,6 @@ class ControlService {
           : 'Control 返回的校历数据格式无效';
       throw ControlApiException('invalid_school_calendar', message);
     }
-  }
-
-  /// Loads the administrator-managed course date adjustment map. An empty
-  /// object means no server-side adjustments are configured.
-  Future<Map<String, String>> fetchCourseAdjustments() async {
-    if (!isConfigured) return const {};
-    final response = await _request('GET', '/api/v1/course-adjustments');
-    final raw = response['adjustments'];
-    if (raw is! Map) return const {};
-    return {
-      for (final entry in raw.entries)
-        entry.key.toString(): entry.value.toString(),
-    };
   }
 
   Future<void> track(
