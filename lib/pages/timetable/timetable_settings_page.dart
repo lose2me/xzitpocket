@@ -134,6 +134,80 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
+          const ProfileSectionLabel(title: '文字与边框'),
+          ProfileSettingsGroup(
+            children: [
+              ProfileSettingsTile(
+                icon: FLucideIcons.fileText,
+                title: '课表组件文字大小',
+                value:
+                    '${settings.timetableCourseTextSize.toStringAsFixed(1)} px',
+                onTap: () => _openNumberSheet(
+                  title: '课表组件文字大小',
+                  currentValue: settings.timetableCourseTextSize,
+                  min: 8,
+                  max: 18,
+                  divisions: 20,
+                  suffix: ' px',
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setTimetableCourseTextSize(value),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.clock3,
+                title: '左侧时间列文字大小',
+                value:
+                    '${settings.timetableTimeTextSize.toStringAsFixed(1)} px',
+                onTap: () => _openNumberSheet(
+                  title: '左侧时间列文字大小',
+                  currentValue: settings.timetableTimeTextSize,
+                  min: 8,
+                  max: 18,
+                  divisions: 20,
+                  suffix: ' px',
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setTimetableTimeTextSize(value),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.calendarDays,
+                title: '上方日期列文字大小',
+                value:
+                    '${settings.timetableDateTextSize.toStringAsFixed(1)} px',
+                onTap: () => _openNumberSheet(
+                  title: '上方日期列文字大小',
+                  currentValue: settings.timetableDateTextSize,
+                  min: 8,
+                  max: 18,
+                  divisions: 20,
+                  suffix: ' px',
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setTimetableDateTextSize(value),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.grid2x2,
+                title: '课表组件边框粗细',
+                value:
+                    '${settings.timetableCourseBorderWidth.toStringAsFixed(1)} px',
+                onTap: () => _openNumberSheet(
+                  title: '课表组件边框粗细',
+                  currentValue: settings.timetableCourseBorderWidth,
+                  min: 0,
+                  max: 3,
+                  divisions: 12,
+                  suffix: ' px',
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setTimetableCourseBorderWidth(value),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '背景图'),
           ProfileSettingsGroup(
             children: [
@@ -163,6 +237,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 onTap: () => _openAutomationSheet(settings.classAutomationMode),
               ),
             ],
+          ),
+          const SizedBox(height: AppSpacing.xxl),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FButton(
+              variant: FButtonVariant.outline,
+              onPress: _resetAppearance,
+              prefix: const Icon(FLucideIcons.refreshCw),
+              child: const Text('重置个性化设置'),
+            ),
           ),
         ],
       ),
@@ -277,6 +362,67 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     if (selected != null && selected != currentValue) await onSave(selected);
   }
 
+  Future<void> _openNumberSheet({
+    required String title,
+    required double currentValue,
+    required double min,
+    required double max,
+    required int divisions,
+    required String suffix,
+    required Future<void> Function(double value) onSave,
+  }) async {
+    var value = currentValue;
+    final selected = await showAppSheet<double>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: context.theme.typography.pageTitle,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                '${value.toStringAsFixed(1)}$suffix',
+                textAlign: TextAlign.center,
+                style: context.theme.typography.bodySmall.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
+              Material(
+                type: MaterialType.transparency,
+                child: Slider(
+                  value: value,
+                  min: min,
+                  max: max,
+                  divisions: divisions,
+                  activeColor: context.theme.colors.primary,
+                  onChanged: (next) => setState(() => value = next),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              FButton(
+                onPress: () => Navigator.pop(context, value),
+                child: const Text('确定'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (selected != null && selected != currentValue) await onSave(selected);
+  }
+
   Future<void> _pickBackground() async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
@@ -331,6 +477,34 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     }
     if (mounted) {
       showAppSnackBar(context, '背景图已清除', severity: ToastSeverity.success);
+    }
+  }
+
+  Future<void> _resetAppearance() async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '重置个性化设置',
+      message: '将恢复课表文字、边框、透明度、网格和背景图的默认设置。',
+      confirmLabel: '重置',
+    );
+    if (!confirmed || !mounted) return;
+
+    final backgroundPath = ref
+        .read(appSettingsProvider)
+        .timetableBackgroundPath;
+    await ref.read(appSettingsProvider.notifier).resetTimetableAppearance();
+    if (backgroundPath != null && backgroundPath.isNotEmpty) {
+      final file = File(backgroundPath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (error, stackTrace) {
+          talker.warning('删除课表背景图文件失败', error, stackTrace);
+        }
+      }
+    }
+    if (mounted) {
+      showAppSnackBar(context, '个性化设置已重置', severity: ToastSeverity.success);
     }
   }
 }

@@ -31,6 +31,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableBackgroundOpacity: _storage.getTimetableBackgroundOpacity(),
       timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
+      timetableCourseTextSize: _storage.getTimetableCourseTextSize(),
+      timetableTimeTextSize: _storage.getTimetableTimeTextSize(),
+      timetableDateTextSize: _storage.getTimetableDateTextSize(),
+      timetableCourseBorderWidth: _storage.getTimetableCourseBorderWidth(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
       showTodayGridLines: _storage.getShowTodayGridLines(),
       hiddenServiceFeatures: {
@@ -89,6 +93,47 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     final normalized = value.clamp(0.0, 1.0).toDouble();
     await _storage.setTimetableGridOpacity(normalized);
     state = state.copyWith(timetableGridOpacity: normalized);
+  }
+
+  Future<void> setTimetableCourseTextSize(double value) async {
+    final normalized = value.clamp(8.0, 18.0).toDouble();
+    await _storage.setTimetableCourseTextSize(normalized);
+    state = state.copyWith(timetableCourseTextSize: normalized);
+  }
+
+  Future<void> setTimetableTimeTextSize(double value) async {
+    final normalized = value.clamp(8.0, 18.0).toDouble();
+    await _storage.setTimetableTimeTextSize(normalized);
+    state = state.copyWith(timetableTimeTextSize: normalized);
+  }
+
+  Future<void> setTimetableDateTextSize(double value) async {
+    final normalized = value.clamp(8.0, 18.0).toDouble();
+    await _storage.setTimetableDateTextSize(normalized);
+    state = state.copyWith(timetableDateTextSize: normalized);
+  }
+
+  Future<void> setTimetableCourseBorderWidth(double value) async {
+    final normalized = value.clamp(0.0, 3.0).toDouble();
+    await _storage.setTimetableCourseBorderWidth(normalized);
+    state = state.copyWith(timetableCourseBorderWidth: normalized);
+  }
+
+  Future<void> resetTimetableAppearance() async {
+    await _storage.resetTimetableAppearance();
+    const defaults = AppSettings();
+    state = state.copyWith(
+      timetableBackgroundPath: null,
+      timetableBackgroundOpacity: defaults.timetableBackgroundOpacity,
+      timetableComponentOpacity: defaults.timetableComponentOpacity,
+      timetableGridOpacity: defaults.timetableGridOpacity,
+      timetableCourseTextSize: defaults.timetableCourseTextSize,
+      timetableTimeTextSize: defaults.timetableTimeTextSize,
+      timetableDateTextSize: defaults.timetableDateTextSize,
+      timetableCourseBorderWidth: defaults.timetableCourseBorderWidth,
+      showTimetableGridLines: defaults.showTimetableGridLines,
+      showTodayGridLines: defaults.showTodayGridLines,
+    );
   }
 
   Future<void> setShowTimetableGridLines(bool value) async {

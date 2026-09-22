@@ -51,6 +51,22 @@ void main() {
     expect(result.items[1].textbookTags, ['外研社', '第二版']);
   });
 
+  test('merges a second author continuation into the same textbook', () {
+    final result = parseBookListPayload({
+      'items': [
+        {'kcmc': '大学英语A（Ⅱ）', 'jcxx': '听说教程学生用书3/李慧琴<br/>虞苏美/上海外语教育出版社/第一版'},
+      ],
+    });
+    expect(result.items, hasLength(1));
+    expect(result.items.single.textbookName, '听说教程学生用书3');
+    expect(result.items.single.textbookTags, [
+      '李慧琴',
+      '虞苏美',
+      '上海外语教育出版社',
+      '第一版',
+    ]);
+  });
+
   test('infers the current semester after the latest graded semester', () {
     final catalog = buildBookListSemesterCatalog(
       const GradeResult(

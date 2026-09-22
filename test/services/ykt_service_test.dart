@@ -36,4 +36,10 @@ void main() {
       'invalid',
     ]);
   });
+
+  test('matches the web transaction balance display', () {
+    expect(yktTransactionDisplayBalance('6.21', '-1'), '7.21');
+    expect(yktTransactionDisplayBalance('7.57', '6'), '1.57');
+    expect(yktTransactionDisplayBalance('unknown', '-1'), 'unknown');
+  });
 }

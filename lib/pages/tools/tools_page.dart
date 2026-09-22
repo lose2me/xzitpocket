@@ -43,24 +43,16 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   bool get wantKeepAlive => true;
 
   final _manager = ToolsDataManager.instance;
-  Timer? _controlHealthTimer;
-  bool _controlAvailable = false;
   bool _refreshingTabData = false;
 
   @override
   void initState() {
     super.initState();
     _manager.addListener(_onManagerUpdate);
-    unawaited(_refreshControlAvailability());
-    _controlHealthTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => unawaited(_refreshControlAvailability()),
-    );
   }
 
   @override
   void dispose() {
-    _controlHealthTimer?.cancel();
     _manager.removeListener(_onManagerUpdate);
     super.dispose();
   }
@@ -69,26 +61,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     if (mounted) setState(() {});
   }
 
-  Future<void> _refreshControlAvailability() async {
-    if (!mounted) return;
-    if (ref
-        .read(appSettingsProvider)
-        .hiddenServiceFeatures
-        .contains(AppServiceFeature.learning)) {
-      if (_controlAvailable) setState(() => _controlAvailable = false);
-      return;
-    }
-    final available = await ControlService.instance.checkHealth();
-    if (!mounted) return;
-    setState(() {
-      _controlAvailable = available;
-    });
-  }
-
   Future<void> refreshData() async {
     if (_refreshingTabData) return;
     setState(() => _refreshingTabData = true);
-    unawaited(_refreshControlAvailability());
     try {
       final config = ref.read(configProvider);
       if (config.studentId == null || config.studentId!.isEmpty) return;
@@ -227,7 +202,12 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   Future<void> _openLearningCenter() async {
     final control = ControlService.instance;
-    if (!_controlAvailable) return;
+    if (!control.isConfigured) {
+      if (mounted) {
+        showAppSnackBar(context, '学习中心服务未配置', severity: ToastSeverity.warning);
+      }
+      return;
+    }
     final repository = LearningRepository(
       preferencesStorage: ref.read(preferencesStorageProvider),
       bankFetcher: control.isConfigured
@@ -376,7 +356,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final campusAvailable = _manager.isCampusNetworkAvailable;
     final config = ref.watch(configProvider);
     final learningLoggedIn = config.studentId?.isNotEmpty == true;
-    final learningEnabled = _controlAvailable && learningLoggedIn;
+    final learningEnabled =
+        ControlService.instance.isConfigured && learningLoggedIn;
 
     ref.listen(savedRoomIdProvider, (prev, next) {
       _manager.clearPower();

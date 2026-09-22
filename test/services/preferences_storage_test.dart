@@ -145,6 +145,10 @@ void main() {
       await storage.setTimetableBackgroundOpacity(0.65);
       await storage.setTimetableComponentOpacity(0.72);
       await storage.setTimetableGridOpacity(0.42);
+      await storage.setTimetableCourseTextSize(14);
+      await storage.setTimetableTimeTextSize(10);
+      await storage.setTimetableDateTextSize(13);
+      await storage.setTimetableCourseBorderWidth(1.2);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(false);
 
@@ -153,6 +157,10 @@ void main() {
       expect(storage.getTimetableBackgroundOpacity(), 0.65);
       expect(storage.getTimetableComponentOpacity(), 0.72);
       expect(storage.getTimetableGridOpacity(), 0.42);
+      expect(storage.getTimetableCourseTextSize(), 14);
+      expect(storage.getTimetableTimeTextSize(), 10);
+      expect(storage.getTimetableDateTextSize(), 13);
+      expect(storage.getTimetableCourseBorderWidth(), 1.2);
       expect(storage.getShowTimetableGridLines(), isFalse);
       expect(storage.getShowTodayGridLines(), isFalse);
     });
@@ -191,6 +199,44 @@ void main() {
 
       await storage.setTimetableGridOpacity(-1);
       expect(storage.getTimetableGridOpacity(), 0);
+    });
+
+    test('clamps timetable typography and border settings', () async {
+      await storage.setTimetableCourseTextSize(30);
+      await storage.setTimetableTimeTextSize(1);
+      await storage.setTimetableDateTextSize(30);
+      await storage.setTimetableCourseBorderWidth(5);
+
+      expect(storage.getTimetableCourseTextSize(), 18);
+      expect(storage.getTimetableTimeTextSize(), 8);
+      expect(storage.getTimetableDateTextSize(), 18);
+      expect(storage.getTimetableCourseBorderWidth(), 3);
+    });
+
+    test('resets timetable appearance settings to defaults', () async {
+      await storage.setTimetableBackgroundPath('/tmp/background.jpg');
+      await storage.setTimetableBackgroundOpacity(0.8);
+      await storage.setTimetableComponentOpacity(0.2);
+      await storage.setTimetableGridOpacity(0.9);
+      await storage.setTimetableCourseTextSize(16);
+      await storage.setTimetableTimeTextSize(15);
+      await storage.setTimetableDateTextSize(14);
+      await storage.setTimetableCourseBorderWidth(2);
+      await storage.setShowTimetableGridLines(false);
+      await storage.setShowTodayGridLines(true);
+
+      await storage.resetTimetableAppearance();
+
+      expect(storage.getTimetableBackgroundPath(), isNull);
+      expect(storage.getTimetableBackgroundOpacity(), 0.5);
+      expect(storage.getTimetableComponentOpacity(), 0.7);
+      expect(storage.getTimetableGridOpacity(), 0.5);
+      expect(storage.getTimetableCourseTextSize(), 12);
+      expect(storage.getTimetableTimeTextSize(), 11);
+      expect(storage.getTimetableDateTextSize(), 12);
+      expect(storage.getTimetableCourseBorderWidth(), 0.5);
+      expect(storage.getShowTimetableGridLines(), isTrue);
+      expect(storage.getShowTodayGridLines(), isFalse);
     });
   });
 }

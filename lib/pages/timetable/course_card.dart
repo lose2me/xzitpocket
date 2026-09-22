@@ -10,6 +10,7 @@ class CourseCard extends StatelessWidget {
   final bool muted;
   final double courseOpacity;
   final double courseBorderOpacity;
+  final double textSize;
   final Color borderColor;
   final double borderWidth;
 
@@ -20,6 +21,7 @@ class CourseCard extends StatelessWidget {
     this.muted = false,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
+    this.textSize = 12.0,
     required this.borderColor,
     this.borderWidth = 0.5,
   });
@@ -66,7 +68,7 @@ class CourseCard extends StatelessWidget {
                     Text(
                       course.title,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: textSize,
                         fontWeight: FontWeight.w600,
                         color: textColor,
                         height: 4 / 3,
@@ -78,7 +80,7 @@ class CourseCard extends StatelessWidget {
                       Text(
                         '@${course.place}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: textSize * 11 / 12,
                           color: secondaryTextColor,
                           height: 14 / 11,
                           letterSpacing: 0,
@@ -88,7 +90,7 @@ class CourseCard extends StatelessWidget {
                       Text(
                         course.campus,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: textSize * 11 / 12,
                           color: secondaryTextColor,
                           height: 14 / 11,
                           letterSpacing: 0,

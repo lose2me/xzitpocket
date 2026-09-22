@@ -86,6 +86,61 @@ class PreferencesStorage {
     value.clamp(0.0, 1.0).toDouble(),
   );
 
+  double getTimetableCourseTextSize() =>
+      (_prefs.getDouble('timetable_course_text_size') ?? 12.0)
+          .clamp(8.0, 18.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseTextSize(double value) => _prefs.setDouble(
+    'timetable_course_text_size',
+    value.clamp(8.0, 18.0).toDouble(),
+  );
+
+  double getTimetableTimeTextSize() =>
+      (_prefs.getDouble('timetable_time_text_size') ?? 11.0)
+          .clamp(8.0, 18.0)
+          .toDouble();
+
+  Future<void> setTimetableTimeTextSize(double value) => _prefs.setDouble(
+    'timetable_time_text_size',
+    value.clamp(8.0, 18.0).toDouble(),
+  );
+
+  double getTimetableDateTextSize() =>
+      (_prefs.getDouble('timetable_date_text_size') ?? 12.0)
+          .clamp(8.0, 18.0)
+          .toDouble();
+
+  Future<void> setTimetableDateTextSize(double value) => _prefs.setDouble(
+    'timetable_date_text_size',
+    value.clamp(8.0, 18.0).toDouble(),
+  );
+
+  double getTimetableCourseBorderWidth() =>
+      (_prefs.getDouble('timetable_course_border_width') ?? 0.5)
+          .clamp(0.0, 3.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseBorderWidth(double value) => _prefs.setDouble(
+    'timetable_course_border_width',
+    value.clamp(0.0, 3.0).toDouble(),
+  );
+
+  Future<void> resetTimetableAppearance() async {
+    await Future.wait([
+      _prefs.remove('timetable_background_path'),
+      _prefs.remove('timetable_background_opacity'),
+      _prefs.remove('timetable_component_opacity'),
+      _prefs.remove('timetable_grid_opacity'),
+      _prefs.remove('timetable_course_text_size'),
+      _prefs.remove('timetable_time_text_size'),
+      _prefs.remove('timetable_date_text_size'),
+      _prefs.remove('timetable_course_border_width'),
+      _prefs.remove('show_timetable_grid_lines'),
+      _prefs.remove('show_today_grid_lines'),
+    ]);
+  }
+
   bool getShowTimetableGridLines() =>
       _prefs.getBool('show_timetable_grid_lines') ?? true;
 

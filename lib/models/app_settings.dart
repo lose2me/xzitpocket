@@ -92,6 +92,10 @@ class AppSettings {
   final double timetableBackgroundOpacity;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
+  final double timetableCourseTextSize;
+  final double timetableTimeTextSize;
+  final double timetableDateTextSize;
+  final double timetableCourseBorderWidth;
   final bool showTimetableGridLines;
   final bool showTodayGridLines;
   final Set<AppServiceFeature> hiddenServiceFeatures;
@@ -104,6 +108,10 @@ class AppSettings {
     this.timetableBackgroundOpacity = 0.5,
     this.timetableComponentOpacity = 0.7,
     this.timetableGridOpacity = 0.5,
+    this.timetableCourseTextSize = 12.0,
+    this.timetableTimeTextSize = 11.0,
+    this.timetableDateTextSize = 12.0,
+    this.timetableCourseBorderWidth = 0.5,
     this.showTimetableGridLines = true,
     this.showTodayGridLines = false,
     this.hiddenServiceFeatures = const {},
@@ -119,6 +127,10 @@ class AppSettings {
     double? timetableBackgroundOpacity,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
+    double? timetableCourseTextSize,
+    double? timetableTimeTextSize,
+    double? timetableDateTextSize,
+    double? timetableCourseBorderWidth,
     bool? showTimetableGridLines,
     bool? showTodayGridLines,
     Set<AppServiceFeature>? hiddenServiceFeatures,
@@ -135,6 +147,14 @@ class AppSettings {
       timetableComponentOpacity:
           timetableComponentOpacity ?? this.timetableComponentOpacity,
       timetableGridOpacity: timetableGridOpacity ?? this.timetableGridOpacity,
+      timetableCourseTextSize:
+          timetableCourseTextSize ?? this.timetableCourseTextSize,
+      timetableTimeTextSize:
+          timetableTimeTextSize ?? this.timetableTimeTextSize,
+      timetableDateTextSize:
+          timetableDateTextSize ?? this.timetableDateTextSize,
+      timetableCourseBorderWidth:
+          timetableCourseBorderWidth ?? this.timetableCourseBorderWidth,
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
       showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,

@@ -128,7 +128,7 @@ class _ToastHost extends StatelessWidget {
     final viewPadding = MediaQuery.viewPaddingOf(context);
     // forui FBottomNavigationBar 基础高度 ≈ 61px（icon 24 + padding 5×2 + spacing 2 + 文字 ≈15 + bar padding 5×2）
     final navBarHeight = 61.0 + viewPadding.bottom * 2 / 3;
-    // 根页面（有底部导航）toast 贴导航栏上缘；push 出的详情页无底部导航则贴屏幕底部。
+    // 根页面（有底部导航）toast 贴导航栏上缘；详情页改为右侧悬浮提示。
     final hasBottomNav = toasts.isEmpty ? false : toasts.first.showAboveNavBar;
 
     return IgnorePointer(
@@ -137,11 +137,16 @@ class _ToastHost extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Align(
-          alignment: Alignment.bottomCenter,
+          alignment: hasBottomNav
+              ? Alignment.bottomCenter
+              : Alignment.centerRight,
           child: Padding(
-            padding: EdgeInsets.only(bottom: hasBottomNav ? navBarHeight : 0),
+            padding: hasBottomNav
+                ? EdgeInsets.only(bottom: navBarHeight)
+                : EdgeInsets.zero,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 for (final t in toasts)
                   _ToastItem(
@@ -247,61 +252,78 @@ class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final palette = _palette(context.theme, widget.data.severity);
-    // 高度展开动画：底部锚定在导航栏线条处，高度从 0 向上生长（伸出）、
-    // 收回时向下压缩回线条，本体与动画全程在线条之上。
+    final surface = _buildSurface(palette);
+    if (!widget.data.showAboveNavBar) {
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(1.1, 0),
+          end: Offset.zero,
+        ).animate(_expand),
+        child: surface,
+      );
+    }
+    // Root-page notices expand upward from the navigation bar.
     return SizeTransition(
       sizeFactor: _expand,
       alignment: Alignment.bottomCenter,
-      child: Stack(
-        children: [
-          // 内容区：全宽（与底部导航栏等长），语义色背景 + 语义色文字，无圆弧
-          Container(
-            width: double.infinity,
-            color: palette.background,
-            padding: const EdgeInsets.only(
-              left: 14,
-              right: 14,
-              top: 16,
-              bottom: 12,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(palette.icon, size: 18, color: palette.foreground),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    widget.data.message,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: palette.foreground,
-                      fontSize: 14,
-                      height: 1.4,
+      child: surface,
+    );
+  }
+
+  Widget _buildSurface(
+    ({Color bar, Color background, Color foreground, IconData icon}) palette,
+  ) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: palette.background,
+        borderRadius: BorderRadius.zero,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.zero,
+        child: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(palette.icon, size: 18, color: palette.foreground),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      widget.data.message,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: palette.foreground,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          // 顶部伸缩条（语义色，从满到空收缩），与内容等宽
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: 4,
-            child: AnimatedBuilder(
-              animation: _progressController,
-              builder: (context, _) => Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: 1 - _progressController.value,
-                  heightFactor: 1,
-                  child: ColoredBox(color: palette.bar),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 4,
+              child: AnimatedBuilder(
+                animation: _progressController,
+                builder: (context, _) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: 1 - _progressController.value,
+                    heightFactor: 1,
+                    child: ColoredBox(color: palette.bar),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

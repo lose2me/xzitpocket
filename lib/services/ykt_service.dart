@@ -75,6 +75,17 @@ DateTime? _parseYktTransactionTime(String raw) {
       DateTime.tryParse(value.replaceAll('/', '-'));
 }
 
+/// Matches the campus-card website's transaction detail balance display.
+/// The API's [balance] is the post-transaction value while the web table
+/// displays the balance before the transaction.
+String yktTransactionDisplayBalance(String balance, String amount) {
+  final after = double.tryParse(balance.trim());
+  final delta = double.tryParse(amount.trim());
+  if (after == null || delta == null) return balance;
+  final before = after - delta;
+  return before.toStringAsFixed(2);
+}
+
 class YktDetailResult {
   final YktBalanceResult balance;
   final List<YktTransaction> transactions;
@@ -186,9 +197,17 @@ class YktService {
               transactions.add(
                 YktTransaction(
                   time: '${item['jysj'] ?? ''}',
-                  location: '${item['zd'] ?? ''}',
+                  location:
+                      ((item['shdm']?.toString().trim().isNotEmpty ?? false)
+                              ? item['shdm']
+                              : item['zd'])
+                          ?.toString() ??
+                      '',
                   amount: '${item['jye'] ?? ''}',
-                  balance: '${item['ye'] ?? ''}',
+                  balance: yktTransactionDisplayBalance(
+                    '${item['ye'] ?? ''}',
+                    '${item['jye'] ?? ''}',
+                  ),
                   type: '${item['jylxm'] ?? ''}',
                 ),
               );

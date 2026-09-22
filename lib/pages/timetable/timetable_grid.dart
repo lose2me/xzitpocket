@@ -37,6 +37,9 @@ class TimetableGrid extends StatefulWidget {
   final double borderWidth;
   final double courseOpacity;
   final double courseBorderOpacity;
+  final double courseTextSize;
+  final double timeTextSize;
+  final double dateTextSize;
   final double gridOpacity;
   final bool showTodayGridLines;
   final String? backgroundImagePath;
@@ -61,6 +64,9 @@ class TimetableGrid extends StatefulWidget {
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
+    this.courseTextSize = 12.0,
+    this.timeTextSize = 11.0,
+    this.dateTextSize = 12.0,
     this.gridOpacity = 0.5,
     this.showTodayGridLines = false,
     this.backgroundImagePath,
@@ -145,7 +151,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                 child: Text(
                   '${dates[0].month}月',
                   style: theme.typography.caption.copyWith(
-                    fontSize: 12,
+                    fontSize: widget.dateTextSize,
                     fontWeight: FontWeight.w600,
                     color: theme.colors.mutedForeground,
                   ),
@@ -177,7 +183,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                           color: isToday
                               ? theme.colors.primary
                               : theme.colors.mutedForeground,
-                          fontSize: 12,
+                          fontSize: widget.dateTextSize,
                         ),
                       ),
                       Text(
@@ -189,7 +195,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                           color: isToday
                               ? theme.colors.primary
                               : theme.colors.mutedForeground,
-                          fontSize: 12,
+                          fontSize: widget.dateTextSize,
                         ),
                       ),
                     ],
@@ -231,6 +237,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                         cellHeight: cellHeight,
                         slotCount: widget.slotCount,
                         hiddenSlots: widget.hiddenSlots,
+                        textSize: widget.timeTextSize,
                       ),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
@@ -333,6 +340,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             : nonCurrentCourseBorderOpacity,
                                         borderColor: widget.borderColor,
                                         borderWidth: widget.borderWidth,
+                                        textSize: widget.courseTextSize,
                                       ),
                                     ),
                                   );
@@ -418,24 +426,26 @@ class _TimetableGridState extends State<TimetableGrid> {
     );
 
     final backgroundPath = widget.backgroundImagePath;
-    if (backgroundPath == null || backgroundPath.isEmpty) return content;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Positioned.fill(
-          child: Opacity(
-            opacity: widget.backgroundOpacity.clamp(0.0, 1.0).toDouble(),
-            child: Image.file(
-              File(backgroundPath),
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) => const SizedBox(),
-            ),
-          ),
-        ),
-        content,
-      ],
-    );
+    final result = backgroundPath == null || backgroundPath.isEmpty
+        ? content
+        : Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: Opacity(
+                  opacity: widget.backgroundOpacity.clamp(0.0, 1.0).toDouble(),
+                  child: Image.file(
+                    File(backgroundPath),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        const SizedBox(),
+                  ),
+                ),
+              ),
+              content,
+            ],
+          );
+    return MediaQuery.withNoTextScaling(child: result);
   }
 
   /// Rebuilds the cached per-weekday slot layout only when the inputs that

@@ -324,9 +324,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                             hiddenSlots: hide56 ? const {5, 6} : const {},
                             countdownAnimation: _conflictCountdownController,
                             borderColor: courseBorderColor,
-                            borderWidth: 0.5,
+                            borderWidth: settings.timetableCourseBorderWidth,
                             courseOpacity: courseOpacity,
                             courseBorderOpacity: courseBorderOpacity,
+                            courseTextSize: settings.timetableCourseTextSize,
+                            timeTextSize: settings.timetableTimeTextSize,
+                            dateTextSize: settings.timetableDateTextSize,
                             backgroundImagePath:
                                 settings.timetableBackgroundPath,
                             backgroundOpacity:

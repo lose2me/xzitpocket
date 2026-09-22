@@ -154,9 +154,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
     if (choice != null && mounted) {
       setState(() {
         _selectedArea = choice.value;
-        _selectedItem = null;
         _areaCtrl.text = choice.label;
-        _itemCtrl.clear();
       });
     }
   }
@@ -188,10 +186,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
   }
 
   Future<void> _pickItem() async {
-    if (_selectedArea == null) {
-      showAppSnackBar(context, '请先选择区域', severity: ToastSeverity.warning);
-      return;
-    }
     final choice = await _pickItemByScroll();
     if (choice != null && mounted) {
       setState(() {

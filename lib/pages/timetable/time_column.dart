@@ -8,12 +8,14 @@ class TimeColumn extends StatelessWidget {
   final double cellHeight;
   final int slotCount;
   final Set<int> hiddenSlots;
+  final double textSize;
 
   const TimeColumn({
     super.key,
     required this.cellHeight,
     this.slotCount = 14,
     this.hiddenSlots = const {},
+    this.textSize = 11.0,
   });
 
   @override
@@ -36,7 +38,7 @@ class TimeColumn extends StatelessWidget {
                   Text(
                     '${slot.index}',
                     style: theme.typography.caption.copyWith(
-                      fontSize: 12,
+                      fontSize: textSize,
                       height: 4 / 3,
                       fontWeight: FontWeight.w600,
                       color: theme.colors.mutedForeground,
@@ -45,7 +47,7 @@ class TimeColumn extends StatelessWidget {
                   Text(
                     slot.start,
                     style: theme.typography.caption.copyWith(
-                      fontSize: 11,
+                      fontSize: textSize,
                       height: 14 / 11,
                       color: theme.colors.mutedForeground,
                     ),
@@ -53,7 +55,7 @@ class TimeColumn extends StatelessWidget {
                   Text(
                     slot.end,
                     style: theme.typography.caption.copyWith(
-                      fontSize: 11,
+                      fontSize: textSize,
                       height: 14 / 11,
                       color: theme.colors.mutedForeground,
                     ),
