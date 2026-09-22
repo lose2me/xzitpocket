@@ -41,9 +41,11 @@ void main() {
   test('light and dark themes expose semantic colors', () {
     expect(AppTheme.light.colors.semantic.success, isNotNull);
     expect(AppTheme.dark.colors.semantic.warning, isNotNull);
+    expect(AppTheme.light.colors.semantic.timetableForeground, isNotNull);
+    expect(AppTheme.dark.colors.semantic.timetableForeground, isNotNull);
     expect(
       AppTheme.light.colors.semantic.timetableForeground,
-      AppTheme.dark.colors.semantic.timetableForeground,
+      isNot(AppTheme.dark.colors.semantic.timetableForeground),
     );
   });
 }

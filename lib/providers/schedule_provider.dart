@@ -117,6 +117,41 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     await _reload();
   }
 
+  Future<void> clearCourseDayOccurrence({
+    required int weekday,
+    required int week,
+  }) async {
+    await _storage.clearCourseDayOccurrence(weekday: weekday, week: week);
+    await _reload();
+  }
+
+  Future<bool> restoreCourseDayOccurrence({
+    required int weekday,
+    required int week,
+  }) async {
+    final restored = await _storage.restoreCourseDayOccurrence(
+      weekday: weekday,
+      week: week,
+    );
+    if (restored) await _reload();
+    return restored;
+  }
+
+  Future<void> moveCourseDayOccurrence({
+    required int sourceWeekday,
+    required int sourceWeek,
+    required int targetWeekday,
+    required int targetWeek,
+  }) async {
+    await _storage.moveCourseDayOccurrence(
+      sourceWeekday: sourceWeekday,
+      sourceWeek: sourceWeek,
+      targetWeekday: targetWeekday,
+      targetWeek: targetWeek,
+    );
+    await _reload();
+  }
+
   Future<void> deleteCoursesByCourseId(String courseId) async {
     await _storage.deleteCoursesByCourseId(courseId);
     await _reload();

@@ -10,6 +10,8 @@ class WeekHeader extends StatelessWidget {
   final int selectedWeek;
   final VoidCallback? onSync;
   final VoidCallback? onSettings;
+  final VoidCallback? onJumpToCurrentWeek;
+  final int? currentWeek;
   final bool syncing;
 
   const WeekHeader({
@@ -18,6 +20,8 @@ class WeekHeader extends StatelessWidget {
     required this.selectedWeek,
     this.onSync,
     this.onSettings,
+    this.onJumpToCurrentWeek,
+    this.currentWeek,
     this.syncing = false,
   });
 
@@ -56,6 +60,16 @@ class WeekHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (currentWeek != null &&
+              currentWeek != selectedWeek &&
+              onJumpToCurrentWeek != null)
+            AppIconButton(
+              icon: selectedWeek < currentWeek!
+                  ? FLucideIcons.arrowRight
+                  : FLucideIcons.arrowLeft,
+              onPress: onJumpToCurrentWeek,
+              tooltip: '回到当前周',
+            ),
           AppIconButton(
             icon: FLucideIcons.refreshCw,
             onPress: syncing ? null : onSync,

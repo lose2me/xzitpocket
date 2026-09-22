@@ -50,7 +50,7 @@ class AppearanceSettingsPage extends ConsumerWidget {
           const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '软件主题色'),
           SizedBox(
-            height: 32,
+            height: 42,
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -147,17 +147,31 @@ class _ThemeColorSwatch extends StatelessWidget {
     label: color.label,
     child: GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: color.color,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: selected
-                ? context.theme.colors.primary
-                : context.theme.colors.border,
-            width: selected ? 1.5 : 1,
+      child: SizedBox(
+        width: 42,
+        height: 42,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: selected
+                  ? context.theme.colors.primary
+                  : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.color,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: context.theme.colors.border,
+                  width: 1,
+                ),
+              ),
+            ),
           ),
         ),
       ),

@@ -41,6 +41,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   bool _isSyncing = false;
   int _conflictRotationTick = 0;
   double _lastConflictCountdownValue = 0;
+  Offset? _lastDayDragPosition;
+  Timer? _edgePageTimer;
+  int? _edgePageTarget;
+  int _dragGeneration = 0;
 
   @override
   void initState() {
@@ -73,6 +77,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   void dispose() {
     semesterCalendar.removeListener(_onCalendarChanged);
     _conflictCountdownController.dispose();
+    _edgePageTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -98,9 +103,97 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final maxWeek = _maxDisplayWeek();
     final week = semesterCalendar.weekOf(DateTime.now()).clamp(1, maxWeek);
     if (_pageController.hasClients) {
-      _pageController.jumpToPage(week - 1);
+      final current =
+          _pageController.page?.round() ?? ref.read(selectedWeekProvider) - 1;
+      if (current != week - 1) {
+        unawaited(
+          _pageController.animateToPage(
+            week - 1,
+            duration: Duration(
+              milliseconds: (260 + (current - (week - 1)).abs() * 70).clamp(
+                260,
+                700,
+              ),
+            ),
+            curve: Curves.easeInOutCubic,
+          ),
+        );
+      } else {
+        ref.read(selectedWeekProvider.notifier).set(week);
+      }
+    } else {
+      ref.read(selectedWeekProvider.notifier).set(week);
     }
-    ref.read(selectedWeekProvider.notifier).set(week);
+  }
+
+  void _onDayDragUpdate(Offset position) {
+    _lastDayDragPosition = position;
+    _scheduleEdgePageIfNeeded();
+  }
+
+  void _scheduleEdgePageIfNeeded() {
+    if (!mounted ||
+        _lastDayDragPosition == null ||
+        !_pageController.hasClients) {
+      return;
+    }
+    final width = MediaQuery.sizeOf(context).width;
+    final x = _lastDayDragPosition!.dx;
+    final current = ref.read(selectedWeekProvider);
+    final maxWeek = _maxDisplayWeek();
+    const edgeDistance = 44.0;
+    final dayAreaWidth = width - 40;
+    final overFirstOrLastDay =
+        x < 40 + dayAreaWidth / 7 || x > width - dayAreaWidth / 7;
+    final target = x < edgeDistance && current > 1
+        ? current - 1
+        : x > width - edgeDistance && current < maxWeek
+        ? current + 1
+        : null;
+    if (target == null) {
+      _edgePageTimer?.cancel();
+      _edgePageTimer = null;
+      _edgePageTarget = null;
+      return;
+    }
+    if (target == _edgePageTarget) return;
+    _edgePageTarget = target;
+    _edgePageTimer?.cancel();
+    final generation = _dragGeneration;
+    final delay = overFirstOrLastDay
+        ? const Duration(milliseconds: 900)
+        : const Duration(milliseconds: 320);
+    _edgePageTimer = Timer(delay, () async {
+      if (!mounted ||
+          generation != _dragGeneration ||
+          _edgePageTarget != target) {
+        return;
+      }
+      await _pageController.animateToPage(
+        target - 1,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOutCubic,
+      );
+      if (!mounted || generation != _dragGeneration) return;
+      ref.read(selectedWeekProvider.notifier).set(target);
+      _edgePageTarget = null;
+      _scheduleEdgePageIfNeeded();
+    });
+  }
+
+  void _onDayDragEnd() {
+    _dragGeneration++;
+    if (_pageController.hasClients) {
+      final page = _pageController.page?.round();
+      _pageController.position.jumpTo(_pageController.position.pixels);
+      if (page != null) {
+        _pageController.jumpToPage(page);
+      }
+    }
+    _lastDayDragPosition = null;
+    _edgePageTarget = null;
+    _edgePageTimer?.cancel();
+    _edgePageTimer = null;
   }
 
   void refreshForResume() {
@@ -259,6 +352,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     super.build(context);
     final coursesAsync = ref.watch(scheduleProvider);
     final settings = ref.watch(appSettingsProvider);
+    final currentWeek = semesterCalendar
+        .weekOf(DateTime.now())
+        .clamp(1, _maxDisplayWeek(coursesAsync.value ?? const []))
+        .toInt();
     final showNonCurrentWeekCourses = ref.watch(
       showNonCurrentWeekCoursesProvider,
     );
@@ -278,8 +375,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                 builder: (context, ref, child) => WeekHeader(
                   calendar: semesterCalendar,
                   selectedWeek: ref.watch(selectedWeekProvider),
+                  currentWeek: currentWeek,
                   onSync: _isSyncing ? null : _onSync,
                   syncing: _isSyncing,
+                  onJumpToCurrentWeek: jumpToCurrentWeek,
                   onSettings: () => Navigator.of(context).push(
                     appRoute(
                       name: AppRouteNames.timetableSettings,
@@ -350,6 +449,18 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                             },
                             onEmptyTap: (weekday, session) =>
                                 _onEmptySlotTap(context, weekday, session),
+                            onDayDoubleTap: (weekday) =>
+                                _confirmClearDay(context, weekday, week),
+                            onDayTripleTap: (weekday) =>
+                                _confirmRestoreDay(context, weekday, week),
+                            onDayDrop: (data, targetWeekday) => _confirmMoveDay(
+                              context,
+                              data,
+                              targetWeekday,
+                              week,
+                            ),
+                            onDayDragUpdate: _onDayDragUpdate,
+                            onDayDragEnd: _onDayDragEnd,
                           ),
                         );
                       },
@@ -564,6 +675,157 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         showAppSnackBar(
           this.context,
           '课程已全局删除，但$e',
+          severity: ToastSeverity.warning,
+        );
+      }
+    }
+  }
+
+  String _weekdayLabel(int weekday) =>
+      const ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'][weekday.clamp(1, 7)];
+
+  void _confirmClearDay(BuildContext context, int weekday, int week) {
+    unawaited(_clearDayAfterConfirmation(context, weekday, week));
+  }
+
+  Future<void> _clearDayAfterConfirmation(
+    BuildContext context,
+    int weekday,
+    int week,
+  ) async {
+    final courses = ref.read(scheduleProvider).value ?? const <Course>[];
+    final count = courses
+        .where((course) => course.weekday == weekday && course.isInWeek(week))
+        .length;
+    if (count == 0) {
+      if (mounted) {
+        showAppSnackBar(this.context, '${_weekdayLabel(weekday)}当天没有课程');
+      }
+      return;
+    }
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '清空${_weekdayLabel(weekday)}',
+      message: '仅清空第$week周${_weekdayLabel(weekday)}的课程，其他周不受影响。',
+      confirmLabel: '清空',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    try {
+      await ref
+          .read(scheduleProvider.notifier)
+          .clearCourseDayOccurrence(weekday: weekday, week: week);
+      if (mounted) {
+        showAppSnackBar(this.context, '${_weekdayLabel(weekday)}已清空');
+      }
+    } on WidgetSyncException catch (e) {
+      if (mounted) {
+        showAppSnackBar(
+          this.context,
+          '课程已清空，但$e',
+          severity: ToastSeverity.warning,
+        );
+      }
+    }
+  }
+
+  void _confirmRestoreDay(BuildContext context, int weekday, int week) {
+    unawaited(_restoreDayAfterConfirmation(context, weekday, week));
+  }
+
+  Future<void> _restoreDayAfterConfirmation(
+    BuildContext context,
+    int weekday,
+    int week,
+  ) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '恢复${_weekdayLabel(weekday)}',
+      message: '恢复第$week周${_weekdayLabel(weekday)}的教务系统原始课表，覆盖本地调整。',
+      confirmLabel: '恢复',
+    );
+    if (!confirmed) return;
+    try {
+      final restored = await ref
+          .read(scheduleProvider.notifier)
+          .restoreCourseDayOccurrence(weekday: weekday, week: week);
+      if (!mounted) return;
+      showAppSnackBar(
+        this.context,
+        restored ? '${_weekdayLabel(weekday)}已恢复' : '暂无教务系统原始课表，请先同步课表',
+        severity: restored ? ToastSeverity.success : ToastSeverity.warning,
+      );
+    } on WidgetSyncException catch (e) {
+      if (mounted) {
+        showAppSnackBar(
+          this.context,
+          '恢复课表失败，但$e',
+          severity: ToastSeverity.warning,
+        );
+      }
+    }
+  }
+
+  void _confirmMoveDay(
+    BuildContext context,
+    TimetableDayDragData data,
+    int targetWeekday,
+    int targetWeek,
+  ) {
+    unawaited(
+      _moveDayAfterConfirmation(context, data, targetWeekday, targetWeek),
+    );
+  }
+
+  Future<void> _moveDayAfterConfirmation(
+    BuildContext context,
+    TimetableDayDragData data,
+    int targetWeekday,
+    int targetWeek,
+  ) async {
+    final courses = ref.read(scheduleProvider).value ?? const <Course>[];
+    final sourceCount = courses
+        .where(
+          (course) =>
+              course.weekday == data.weekday && course.isInWeek(data.week),
+        )
+        .length;
+    final targetCount = courses
+        .where(
+          (course) =>
+              course.weekday == targetWeekday && course.isInWeek(targetWeek),
+        )
+        .length;
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '移动到${_weekdayLabel(targetWeekday)}',
+      message:
+          '将第${data.week}周${_weekdayLabel(data.weekday)}的 $sourceCount 门课程移动到第$targetWeek周${_weekdayLabel(targetWeek)}，'
+          '先清空目标列的 $targetCount 门课程，源列会被清空。',
+      confirmLabel: '移动',
+    );
+    if (!confirmed) return;
+    try {
+      await ref
+          .read(scheduleProvider.notifier)
+          .moveCourseDayOccurrence(
+            sourceWeekday: data.weekday,
+            sourceWeek: data.week,
+            targetWeekday: targetWeekday,
+            targetWeek: targetWeek,
+          );
+      if (mounted) {
+        showAppSnackBar(
+          this.context,
+          '${_weekdayLabel(targetWeekday)}已完成移动',
+          severity: ToastSeverity.success,
+        );
+      }
+    } on WidgetSyncException catch (e) {
+      if (mounted) {
+        showAppSnackBar(
+          this.context,
+          '课程已移动，但$e',
           severity: ToastSeverity.warning,
         );
       }

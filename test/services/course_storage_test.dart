@@ -59,6 +59,88 @@ void main() {
     await storage.deleteCoursesByCourseId('MATH-1');
     expect(storage.getCourses().map((course) => course.title), ['大学英语']);
   });
+
+  test('covers a day with every repeated and overlapping course', () async {
+    await storage.clearCourses();
+    await storage.addCourse(
+      _course(
+        title: '源课程一',
+        weekday: 1,
+        weeks: const [1, 2],
+        sessions: const [1, 2],
+        courseId: 'SRC-1',
+      ),
+    );
+    await storage.addCourse(
+      _course(
+        title: '源课程二',
+        weekday: 1,
+        weeks: const [1],
+        sessions: const [1, 2],
+        courseId: 'SRC-2',
+      ),
+    );
+    await storage.addCourse(
+      _course(
+        title: '目标旧课',
+        weekday: 3,
+        weeks: const [1, 2],
+        courseId: 'DST-1',
+      ),
+    );
+
+    await storage.moveCourseDayOccurrence(
+      sourceWeekday: 1,
+      sourceWeek: 1,
+      targetWeekday: 3,
+      targetWeek: 1,
+    );
+
+    final courses = storage.getCourses();
+    expect(
+      courses.where((course) => course.weekday == 3 && course.isInWeek(1)),
+      hasLength(2),
+    );
+    expect(
+      courses
+          .where((course) => course.weekday == 3 && course.isInWeek(1))
+          .map((course) => course.title),
+      containsAll(['源课程一', '源课程二']),
+    );
+    expect(courses.singleWhere((course) => course.title == '目标旧课').weeks, [2]);
+    expect(
+      courses.where(
+        (course) =>
+            course.title == '源课程一' && course.weekday == 1 && course.isInWeek(1),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('clears only the selected week from a whole day', () async {
+    await storage.clearCourses();
+    await storage.addCourse(
+      _course(title: '周一课程', weekday: 1, weeks: const [1, 2]),
+    );
+
+    await storage.clearCourseDayOccurrence(weekday: 1, week: 1);
+
+    expect(storage.getCourses().single.weeks, [2]);
+  });
+
+  test('restores a day from the original timetable snapshot', () async {
+    await storage.clearCourses();
+    final original = _course(title: '原始周一课程', weekday: 1, weeks: const [1, 2]);
+    await storage.saveCourses([original]);
+    await storage.clearCourseDayOccurrence(weekday: 1, week: 1);
+
+    expect(
+      await storage.restoreCourseDayOccurrence(weekday: 1, week: 1),
+      isTrue,
+    );
+    expect(storage.getCourses().single.title, '原始周一课程');
+    expect(storage.getCourses().single.weeks, [1, 2]);
+  });
 }
 
 Course _course({
@@ -66,12 +148,13 @@ Course _course({
   required int weekday,
   List<int> weeks = const [1, 2],
   String courseId = 'MATH-1',
+  List<int> sessions = const [1, 2],
 }) {
   return Course(
     title: title,
     teacher: '张老师',
     weekday: weekday,
-    sessions: const [1, 2],
+    sessions: sessions,
     weeks: weeks,
     campus: '中心校区',
     place: '教学楼101',

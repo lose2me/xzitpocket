@@ -24,17 +24,25 @@ enum AppThemePreference {
 }
 
 enum AppThemeColor {
-  rose(Color(0xFFCE3C57), '玫红'),
-  blue(Color(0xFF2F6FED), '蓝色'),
-  green(Color(0xFF16845B), '绿色'),
-  orange(Color(0xFFD96B16), '橙色'),
-  purple(Color(0xFF7A4FD4), '紫色'),
-  teal(Color(0xFF087F8C), '青色');
+  blue(Color(0xFF2563EB), Color(0xFF60A5FA), '海蓝'),
+  rose(Color(0xFFBE123C), Color(0xFFFB7185), '玫红'),
+  green(Color(0xFF047857), Color(0xFF34D399), '翠绿'),
+  orange(Color(0xFFC2410C), Color(0xFFFB923C), '暖橙'),
+  purple(Color(0xFF7C3AED), Color(0xFFA78BFA), '罗兰紫'),
+  teal(Color(0xFF0F766E), Color(0xFF2DD4BF), '青碧');
 
-  final Color color;
+  final Color lightColor;
+  final Color darkColor;
   final String label;
 
-  const AppThemeColor(this.color, this.label);
+  const AppThemeColor(this.lightColor, this.darkColor, this.label);
+
+  /// The light color remains the canonical swatch for compatibility with
+  /// places that do not have a brightness context.
+  Color get color => lightColor;
+
+  Color resolve(Brightness brightness) =>
+      brightness == Brightness.dark ? darkColor : lightColor;
 
   String get storageValue => name;
 
@@ -106,8 +114,8 @@ class AppSettings {
     this.classAutomationMode = ClassAutomationMode.off,
     this.timetableBackgroundPath,
     this.timetableBackgroundOpacity = 0.5,
-    this.timetableComponentOpacity = 0.7,
-    this.timetableGridOpacity = 0.5,
+    this.timetableComponentOpacity = 0.6,
+    this.timetableGridOpacity = 0.7,
     this.timetableCourseTextSize = 12.0,
     this.timetableTimeTextSize = 11.0,
     this.timetableDateTextSize = 12.0,

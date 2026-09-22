@@ -30,12 +30,16 @@ class CourseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final bgColor = course.color.withAlpha((255 * courseOpacity).round());
     final borderRadius = BorderRadius.circular(6);
-    final textColor = muted
-        ? context.theme.colors.mutedForeground
-        : context.theme.colors.semantic.timetableForeground;
-    final secondaryTextColor = muted
-        ? context.theme.colors.mutedForeground
-        : context.theme.colors.semantic.timetableMutedForeground;
+    // Course colors are intentionally soft pastels in light mode and may be
+    // user-defined. Choose text by the card's own luminance so dark mode does
+    // not put light text on a pale course card (or vice versa).
+    final useDarkText = course.color.computeLuminance() > 0.45;
+    final textColor = useDarkText
+        ? const Color(0xFF172033)
+        : const Color(0xFFF8FAFC);
+    final secondaryTextColor = useDarkText
+        ? const Color(0xFF475569)
+        : const Color(0xFFCBD5E1);
     final effectiveBorderColor = borderColor.withAlpha(
       (255 * courseBorderOpacity).round(),
     );

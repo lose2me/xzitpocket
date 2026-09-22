@@ -1,6 +1,7 @@
+import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/course.dart';
@@ -8,6 +9,13 @@ import '../../models/school_calendar.dart';
 import '../../ui/app_tokens.dart';
 import 'course_card.dart';
 import 'time_column.dart';
+
+class TimetableDayDragData {
+  final int week;
+  final int weekday;
+
+  const TimetableDayDragData({required this.week, required this.weekday});
+}
 
 /// A single day's timetable.
 ///
@@ -32,6 +40,11 @@ class TimetableGrid extends StatefulWidget {
   final Set<int> hiddenSlots;
   final void Function(Course course, int index)? onCourseTap;
   final void Function(int weekday, int session)? onEmptyTap;
+  final void Function(int weekday)? onDayDoubleTap;
+  final void Function(int weekday)? onDayTripleTap;
+  final void Function(TimetableDayDragData data, int targetWeekday)? onDayDrop;
+  final ValueChanged<Offset>? onDayDragUpdate;
+  final VoidCallback? onDayDragEnd;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
   final double borderWidth;
@@ -59,6 +72,11 @@ class TimetableGrid extends StatefulWidget {
     this.hiddenSlots = const {},
     this.onCourseTap,
     this.onEmptyTap,
+    this.onDayDoubleTap,
+    this.onDayTripleTap,
+    this.onDayDrop,
+    this.onDayDragUpdate,
+    this.onDayDragEnd,
     this.countdownAnimation,
     required this.borderColor,
     this.borderWidth = 0.5,
@@ -81,6 +99,89 @@ class TimetableGrid extends StatefulWidget {
 class _TimetableGridState extends State<TimetableGrid> {
   _GridLayoutCacheKey? _layoutKey;
   Map<int, List<_DaySlot>>? _daySlots;
+  late final ScrollController _scrollController;
+  int? _dragSourceWeekday;
+  int? _dragHoverWeekday;
+  bool _showBelowFoldIndicator = true;
+  Timer? _headerTapTimer;
+  int _headerTapCount = 0;
+  int? _headerTapWeekday;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    _headerTapTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final show = !_scrollController.hasClients || _scrollController.offset <= 4;
+    if (!mounted || show == _showBelowFoldIndicator) return;
+    setState(() => _showBelowFoldIndicator = show);
+  }
+
+  void _startColumnDrag(int weekday) {
+    if (!mounted) return;
+    setState(() {
+      _dragSourceWeekday = weekday;
+      _dragHoverWeekday = null;
+    });
+  }
+
+  void _hoverColumnDrag(int weekday, bool accepting) {
+    final next = accepting && _dragSourceWeekday != weekday ? weekday : null;
+    if (!mounted || next == _dragHoverWeekday) return;
+    setState(() => _dragHoverWeekday = next);
+  }
+
+  void _acceptColumnDrop(int targetWeekday, TimetableDayDragData data) {
+    if (data.week != widget.week || data.weekday != targetWeekday) {
+      widget.onDayDrop?.call(data, targetWeekday);
+    }
+    _finishColumnDrag();
+  }
+
+  void _finishColumnDrag() {
+    if (!mounted) return;
+    setState(() {
+      _dragSourceWeekday = null;
+      _dragHoverWeekday = null;
+    });
+  }
+
+  void _handleHeaderTap(int weekday) {
+    if (_headerTapWeekday == weekday &&
+        _headerTapTimer != null &&
+        _headerTapCount > 0) {
+      _headerTapCount++;
+    } else {
+      _headerTapCount = 1;
+      _headerTapWeekday = weekday;
+    }
+    _headerTapTimer?.cancel();
+    if (_headerTapCount >= 3) {
+      _headerTapCount = 0;
+      _headerTapWeekday = null;
+      widget.onDayTripleTap?.call(weekday);
+      return;
+    }
+    _headerTapTimer = Timer(const Duration(milliseconds: 360), () {
+      if (_headerTapCount == 2 && _headerTapWeekday == weekday) {
+        widget.onDayDoubleTap?.call(weekday);
+      }
+      _headerTapCount = 0;
+      _headerTapWeekday = null;
+      _headerTapTimer = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -165,41 +266,13 @@ class _TimetableGridState extends State<TimetableGrid> {
                   date.month == today.month &&
                   date.day == today.day;
               return Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  decoration: isToday
-                      ? BoxDecoration(
-                          color: theme.colors.secondary.withAlpha(128),
-                        )
-                      : null,
-                  child: Column(
-                    children: [
-                      Text(
-                        '${date.day}',
-                        style: theme.typography.caption.copyWith(
-                          fontWeight: isToday
-                              ? FontWeight.w700
-                              : FontWeight.normal,
-                          color: isToday
-                              ? theme.colors.primary
-                              : theme.colors.mutedForeground,
-                          fontSize: widget.dateTextSize,
-                        ),
-                      ),
-                      Text(
-                        weekdays[i],
-                        style: theme.typography.caption.copyWith(
-                          fontWeight: isToday
-                              ? FontWeight.w700
-                              : FontWeight.normal,
-                          color: isToday
-                              ? theme.colors.primary
-                              : theme.colors.mutedForeground,
-                          fontSize: widget.dateTextSize,
-                        ),
-                      ),
-                    ],
-                  ),
+                child: _buildDayHeader(
+                  context,
+                  weekday: i + 1,
+                  date: date,
+                  weekdayLabel: weekdays[i],
+                  isToday: isToday,
+                  canDrag: currentByWeekday[i + 1]?.isNotEmpty == true,
                 ),
               );
             }),
@@ -229,6 +302,7 @@ class _TimetableGridState extends State<TimetableGrid> {
               final totalHeight = cellHeight * effectiveSlotCount;
 
               return SingleChildScrollView(
+                controller: _scrollController,
                 child: SizedBox(
                   height: totalHeight,
                   child: Row(
@@ -254,163 +328,192 @@ class _TimetableGridState extends State<TimetableGrid> {
                         ];
                         final allDisplayCourses = dayDisplayData[dayIndex];
                         return Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTapUp: (details) {
-                              final row =
-                                  (details.localPosition.dy / cellHeight)
-                                      .floor()
-                                      .clamp(0, visibleSessions.length - 1);
-                              final session = visibleSessions[row];
-                              final hasHit = allDayCourses.any(
-                                (entry) =>
-                                    _indexedCourseHitsSession(entry, session),
-                              );
-                              if (!hasHit && widget.onEmptyTap != null) {
-                                widget.onEmptyTap!(weekday, session);
-                              }
-                            },
-                            child: Stack(
-                              children: [
-                                if (widget.showGridLines)
-                                  Column(
-                                    children: List.generate(
-                                      effectiveSlotCount,
-                                      (i) {
-                                        return Container(
-                                          height: cellHeight,
-                                          decoration: BoxDecoration(
-                                            border: Border(
-                                              bottom: BorderSide(
-                                                color: theme.colors.border
-                                                    .withValues(
-                                                      alpha: widget.gridOpacity,
-                                                    ),
-                                                width: 0.5,
-                                              ),
-                                              right: BorderSide(
-                                                color: theme.colors.border
-                                                    .withValues(
-                                                      alpha: widget.gridOpacity,
-                                                    ),
-                                                width: 0.5,
+                          child: _wrapColumnDropTarget(
+                            weekday: weekday,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onTapUp: (details) {
+                                final row =
+                                    (details.localPosition.dy / cellHeight)
+                                        .floor()
+                                        .clamp(0, visibleSessions.length - 1);
+                                final session = visibleSessions[row];
+                                final hasHit = allDayCourses.any(
+                                  (entry) =>
+                                      _indexedCourseHitsSession(entry, session),
+                                );
+                                if (!hasHit && widget.onEmptyTap != null) {
+                                  widget.onEmptyTap!(weekday, session);
+                                }
+                              },
+                              child: Stack(
+                                children: [
+                                  if (widget.showGridLines)
+                                    Column(
+                                      children: List.generate(
+                                        effectiveSlotCount,
+                                        (i) {
+                                          return Container(
+                                            height: cellHeight,
+                                            decoration: BoxDecoration(
+                                              border: Border(
+                                                bottom: BorderSide(
+                                                  color: theme.colors.border
+                                                      .withValues(
+                                                        alpha:
+                                                            widget.gridOpacity,
+                                                      ),
+                                                  width: 0.5,
+                                                ),
+                                                right: BorderSide(
+                                                  color: theme.colors.border
+                                                      .withValues(
+                                                        alpha:
+                                                            widget.gridOpacity,
+                                                      ),
+                                                  width: 0.5,
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        );
-                                      },
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                // Course cards
-                                ...allDisplayCourses.map((display) {
-                                  final course = display.course;
-                                  final isCurrentWeek = course.isInWeek(week);
-                                  final startRow =
-                                      sessionToRow[course.startSession] ??
-                                      (course.startSession - 1);
-                                  final endRow =
-                                      sessionToRow[course.endSession] ??
-                                      (course.endSession - 1);
-                                  final top = startRow * cellHeight;
-                                  final height =
-                                      (endRow - startRow + 1) * cellHeight;
-                                  return Positioned(
-                                    key: ValueKey(display.animationKey),
-                                    top: top,
-                                    left: 0,
-                                    right: 0,
-                                    height: height,
-                                    // Each card gets its own compositing layer so
-                                    // the continuously-running conflict countdown
-                                    // bar only repaints this card instead of the
-                                    // whole week grid on every frame.
-                                    child: RepaintBoundary(
-                                      child: CourseCard(
-                                        key: ValueKey(display.animationKey),
-                                        course: course,
-                                        countdownAnimation: display.isConflict
-                                            ? widget.countdownAnimation
+                                  // Course cards
+                                  ...allDisplayCourses.map((display) {
+                                    final course = display.course;
+                                    final isCurrentWeek = course.isInWeek(week);
+                                    final startRow =
+                                        sessionToRow[course.startSession] ??
+                                        (course.startSession - 1);
+                                    final endRow =
+                                        sessionToRow[course.endSession] ??
+                                        (course.endSession - 1);
+                                    final top = startRow * cellHeight;
+                                    final height =
+                                        (endRow - startRow + 1) * cellHeight;
+                                    return Positioned(
+                                      key: ValueKey(display.animationKey),
+                                      top: top,
+                                      left: 0,
+                                      right: 0,
+                                      height: height,
+                                      // Each card gets its own compositing layer so
+                                      // the continuously-running conflict countdown
+                                      // bar only repaints this card instead of the
+                                      // whole week grid on every frame.
+                                      child: RepaintBoundary(
+                                        child: CourseCard(
+                                          key: ValueKey(display.animationKey),
+                                          course: course,
+                                          countdownAnimation: display.isConflict
+                                              ? widget.countdownAnimation
+                                              : null,
+                                          muted: !isCurrentWeek,
+                                          courseOpacity: isCurrentWeek
+                                              ? courseOpacity
+                                              : nonCurrentCourseOpacity,
+                                          courseBorderOpacity: isCurrentWeek
+                                              ? courseBorderOpacity
+                                              : nonCurrentCourseBorderOpacity,
+                                          borderColor: widget.borderColor,
+                                          borderWidth: widget.borderWidth,
+                                          textSize: widget.courseTextSize,
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                  if (_showBelowFoldIndicator &&
+                                      sessionToRow.containsKey(11) &&
+                                      _hasLaterCourse(
+                                        currentByWeekday[weekday],
+                                      ) &&
+                                      !_hasSession(
+                                        currentByWeekday[weekday],
+                                        11,
+                                      ))
+                                    Positioned(
+                                      top: sessionToRow[11]! * cellHeight,
+                                      left: 0,
+                                      right: 0,
+                                      height: cellHeight,
+                                      child: IgnorePointer(
+                                        child: Center(
+                                          child: Icon(
+                                            FLucideIcons.chevronDown,
+                                            size: 18,
+                                            color: theme.colors.primary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  if (isToday && widget.showTodayGridLines)
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: Stack(
+                                          children: [
+                                            Positioned(
+                                              left: 0,
+                                              top: 0,
+                                              bottom: 0,
+                                              width: 1,
+                                              child: ColoredBox(
+                                                color: theme.colors.primary
+                                                    .withValues(
+                                                      alpha: widget.gridOpacity,
+                                                    ),
+                                              ),
+                                            ),
+                                            Positioned(
+                                              right: 0,
+                                              top: 0,
+                                              bottom: 0,
+                                              width: 1,
+                                              child: ColoredBox(
+                                                color: theme.colors.primary
+                                                    .withValues(
+                                                      alpha: widget.gridOpacity,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ...allDisplayCourses.map((display) {
+                                    final tapStartRow =
+                                        sessionToRow[display.tapStartSession] ??
+                                        (display.tapStartSession - 1);
+                                    final tapEndRow =
+                                        sessionToRow[display.tapStartSession +
+                                            display.tapSessionSpan -
+                                            1] ??
+                                        (display.tapStartSession +
+                                            display.tapSessionSpan -
+                                            2);
+                                    final top = tapStartRow * cellHeight;
+                                    final height =
+                                        (tapEndRow - tapStartRow + 1) *
+                                        cellHeight;
+                                    return Positioned(
+                                      top: top,
+                                      left: 0,
+                                      right: 0,
+                                      height: height,
+                                      child: GestureDetector(
+                                        behavior: HitTestBehavior.translucent,
+                                        onTap: widget.onCourseTap != null
+                                            ? () => widget.onCourseTap!(
+                                                display.course,
+                                                display.sourceIndex,
+                                              )
                                             : null,
-                                        muted: !isCurrentWeek,
-                                        courseOpacity: isCurrentWeek
-                                            ? courseOpacity
-                                            : nonCurrentCourseOpacity,
-                                        courseBorderOpacity: isCurrentWeek
-                                            ? courseBorderOpacity
-                                            : nonCurrentCourseBorderOpacity,
-                                        borderColor: widget.borderColor,
-                                        borderWidth: widget.borderWidth,
-                                        textSize: widget.courseTextSize,
+                                        child: const SizedBox.expand(),
                                       ),
-                                    ),
-                                  );
-                                }),
-                                if (isToday && widget.showTodayGridLines)
-                                  Positioned.fill(
-                                    child: IgnorePointer(
-                                      child: Stack(
-                                        children: [
-                                          Positioned(
-                                            left: 0,
-                                            top: 0,
-                                            bottom: 0,
-                                            width: 1,
-                                            child: ColoredBox(
-                                              color: theme.colors.primary
-                                                  .withValues(
-                                                    alpha: widget.gridOpacity,
-                                                  ),
-                                            ),
-                                          ),
-                                          Positioned(
-                                            right: 0,
-                                            top: 0,
-                                            bottom: 0,
-                                            width: 1,
-                                            child: ColoredBox(
-                                              color: theme.colors.primary
-                                                  .withValues(
-                                                    alpha: widget.gridOpacity,
-                                                  ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ...allDisplayCourses.map((display) {
-                                  final tapStartRow =
-                                      sessionToRow[display.tapStartSession] ??
-                                      (display.tapStartSession - 1);
-                                  final tapEndRow =
-                                      sessionToRow[display.tapStartSession +
-                                          display.tapSessionSpan -
-                                          1] ??
-                                      (display.tapStartSession +
-                                          display.tapSessionSpan -
-                                          2);
-                                  final top = tapStartRow * cellHeight;
-                                  final height =
-                                      (tapEndRow - tapStartRow + 1) *
-                                      cellHeight;
-                                  return Positioned(
-                                    top: top,
-                                    left: 0,
-                                    right: 0,
-                                    height: height,
-                                    child: GestureDetector(
-                                      behavior: HitTestBehavior.translucent,
-                                      onTap: widget.onCourseTap != null
-                                          ? () => widget.onCourseTap!(
-                                              display.course,
-                                              display.sourceIndex,
-                                            )
-                                          : null,
-                                      child: const SizedBox.expand(),
-                                    ),
-                                  );
-                                }),
-                              ],
+                                    );
+                                  }),
+                                ],
+                              ),
                             ),
                           ),
                         );
@@ -447,6 +550,146 @@ class _TimetableGridState extends State<TimetableGrid> {
           );
     return MediaQuery.withNoTextScaling(child: result);
   }
+
+  Widget _buildDayHeader(
+    BuildContext context, {
+    required int weekday,
+    required DateTime date,
+    required String weekdayLabel,
+    required bool isToday,
+    required bool canDrag,
+  }) {
+    final theme = context.theme;
+    final highlighted = _dragHoverWeekday == weekday;
+    final header = GestureDetector(
+      onTap: () => _handleHeaderTap(weekday),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: highlighted
+              ? theme.colors.primary.withValues(alpha: 0.14)
+              : isToday
+              ? theme.colors.secondary.withAlpha(128)
+              : null,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(
+            children: [
+              Text(
+                '${date.day}',
+                style: theme.typography.caption.copyWith(
+                  fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
+                  color: isToday
+                      ? theme.colors.primary
+                      : theme.colors.mutedForeground,
+                  fontSize: widget.dateTextSize,
+                ),
+              ),
+              Text(
+                weekdayLabel,
+                style: theme.typography.caption.copyWith(
+                  fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
+                  color: isToday
+                      ? theme.colors.primary
+                      : theme.colors.mutedForeground,
+                  fontSize: widget.dateTextSize,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final dragChild = LongPressDraggable<TimetableDayDragData>(
+      data: TimetableDayDragData(week: widget.week, weekday: weekday),
+      onDragStarted: () => _startColumnDrag(weekday),
+      onDragUpdate: (details) =>
+          widget.onDayDragUpdate?.call(details.globalPosition),
+      onDragEnd: (_) {
+        _finishColumnDrag();
+        widget.onDayDragEnd?.call();
+      },
+      feedback: Transform.translate(
+        offset: const Offset(0, -72),
+        child: Material(
+          color: Colors.transparent,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.colors.primary.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(
+                '${date.month}/${date.day} 周$weekdayLabel',
+                style: TextStyle(
+                  color: theme.colors.primaryForeground,
+                  fontSize: widget.dateTextSize,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: 0.42, child: header),
+      child: header,
+    );
+    return DragTarget<TimetableDayDragData>(
+      onWillAcceptWithDetails: (details) {
+        final accepting =
+            details.data.week != widget.week || details.data.weekday != weekday;
+        _hoverColumnDrag(weekday, accepting);
+        return accepting;
+      },
+      onLeave: (_) => _hoverColumnDrag(weekday, false),
+      onAcceptWithDetails: (details) =>
+          _acceptColumnDrop(weekday, details.data),
+      builder: (context, candidateData, rejectedData) =>
+          canDrag ? dragChild : header,
+    );
+  }
+
+  Widget _wrapColumnDropTarget({required int weekday, required Widget child}) {
+    return DragTarget<TimetableDayDragData>(
+      onWillAcceptWithDetails: (details) {
+        final accepting =
+            details.data.week != widget.week || details.data.weekday != weekday;
+        _hoverColumnDrag(weekday, accepting);
+        return accepting;
+      },
+      onLeave: (_) => _hoverColumnDrag(weekday, false),
+      onAcceptWithDetails: (details) =>
+          _acceptColumnDrop(weekday, details.data),
+      builder: (context, candidateData, rejectedData) {
+        final highlighted = _dragHoverWeekday == weekday;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(
+              opacity: _dragSourceWeekday == weekday ? 0.42 : 1,
+              child: child,
+            ),
+            if (highlighted)
+              IgnorePointer(
+                child: ColoredBox(
+                  color: context.theme.colors.primary.withValues(alpha: 0.08),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  bool _hasLaterCourse(List<_IndexedCourse>? entries) =>
+      entries?.any(
+        (entry) => entry.course.sessions.any((session) => session >= 12),
+      ) ??
+      false;
+
+  bool _hasSession(List<_IndexedCourse>? entries, int session) =>
+      entries?.any((entry) => entry.course.sessions.contains(session)) ?? false;
 
   /// Rebuilds the cached per-weekday slot layout only when the inputs that
   /// determine the grouping change. `rotationTick` is intentionally excluded:

@@ -80,8 +80,8 @@ void main() {
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.timetableBackgroundPath, isNull);
       expect(settings.timetableBackgroundOpacity, 0.5);
-      expect(settings.timetableComponentOpacity, 0.7);
-      expect(settings.timetableGridOpacity, 0.5);
+      expect(settings.timetableComponentOpacity, 0.6);
+      expect(settings.timetableGridOpacity, 0.7);
       expect(settings.timetableCourseTextSize, 12.0);
       expect(settings.timetableTimeTextSize, 11.0);
       expect(settings.timetableDateTextSize, 12.0);
@@ -143,7 +143,7 @@ void main() {
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
       expect(updated.timetableBackgroundPath, isNull);
       expect(updated.timetableBackgroundOpacity, 0.5);
-      expect(updated.timetableComponentOpacity, 0.7);
+      expect(updated.timetableComponentOpacity, 0.6);
       expect(updated.showTimetableGridLines, isTrue);
     });
 

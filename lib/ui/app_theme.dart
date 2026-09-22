@@ -8,92 +8,92 @@ abstract final class AppTheme {
   static final light = lightFor(AppThemeColor.rose);
   static final dark = darkFor(AppThemeColor.rose);
 
-  static FThemeData lightFor(AppThemeColor themeColor) => _build(
-    debugLabel: 'XZIT Pocket Light',
-    colors: FColors.neutralLight.copyWith(
-      background: const Color(0xFFF7F9FA),
-      foreground: const Color(0xFF182126),
-      primary: themeColor.color,
-      primaryForeground: _onColor(themeColor.color),
-      secondary: Color.lerp(Colors.white, themeColor.color, 0.12)!,
-      secondaryForeground: _onColor(
-        Color.lerp(Colors.white, themeColor.color, 0.12)!,
-      ),
-      muted: const Color(0xFFEEF2F3),
-      mutedForeground: const Color(0xFF58686F),
-      destructive: const Color(0xFFB42318),
-      destructiveForeground: const Color(0xFFFFFFFF),
-      error: const Color(0xFFB42318),
-      errorForeground: const Color(0xFFFFFFFF),
-      card: const Color(0xFFFFFFFF),
-      border: const Color(0xFFD7E0E3),
-      extensions: const [
-        AppSemanticColors(
-          controlBorder: Color(0xFF7A8B92),
-          success: Color(0xFF147A55),
-          successContainer: Color(0xFFE5F5EE),
-          onSuccessContainer: Color(0xFF0E4A34),
-          warning: Color(0xFF8A5B00),
-          warningContainer: Color(0xFFFFF3D6),
-          onWarningContainer: Color(0xFF4B3100),
-          info: Color(0xFF285FA8),
-          infoContainer: Color(0xFFE7EFFA),
-          onInfoContainer: Color(0xFF153B6B),
-          timetableForeground: Color(0xFF182126),
-          timetableMutedForeground: Color(0xFF45545A),
-        ),
-      ],
-    ),
-  );
-
-  static FThemeData darkFor(AppThemeColor themeColor) {
-    final primary = _darkPrimary(themeColor.color);
+  static FThemeData lightFor(AppThemeColor themeColor) {
+    final primary = themeColor.lightColor;
     return _build(
-      debugLabel: 'XZIT Pocket Dark',
-      colors: FColors.neutralDark.copyWith(
-        background: const Color(0xFF0E1417),
-        foreground: const Color(0xFFE8EEF0),
+      debugLabel: 'XZIT Pocket Light',
+      colors: FColors.neutralLight.copyWith(
+        barrier: const Color(0x520F172A),
+        background: const Color(0xFFF8FAFC),
+        foreground: const Color(0xFF0F172A),
         primary: primary,
-        primaryForeground: _onColor(primary),
-        secondary: Color.lerp(Colors.black, themeColor.color, 0.28)!,
+        primaryForeground: const Color(0xFFFFFFFF),
+        secondary: Color.lerp(Colors.white, primary, 0.08)!,
         secondaryForeground: primary,
-        muted: const Color(0xFF1D292D),
-        mutedForeground: const Color(0xFFA5B6BC),
-        destructive: const Color(0xFFFF8A80),
-        destructiveForeground: const Color(0xFF2B0806),
-        error: const Color(0xFFFF8A80),
-        errorForeground: const Color(0xFF2B0806),
-        card: const Color(0xFF151D21),
-        border: const Color(0xFF304047),
+        muted: const Color(0xFFF1F5F9),
+        mutedForeground: const Color(0xFF526176),
+        destructive: const Color(0xFFB91C1C),
+        destructiveForeground: const Color(0xFFFFFFFF),
+        error: const Color(0xFFB91C1C),
+        errorForeground: const Color(0xFFFFFFFF),
+        card: const Color(0xFFFFFFFF),
+        border: const Color(0xFFE2E8F0),
         extensions: const [
           AppSemanticColors(
-            controlBorder: Color(0xFF71868F),
-            success: Color(0xFF6DD6A7),
-            successContainer: Color(0xFF143A2B),
-            onSuccessContainer: Color(0xFFB9F0D2),
-            warning: Color(0xFFF4C060),
-            warningContainer: Color(0xFF3A2B0D),
-            onWarningContainer: Color(0xFFFFE3A3),
-            info: Color(0xFF8FC2FF),
-            infoContainer: Color(0xFF15324F),
-            onInfoContainer: Color(0xFFC6E1FF),
-            timetableForeground: Color(0xFF182126),
-            timetableMutedForeground: Color(0xFF45545A),
+            controlBorder: Color(0xFF94A3B8),
+            success: Color(0xFF15803D),
+            successContainer: Color(0xFFDCFCE7),
+            onSuccessContainer: Color(0xFF14532D),
+            warning: Color(0xFFA16207),
+            warningContainer: Color(0xFFFEF3C7),
+            onWarningContainer: Color(0xFF78350F),
+            info: Color(0xFF1D4ED8),
+            infoContainer: Color(0xFFDBEAFE),
+            onInfoContainer: Color(0xFF1E3A8A),
+            timetableForeground: Color(0xFF172033),
+            timetableMutedForeground: Color(0xFF475569),
           ),
         ],
       ),
     );
   }
 
-  static Color _darkPrimary(Color color) {
-    final hsl = HSLColor.fromColor(color);
-    return hsl
-        .withLightness((hsl.lightness + 0.28).clamp(0.58, 0.78))
-        .toColor();
+  static FThemeData darkFor(AppThemeColor themeColor) {
+    final primary = themeColor.darkColor;
+    const card = Color(0xFF111827);
+    return _build(
+      debugLabel: 'XZIT Pocket Dark',
+      colors: FColors.neutralDark.copyWith(
+        barrier: const Color(0xB3000000),
+        background: const Color(0xFF0B1120),
+        foreground: const Color(0xFFF8FAFC),
+        primary: primary,
+        primaryForeground: const Color(0xFF0F172A),
+        secondary: Color.lerp(card, primary, 0.16)!,
+        secondaryForeground: primary,
+        muted: const Color(0xFF1E293B),
+        mutedForeground: const Color(0xFFA8B3C5),
+        destructive: const Color(0xFFF87171),
+        destructiveForeground: const Color(0xFF450A0A),
+        error: const Color(0xFFF87171),
+        errorForeground: const Color(0xFF450A0A),
+        card: card,
+        border: const Color(0xFF334155),
+        extensions: const [
+          AppSemanticColors(
+            controlBorder: Color(0xFF64748B),
+            success: Color(0xFF4ADE80),
+            successContainer: Color(0xFF14532D),
+            onSuccessContainer: Color(0xFFDCFCE7),
+            warning: Color(0xFFFBBF24),
+            warningContainer: Color(0xFF451A03),
+            onWarningContainer: Color(0xFFFEF3C7),
+            info: Color(0xFF60A5FA),
+            infoContainer: Color(0xFF172554),
+            onInfoContainer: Color(0xFFDBEAFE),
+            timetableForeground: Color(0xFFE5E7EB),
+            timetableMutedForeground: Color(0xFF94A3B8),
+          ),
+        ],
+      ),
+    );
   }
 
-  static Color _onColor(Color color) =>
-      color.computeLuminance() > 0.48 ? Colors.black : Colors.white;
+  /*
+   * The palette follows the same role split used by mainstream design
+   * systems: neutral surfaces carry hierarchy, one brand color carries
+   * interaction, and status colors keep stable meanings across themes.
+   */
 
   static FThemeData _build({
     required String debugLabel,
