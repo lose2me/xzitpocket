@@ -38,13 +38,20 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   bool get wantKeepAlive => true;
   late final PageController _pageController;
   late final AnimationController _conflictCountdownController;
+  final _timetableViewportKey = GlobalKey();
   bool _isSyncing = false;
   int _conflictRotationTick = 0;
   double _lastConflictCountdownValue = 0;
-  Offset? _lastDayDragPosition;
   Timer? _edgePageTimer;
   int? _edgePageTarget;
   int _dragGeneration = 0;
+  bool _dayDragActive = false;
+  int? _edgeTriggerSide;
+
+  static const _edgeTriggerHitWidth = 24.0;
+  static const _edgeTriggerClosedWidth = 6.0;
+  static const _edgeTriggerOpenWidth = 24.0;
+  static const _edgeTriggerVisibleSlots = 9.0;
 
   @override
   void initState() {
@@ -127,54 +134,109 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _onDayDragUpdate(Offset position) {
-    _lastDayDragPosition = position;
+    if (!_dayDragActive) return;
+    _updateEdgeTrigger(position);
     _scheduleEdgePageIfNeeded();
   }
 
+  void _onDayDragStart() {
+    setState(() {
+      _dayDragActive = true;
+      _edgeTriggerSide = null;
+    });
+    _dragGeneration++;
+  }
+
+  void _updateEdgeTrigger(Offset position) {
+    final renderObject = _timetableViewportKey.currentContext
+        ?.findRenderObject();
+    if (renderObject is! RenderBox) {
+      _setEdgeTriggerSide(null);
+      return;
+    }
+
+    final origin = renderObject.localToGlobal(Offset.zero);
+    final local = position - origin;
+    final triggerHeight =
+        renderObject.size.height / _edgeTriggerVisibleSlots * 2;
+    final top = (renderObject.size.height - triggerHeight) / 2;
+    final inVerticalBand = local.dy >= top && local.dy <= top + triggerHeight;
+    final leftWidth = _edgeTriggerSide == -1
+        ? _edgeTriggerOpenWidth
+        : _edgeTriggerHitWidth;
+    final rightWidth = _edgeTriggerSide == 1
+        ? _edgeTriggerOpenWidth
+        : _edgeTriggerHitWidth;
+    final side = !inVerticalBand
+        ? null
+        : local.dx <= leftWidth
+        ? -1
+        : local.dx >= renderObject.size.width - rightWidth
+        ? 1
+        : null;
+    _setEdgeTriggerSide(side);
+  }
+
+  void _setEdgeTriggerSide(int? side) {
+    if (_edgeTriggerSide == side) return;
+    if (_edgeTriggerSide != null) _stopEdgePaging();
+    setState(() => _edgeTriggerSide = side);
+  }
+
+  void _stopEdgePaging() {
+    _dragGeneration++;
+    _edgePageTimer?.cancel();
+    _edgePageTimer = null;
+    _edgePageTarget = null;
+    if (_pageController.hasClients) {
+      _pageController.position.jumpTo(_pageController.position.pixels);
+    }
+  }
+
   void _scheduleEdgePageIfNeeded() {
-    if (!mounted ||
-        _lastDayDragPosition == null ||
+    if (!_dayDragActive ||
+        _edgeTriggerSide == null ||
         !_pageController.hasClients) {
       return;
     }
-    final width = MediaQuery.sizeOf(context).width;
-    final x = _lastDayDragPosition!.dx;
     final current = ref.read(selectedWeekProvider);
     final maxWeek = _maxDisplayWeek();
-    const edgeDistance = 44.0;
-    final dayAreaWidth = width - 40;
-    final overFirstOrLastDay =
-        x < 40 + dayAreaWidth / 7 || x > width - dayAreaWidth / 7;
-    final target = x < edgeDistance && current > 1
+    final target = _edgeTriggerSide == -1 && current > 1
         ? current - 1
-        : x > width - edgeDistance && current < maxWeek
+        : _edgeTriggerSide == 1 && current < maxWeek
         ? current + 1
         : null;
     if (target == null) {
-      _edgePageTimer?.cancel();
-      _edgePageTimer = null;
-      _edgePageTarget = null;
+      _stopEdgePaging();
       return;
     }
     if (target == _edgePageTarget) return;
     _edgePageTarget = target;
     _edgePageTimer?.cancel();
     final generation = _dragGeneration;
-    final delay = overFirstOrLastDay
-        ? const Duration(milliseconds: 900)
-        : const Duration(milliseconds: 320);
+    const delay = Duration(milliseconds: 480);
     _edgePageTimer = Timer(delay, () async {
       if (!mounted ||
+          !_dayDragActive ||
           generation != _dragGeneration ||
           _edgePageTarget != target) {
         return;
       }
-      await _pageController.animateToPage(
-        target - 1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOutCubic,
-      );
-      if (!mounted || generation != _dragGeneration) return;
+      try {
+        await _pageController.animateToPage(
+          target - 1,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOutCubic,
+        );
+      } catch (_) {
+        return;
+      }
+      if (!mounted ||
+          !_dayDragActive ||
+          generation != _dragGeneration ||
+          _edgePageTarget != target) {
+        return;
+      }
       ref.read(selectedWeekProvider.notifier).set(target);
       _edgePageTarget = null;
       _scheduleEdgePageIfNeeded();
@@ -182,18 +244,62 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _onDayDragEnd() {
-    _dragGeneration++;
-    if (_pageController.hasClients) {
-      final page = _pageController.page?.round();
-      _pageController.position.jumpTo(_pageController.position.pixels);
-      if (page != null) {
-        _pageController.jumpToPage(page);
-      }
-    }
-    _lastDayDragPosition = null;
-    _edgePageTarget = null;
-    _edgePageTimer?.cancel();
-    _edgePageTimer = null;
+    if (!_dayDragActive) return;
+    _dayDragActive = false;
+    _stopEdgePaging();
+    setState(() => _edgeTriggerSide = null);
+  }
+
+  Widget _buildEdgeTriggerOverlay(BuildContext context) {
+    final color = context.theme.colors.primary;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight / _edgeTriggerVisibleSlots * 2;
+        final top = (constraints.maxHeight - height) / 2;
+        final leftActive = _edgeTriggerSide == -1;
+        final rightActive = _edgeTriggerSide == 1;
+        return Stack(
+          children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              left: 0,
+              top: top,
+              width: leftActive
+                  ? _edgeTriggerOpenWidth
+                  : _edgeTriggerClosedWidth,
+              height: height,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: leftActive ? 0.82 : 0.42),
+                  borderRadius: const BorderRadius.horizontal(
+                    right: Radius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 140),
+              curve: Curves.easeOutCubic,
+              right: 0,
+              top: top,
+              width: rightActive
+                  ? _edgeTriggerOpenWidth
+                  : _edgeTriggerClosedWidth,
+              height: height,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: rightActive ? 0.82 : 0.42),
+                  borderRadius: const BorderRadius.horizontal(
+                    left: Radius.circular(4),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void refreshForResume() {
@@ -368,116 +474,156 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       listenable: semesterCalendar,
       builder: (context, _) => AppPage(
         root: true,
-        child: SafeArea(
-          child: Column(
-            children: [
-              Consumer(
-                builder: (context, ref, child) => WeekHeader(
-                  calendar: semesterCalendar,
-                  selectedWeek: ref.watch(selectedWeekProvider),
-                  currentWeek: currentWeek,
-                  onSync: _isSyncing ? null : _onSync,
-                  syncing: _isSyncing,
-                  onJumpToCurrentWeek: jumpToCurrentWeek,
-                  onSettings: () => Navigator.of(context).push(
-                    appRoute(
-                      name: AppRouteNames.timetableSettings,
-                      builder: (_) => const TimetableSettingsPage(),
+        child: Listener(
+          behavior: HitTestBehavior.translucent,
+          onPointerMove: (event) {
+            _onDayDragUpdate(event.position);
+          },
+          onPointerUp: (_) => _onDayDragEnd(),
+          onPointerCancel: (_) => _onDayDragEnd(),
+          child: SafeArea(
+            child: Column(
+              children: [
+                Consumer(
+                  builder: (context, ref, child) => WeekHeader(
+                    calendar: semesterCalendar,
+                    selectedWeek: ref.watch(selectedWeekProvider),
+                    currentWeek: currentWeek,
+                    onSync: _isSyncing ? null : _onSync,
+                    syncing: _isSyncing,
+                    onJumpToCurrentWeek: jumpToCurrentWeek,
+                    onSettings: () => Navigator.of(context).push(
+                      appRoute(
+                        name: AppRouteNames.timetableSettings,
+                        builder: (_) => const TimetableSettingsPage(),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: coursesAsync.when(
-                  data: (courses) {
-                    if (courses.isEmpty) {
-                      return _buildEmptyView();
-                    }
-                    final maxDisplayWeek = _maxDisplayWeek(courses);
-                    final hide56 = !courses.any(
-                      (c) => c.sessions.contains(5) || c.sessions.contains(6),
-                    );
-                    return PageView.builder(
-                      controller: _pageController,
-                      physics: const _ResponsivePagePhysics(),
-                      itemCount: maxDisplayWeek,
-                      // Pre-build the neighbouring weeks while the current page is
-                      // idle so the left/right swipe only moves an already-built
-                      // grid instead of doing the (heavy) layout synchronously in
-                      // the middle of the gesture.
-                      allowImplicitScrolling: true,
-                      onPageChanged: (page) {
-                        ref.read(selectedWeekProvider.notifier).set(page + 1);
-                      },
-                      itemBuilder: (context, index) {
-                        final week = index + 1;
-                        return RepaintBoundary(
-                          child: TimetableGrid(
-                            courses: courses,
-                            week: week,
-                            rotationTick: _conflictRotationTick,
-                            showNonCurrentWeekCourses:
-                                showNonCurrentWeekCourses,
-                            showWeekendColumns: showWeekendColumns,
-                            calendar: semesterCalendar,
-                            hiddenSlots: hide56 ? const {5, 6} : const {},
-                            countdownAnimation: _conflictCountdownController,
-                            borderColor: courseBorderColor,
-                            borderWidth: settings.timetableCourseBorderWidth,
-                            courseOpacity: courseOpacity,
-                            courseBorderOpacity: courseBorderOpacity,
-                            courseTextSize: settings.timetableCourseTextSize,
-                            timeTextSize: settings.timetableTimeTextSize,
-                            dateTextSize: settings.timetableDateTextSize,
-                            backgroundImagePath:
-                                settings.timetableBackgroundPath,
-                            backgroundOpacity:
-                                settings.timetableBackgroundOpacity,
-                            gridOpacity: settings.timetableGridOpacity,
-                            showGridLines: settings.showTimetableGridLines,
-                            showTodayGridLines: settings.showTodayGridLines,
-                            onCourseTap: (course, sourceIndex) {
-                              final notifier = ref.read(
-                                scheduleProvider.notifier,
-                              );
-                              final key = notifier.keyForCourse(
-                                course,
-                                sourceIndex: sourceIndex,
-                              );
-                              if (key == null) return;
-                              _showCourseDetail(context, course, key, week);
+                Expanded(
+                  child: coursesAsync.when(
+                    data: (courses) {
+                      if (courses.isEmpty) {
+                        return _buildEmptyView();
+                      }
+                      final maxDisplayWeek = _maxDisplayWeek(courses);
+                      final hide56 = !courses.any(
+                        (c) => c.sessions.contains(5) || c.sessions.contains(6),
+                      );
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          PageView.builder(
+                            key: _timetableViewportKey,
+                            controller: _pageController,
+                            physics: const _ResponsivePagePhysics(),
+                            itemCount: maxDisplayWeek,
+                            // Pre-build the neighbouring weeks while the current page is
+                            // idle so the left/right swipe only moves an already-built
+                            // grid instead of doing the (heavy) layout synchronously in
+                            // the middle of the gesture.
+                            allowImplicitScrolling: true,
+                            onPageChanged: (page) {
+                              ref
+                                  .read(selectedWeekProvider.notifier)
+                                  .set(page + 1);
                             },
-                            onEmptyTap: (weekday, session) =>
-                                _onEmptySlotTap(context, weekday, session),
-                            onDayDoubleTap: (weekday) =>
-                                _confirmClearDay(context, weekday, week),
-                            onDayTripleTap: (weekday) =>
-                                _confirmRestoreDay(context, weekday, week),
-                            onDayDrop: (data, targetWeekday) => _confirmMoveDay(
-                              context,
-                              data,
-                              targetWeekday,
-                              week,
-                            ),
-                            onDayDragUpdate: _onDayDragUpdate,
-                            onDayDragEnd: _onDayDragEnd,
+                            itemBuilder: (context, index) {
+                              final week = index + 1;
+                              return RepaintBoundary(
+                                child: TimetableGrid(
+                                  courses: courses,
+                                  week: week,
+                                  rotationTick: _conflictRotationTick,
+                                  showNonCurrentWeekCourses:
+                                      showNonCurrentWeekCourses,
+                                  showWeekendColumns: showWeekendColumns,
+                                  calendar: semesterCalendar,
+                                  hiddenSlots: hide56 ? const {5, 6} : const {},
+                                  countdownAnimation:
+                                      _conflictCountdownController,
+                                  borderColor: courseBorderColor,
+                                  borderWidth:
+                                      settings.timetableCourseBorderWidth,
+                                  courseOpacity: courseOpacity,
+                                  courseBorderOpacity: courseBorderOpacity,
+                                  courseTextSize:
+                                      settings.timetableCourseTextSize,
+                                  timeTextSize: settings.timetableTimeTextSize,
+                                  dateTextSize: settings.timetableDateTextSize,
+                                  backgroundImagePath:
+                                      settings.timetableBackgroundPath,
+                                  backgroundOpacity:
+                                      settings.timetableBackgroundOpacity,
+                                  gridOpacity: settings.timetableGridOpacity,
+                                  showGridLines:
+                                      settings.showTimetableGridLines,
+                                  showTodayGridLines:
+                                      settings.showTodayGridLines,
+                                  onCourseTap: (course, sourceIndex) {
+                                    final notifier = ref.read(
+                                      scheduleProvider.notifier,
+                                    );
+                                    final key = notifier.keyForCourse(
+                                      course,
+                                      sourceIndex: sourceIndex,
+                                    );
+                                    if (key == null) return;
+                                    _showCourseDetail(
+                                      context,
+                                      course,
+                                      key,
+                                      week,
+                                    );
+                                  },
+                                  onEmptyTap: (weekday, session) =>
+                                      _onEmptySlotTap(
+                                        context,
+                                        weekday,
+                                        session,
+                                      ),
+                                  onDayDoubleTap: (weekday) =>
+                                      _confirmClearDay(context, weekday, week),
+                                  onDayTripleTap: (weekday) =>
+                                      _confirmRestoreDay(
+                                        context,
+                                        weekday,
+                                        week,
+                                      ),
+                                  onDayDrop: (data, targetWeekday) =>
+                                      _confirmMoveDay(
+                                        context,
+                                        data,
+                                        targetWeekday,
+                                        week,
+                                      ),
+                                  onDayDragUpdate: _onDayDragUpdate,
+                                  onDayDragStart: _onDayDragStart,
+                                  onDayDragEnd: _onDayDragEnd,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    );
-                  },
-                  loading: () => const Center(child: FCircularProgress()),
-                  error: (e, _) => Center(
-                    child: AppStateView(
-                      icon: FLucideIcons.triangleAlert,
-                      title: '加载失败',
-                      description: '$e',
-                      destructive: true,
+                          if (_dayDragActive)
+                            AbsorbPointer(
+                              child: _buildEdgeTriggerOverlay(context),
+                            ),
+                        ],
+                      );
+                    },
+                    loading: () => const Center(child: FCircularProgress()),
+                    error: (e, _) => Center(
+                      child: AppStateView(
+                        icon: FLucideIcons.triangleAlert,
+                        title: '加载失败',
+                        description: '$e',
+                        destructive: true,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

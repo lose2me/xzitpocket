@@ -44,6 +44,7 @@ class TimetableGrid extends StatefulWidget {
   final void Function(int weekday)? onDayTripleTap;
   final void Function(TimetableDayDragData data, int targetWeekday)? onDayDrop;
   final ValueChanged<Offset>? onDayDragUpdate;
+  final VoidCallback? onDayDragStart;
   final VoidCallback? onDayDragEnd;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
@@ -76,6 +77,7 @@ class TimetableGrid extends StatefulWidget {
     this.onDayTripleTap,
     this.onDayDrop,
     this.onDayDragUpdate,
+    this.onDayDragStart,
     this.onDayDragEnd,
     this.countdownAnimation,
     required this.borderColor,
@@ -602,7 +604,10 @@ class _TimetableGridState extends State<TimetableGrid> {
     );
     final dragChild = LongPressDraggable<TimetableDayDragData>(
       data: TimetableDayDragData(week: widget.week, weekday: weekday),
-      onDragStarted: () => _startColumnDrag(weekday),
+      onDragStarted: () {
+        _startColumnDrag(weekday);
+        widget.onDayDragStart?.call();
+      },
       onDragUpdate: (details) =>
           widget.onDayDragUpdate?.call(details.globalPosition),
       onDragEnd: (_) {
