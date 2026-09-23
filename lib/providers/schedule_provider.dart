@@ -16,6 +16,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
   late CourseStorage _storage;
   List<int> _hiveKeys = [];
   List<Course> _courses = [];
+  List<Course> _originalCourses = [];
 
   @override
   AsyncValue<List<Course>> build() {
@@ -23,8 +24,11 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     final (keys, courses) = _storage.getCoursesWithKeys();
     _hiveKeys = keys;
     _courses = courses;
+    _originalCourses = _storage.getOriginalCourses();
     return AsyncValue.data(courses);
   }
+
+  List<Course> get originalCourses => List.unmodifiable(_originalCourses);
 
   /// Returns the stable Hive key for the exact course instance shown by the UI.
   ///
@@ -48,6 +52,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     final (keys, courses) = _storage.getCoursesWithKeys();
     _hiveKeys = keys;
     _courses = courses;
+    _originalCourses = _storage.getOriginalCourses();
     state = AsyncValue.data(courses);
     await _notifyWidget(courses);
   }
@@ -176,6 +181,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     await _storage.clearCourses();
     _hiveKeys = [];
     _courses = [];
+    _originalCourses = [];
     state = const AsyncValue.data([]);
     await WidgetService.clearWidget();
   }

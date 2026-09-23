@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
@@ -32,6 +33,23 @@ class TimetablePage extends ConsumerStatefulWidget {
   ConsumerState<TimetablePage> createState() => TimetablePageState();
 }
 
+class _PendingDayAction {
+  final int week;
+  final int weekday;
+  final String label;
+  final DateTime deadline;
+  final Future<void> Function() execute;
+
+  _PendingDayAction({
+    required this.week,
+    required this.weekday,
+    required this.label,
+    required this.execute,
+  }) : deadline = DateTime.now().add(const Duration(seconds: 3));
+
+  Duration get remaining => deadline.difference(DateTime.now());
+}
+
 class TimetablePageState extends ConsumerState<TimetablePage>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   @override
@@ -47,6 +65,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   int _dragGeneration = 0;
   bool _dayDragActive = false;
   int? _edgeTriggerSide;
+  Timer? _dayActionTimer;
+  _PendingDayAction? _pendingDayAction;
 
   static const _edgeTriggerHitWidth = 24.0;
   static const _edgeTriggerClosedWidth = 6.0;
@@ -85,6 +105,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     semesterCalendar.removeListener(_onCalendarChanged);
     _conflictCountdownController.dispose();
     _edgePageTimer?.cancel();
+    _dayActionTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -248,6 +269,99 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _dayDragActive = false;
     _stopEdgePaging();
     setState(() => _edgeTriggerSide = null);
+  }
+
+  void _scheduleDayAction({
+    required int week,
+    required int weekday,
+    required String label,
+    required Future<void> Function() execute,
+  }) {
+    _dayActionTimer?.cancel();
+    final action = _PendingDayAction(
+      week: week,
+      weekday: weekday,
+      label: label,
+      execute: execute,
+    );
+    setState(() => _pendingDayAction = action);
+    _dayActionTimer = Timer.periodic(const Duration(milliseconds: 100), (
+      timer,
+    ) {
+      if (!identical(_pendingDayAction, action)) {
+        timer.cancel();
+        return;
+      }
+      if (action.remaining <= Duration.zero) {
+        timer.cancel();
+        _pendingDayAction = null;
+        if (mounted) setState(() {});
+        unawaited(action.execute());
+        return;
+      }
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _cancelDayAction(int weekday) {
+    final action = _pendingDayAction;
+    if (action == null || action.weekday != weekday) return;
+    _dayActionTimer?.cancel();
+    _dayActionTimer = null;
+    setState(() => _pendingDayAction = null);
+  }
+
+  TimetableDayActionIndicator? _dayActionIndicator(int week) {
+    final action = _pendingDayAction;
+    if (action == null || action.week != week) return null;
+    final milliseconds = action.remaining.inMilliseconds.clamp(0, 3000);
+    return TimetableDayActionIndicator(
+      weekday: action.weekday,
+      label: action.label,
+      seconds: ((milliseconds + 999) ~/ 1000).clamp(1, 3),
+      progress: milliseconds / 3000,
+    );
+  }
+
+  Set<int> _adjustedWeekdays(List<Course> courses, int week) {
+    final original = ref.read(scheduleProvider.notifier).originalCourses;
+    if (original.isEmpty) return const {};
+    final adjusted = <int>{};
+    for (var weekday = 1; weekday <= 7; weekday++) {
+      final current =
+          courses
+              .where(
+                (course) => course.weekday == weekday && course.isInWeek(week),
+              )
+              .map(_dayCourseSignature)
+              .toList()
+            ..sort();
+      final baseline =
+          original
+              .where(
+                (course) => course.weekday == weekday && course.isInWeek(week),
+              )
+              .map(_dayCourseSignature)
+              .toList()
+            ..sort();
+      if (current.length != baseline.length || !listEquals(current, baseline)) {
+        adjusted.add(weekday);
+      }
+    }
+    return adjusted;
+  }
+
+  String _dayCourseSignature(Course course) {
+    final sessions = [...course.sessions]..sort();
+    return [
+      course.title,
+      course.teacher,
+      sessions.join(','),
+      course.campus,
+      course.place,
+      course.colorIndex,
+      course.courseId,
+    ].join('\u001f');
   }
 
   Widget _buildEdgeTriggerOverlay(BuildContext context) {
@@ -530,6 +644,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                             },
                             itemBuilder: (context, index) {
                               final week = index + 1;
+                              final pendingDayAction = _dayActionIndicator(
+                                week,
+                              );
                               return RepaintBoundary(
                                 child: TimetableGrid(
                                   courses: courses,
@@ -583,16 +700,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                         session,
                                       ),
                                   onDayDoubleTap: (weekday) =>
-                                      _confirmClearDay(context, weekday, week),
+                                      _requestClearDay(weekday, week),
                                   onDayTripleTap: (weekday) =>
-                                      _confirmRestoreDay(
-                                        context,
-                                        weekday,
-                                        week,
-                                      ),
+                                      _requestRestoreDay(weekday, week),
                                   onDayDrop: (data, targetWeekday) =>
-                                      _confirmMoveDay(
-                                        context,
+                                      _requestMoveDay(
                                         data,
                                         targetWeekday,
                                         week,
@@ -600,12 +712,19 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                   onDayDragUpdate: _onDayDragUpdate,
                                   onDayDragStart: _onDayDragStart,
                                   onDayDragEnd: _onDayDragEnd,
+                                  pendingDayAction: pendingDayAction,
+                                  onPendingDayActionCancel: _cancelDayAction,
+                                  adjustedWeekdays: _adjustedWeekdays(
+                                    courses,
+                                    week,
+                                  ),
+                                  suppressDayDrop: _edgeTriggerSide != null,
                                 ),
                               );
                             },
                           ),
                           if (_dayDragActive)
-                            AbsorbPointer(
+                            IgnorePointer(
                               child: _buildEdgeTriggerOverlay(context),
                             ),
                         ],
@@ -830,127 +949,85 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   String _weekdayLabel(int weekday) =>
       const ['', '周一', '周二', '周三', '周四', '周五', '周六', '周日'][weekday.clamp(1, 7)];
 
-  void _confirmClearDay(BuildContext context, int weekday, int week) {
-    unawaited(_clearDayAfterConfirmation(context, weekday, week));
-  }
-
-  Future<void> _clearDayAfterConfirmation(
-    BuildContext context,
-    int weekday,
-    int week,
-  ) async {
+  void _requestClearDay(int weekday, int week) {
     final courses = ref.read(scheduleProvider).value ?? const <Course>[];
     final count = courses
         .where((course) => course.weekday == weekday && course.isInWeek(week))
         .length;
     if (count == 0) {
       if (mounted) {
-        showAppSnackBar(this.context, '${_weekdayLabel(weekday)}当天没有课程');
+        showAppSnackBar(context, '${_weekdayLabel(weekday)}当天没有课程');
       }
       return;
     }
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '清空${_weekdayLabel(weekday)}',
-      message: '仅清空第$week周${_weekdayLabel(weekday)}的课程，其他周不受影响。',
-      confirmLabel: '清空',
-      destructive: true,
+    _scheduleDayAction(
+      week: week,
+      weekday: weekday,
+      label: '清空',
+      execute: () => _clearDay(weekday, week),
     );
-    if (!confirmed) return;
+  }
+
+  Future<void> _clearDay(int weekday, int week) async {
     try {
       await ref
           .read(scheduleProvider.notifier)
           .clearCourseDayOccurrence(weekday: weekday, week: week);
       if (mounted) {
-        showAppSnackBar(this.context, '${_weekdayLabel(weekday)}已清空');
+        showAppSnackBar(context, '${_weekdayLabel(weekday)}已清空');
       }
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(
-          this.context,
-          '课程已清空，但$e',
-          severity: ToastSeverity.warning,
-        );
+        showAppSnackBar(context, '课程已清空，但$e', severity: ToastSeverity.warning);
       }
     }
   }
 
-  void _confirmRestoreDay(BuildContext context, int weekday, int week) {
-    unawaited(_restoreDayAfterConfirmation(context, weekday, week));
+  void _requestRestoreDay(int weekday, int week) {
+    _scheduleDayAction(
+      week: week,
+      weekday: weekday,
+      label: '恢复',
+      execute: () => _restoreDay(weekday, week),
+    );
   }
 
-  Future<void> _restoreDayAfterConfirmation(
-    BuildContext context,
-    int weekday,
-    int week,
-  ) async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '恢复${_weekdayLabel(weekday)}',
-      message: '恢复第$week周${_weekdayLabel(weekday)}的教务系统原始课表，覆盖本地调整。',
-      confirmLabel: '恢复',
-    );
-    if (!confirmed) return;
+  Future<void> _restoreDay(int weekday, int week) async {
     try {
       final restored = await ref
           .read(scheduleProvider.notifier)
           .restoreCourseDayOccurrence(weekday: weekday, week: week);
       if (!mounted) return;
       showAppSnackBar(
-        this.context,
+        context,
         restored ? '${_weekdayLabel(weekday)}已恢复' : '暂无教务系统原始课表，请先同步课表',
         severity: restored ? ToastSeverity.success : ToastSeverity.warning,
       );
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(
-          this.context,
-          '恢复课表失败，但$e',
-          severity: ToastSeverity.warning,
-        );
+        showAppSnackBar(context, '恢复课表失败，但$e', severity: ToastSeverity.warning);
       }
     }
   }
 
-  void _confirmMoveDay(
-    BuildContext context,
+  void _requestMoveDay(
     TimetableDayDragData data,
     int targetWeekday,
     int targetWeek,
   ) {
-    unawaited(
-      _moveDayAfterConfirmation(context, data, targetWeekday, targetWeek),
+    _scheduleDayAction(
+      week: targetWeek,
+      weekday: targetWeekday,
+      label: '移动',
+      execute: () => _moveDay(data, targetWeekday, targetWeek),
     );
   }
 
-  Future<void> _moveDayAfterConfirmation(
-    BuildContext context,
+  Future<void> _moveDay(
     TimetableDayDragData data,
     int targetWeekday,
     int targetWeek,
   ) async {
-    final courses = ref.read(scheduleProvider).value ?? const <Course>[];
-    final sourceCount = courses
-        .where(
-          (course) =>
-              course.weekday == data.weekday && course.isInWeek(data.week),
-        )
-        .length;
-    final targetCount = courses
-        .where(
-          (course) =>
-              course.weekday == targetWeekday && course.isInWeek(targetWeek),
-        )
-        .length;
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '移动到${_weekdayLabel(targetWeekday)}',
-      message:
-          '将第${data.week}周${_weekdayLabel(data.weekday)}的 $sourceCount 门课程移动到第$targetWeek周${_weekdayLabel(targetWeek)}，'
-          '先清空目标列的 $targetCount 门课程，源列会被清空。',
-      confirmLabel: '移动',
-    );
-    if (!confirmed) return;
     try {
       await ref
           .read(scheduleProvider.notifier)
@@ -962,18 +1039,14 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           );
       if (mounted) {
         showAppSnackBar(
-          this.context,
+          context,
           '${_weekdayLabel(targetWeekday)}已完成移动',
           severity: ToastSeverity.success,
         );
       }
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(
-          this.context,
-          '课程已移动，但$e',
-          severity: ToastSeverity.warning,
-        );
+        showAppSnackBar(context, '课程已移动，但$e', severity: ToastSeverity.warning);
       }
     }
   }

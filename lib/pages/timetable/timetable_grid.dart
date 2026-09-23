@@ -17,6 +17,20 @@ class TimetableDayDragData {
   const TimetableDayDragData({required this.week, required this.weekday});
 }
 
+class TimetableDayActionIndicator {
+  final int weekday;
+  final String label;
+  final int seconds;
+  final double progress;
+
+  const TimetableDayActionIndicator({
+    required this.weekday,
+    required this.label,
+    required this.seconds,
+    required this.progress,
+  });
+}
+
 /// A single day's timetable.
 ///
 /// The widget memoizes the expensive part of its layout computation: the
@@ -46,6 +60,10 @@ class TimetableGrid extends StatefulWidget {
   final ValueChanged<Offset>? onDayDragUpdate;
   final VoidCallback? onDayDragStart;
   final VoidCallback? onDayDragEnd;
+  final TimetableDayActionIndicator? pendingDayAction;
+  final ValueChanged<int>? onPendingDayActionCancel;
+  final Set<int> adjustedWeekdays;
+  final bool suppressDayDrop;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
   final double borderWidth;
@@ -79,6 +97,10 @@ class TimetableGrid extends StatefulWidget {
     this.onDayDragUpdate,
     this.onDayDragStart,
     this.onDayDragEnd,
+    this.pendingDayAction,
+    this.onPendingDayActionCancel,
+    this.adjustedWeekdays = const {},
+    this.suppressDayDrop = false,
     this.countdownAnimation,
     required this.borderColor,
     this.borderWidth = 0.5,
@@ -562,41 +584,50 @@ class _TimetableGridState extends State<TimetableGrid> {
     required bool canDrag,
   }) {
     final theme = context.theme;
-    final highlighted = _dragHoverWeekday == weekday;
+    final highlighted = !widget.suppressDayDrop && _dragHoverWeekday == weekday;
+    final adjusted = widget.adjustedWeekdays.contains(weekday);
+    final pending = widget.pendingDayAction?.weekday == weekday
+        ? widget.pendingDayAction
+        : null;
     final header = GestureDetector(
-      onTap: () => _handleHeaderTap(weekday),
+      onTap: pending == null
+          ? () => _handleHeaderTap(weekday)
+          : () => widget.onPendingDayActionCancel?.call(weekday),
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: highlighted
               ? theme.colors.primary.withValues(alpha: 0.14)
+              : adjusted
+              ? theme.colors.primary.withValues(alpha: 0.10)
               : isToday
               ? theme.colors.secondary.withAlpha(128)
               : null,
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
-          child: Column(
+        child: ClipRect(
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                '${date.day}',
-                style: theme.typography.caption.copyWith(
-                  fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-                  color: isToday
-                      ? theme.colors.primary
-                      : theme.colors.mutedForeground,
-                  fontSize: widget.dateTextSize,
+              pending == null
+                  ? _buildDayHeaderDate(
+                      theme,
+                      date: date,
+                      weekdayLabel: weekdayLabel,
+                      isToday: isToday,
+                    )
+                  : _buildPendingDayAction(theme, pending),
+              if (adjusted && pending == null)
+                Positioned(
+                  top: 2,
+                  right: 3,
+                  child: Text(
+                    '调',
+                    style: theme.typography.caption.copyWith(
+                      color: theme.colors.primary,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-              Text(
-                weekdayLabel,
-                style: theme.typography.caption.copyWith(
-                  fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-                  color: isToday
-                      ? theme.colors.primary
-                      : theme.colors.mutedForeground,
-                  fontSize: widget.dateTextSize,
-                ),
-              ),
             ],
           ),
         ),
@@ -642,6 +673,7 @@ class _TimetableGridState extends State<TimetableGrid> {
     );
     return DragTarget<TimetableDayDragData>(
       onWillAcceptWithDetails: (details) {
+        if (widget.suppressDayDrop) return false;
         final accepting =
             details.data.week != widget.week || details.data.weekday != weekday;
         _hoverColumnDrag(weekday, accepting);
@@ -651,13 +683,93 @@ class _TimetableGridState extends State<TimetableGrid> {
       onAcceptWithDetails: (details) =>
           _acceptColumnDrop(weekday, details.data),
       builder: (context, candidateData, rejectedData) =>
-          canDrag ? dragChild : header,
+          canDrag && pending == null ? dragChild : header,
     );
   }
+
+  Widget _buildDayHeaderDate(
+    FThemeData theme, {
+    required DateTime date,
+    required String weekdayLabel,
+    required bool isToday,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Column(
+      children: [
+        Text(
+          '${date.day}',
+          style: theme.typography.caption.copyWith(
+            fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
+            color: isToday
+                ? theme.colors.primary
+                : theme.colors.mutedForeground,
+            fontSize: widget.dateTextSize,
+          ),
+        ),
+        Text(
+          weekdayLabel,
+          style: theme.typography.caption.copyWith(
+            fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
+            color: isToday
+                ? theme.colors.primary
+                : theme.colors.mutedForeground,
+            fontSize: widget.dateTextSize,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildPendingDayAction(
+    FThemeData theme,
+    TimetableDayActionIndicator action,
+  ) => Padding(
+    padding: EdgeInsets.zero,
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox.square(
+          dimension: 18,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CircularProgressIndicator(
+                value: action.progress,
+                strokeWidth: 2,
+                color: theme.colors.primary,
+                backgroundColor: theme.colors.primary.withValues(alpha: 0.18),
+              ),
+              Center(
+                child: Text(
+                  '${action.seconds}s',
+                  style: theme.typography.caption.copyWith(
+                    color: theme.colors.primary,
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Text(
+          action.label,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: theme.typography.caption.copyWith(
+            color: theme.colors.primary,
+            fontSize: 8,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _wrapColumnDropTarget({required int weekday, required Widget child}) {
     return DragTarget<TimetableDayDragData>(
       onWillAcceptWithDetails: (details) {
+        if (widget.suppressDayDrop) return false;
         final accepting =
             details.data.week != widget.week || details.data.weekday != weekday;
         _hoverColumnDrag(weekday, accepting);
@@ -667,7 +779,8 @@ class _TimetableGridState extends State<TimetableGrid> {
       onAcceptWithDetails: (details) =>
           _acceptColumnDrop(weekday, details.data),
       builder: (context, candidateData, rejectedData) {
-        final highlighted = _dragHoverWeekday == weekday;
+        final highlighted =
+            !widget.suppressDayDrop && _dragHoverWeekday == weekday;
         return Stack(
           fit: StackFit.expand,
           children: [

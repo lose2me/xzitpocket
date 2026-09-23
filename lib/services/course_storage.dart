@@ -25,6 +25,8 @@ class CourseStorage {
 
   List<Course> getCourses() => _courseBox.values.toList();
 
+  List<Course> getOriginalCourses() => _originalCourseBox.values.toList();
+
   (List<int> keys, List<Course> courses) getCoursesWithKeys() {
     final keys = <int>[];
     final courses = <Course>[];
