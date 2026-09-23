@@ -442,7 +442,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                       child: IgnorePointer(
                                         child: Center(
                                           child: Icon(
-                                            FLucideIcons.chevronDown,
+                                            FLucideIcons.chevronsDown,
                                             size: 18,
                                             color: theme.colors.primary,
                                           ),
