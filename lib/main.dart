@@ -94,7 +94,7 @@ Future<void> _finishStartup(
       ControlService.instance.syncAfterOaLogin(
         studentId: studentId,
         displayName: preferencesStorage.getStudentName() ?? '',
-        majorName: preferencesStorage.getMajorName() ?? '',
+        collegeName: preferencesStorage.getCollegeName() ?? '',
         className: preferencesStorage.getClassName() ?? '',
       ),
     );

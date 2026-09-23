@@ -35,6 +35,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTimeTextSize: _storage.getTimetableTimeTextSize(),
       timetableDateTextSize: _storage.getTimetableDateTextSize(),
       timetableCourseBorderWidth: _storage.getTimetableCourseBorderWidth(),
+      timetableCourseBorderOpacity: _storage.getTimetableCourseBorderOpacity(),
+      showTimetableAdjustments: _storage.getShowTimetableAdjustments(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
       showTodayGridLines: _storage.getShowTodayGridLines(),
       hiddenServiceFeatures: {
@@ -96,27 +98,33 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setTimetableCourseTextSize(double value) async {
-    final normalized = value.clamp(8.0, 18.0).toDouble();
+    final normalized = _normalizeTimetableDimension(value, 8.0, 18.0);
     await _storage.setTimetableCourseTextSize(normalized);
     state = state.copyWith(timetableCourseTextSize: normalized);
   }
 
   Future<void> setTimetableTimeTextSize(double value) async {
-    final normalized = value.clamp(8.0, 18.0).toDouble();
+    final normalized = _normalizeTimetableDimension(value, 8.0, 18.0);
     await _storage.setTimetableTimeTextSize(normalized);
     state = state.copyWith(timetableTimeTextSize: normalized);
   }
 
   Future<void> setTimetableDateTextSize(double value) async {
-    final normalized = value.clamp(8.0, 18.0).toDouble();
+    final normalized = _normalizeTimetableDimension(value, 8.0, 18.0);
     await _storage.setTimetableDateTextSize(normalized);
     state = state.copyWith(timetableDateTextSize: normalized);
   }
 
   Future<void> setTimetableCourseBorderWidth(double value) async {
-    final normalized = value.clamp(0.0, 3.0).toDouble();
+    final normalized = _normalizeTimetableDimension(value, 0.0, 3.0);
     await _storage.setTimetableCourseBorderWidth(normalized);
     state = state.copyWith(timetableCourseBorderWidth: normalized);
+  }
+
+  Future<void> setTimetableCourseBorderOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    await _storage.setTimetableCourseBorderOpacity(normalized);
+    state = state.copyWith(timetableCourseBorderOpacity: normalized);
   }
 
   Future<void> resetTimetableAppearance() async {
@@ -131,6 +139,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTimeTextSize: defaults.timetableTimeTextSize,
       timetableDateTextSize: defaults.timetableDateTextSize,
       timetableCourseBorderWidth: defaults.timetableCourseBorderWidth,
+      timetableCourseBorderOpacity: defaults.timetableCourseBorderOpacity,
+      showTimetableAdjustments: defaults.showTimetableAdjustments,
       showTimetableGridLines: defaults.showTimetableGridLines,
       showTodayGridLines: defaults.showTodayGridLines,
     );
@@ -139,6 +149,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setShowTimetableGridLines(bool value) async {
     await _storage.setShowTimetableGridLines(value);
     state = state.copyWith(showTimetableGridLines: value);
+  }
+
+  Future<void> setShowTimetableAdjustments(bool value) async {
+    await _storage.setShowTimetableAdjustments(value);
+    state = state.copyWith(showTimetableAdjustments: value);
   }
 
   Future<void> setShowTodayGridLines(bool value) async {
@@ -161,4 +176,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
     state = state.copyWith(hiddenServiceFeatures: hidden);
   }
+}
+
+double _normalizeTimetableDimension(double value, double min, double max) {
+  final rounded = (value * 10).round() / 10.0;
+  return rounded.clamp(min, max).toDouble();
 }

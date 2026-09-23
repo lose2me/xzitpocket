@@ -104,6 +104,8 @@ class AppSettings {
   final double timetableTimeTextSize;
   final double timetableDateTextSize;
   final double timetableCourseBorderWidth;
+  final double timetableCourseBorderOpacity;
+  final bool showTimetableAdjustments;
   final bool showTimetableGridLines;
   final bool showTodayGridLines;
   final Set<AppServiceFeature> hiddenServiceFeatures;
@@ -120,6 +122,8 @@ class AppSettings {
     this.timetableTimeTextSize = 11.0,
     this.timetableDateTextSize = 12.0,
     this.timetableCourseBorderWidth = 0.5,
+    this.timetableCourseBorderOpacity = 0.6,
+    this.showTimetableAdjustments = true,
     this.showTimetableGridLines = true,
     this.showTodayGridLines = false,
     this.hiddenServiceFeatures = const {},
@@ -139,6 +143,8 @@ class AppSettings {
     double? timetableTimeTextSize,
     double? timetableDateTextSize,
     double? timetableCourseBorderWidth,
+    double? timetableCourseBorderOpacity,
+    bool? showTimetableAdjustments,
     bool? showTimetableGridLines,
     bool? showTodayGridLines,
     Set<AppServiceFeature>? hiddenServiceFeatures,
@@ -163,6 +169,10 @@ class AppSettings {
           timetableDateTextSize ?? this.timetableDateTextSize,
       timetableCourseBorderWidth:
           timetableCourseBorderWidth ?? this.timetableCourseBorderWidth,
+      timetableCourseBorderOpacity:
+          timetableCourseBorderOpacity ?? this.timetableCourseBorderOpacity,
+      showTimetableAdjustments:
+          showTimetableAdjustments ?? this.showTimetableAdjustments,
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
       showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,

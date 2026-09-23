@@ -150,7 +150,7 @@ class ControlService {
   Future<void> syncAfterOaLogin({
     required String studentId,
     required String displayName,
-    String majorName = '',
+    String collegeName = '',
     String className = '',
     bool forceProfileUpdate = false,
   }) async {
@@ -162,7 +162,7 @@ class ControlService {
     final future = _syncAfterOaLogin(
       studentId: normalizedStudentId,
       displayName: displayName.trim(),
-      majorName: majorName.trim(),
+      collegeName: collegeName.trim(),
       className: className.trim(),
       forceProfileUpdate: forceProfileUpdate,
     );
@@ -179,7 +179,7 @@ class ControlService {
   Future<void> _syncAfterOaLogin({
     required String studentId,
     required String displayName,
-    required String majorName,
+    required String collegeName,
     required String className,
     required bool forceProfileUpdate,
     bool retryingDevice = false,
@@ -207,7 +207,7 @@ class ControlService {
         return _syncAfterOaLogin(
           studentId: studentId,
           displayName: displayName,
-          majorName: majorName,
+          collegeName: collegeName,
           className: className,
           forceProfileUpdate: forceProfileUpdate,
           retryingDevice: true,
@@ -233,7 +233,7 @@ class ControlService {
       'student_id': studentId,
       'student_alias': alias,
       'display_name': displayName,
-      'major_name': majorName,
+      'college_name': collegeName,
       'class_name': className,
       'asserted_at': assertedAt,
     };
@@ -245,8 +245,8 @@ class ControlService {
       studentId,
       alias,
       displayName,
-      if (majorName.isNotEmpty || className.isNotEmpty) ...[
-        majorName,
+      if (collegeName.isNotEmpty || className.isNotEmpty) ...[
+        collegeName,
         className,
       ],
       assertedAt,
@@ -276,7 +276,7 @@ class ControlService {
         return _syncAfterOaLogin(
           studentId: studentId,
           displayName: displayName,
-          majorName: majorName,
+          collegeName: collegeName,
           className: className,
           forceProfileUpdate: forceProfileUpdate,
           retryingDevice: true,

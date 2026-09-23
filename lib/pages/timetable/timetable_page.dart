@@ -39,12 +39,16 @@ class _PendingDayAction {
   final String label;
   final DateTime deadline;
   final Future<void> Function() execute;
+  final TimetableDayActionType type;
+  final Map<int, Set<int>> affectedDaysByWeek;
 
   _PendingDayAction({
     required this.week,
     required this.weekday,
     required this.label,
     required this.execute,
+    required this.type,
+    required this.affectedDaysByWeek,
   }) : deadline = DateTime.now().add(const Duration(seconds: 3));
 
   Duration get remaining => deadline.difference(DateTime.now());
@@ -275,6 +279,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     required int week,
     required int weekday,
     required String label,
+    required TimetableDayActionType type,
+    required Map<int, Set<int>> affectedDaysByWeek,
     required Future<void> Function() execute,
   }) {
     _dayActionTimer?.cancel();
@@ -283,6 +289,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       weekday: weekday,
       label: label,
       execute: execute,
+      type: type,
+      affectedDaysByWeek: affectedDaysByWeek,
     );
     setState(() => _pendingDayAction = action);
     _dayActionTimer = Timer.periodic(const Duration(milliseconds: 100), (
@@ -305,7 +313,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   void _cancelDayAction(int weekday) {
     final action = _pendingDayAction;
-    if (action == null || action.weekday != weekday) return;
+    if (action == null ||
+        !action.affectedDaysByWeek.values.any(
+          (days) => days.contains(weekday),
+        )) {
+      return;
+    }
     _dayActionTimer?.cancel();
     _dayActionTimer = null;
     setState(() => _pendingDayAction = null);
@@ -314,12 +327,15 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   TimetableDayActionIndicator? _dayActionIndicator(int week) {
     final action = _pendingDayAction;
     if (action == null || action.week != week) return null;
+    final affectedWeekdays = action.affectedDaysByWeek[week];
+    if (affectedWeekdays == null || affectedWeekdays.isEmpty) return null;
     final milliseconds = action.remaining.inMilliseconds.clamp(0, 3000);
     return TimetableDayActionIndicator(
       weekday: action.weekday,
       label: action.label,
       seconds: ((milliseconds + 999) ~/ 1000).clamp(1, 3),
-      progress: milliseconds / 3000,
+      type: action.type,
+      affectedWeekdays: affectedWeekdays,
     );
   }
 
@@ -475,7 +491,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                 courses: loginResult.courses,
                 studentId: loginResult.studentId ?? sid,
                 studentName: loginResult.studentName ?? '',
-                majorName: loginResult.majorName ?? '',
+                collegeName: loginResult.collegeName ?? '',
                 className: loginResult.className ?? '',
               );
         } on WidgetSyncException catch (e) {
@@ -582,7 +598,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final courseBorderColor = context.theme.colors.foreground;
     final courseOpacity = settings.timetableComponentOpacity;
-    final courseBorderOpacity = settings.timetableComponentOpacity;
+    final courseBorderOpacity = settings.timetableCourseBorderOpacity;
 
     return ListenableBuilder(
       listenable: semesterCalendar,
@@ -718,6 +734,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                     courses,
                                     week,
                                   ),
+                                  showTimetableAdjustments:
+                                      settings.showTimetableAdjustments,
                                   suppressDayDrop: _edgeTriggerSide != null,
                                 ),
                               );
@@ -964,6 +982,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       week: week,
       weekday: weekday,
       label: '清空',
+      type: TimetableDayActionType.clear,
+      affectedDaysByWeek: {
+        week: {weekday},
+      },
       execute: () => _clearDay(weekday, week),
     );
   }
@@ -984,10 +1006,16 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   void _requestRestoreDay(int weekday, int week) {
+    final courses = ref.read(scheduleProvider).value ?? const <Course>[];
+    if (!_adjustedWeekdays(courses, week).contains(weekday)) return;
     _scheduleDayAction(
       week: week,
       weekday: weekday,
       label: '恢复',
+      type: TimetableDayActionType.restore,
+      affectedDaysByWeek: {
+        week: {weekday},
+      },
       execute: () => _restoreDay(weekday, week),
     );
   }
@@ -1015,10 +1043,20 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     int targetWeekday,
     int targetWeek,
   ) {
+    final affectedDaysByWeek = <int, Set<int>>{
+      data.week: {data.weekday},
+    };
+    affectedDaysByWeek.update(
+      targetWeek,
+      (days) => {...days, targetWeekday},
+      ifAbsent: () => {targetWeekday},
+    );
     _scheduleDayAction(
       week: targetWeek,
       weekday: targetWeekday,
       label: '移动',
+      type: TimetableDayActionType.move,
+      affectedDaysByWeek: affectedDaysByWeek,
       execute: () => _moveDay(data, targetWeekday, targetWeek),
     );
   }

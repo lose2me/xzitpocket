@@ -15,14 +15,14 @@ import 'cas_service.dart';
 class LoginResult {
   final String? studentId;
   final String? studentName;
-  final String? majorName;
+  final String? collegeName;
   final String? className;
   final List<Course> courses;
 
   LoginResult({
     this.studentId,
     this.studentName,
-    this.majorName,
+    this.collegeName,
     this.className,
     required this.courses,
   });
@@ -736,14 +736,39 @@ class AuthService {
     }
 
     final xsxx = (data['xsxx'] as Map<String, dynamic>?) ?? {};
+    final collegeName = await _fetchCollegeName(dio);
 
     return LoginResult(
       studentId: xsxx['XH']?.toString().trim(),
       studentName: xsxx['XM']?.toString().trim(),
-      majorName: xsxx['ZYMC']?.toString().trim(),
+      collegeName: collegeName,
       className: xsxx['BJMC']?.toString().trim(),
       courses: courses,
     );
+  }
+
+  Future<String> _fetchCollegeName(Dio dio) async {
+    try {
+      final response = await dio.get(
+        '$jwBaseUrl/xsxxxggl/xsgrxxwh_cxXsgrxx.html?gnmkdm=N100801&layout=default',
+        options: Options(responseType: ResponseType.plain),
+      );
+      final body = response.data?.toString() ?? '';
+      if (body.contains('用户登录')) return '';
+
+      final document = html_parser.parse(body);
+      for (final label in document.querySelectorAll('label')) {
+        if (!label.text.replaceAll(RegExp(r'\s+'), '').contains('学院名称')) {
+          continue;
+        }
+        final value = label.parent?.querySelector('.form-control-static')?.text;
+        final normalized = value?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
+        if (normalized.isNotEmpty) return normalized;
+      }
+    } catch (_) {
+      // The profile page is supplementary; do not fail a successful schedule login.
+    }
+    return '';
   }
 
   Future<BookListResult> _fetchBookList(

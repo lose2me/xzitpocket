@@ -154,6 +154,16 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 title: '姓名',
                 value: config.studentName ?? '',
               ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.building2,
+                title: '学院',
+                value: config.collegeName ?? '',
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.users,
+                title: '班级',
+                value: config.className ?? '',
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -726,7 +736,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
               courses: loginResult.courses,
               studentId: loginResult.studentId ?? sid,
               studentName: loginResult.studentName ?? '',
-              majorName: loginResult.majorName ?? '',
+              collegeName: loginResult.collegeName ?? '',
               className: loginResult.className ?? '',
             );
       } on WidgetSyncException catch (e) {

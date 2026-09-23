@@ -16,9 +16,9 @@ class PreferencesStorage {
   Future<void> setStudentName(String name) =>
       _prefs.setString('student_name', name);
 
-  String? getMajorName() => _prefs.getString('major_name');
-  Future<void> setMajorName(String name) =>
-      _prefs.setString('major_name', name);
+  String? getCollegeName() => _prefs.getString('college_name');
+  Future<void> setCollegeName(String name) =>
+      _prefs.setString('college_name', name);
 
   String? getClassName() => _prefs.getString('class_name');
   Future<void> setClassName(String name) =>
@@ -27,6 +27,7 @@ class PreferencesStorage {
   Future<void> clearStudentInfo() async {
     await _prefs.remove('student_id');
     await _prefs.remove('student_name');
+    await _prefs.remove('college_name');
     await _prefs.remove('major_name');
     await _prefs.remove('class_name');
   }
@@ -86,45 +87,67 @@ class PreferencesStorage {
     value.clamp(0.0, 1.0).toDouble(),
   );
 
-  double getTimetableCourseTextSize() =>
-      (_prefs.getDouble('timetable_course_text_size') ?? 12.0)
-          .clamp(8.0, 18.0)
-          .toDouble();
+  double getTimetableCourseTextSize() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_course_text_size') ?? 12.0,
+    min: 8.0,
+    max: 18.0,
+  );
 
   Future<void> setTimetableCourseTextSize(double value) => _prefs.setDouble(
     'timetable_course_text_size',
-    value.clamp(8.0, 18.0).toDouble(),
+    _clampTimetableDimension(value, min: 8.0, max: 18.0),
   );
 
-  double getTimetableTimeTextSize() =>
-      (_prefs.getDouble('timetable_time_text_size') ?? 11.0)
-          .clamp(8.0, 18.0)
-          .toDouble();
+  double getTimetableTimeTextSize() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_time_text_size') ?? 11.0,
+    min: 8.0,
+    max: 18.0,
+  );
 
   Future<void> setTimetableTimeTextSize(double value) => _prefs.setDouble(
     'timetable_time_text_size',
-    value.clamp(8.0, 18.0).toDouble(),
+    _clampTimetableDimension(value, min: 8.0, max: 18.0),
   );
 
-  double getTimetableDateTextSize() =>
-      (_prefs.getDouble('timetable_date_text_size') ?? 12.0)
-          .clamp(8.0, 18.0)
-          .toDouble();
+  double getTimetableDateTextSize() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_date_text_size') ?? 12.0,
+    min: 8.0,
+    max: 18.0,
+  );
 
   Future<void> setTimetableDateTextSize(double value) => _prefs.setDouble(
     'timetable_date_text_size',
-    value.clamp(8.0, 18.0).toDouble(),
+    _clampTimetableDimension(value, min: 8.0, max: 18.0),
   );
 
-  double getTimetableCourseBorderWidth() =>
-      (_prefs.getDouble('timetable_course_border_width') ?? 0.5)
-          .clamp(0.0, 3.0)
-          .toDouble();
+  double getTimetableCourseBorderWidth() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_course_border_width') ?? 0.5,
+    min: 0.0,
+    max: 3.0,
+  );
 
   Future<void> setTimetableCourseBorderWidth(double value) => _prefs.setDouble(
     'timetable_course_border_width',
-    value.clamp(0.0, 3.0).toDouble(),
+    _clampTimetableDimension(value, min: 0.0, max: 3.0),
   );
+
+  double getTimetableCourseBorderOpacity() =>
+      (_prefs.getDouble('timetable_course_border_opacity') ??
+              getTimetableComponentOpacity())
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseBorderOpacity(double value) =>
+      _prefs.setDouble(
+        'timetable_course_border_opacity',
+        value.clamp(0.0, 1.0).toDouble(),
+      );
+
+  bool getShowTimetableAdjustments() =>
+      _prefs.getBool('show_timetable_adjustments') ?? true;
+
+  Future<void> setShowTimetableAdjustments(bool value) =>
+      _prefs.setBool('show_timetable_adjustments', value);
 
   Future<void> resetTimetableAppearance() async {
     await Future.wait([
@@ -136,6 +159,8 @@ class PreferencesStorage {
       _prefs.remove('timetable_time_text_size'),
       _prefs.remove('timetable_date_text_size'),
       _prefs.remove('timetable_course_border_width'),
+      _prefs.remove('timetable_course_border_opacity'),
+      _prefs.remove('show_timetable_adjustments'),
       _prefs.remove('show_timetable_grid_lines'),
       _prefs.remove('show_today_grid_lines'),
     ]);
@@ -328,6 +353,15 @@ class PreferencesStorage {
       _clearCache('netauth_cache', 'netauth_cache_time'),
       clearLearningCache(),
     ]);
+  }
+
+  static double _clampTimetableDimension(
+    double value, {
+    required double min,
+    required double max,
+  }) {
+    final normalized = (value * 10).round() / 10.0;
+    return normalized.clamp(min, max).toDouble();
   }
 
   // ── Cache validity ──

@@ -17,17 +17,21 @@ class TimetableDayDragData {
   const TimetableDayDragData({required this.week, required this.weekday});
 }
 
+enum TimetableDayActionType { move, clear, restore }
+
 class TimetableDayActionIndicator {
   final int weekday;
   final String label;
   final int seconds;
-  final double progress;
+  final TimetableDayActionType type;
+  final Set<int> affectedWeekdays;
 
   const TimetableDayActionIndicator({
     required this.weekday,
     required this.label,
     required this.seconds,
-    required this.progress,
+    required this.type,
+    this.affectedWeekdays = const {},
   });
 }
 
@@ -63,6 +67,7 @@ class TimetableGrid extends StatefulWidget {
   final TimetableDayActionIndicator? pendingDayAction;
   final ValueChanged<int>? onPendingDayActionCancel;
   final Set<int> adjustedWeekdays;
+  final bool showTimetableAdjustments;
   final bool suppressDayDrop;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
@@ -100,6 +105,7 @@ class TimetableGrid extends StatefulWidget {
     this.pendingDayAction,
     this.onPendingDayActionCancel,
     this.adjustedWeekdays = const {},
+    this.showTimetableAdjustments = true,
     this.suppressDayDrop = false,
     this.countdownAnimation,
     required this.borderColor,
@@ -585,50 +591,68 @@ class _TimetableGridState extends State<TimetableGrid> {
   }) {
     final theme = context.theme;
     final highlighted = !widget.suppressDayDrop && _dragHoverWeekday == weekday;
-    final adjusted = widget.adjustedWeekdays.contains(weekday);
-    final pending = widget.pendingDayAction?.weekday == weekday
+    final adjusted =
+        widget.showTimetableAdjustments &&
+        widget.adjustedWeekdays.contains(weekday);
+    final pending =
+        widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true
         ? widget.pendingDayAction
         : null;
+    final pendingAffectsDay =
+        widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true;
+    final draggingSource = _dragSourceWeekday == weekday;
+    final actionType = pendingAffectsDay
+        ? widget.pendingDayAction!.type
+        : draggingSource
+        ? TimetableDayActionType.move
+        : null;
+    final actionColor = _actionColor(theme, actionType);
     final header = GestureDetector(
       onTap: pending == null
           ? () => _handleHeaderTap(weekday)
           : () => widget.onPendingDayActionCancel?.call(weekday),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: highlighted
-              ? theme.colors.primary.withValues(alpha: 0.14)
-              : adjusted
-              ? theme.colors.primary.withValues(alpha: 0.10)
-              : isToday
-              ? theme.colors.secondary.withAlpha(128)
-              : null,
-        ),
-        child: ClipRect(
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              pending == null
-                  ? _buildDayHeaderDate(
-                      theme,
-                      date: date,
-                      weekdayLabel: weekdayLabel,
-                      isToday: isToday,
-                    )
-                  : _buildPendingDayAction(theme, pending),
-              if (adjusted && pending == null)
-                Positioned(
-                  top: 2,
-                  right: 3,
-                  child: Text(
-                    '调',
-                    style: theme.typography.caption.copyWith(
-                      color: theme.colors.primary,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
+      child: SizedBox(
+        height: 40,
+        width: double.infinity,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: highlighted
+                ? const Color(0xFF8B5CF6).withValues(alpha: 0.16)
+                : actionColor != null
+                ? actionColor.withValues(alpha: 0.16)
+                : adjusted
+                ? theme.colors.primary.withValues(alpha: 0.05)
+                : isToday
+                ? theme.colors.primary.withValues(alpha: 0.24)
+                : null,
+          ),
+          child: ClipRect(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                pending == null
+                    ? _buildDayHeaderDate(
+                        theme,
+                        date: date,
+                        weekdayLabel: weekdayLabel,
+                        isToday: isToday,
+                      )
+                    : _buildPendingDayAction(theme, pending),
+                if (adjusted && pending == null)
+                  Positioned(
+                    top: 2,
+                    right: 3,
+                    child: Text(
+                      '调',
+                      style: theme.typography.caption.copyWith(
+                        color: theme.colors.primary.withValues(alpha: 0.62),
+                        fontSize: 7,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -646,12 +670,12 @@ class _TimetableGridState extends State<TimetableGrid> {
         widget.onDayDragEnd?.call();
       },
       feedback: Transform.translate(
-        offset: const Offset(0, -72),
+        offset: const Offset(0, -48),
         child: Material(
           color: Colors.transparent,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: theme.colors.primary.withValues(alpha: 0.92),
+              color: const Color(0xFF8B5CF6).withValues(alpha: 0.92),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Padding(
@@ -668,7 +692,7 @@ class _TimetableGridState extends State<TimetableGrid> {
           ),
         ),
       ),
-      childWhenDragging: Opacity(opacity: 0.42, child: header),
+      childWhenDragging: header,
       child: header,
     );
     return DragTarget<TimetableDayDragData>(
@@ -720,50 +744,39 @@ class _TimetableGridState extends State<TimetableGrid> {
     ),
   );
 
+  Color? _actionColor(FThemeData theme, TimetableDayActionType? type) =>
+      switch (type) {
+        TimetableDayActionType.move => const Color(0xFF8B5CF6),
+        TimetableDayActionType.clear => theme.colors.destructive,
+        TimetableDayActionType.restore => const Color(0xFF22C55E),
+        null => null,
+      };
+
   Widget _buildPendingDayAction(
     FThemeData theme,
     TimetableDayActionIndicator action,
-  ) => Padding(
-    padding: EdgeInsets.zero,
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox.square(
-          dimension: 18,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CircularProgressIndicator(
-                value: action.progress,
-                strokeWidth: 2,
-                color: theme.colors.primary,
-                backgroundColor: theme.colors.primary.withValues(alpha: 0.18),
-              ),
-              Center(
-                child: Text(
-                  '${action.seconds}s',
-                  style: theme.typography.caption.copyWith(
-                    color: theme.colors.primary,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
+  ) => Column(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      Text(
+        '${action.seconds}s',
+        style: theme.typography.caption.copyWith(
+          color: _actionColor(theme, action.type),
+          fontSize: widget.dateTextSize,
+          fontWeight: FontWeight.w700,
         ),
-        Text(
-          action.label,
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: theme.typography.caption.copyWith(
-            color: theme.colors.primary,
-            fontSize: 8,
-            fontWeight: FontWeight.w600,
-          ),
+      ),
+      Text(
+        action.label,
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+        style: theme.typography.caption.copyWith(
+          color: _actionColor(theme, action.type),
+          fontSize: widget.dateTextSize,
+          fontWeight: FontWeight.w600,
         ),
-      ],
-    ),
+      ),
+    ],
   );
 
   Widget _wrapColumnDropTarget({required int weekday, required Widget child}) {
@@ -781,17 +794,30 @@ class _TimetableGridState extends State<TimetableGrid> {
       builder: (context, candidateData, rejectedData) {
         final highlighted =
             !widget.suppressDayDrop && _dragHoverWeekday == weekday;
+        final pendingAffected =
+            widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true;
+        final actionColor = _actionColor(
+          context.theme,
+          pendingAffected
+              ? widget.pendingDayAction!.type
+              : _dragSourceWeekday == weekday
+              ? TimetableDayActionType.move
+              : null,
+        );
         return Stack(
           fit: StackFit.expand,
           children: [
-            Opacity(
-              opacity: _dragSourceWeekday == weekday ? 0.42 : 1,
-              child: child,
-            ),
+            Opacity(opacity: 1, child: child),
+            if (actionColor != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ColoredBox(color: actionColor.withValues(alpha: 0.10)),
+                ),
+              ),
             if (highlighted)
               IgnorePointer(
                 child: ColoredBox(
-                  color: context.theme.colors.primary.withValues(alpha: 0.08),
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.08),
                 ),
               ),
           ],

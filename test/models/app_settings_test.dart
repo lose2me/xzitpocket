@@ -86,6 +86,8 @@ void main() {
       expect(settings.timetableTimeTextSize, 11.0);
       expect(settings.timetableDateTextSize, 12.0);
       expect(settings.timetableCourseBorderWidth, 0.5);
+      expect(settings.timetableCourseBorderOpacity, 0.6);
+      expect(settings.showTimetableAdjustments, isTrue);
       expect(settings.showTimetableGridLines, isTrue);
       expect(settings.showTodayGridLines, isFalse);
       expect(settings.hiddenServiceFeatures, isEmpty);
@@ -104,6 +106,8 @@ void main() {
         timetableTimeTextSize: 10,
         timetableDateTextSize: 13,
         timetableCourseBorderWidth: 1.2,
+        timetableCourseBorderOpacity: 0.35,
+        showTimetableAdjustments: false,
         showTimetableGridLines: false,
         showTodayGridLines: false,
         hiddenServiceFeatures: {
@@ -122,6 +126,8 @@ void main() {
       expect(updated.timetableTimeTextSize, 10);
       expect(updated.timetableDateTextSize, 13);
       expect(updated.timetableCourseBorderWidth, 1.2);
+      expect(updated.timetableCourseBorderOpacity, 0.35);
+      expect(updated.showTimetableAdjustments, isFalse);
       expect(updated.showTimetableGridLines, isFalse);
       expect(updated.showTodayGridLines, isFalse);
       expect(updated.hiddenServiceFeatures, {

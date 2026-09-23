@@ -170,7 +170,7 @@ class ToolsDataManager extends ChangeNotifier {
     await ControlService.instance.syncAfterOaLogin(
       studentId: studentId,
       displayName: displayName,
-      majorName: prefs.getMajorName() ?? '',
+      collegeName: prefs.getCollegeName() ?? '',
       className: prefs.getClassName() ?? '',
       forceProfileUpdate: true,
     );

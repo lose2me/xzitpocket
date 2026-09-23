@@ -86,6 +86,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     .read(appSettingsProvider.notifier)
                     .setShowTodayGridLines(value),
               ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.pencilLine,
+                title: '显示对原课表的调整',
+                value: settings.showTimetableAdjustments,
+                onChange: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setShowTimetableAdjustments(value),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
@@ -103,6 +111,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
                       .setTimetableComponentOpacity(1 - value),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.grid2x2,
+                title: '课表组件边框透明度',
+                value:
+                    '${((1 - settings.timetableCourseBorderOpacity) * 100).round()}%',
+                onTap: () => _openOpacitySheet(
+                  title: '课表组件边框透明度',
+                  currentValue: 1 - settings.timetableCourseBorderOpacity,
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setTimetableCourseBorderOpacity(1 - value),
                 ),
               ),
               ProfileSettingsTile(
@@ -147,7 +168,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableCourseTextSize,
                   min: 8,
                   max: 18,
-                  divisions: 20,
+                  divisions: 100,
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -164,7 +185,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableTimeTextSize,
                   min: 8,
                   max: 18,
-                  divisions: 20,
+                  divisions: 100,
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -181,7 +202,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableDateTextSize,
                   min: 8,
                   max: 18,
-                  divisions: 20,
+                  divisions: 100,
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -198,7 +219,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableCourseBorderWidth,
                   min: 0,
                   max: 3,
-                  divisions: 12,
+                  divisions: 30,
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)

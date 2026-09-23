@@ -90,20 +90,20 @@ void main() {
       await storage.init();
     });
 
-    test('stores and clears major and class with the student', () async {
+    test('stores and clears college and class with the student', () async {
       await storage.setStudentId('2023000001');
       await storage.setStudentName('测试用户');
-      await storage.setMajorName('计算机科学与技术');
+      await storage.setCollegeName('计算机学院');
       await storage.setClassName('计科2301班');
 
-      expect(storage.getMajorName(), '计算机科学与技术');
+      expect(storage.getCollegeName(), '计算机学院');
       expect(storage.getClassName(), '计科2301班');
 
       await storage.clearStudentInfo();
 
       expect(storage.getStudentId(), isNull);
       expect(storage.getStudentName(), isNull);
-      expect(storage.getMajorName(), isNull);
+      expect(storage.getCollegeName(), isNull);
       expect(storage.getClassName(), isNull);
     });
   });
@@ -149,6 +149,8 @@ void main() {
       await storage.setTimetableTimeTextSize(10);
       await storage.setTimetableDateTextSize(13);
       await storage.setTimetableCourseBorderWidth(1.2);
+      await storage.setTimetableCourseBorderOpacity(0.35);
+      await storage.setShowTimetableAdjustments(false);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(false);
 
@@ -161,6 +163,8 @@ void main() {
       expect(storage.getTimetableTimeTextSize(), 10);
       expect(storage.getTimetableDateTextSize(), 13);
       expect(storage.getTimetableCourseBorderWidth(), 1.2);
+      expect(storage.getTimetableCourseBorderOpacity(), 0.35);
+      expect(storage.getShowTimetableAdjustments(), isFalse);
       expect(storage.getShowTimetableGridLines(), isFalse);
       expect(storage.getShowTodayGridLines(), isFalse);
     });
@@ -193,6 +197,15 @@ void main() {
       expect(storage.getTimetableComponentOpacity(), 0);
     });
 
+    test(
+      'uses the legacy component opacity when border opacity is unset',
+      () async {
+        await storage.setTimetableComponentOpacity(0.28);
+
+        expect(storage.getTimetableCourseBorderOpacity(), 0.28);
+      },
+    );
+
     test('clamps timetable grid opacity', () async {
       await storage.setTimetableGridOpacity(2);
       expect(storage.getTimetableGridOpacity(), 1);
@@ -206,11 +219,28 @@ void main() {
       await storage.setTimetableTimeTextSize(1);
       await storage.setTimetableDateTextSize(30);
       await storage.setTimetableCourseBorderWidth(5);
+      await storage.setTimetableCourseBorderOpacity(2);
 
       expect(storage.getTimetableCourseTextSize(), 18);
       expect(storage.getTimetableTimeTextSize(), 8);
       expect(storage.getTimetableDateTextSize(), 18);
       expect(storage.getTimetableCourseBorderWidth(), 3);
+      expect(storage.getTimetableCourseBorderOpacity(), 1);
+
+      await storage.setTimetableCourseBorderOpacity(-1);
+      expect(storage.getTimetableCourseBorderOpacity(), 0);
+    });
+
+    test('rounds timetable dimensions to a tenth of a pixel', () async {
+      await storage.setTimetableCourseTextSize(14.06);
+      await storage.setTimetableTimeTextSize(10.04);
+      await storage.setTimetableDateTextSize(13.25);
+      await storage.setTimetableCourseBorderWidth(1.26);
+
+      expect(storage.getTimetableCourseTextSize(), 14.1);
+      expect(storage.getTimetableTimeTextSize(), 10.0);
+      expect(storage.getTimetableDateTextSize(), 13.3);
+      expect(storage.getTimetableCourseBorderWidth(), 1.3);
     });
 
     test('resets timetable appearance settings to defaults', () async {
@@ -222,6 +252,8 @@ void main() {
       await storage.setTimetableTimeTextSize(15);
       await storage.setTimetableDateTextSize(14);
       await storage.setTimetableCourseBorderWidth(2);
+      await storage.setTimetableCourseBorderOpacity(0.2);
+      await storage.setShowTimetableAdjustments(false);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(true);
 
@@ -235,6 +267,8 @@ void main() {
       expect(storage.getTimetableTimeTextSize(), 11);
       expect(storage.getTimetableDateTextSize(), 12);
       expect(storage.getTimetableCourseBorderWidth(), 0.5);
+      expect(storage.getTimetableCourseBorderOpacity(), 0.7);
+      expect(storage.getShowTimetableAdjustments(), isTrue);
       expect(storage.getShowTimetableGridLines(), isTrue);
       expect(storage.getShowTodayGridLines(), isFalse);
     });

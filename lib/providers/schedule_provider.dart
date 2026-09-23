@@ -68,7 +68,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     required List<Course> courses,
     required String studentId,
     required String studentName,
-    required String majorName,
+    required String collegeName,
     required String className,
   }) async {
     await ref
@@ -76,7 +76,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
         .updateFromLogin(
           studentId: studentId,
           studentName: studentName,
-          majorName: majorName,
+          collegeName: collegeName,
           className: className,
         );
     if (_sameCourses(_courses, courses)) return;
