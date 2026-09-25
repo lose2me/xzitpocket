@@ -51,13 +51,15 @@ class HomePageState extends ConsumerState<HomePage> {
   }
 
   void switchToTimetable() {
+    if (!mounted) return;
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
     }
-    if (_pageController.hasClients) {
-      _pageController.jumpToPage(0);
-    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      if (_pageController.page?.round() != 0) {
+        _pageController.jumpToPage(0);
+      }
       TimetablePage.globalKey.currentState?.jumpToCurrentWeek();
     });
   }

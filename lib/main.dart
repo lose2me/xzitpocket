@@ -41,10 +41,10 @@ void main() async {
     }
   }
 
-  // Listen for widget clicks → switch to timetable tab
-  HomeWidget.widgetClicked.listen((_) {
-    HomePage.globalKey.currentState?.switchToTimetable();
-  });
+  // Defer widget navigation until the first frame. A cold launch can deliver
+  // the widget intent before HomePage has mounted, which otherwise drops the
+  // navigation request or competes with the initial PageView layout.
+  HomeWidget.widgetClicked.listen(_handleWidgetLaunch);
 
   runApp(
     ProviderScope(
@@ -57,8 +57,34 @@ void main() async {
   );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(_handleInitialWidgetLaunch());
     unawaited(_finishStartup(courseStorage, preferencesStorage));
   });
+}
+
+DateTime? _lastWidgetLaunchAt;
+
+void _handleWidgetLaunch(Uri? uri) {
+  if (uri == null) return;
+  final now = DateTime.now();
+  if (_lastWidgetLaunchAt != null &&
+      now.difference(_lastWidgetLaunchAt!) <
+          const Duration(milliseconds: 500)) {
+    return;
+  }
+  _lastWidgetLaunchAt = now;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    HomePage.globalKey.currentState?.switchToTimetable();
+  });
+}
+
+Future<void> _handleInitialWidgetLaunch() async {
+  try {
+    final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
+    _handleWidgetLaunch(uri);
+  } catch (error, stackTrace) {
+    talker.debug('读取小组件启动参数失败', error, stackTrace);
+  }
 }
 
 Future<void> _finishStartup(

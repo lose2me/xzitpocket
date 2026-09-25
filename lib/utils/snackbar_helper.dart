@@ -20,23 +20,21 @@ enum ToastSeverity {
   error,
 }
 
-/// 右上角抽屉式 toast 队列（始终只保留最新的一条）。
+/// 全局 toast 队列（始终只保留最新的一条）。
 final List<_ToastData> _queue = [];
 OverlayEntry? _hostEntry;
+OverlayState? _rootOverlay;
 final ValueNotifier<int> _revision = ValueNotifier(0);
-final NavigatorObserver appToastRouteObserver = _AppToastRouteObserver();
 
 class _ToastData {
   final String message;
   final Duration duration;
   final ToastSeverity severity;
-  final bool showAboveNavBar;
 
   const _ToastData({
     required this.message,
     required this.duration,
     required this.severity,
-    required this.showAboveNavBar,
   });
 }
 
@@ -45,15 +43,14 @@ void showAppSnackBar(
   String message, {
   Duration duration = const Duration(seconds: 3),
   ToastSeverity severity = ToastSeverity.info,
+  // Kept for source compatibility. Toasts now always use the global layout.
   bool? showAboveNavBar,
 }) {
-  if (!context.mounted) return;
-  // 在调用方的 context 里判断是否处于“有底部导航”的根页面，
-  // 而不是在复用的 Overlay host 里判断，避免详情页无导航栏时仍被当作有导航栏。
-  final placeAboveNavBar = showAboveNavBar ?? !Navigator.of(context).canPop();
-  // 始终挂到根 Overlay，避免第一个 toast 来自详情页的子 Overlay 时，
-  // 后续路由切换把整个 toast 宿主一起卸载。
-  final overlay = Overlay.of(context, rootOverlay: true);
+  final overlay = context.mounted
+      ? Overlay.of(context, rootOverlay: true)
+      : _rootOverlay;
+  if (overlay == null || !overlay.mounted) return;
+  _rootOverlay = overlay;
   // 仅在 host 不存在时创建并插入，避免重复插入同一 OverlayEntry 导致崩溃。
   if (_hostEntry?.mounted != true) {
     _hostEntry?.remove();
@@ -68,14 +65,7 @@ void showAppSnackBar(
   // 同一时间只保留最新的一条 toast，旧的直接移除。
   _queue
     ..clear()
-    ..add(
-      _ToastData(
-        message: message,
-        duration: duration,
-        severity: severity,
-        showAboveNavBar: placeAboveNavBar,
-      ),
-    );
+    ..add(_ToastData(message: message, duration: duration, severity: severity));
   _revision.value++;
 }
 
@@ -85,28 +75,6 @@ void dismissAppSnackBar() {
   _revision.value++;
   _hostEntry?.remove();
   _hostEntry = null;
-}
-
-class _AppToastRouteObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (previousRoute != null) dismissAppSnackBar();
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    dismissAppSnackBar();
-  }
-
-  @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    dismissAppSnackBar();
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    dismissAppSnackBar();
-  }
 }
 
 void _removeToast(_ToastData data) {
@@ -126,10 +94,11 @@ class _ToastHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewPadding = MediaQuery.viewPaddingOf(context);
-    // forui FBottomNavigationBar 基础高度 ≈ 61px（icon 24 + padding 5×2 + spacing 2 + 文字 ≈15 + bar padding 5×2）
-    final navBarHeight = 61.0 + viewPadding.bottom * 2 / 3;
-    // 根页面（有底部导航）toast 贴导航栏上缘；详情页改为右侧悬浮提示。
-    final hasBottomNav = toasts.isEmpty ? false : toasts.first.showAboveNavBar;
+    const horizontalMargin = 16.0;
+    // Keep the global toast above the app navigation bar and the system
+    // gesture area. The same baseline is used on every route.
+    const navigationClearance = 72.0;
+    final bottomMargin = viewPadding.bottom + navigationClearance;
 
     return IgnorePointer(
       // 让 toast 完全穿透点击/滑动，不遮挡任何操作。
@@ -137,22 +106,28 @@ class _ToastHost extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Align(
-          alignment: hasBottomNav
-              ? Alignment.bottomCenter
-              : Alignment.centerRight,
+          alignment: Alignment.bottomCenter,
           child: Padding(
-            padding: hasBottomNav
-                ? EdgeInsets.only(bottom: navBarHeight)
-                : EdgeInsets.zero,
+            padding: EdgeInsets.only(
+              left: horizontalMargin,
+              right: horizontalMargin,
+              bottom: bottomMargin,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final t in toasts)
-                  _ToastItem(
-                    key: ValueKey(t),
-                    data: t,
-                    onDone: () => _removeToast(t),
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: _ToastItem(
+                        key: ValueKey(t),
+                        data: t,
+                        onDone: () => _removeToast(t),
+                      ),
+                    ),
                   ),
               ],
             ),
@@ -174,33 +149,38 @@ class _ToastItem extends StatefulWidget {
 }
 
 class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
-  late final AnimationController _expandController;
-  late final Animation<double> _expand;
+  late final AnimationController _enterController;
+  late final AnimationController _exitController;
+  late final Animation<double> _enter;
+  late final Animation<double> _exit;
   late final AnimationController _progressController;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _expandController = AnimationController(
+    _enterController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 300),
-      reverseDuration: const Duration(milliseconds: 250),
     );
-    _expand = CurvedAnimation(
-      parent: _expandController,
+    _exitController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _enter = CurvedAnimation(
+      parent: _enterController,
       curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeOut,
     );
+    _exit = CurvedAnimation(parent: _exitController, curve: Curves.easeInCubic);
     _progressController = AnimationController(
       vsync: this,
       duration: widget.data.duration,
     );
-    _expandController.forward();
+    _enterController.forward();
     _progressController.forward();
     _timer = Timer(widget.data.duration, () {
       unawaited(
-        _expandController.reverse().then((_) {
+        _exitController.forward().then((_) {
           if (mounted) widget.onDone();
         }),
       );
@@ -210,7 +190,8 @@ class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
   @override
   void dispose() {
     _timer?.cancel();
-    _expandController.dispose();
+    _enterController.dispose();
+    _exitController.dispose();
     _progressController.dispose();
     super.dispose();
   }
@@ -253,20 +234,22 @@ class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final palette = _palette(context.theme, widget.data.severity);
     final surface = _buildSurface(palette);
-    if (!widget.data.showAboveNavBar) {
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(1.1, 0),
-          end: Offset.zero,
-        ).animate(_expand),
-        child: surface,
-      );
-    }
-    // Root-page notices expand upward from the navigation bar.
-    return SizeTransition(
-      sizeFactor: _expand,
-      alignment: Alignment.bottomCenter,
-      child: surface,
+    return AnimatedBuilder(
+      animation: Listenable.merge([_enter, _exit]),
+      builder: (context, _) {
+        final entering = 1 - _enter.value;
+        final exiting = _exit.value;
+        final opacity = (_enter.value * (1 - exiting)).clamp(0.0, 1.0);
+        // Enter from the lower-left; leave toward the upper-right.
+        final offset = Offset(
+          -14 * entering + 14 * exiting,
+          10 * entering - 10 * exiting,
+        );
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(offset: offset, child: surface),
+        );
+      },
     );
   }
 

@@ -18,6 +18,7 @@ import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val widgetRefreshExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,6 +33,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         backgroundExecutor.shutdownNow()
+        widgetRefreshExecutor.shutdownNow()
         super.onDestroy()
     }
 
@@ -47,7 +49,7 @@ class MainActivity : FlutterActivity() {
                     WidgetDataSynchronizer.syncNow(applicationContext)
                 }
 
-                "refreshWidgets" -> runBackgroundTask(result) {
+                "refreshWidgets" -> runWidgetRefreshTask(result) {
                     WidgetUpdateHelper.updateAllWidgets(applicationContext)
                 }
 
@@ -172,6 +174,22 @@ class MainActivity : FlutterActivity() {
             } catch (e: Exception) {
                 runOnUiThread {
                     result.error("widget_bridge_error", e.message, null)
+                }
+            }
+        }
+    }
+
+    private fun runWidgetRefreshTask(
+        result: MethodChannel.Result,
+        task: () -> Unit,
+    ) {
+        widgetRefreshExecutor.execute {
+            try {
+                task()
+                runOnUiThread { result.success(null) }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    result.error("widget_refresh_error", e.message, null)
                 }
             }
         }

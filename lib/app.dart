@@ -17,7 +17,6 @@ import 'services/control_service.dart';
 import 'services/talker.dart';
 import 'services/widget_service.dart';
 import 'ui/app_theme.dart';
-import 'utils/snackbar_helper.dart';
 
 class App extends ConsumerStatefulWidget {
   final CourseStorage courseStorage;
@@ -123,7 +122,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       theme: lightTheme.toApproximateMaterialTheme(),
       darkTheme: darkTheme.toApproximateMaterialTheme(),
       themeMode: settings.themePreference.themeMode,
-      navigatorObservers: [TalkerRouteObserver(talker), appToastRouteObserver],
+      navigatorObservers: [TalkerRouteObserver(talker)],
       builder: (context, child) {
         final theme = Theme.of(context).brightness == Brightness.dark
             ? darkTheme
