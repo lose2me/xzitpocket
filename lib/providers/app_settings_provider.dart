@@ -28,6 +28,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         _storage.getClassAutomationMode(),
       ),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
+      timetableBackgroundOriginalPath: _storage
+          .getTimetableBackgroundOriginalPath(),
       timetableBackgroundFullscreen: _storage
           .getTimetableBackgroundFullscreen(),
       timetableBackgroundOpacity: _storage.getTimetableBackgroundOpacity(),
@@ -79,6 +81,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setTimetableBackgroundPath(String? path) async {
     await _storage.setTimetableBackgroundPath(path);
     state = state.copyWith(timetableBackgroundPath: path);
+  }
+
+  Future<void> setTimetableBackgroundOriginalPath(String? path) async {
+    await _storage.setTimetableBackgroundOriginalPath(path);
+    state = state.copyWith(timetableBackgroundOriginalPath: path);
   }
 
   Future<void> setTimetableBackgroundFullscreen(bool value) async {
@@ -139,6 +146,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     const defaults = AppSettings();
     state = state.copyWith(
       timetableBackgroundPath: null,
+      timetableBackgroundOriginalPath: null,
       timetableBackgroundFullscreen: defaults.timetableBackgroundFullscreen,
       timetableBackgroundOpacity: defaults.timetableBackgroundOpacity,
       timetableComponentOpacity: defaults.timetableComponentOpacity,

@@ -330,6 +330,16 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
                     .setTimetableBackgroundFullscreen(value),
               ),
               ProfileSettingsTile(
+                icon: FLucideIcons.crop,
+                title: '重新设置区域',
+                value: settings.timetableBackgroundPath == null
+                    ? '未设置背景图'
+                    : '拖动选择显示区域',
+                onTap: settings.timetableBackgroundPath == null
+                    ? null
+                    : _resetBackgroundCrop,
+              ),
+              ProfileSettingsTile(
                 icon: FLucideIcons.trash2,
                 title: '清除背景图',
                 onTap: settings.timetableBackgroundPath == null
@@ -819,9 +829,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
   Future<void> _pickBackground() async {
     final picked = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 90,
-      maxWidth: 2048,
-      maxHeight: 2048,
     );
     if (picked == null || !mounted) return;
     try {
@@ -838,25 +845,39 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
       }
       final oriented = img.bakeOrientation(decoded);
       if (!mounted) return;
-      final crop = await showDialog<img.Image>(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) =>
-            _BackgroundCropDialog(source: oriented, aspectRatio: aspectRatio),
-      );
+      final crop = await _selectBackgroundCrop(oriented, aspectRatio);
       if (crop == null || !mounted) return;
       final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
       final targetPath = p.join(
         directory.path,
-        'timetable_background_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        'timetable_background_$timestamp.jpg',
       );
+      final originalExtension = p.extension(picked.path).isEmpty
+          ? '.img'
+          : p.extension(picked.path);
+      final originalPath = p.join(
+        directory.path,
+        'timetable_background_original_$timestamp$originalExtension',
+      );
+      await picked.saveTo(originalPath);
       await File(targetPath).writeAsBytes(img.encodeJpg(crop, quality: 90));
       final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
+      final oldOriginalPath = ref
+          .read(appSettingsProvider)
+          .timetableBackgroundOriginalPath;
       await ref
           .read(appSettingsProvider.notifier)
           .setTimetableBackgroundPath(targetPath);
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setTimetableBackgroundOriginalPath(originalPath);
       if (oldPath != null && oldPath != targetPath) {
         final oldFile = File(oldPath);
+        if (await oldFile.exists()) await oldFile.delete();
+      }
+      if (oldOriginalPath != null && oldOriginalPath != originalPath) {
+        final oldFile = File(oldOriginalPath);
         if (await oldFile.exists()) await oldFile.delete();
       }
       if (mounted) {
@@ -870,11 +891,61 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
     }
   }
 
+  Future<img.Image?> _selectBackgroundCrop(
+    img.Image source,
+    double aspectRatio,
+  ) => showDialog<img.Image>(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) =>
+        _BackgroundCropDialog(source: source, aspectRatio: aspectRatio),
+  );
+
+  Future<void> _resetBackgroundCrop() async {
+    final settings = ref.read(appSettingsProvider);
+    final currentPath = settings.timetableBackgroundPath;
+    if (currentPath == null || currentPath.isEmpty) return;
+    final originalPath = settings.timetableBackgroundOriginalPath;
+    final sourcePath =
+        originalPath != null &&
+            originalPath.isNotEmpty &&
+            File(originalPath).existsSync()
+        ? originalPath
+        : currentPath;
+    try {
+      final decoded = img.decodeImage(await File(sourcePath).readAsBytes());
+      if (decoded == null || !mounted) return;
+      final source = img.bakeOrientation(decoded);
+      final aspectRatio = _backgroundAspectRatio(
+        MediaQuery.sizeOf(context),
+        fullscreen: settings.timetableBackgroundFullscreen,
+        padding: MediaQuery.paddingOf(context),
+      );
+      final crop = await _selectBackgroundCrop(source, aspectRatio);
+      if (crop == null || !mounted) return;
+      await File(currentPath).writeAsBytes(img.encodeJpg(crop, quality: 90));
+      if (mounted) {
+        showAppSnackBar(context, '背景图显示区域已更新', severity: ToastSeverity.success);
+      }
+    } catch (error, stackTrace) {
+      talker.error('重新设置背景图区域失败', error, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '背景图区域设置失败', severity: ToastSeverity.error);
+      }
+    }
+  }
+
   Future<void> _clearBackground() async {
     final path = ref.read(appSettingsProvider).timetableBackgroundPath;
+    final originalPath = ref
+        .read(appSettingsProvider)
+        .timetableBackgroundOriginalPath;
     await ref
         .read(appSettingsProvider.notifier)
         .setTimetableBackgroundPath(null);
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setTimetableBackgroundOriginalPath(null);
     if (path != null && path.isNotEmpty) {
       final file = File(path);
       if (await file.exists()) {
@@ -882,6 +953,16 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
           await file.delete();
         } catch (error, stackTrace) {
           talker.warning('删除课表背景图文件失败', error, stackTrace);
+        }
+      }
+    }
+    if (originalPath != null && originalPath.isNotEmpty) {
+      final file = File(originalPath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (error, stackTrace) {
+          talker.warning('删除课表背景图原图失败', error, stackTrace);
         }
       }
     }
@@ -902,6 +983,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
     final backgroundPath = ref
         .read(appSettingsProvider)
         .timetableBackgroundPath;
+    final backgroundOriginalPath = ref
+        .read(appSettingsProvider)
+        .timetableBackgroundOriginalPath;
     await ref.read(appSettingsProvider.notifier).resetTimetableAppearance();
     if (backgroundPath != null && backgroundPath.isNotEmpty) {
       final file = File(backgroundPath);
@@ -910,6 +994,16 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
           await file.delete();
         } catch (error, stackTrace) {
           talker.warning('删除课表背景图文件失败', error, stackTrace);
+        }
+      }
+    }
+    if (backgroundOriginalPath != null && backgroundOriginalPath.isNotEmpty) {
+      final file = File(backgroundOriginalPath);
+      if (await file.exists()) {
+        try {
+          await file.delete();
+        } catch (error, stackTrace) {
+          talker.warning('删除课表背景图原图失败', error, stackTrace);
         }
       }
     }

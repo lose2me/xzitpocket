@@ -637,17 +637,28 @@ class TimetablePageState extends ConsumerState<TimetablePage>
             child: Column(
               children: [
                 Consumer(
-                  builder: (context, ref, child) => WeekHeader(
-                    calendar: semesterCalendar,
-                    selectedWeek: ref.watch(selectedWeekProvider),
-                    currentWeek: currentWeek,
-                    onSync: _isSyncing ? null : _onSync,
-                    syncing: _isSyncing,
-                    onJumpToCurrentWeek: jumpToCurrentWeek,
-                    onSettings: () => Navigator.of(context).push(
-                      appRoute(
-                        name: AppRouteNames.timetableSettings,
-                        builder: (_) => const TimetableSettingsPage(),
+                  builder: (context, ref, child) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      color:
+                          settings.timetableBackgroundFullscreen &&
+                              settings.timetableBackgroundPath != null
+                          ? context.theme.colors.background.withValues(
+                              alpha: 0.84,
+                            )
+                          : null,
+                    ),
+                    child: WeekHeader(
+                      calendar: semesterCalendar,
+                      selectedWeek: ref.watch(selectedWeekProvider),
+                      currentWeek: currentWeek,
+                      onSync: _isSyncing ? null : _onSync,
+                      syncing: _isSyncing,
+                      onJumpToCurrentWeek: jumpToCurrentWeek,
+                      onSettings: () => Navigator.of(context).push(
+                        appRoute(
+                          name: AppRouteNames.timetableSettings,
+                          builder: (_) => const TimetableSettingsPage(),
+                        ),
                       ),
                     ),
                   ),

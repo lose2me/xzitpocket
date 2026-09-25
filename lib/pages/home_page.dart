@@ -23,6 +23,7 @@ class HomePage extends ConsumerStatefulWidget {
 
 class HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
+  bool _isNavigating = false;
   late final PageController _pageController;
 
   /// The three tab pages are built once and the SAME widget instances are
@@ -79,15 +80,15 @@ class HomePageState extends ConsumerState<HomePage> {
     final selectedNavigationIndex = visibleTabs.contains(_currentIndex)
         ? visibleTabs.indexOf(_currentIndex)
         : 0;
-    final timetableBackgroundPath = _currentIndex == 0
-        ? settings.timetableBackgroundFullscreen
-              ? settings.timetableBackgroundPath
-              : null
-        : null;
-    final hasTimetableBackground =
+    final timetableBackgroundPath = settings.timetableBackgroundPath;
+    final hasBackgroundAsset =
         timetableBackgroundPath != null && timetableBackgroundPath.isNotEmpty;
+    final showGlobalBackground =
+        hasBackgroundAsset &&
+        settings.timetableBackgroundFullscreen &&
+        (_currentIndex == 0 || _isNavigating);
     final shell = FScaffold(
-      scaffoldStyle: hasTimetableBackground
+      scaffoldStyle: hasBackgroundAsset && settings.timetableBackgroundFullscreen
           ? const FScaffoldStyleDelta.delta(
               backgroundColor: Color(0x00000000),
               sidebarBackgroundColor: Color(0x00000000),
@@ -96,9 +97,13 @@ class HomePageState extends ConsumerState<HomePage> {
       resizeToAvoidBottomInset: false,
       childPad: false,
       footer: FBottomNavigationBar(
-        style: hasTimetableBackground
-            ? const FBottomNavigationBarStyleDelta.delta(
-                decoration: DecorationDelta.boxDelta(color: Color(0x00000000)),
+        style: hasBackgroundAsset && settings.timetableBackgroundFullscreen
+            ? FBottomNavigationBarStyleDelta.delta(
+                decoration: DecorationDelta.boxDelta(
+                  color: context.theme.colors.background.withValues(
+                    alpha: 0.86,
+                  ),
+                ),
               )
             : const FBottomNavigationBarStyleDelta.context(),
         index: selectedNavigationIndex,
@@ -108,9 +113,22 @@ class HomePageState extends ConsumerState<HomePage> {
             ProfilePage.globalKey.currentState?.finishRoomIdEditing();
           }
           if (_currentIndex == targetTab) return;
-          setState(() => _currentIndex = targetTab);
+          setState(() {
+            _currentIndex = targetTab;
+            _isNavigating = true;
+          });
           if (_pageController.hasClients) {
-            _pageController.jumpToPage(targetTab);
+            unawaited(
+              _pageController
+                  .animateToPage(
+                    targetTab,
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                  )
+                  .whenComplete(() {
+                    if (mounted) setState(() => _isNavigating = false);
+                  }),
+            );
           }
           if (targetTab == 1) {
             // The page is lazy-built, so its state may not exist until the
@@ -171,20 +189,26 @@ class HomePageState extends ConsumerState<HomePage> {
     // Keep the shell's own inset at zero. Profile injects the live inset into
     // its dedicated root scaffold; this prevents the nav shell and timetable
     // render tree from participating in the keyboard animation.
-    if (!hasTimetableBackground) return shell;
+    if (!hasBackgroundAsset) return shell;
 
     return Stack(
       fit: StackFit.expand,
       children: [
         Positioned.fill(
-          child: Opacity(
-            opacity: settings.timetableBackgroundOpacity.clamp(0.0, 1.0),
-            child: Image.file(
-              File(timetableBackgroundPath),
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              filterQuality: FilterQuality.high,
-              errorBuilder: (context, error, stackTrace) => const SizedBox(),
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 240),
+              curve: Curves.easeOut,
+              opacity: showGlobalBackground
+                  ? settings.timetableBackgroundOpacity.clamp(0.0, 1.0)
+                  : 0,
+              child: Image.file(
+                File(timetableBackgroundPath),
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.high,
+                errorBuilder: (context, error, stackTrace) => const SizedBox(),
+              ),
             ),
           ),
         ),

@@ -79,6 +79,8 @@ void main() {
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.timetableBackgroundPath, isNull);
+      expect(settings.timetableBackgroundOriginalPath, isNull);
+      expect(settings.timetableBackgroundFullscreen, isTrue);
       expect(settings.timetableBackgroundOpacity, 0.5);
       expect(settings.timetableComponentOpacity, 0.6);
       expect(settings.timetableGridOpacity, 0.7);
@@ -98,6 +100,8 @@ void main() {
         themePreference: AppThemePreference.dark,
         themeColor: AppThemeColor.blue,
         timetableBackgroundPath: '/tmp/background.jpg',
+        timetableBackgroundOriginalPath: '/tmp/original.png',
+        timetableBackgroundFullscreen: false,
         timetableBackgroundOpacity: 0.6,
         timetableComponentOpacity: 0.7,
         timetableGridOpacity: 0.45,
@@ -117,6 +121,8 @@ void main() {
       expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
+      expect(updated.timetableBackgroundOriginalPath, '/tmp/original.png');
+      expect(updated.timetableBackgroundFullscreen, isFalse);
       expect(updated.timetableBackgroundOpacity, 0.6);
       expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.timetableGridOpacity, 0.45);

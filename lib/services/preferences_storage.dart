@@ -57,6 +57,17 @@ class PreferencesStorage {
     }
   }
 
+  String? getTimetableBackgroundOriginalPath() =>
+      _prefs.getString('timetable_background_original_path');
+
+  Future<void> setTimetableBackgroundOriginalPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _prefs.remove('timetable_background_original_path');
+    } else {
+      await _prefs.setString('timetable_background_original_path', path);
+    }
+  }
+
   bool getTimetableBackgroundFullscreen() =>
       _prefs.getBool('timetable_background_fullscreen') ?? true;
 
@@ -152,6 +163,7 @@ class PreferencesStorage {
   Future<void> resetTimetableAppearance() async {
     await Future.wait([
       _prefs.remove('timetable_background_path'),
+      _prefs.remove('timetable_background_original_path'),
       _prefs.remove('timetable_background_fullscreen'),
       _prefs.remove('timetable_background_opacity'),
       _prefs.remove('timetable_component_opacity'),

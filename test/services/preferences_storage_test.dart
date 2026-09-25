@@ -142,6 +142,8 @@ void main() {
     test('roundtrips timetable appearance settings', () async {
       await storage.setThemeColor('blue');
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
+      await storage.setTimetableBackgroundOriginalPath('/tmp/original.png');
+      await storage.setTimetableBackgroundFullscreen(false);
       await storage.setTimetableBackgroundOpacity(0.65);
       await storage.setTimetableComponentOpacity(0.72);
       await storage.setTimetableGridOpacity(0.42);
@@ -155,6 +157,8 @@ void main() {
 
       expect(storage.getThemeColor(), 'blue');
       expect(storage.getTimetableBackgroundPath(), '/tmp/background.jpg');
+      expect(storage.getTimetableBackgroundOriginalPath(), '/tmp/original.png');
+      expect(storage.getTimetableBackgroundFullscreen(), isFalse);
       expect(storage.getTimetableBackgroundOpacity(), 0.65);
       expect(storage.getTimetableComponentOpacity(), 0.72);
       expect(storage.getTimetableGridOpacity(), 0.42);
@@ -243,6 +247,7 @@ void main() {
 
     test('resets timetable appearance settings to defaults', () async {
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
+      await storage.setTimetableBackgroundOriginalPath('/tmp/original.png');
       await storage.setTimetableBackgroundOpacity(0.8);
       await storage.setTimetableComponentOpacity(0.2);
       await storage.setTimetableGridOpacity(0.9);
@@ -257,6 +262,8 @@ void main() {
       await storage.resetTimetableAppearance();
 
       expect(storage.getTimetableBackgroundPath(), isNull);
+      expect(storage.getTimetableBackgroundOriginalPath(), isNull);
+      expect(storage.getTimetableBackgroundFullscreen(), isTrue);
       expect(storage.getTimetableBackgroundOpacity(), 0.5);
       expect(storage.getTimetableComponentOpacity(), 0.7);
       expect(storage.getTimetableGridOpacity(), 0.5);
