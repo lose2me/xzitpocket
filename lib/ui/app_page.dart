@@ -11,6 +11,7 @@ class AppPage extends StatelessWidget {
   final Widget? footer;
   final bool root;
   final bool childPad;
+  final bool transparentBackground;
   final bool? resizeToAvoidBottomInset;
 
   /// 自定义标题栏样式（默认跟随主题）。
@@ -24,6 +25,7 @@ class AppPage extends StatelessWidget {
     this.footer,
     this.root = false,
     this.childPad = false,
+    this.transparentBackground = false,
     this.resizeToAvoidBottomInset,
     this.headerStyle,
   });
@@ -62,6 +64,12 @@ class AppPage extends StatelessWidget {
     final scaffold = FScaffold(
       header: header,
       footer: footer,
+      scaffoldStyle: transparentBackground
+          ? const FScaffoldStyleDelta.delta(
+              backgroundColor: Color(0x00000000),
+              sidebarBackgroundColor: Color(0x00000000),
+            )
+          : const FScaffoldStyleDelta.context(),
       childPad: childPad,
       resizeToAvoidBottomInset: resizeToAvoidBottomInset ?? !root,
       child: scaffoldChild,

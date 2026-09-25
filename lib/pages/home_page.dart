@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,10 +79,26 @@ class HomePageState extends ConsumerState<HomePage> {
     final selectedNavigationIndex = visibleTabs.contains(_currentIndex)
         ? visibleTabs.indexOf(_currentIndex)
         : 0;
+    final timetableBackgroundPath = _currentIndex == 0
+        ? settings.timetableBackgroundPath
+        : null;
+    final hasTimetableBackground =
+        timetableBackgroundPath != null && timetableBackgroundPath.isNotEmpty;
     final shell = FScaffold(
+      scaffoldStyle: hasTimetableBackground
+          ? const FScaffoldStyleDelta.delta(
+              backgroundColor: Color(0x00000000),
+              sidebarBackgroundColor: Color(0x00000000),
+            )
+          : const FScaffoldStyleDelta.context(),
       resizeToAvoidBottomInset: false,
       childPad: false,
       footer: FBottomNavigationBar(
+        style: hasTimetableBackground
+            ? const FBottomNavigationBarStyleDelta.delta(
+                decoration: DecorationDelta.boxDelta(color: Color(0x00000000)),
+              )
+            : const FBottomNavigationBarStyleDelta.context(),
         index: selectedNavigationIndex,
         onChange: (i) {
           final targetTab = visibleTabs[i];
@@ -152,7 +169,26 @@ class HomePageState extends ConsumerState<HomePage> {
     // Keep the shell's own inset at zero. Profile injects the live inset into
     // its dedicated root scaffold; this prevents the nav shell and timetable
     // render tree from participating in the keyboard animation.
-    return shell;
+    if (!hasTimetableBackground) return shell;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(
+          child: Opacity(
+            opacity: settings.timetableBackgroundOpacity.clamp(0.0, 1.0),
+            child: Image.file(
+              File(timetableBackgroundPath),
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              filterQuality: FilterQuality.high,
+              errorBuilder: (context, error, stackTrace) => const SizedBox(),
+            ),
+          ),
+        ),
+        shell,
+      ],
+    );
   }
 }
 

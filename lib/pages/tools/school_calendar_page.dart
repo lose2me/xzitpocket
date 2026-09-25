@@ -52,6 +52,12 @@ class SchoolCalendarPage extends StatelessWidget {
                         '周末',
                       ),
                       const SizedBox(width: AppSpacing.sm),
+                      _legendDot(
+                        theme,
+                        theme.colors.semantic.successContainer,
+                        '调休',
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
                       _legendDot(theme, theme.colors.secondary, '节假日'),
                       const SizedBox(width: AppSpacing.sm),
                       _legendDot(theme, theme.colors.semantic.info, '今日'),
@@ -200,6 +206,7 @@ class SchoolCalendarPage extends StatelessWidget {
 
   Widget _dayCell(FThemeData theme, SchoolDay day) {
     final isFestival = day.festival != null;
+    final isAdjustment = day.adjustment?.isNotEmpty == true;
     final isMonthStart = day.date.day == 1;
     final isWeekend = day.weekday == 6 || day.weekday == 7;
     final now = DateTime.now();
@@ -211,7 +218,10 @@ class SchoolCalendarPage extends StatelessWidget {
     // 节假日/特殊节日（含非周末的放假日）用主题浅粉；周末(周六/日)用之前琥珀色。
     final Color bg;
     final Color fg;
-    if (isFestival || (day.holiday && !isWeekend)) {
+    if (isAdjustment) {
+      bg = theme.colors.semantic.successContainer;
+      fg = theme.colors.semantic.onSuccessContainer;
+    } else if (isFestival || (day.holiday && !isWeekend)) {
       bg = theme.colors.secondary;
       fg = theme.colors.secondaryForeground;
     } else if (day.holiday) {

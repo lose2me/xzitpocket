@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -19,6 +21,8 @@ import '../../utils/snackbar_helper.dart';
 import '../profile/profile_components.dart';
 import 'timetable_providers.dart';
 
+int _tenthsDivisions(double min, double max) => ((max - min) * 10).round();
+
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -27,19 +31,31 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
       _TimetableSettingsPageState();
 }
 
-class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
+class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
+    with WidgetsBindingObserver {
   final _imagePicker = ImagePicker();
   bool _adjustmentDetailsExpanded = false;
   bool _cloudRulesExpanded = false;
+  bool _automationPermissionFlowActive = false;
+  final _promptedAutomationPermissions = <String>{};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _automationPermissionFlowActive) {
+      unawaited(_continueAutomationPermissionFlow());
+    }
   }
 
   @override
@@ -214,7 +230,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableCourseTextSize,
                   min: 8,
                   max: 18,
-                  divisions: 100,
+                  divisions: _tenthsDivisions(8, 18),
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -231,7 +247,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableTimeTextSize,
                   min: 8,
                   max: 18,
-                  divisions: 100,
+                  divisions: _tenthsDivisions(8, 18),
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -248,7 +264,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableDateTextSize,
                   min: 8,
                   max: 18,
-                  divisions: 100,
+                  divisions: _tenthsDivisions(8, 18),
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -265,7 +281,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   currentValue: settings.timetableCourseBorderWidth,
                   min: 0,
                   max: 3,
-                  divisions: 30,
+                  divisions: _tenthsDivisions(0, 3),
                   suffix: ' px',
                   onSave: (value) => ref
                       .read(appSettingsProvider.notifier)
@@ -583,21 +599,74 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         ],
       ),
     );
-    if (selected == null || selected == currentMode) return;
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setClassAutomationMode(selected);
+    if (selected == null) return;
+    if (selected != currentMode) {
+      await ref
+          .read(appSettingsProvider.notifier)
+          .setClassAutomationMode(selected);
+    }
     if (!mounted || selected == ClassAutomationMode.off) return;
     final status = await NativeAutomationService.getPermissionStatus();
     if (!mounted || status.isFullyGranted) return;
-    final missing = <String>[];
-    if (!status.hasDndPermission) missing.add('勿扰');
-    if (!status.hasExactAlarmPermission) missing.add('精确闹钟');
+    _automationPermissionFlowActive = true;
+    _promptedAutomationPermissions.clear();
+    final missing = [
+      if (!status.hasDndPermission) '勿扰',
+      if (!status.hasExactAlarmPermission) '精确闹钟',
+    ];
     showAppSnackBar(
       context,
       '需要开启${missing.join('和')}权限',
       severity: ToastSeverity.warning,
     );
+    await _continueAutomationPermissionFlow(status);
+  }
+
+  Future<void> _continueAutomationPermissionFlow([
+    AutomationPermissionStatus? knownStatus,
+  ]) async {
+    if (!mounted || !_automationPermissionFlowActive) return;
+    final status =
+        knownStatus ?? await NativeAutomationService.getPermissionStatus();
+    if (!mounted) return;
+    if (status.isFullyGranted) {
+      _automationPermissionFlowActive = false;
+      _promptedAutomationPermissions.clear();
+      return;
+    }
+
+    String? nextPermission;
+    if (!status.hasDndPermission) {
+      if (!_promptedAutomationPermissions.contains('dnd')) {
+        nextPermission = 'dnd';
+      }
+    } else if (!status.hasExactAlarmPermission &&
+        !_promptedAutomationPermissions.contains('exactAlarm')) {
+      nextPermission = 'exactAlarm';
+    }
+    if (nextPermission == null) {
+      _automationPermissionFlowActive = false;
+      return;
+    }
+
+    _promptedAutomationPermissions.add(nextPermission);
+    try {
+      if (nextPermission == 'dnd') {
+        await NativeAutomationService.openDndSettings();
+      } else {
+        await NativeAutomationService.openExactAlarmSettings();
+      }
+    } catch (error, stackTrace) {
+      talker.warning('打开课堂勿扰权限设置失败', error, stackTrace);
+      _automationPermissionFlowActive = false;
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          '无法打开权限设置，请到系统设置中手动开启',
+          severity: ToastSeverity.warning,
+        );
+      }
+    }
   }
 
   Future<void> _openOpacitySheet({
@@ -727,15 +796,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     );
     if (picked == null || !mounted) return;
     try {
+      final screenSize = MediaQuery.sizeOf(context);
+      final aspectRatio = screenSize.width / screenSize.height;
       final directory = await getApplicationDocumentsDirectory();
-      final extension = p.extension(picked.path).isEmpty
-          ? '.jpg'
-          : p.extension(picked.path);
       final targetPath = p.join(
         directory.path,
-        'timetable_background_${DateTime.now().millisecondsSinceEpoch}$extension',
+        'timetable_background_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-      await picked.saveTo(targetPath);
+      await _saveCroppedBackground(picked, targetPath, aspectRatio);
       final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
       await ref
           .read(appSettingsProvider.notifier)
@@ -753,6 +821,38 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
       }
     }
+  }
+
+  Future<void> _saveCroppedBackground(
+    XFile picked,
+    String targetPath,
+    double aspectRatio,
+  ) async {
+    final decoded = img.decodeImage(await picked.readAsBytes());
+    if (decoded == null || !aspectRatio.isFinite || aspectRatio <= 0) {
+      await picked.saveTo(targetPath);
+      return;
+    }
+
+    final sourceRatio = decoded.width / decoded.height;
+    final cropWidth = sourceRatio > aspectRatio
+        ? (decoded.height * aspectRatio).round()
+        : decoded.width;
+    final cropHeight = sourceRatio > aspectRatio
+        ? decoded.height
+        : (decoded.width / aspectRatio).round();
+    final width = cropWidth.clamp(1, decoded.width).toInt();
+    final height = cropHeight.clamp(1, decoded.height).toInt();
+    final left = ((decoded.width - width) / 2).round();
+    final top = ((decoded.height - height) / 2).round();
+    final cropped = img.copyCrop(
+      decoded,
+      x: left,
+      y: top,
+      width: width,
+      height: height,
+    );
+    await File(targetPath).writeAsBytes(img.encodeJpg(cropped, quality: 90));
   }
 
   Future<void> _clearBackground() async {

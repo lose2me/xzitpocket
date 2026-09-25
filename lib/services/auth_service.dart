@@ -120,6 +120,8 @@ class ExamResult {
 
 class GradeItem {
   final String name;
+  final String courseCode;
+  final String department;
   final String score;
   final double credit;
   final double gradePoint;
@@ -132,6 +134,8 @@ class GradeItem {
 
   const GradeItem({
     required this.name,
+    this.courseCode = '',
+    this.department = '',
     required this.score,
     required this.credit,
     required this.gradePoint,
@@ -160,6 +164,8 @@ class GradeResult {
       for (final grade in grades)
         {
           'name': grade.name,
+          'courseCode': grade.courseCode,
+          'department': grade.department,
           'score': grade.score,
           'credit': grade.credit,
           'gradePoint': grade.gradePoint,
@@ -180,6 +186,8 @@ class GradeResult {
       for (final raw in (json['grades'] as List<dynamic>? ?? const []))
         GradeItem(
           name: '${(raw as Map<String, dynamic>)['name'] ?? ''}',
+          courseCode: '${raw['courseCode'] ?? ''}',
+          department: '${raw['department'] ?? ''}',
           score: '${raw['score'] ?? ''}',
           credit: _asDouble(raw['credit']),
           gradePoint: _asDouble(raw['gradePoint']),
@@ -908,6 +916,8 @@ class AuthService {
       grades.add(
         GradeItem(
           name: (i['kcmc'] ?? '') as String,
+          courseCode: '${i['kch'] ?? i['kch_id'] ?? ''}',
+          department: '${i['kkbmmc'] ?? i['kkbm'] ?? ''}',
           score: '${i['cj'] ?? ''}',
           credit: (credit is num)
               ? credit.toDouble()

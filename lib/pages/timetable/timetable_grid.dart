@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -72,6 +71,7 @@ class TimetableGrid extends StatefulWidget {
   final ValueChanged<int>? onPendingDayActionCancel;
   final Set<int> adjustedWeekdays;
   final bool suppressDayDrop;
+  final Animation<double>? dayActionAnimation;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
   final double borderWidth;
@@ -82,8 +82,6 @@ class TimetableGrid extends StatefulWidget {
   final double dateTextSize;
   final double gridOpacity;
   final bool showTodayGridLines;
-  final String? backgroundImagePath;
-  final double backgroundOpacity;
   final bool showGridLines;
 
   const TimetableGrid({
@@ -109,6 +107,7 @@ class TimetableGrid extends StatefulWidget {
     this.onPendingDayActionCancel,
     this.adjustedWeekdays = const {},
     this.suppressDayDrop = false,
+    this.dayActionAnimation,
     this.countdownAnimation,
     required this.borderColor,
     this.borderWidth = 0.5,
@@ -119,8 +118,6 @@ class TimetableGrid extends StatefulWidget {
     this.dateTextSize = 12.0,
     this.gridOpacity = 0.5,
     this.showTodayGridLines = false,
-    this.backgroundImagePath,
-    this.backgroundOpacity = 0.5,
     this.showGridLines = true,
   });
 
@@ -560,27 +557,7 @@ class _TimetableGridState extends State<TimetableGrid> {
       ],
     );
 
-    final backgroundPath = widget.backgroundImagePath;
-    final result = backgroundPath == null || backgroundPath.isEmpty
-        ? content
-        : Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(
-                child: Opacity(
-                  opacity: widget.backgroundOpacity.clamp(0.0, 1.0).toDouble(),
-                  child: Image.file(
-                    File(backgroundPath),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const SizedBox(),
-                  ),
-                ),
-              ),
-              content,
-            ],
-          );
-    return MediaQuery.withNoTextScaling(child: result);
+    return MediaQuery.withNoTextScaling(child: content);
   }
 
   Widget _buildDayHeader(
@@ -822,7 +799,19 @@ class _TimetableGridState extends State<TimetableGrid> {
             if (actionColor != null)
               Positioned.fill(
                 child: IgnorePointer(
-                  child: ColoredBox(color: actionColor.withValues(alpha: 0.10)),
+                  child: widget.dayActionAnimation == null || !pendingAffected
+                      ? ColoredBox(color: actionColor.withValues(alpha: 0.10))
+                      : AnimatedBuilder(
+                          animation: widget.dayActionAnimation!,
+                          builder: (context, child) => ColoredBox(
+                            color: actionColor.withValues(
+                              alpha:
+                                  0.04 +
+                                  widget.dayActionAnimation!.value * 0.12,
+                            ),
+                            child: child,
+                          ),
+                        ),
                 ),
               ),
             if (highlighted)

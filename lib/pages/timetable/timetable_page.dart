@@ -60,6 +60,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   bool get wantKeepAlive => true;
   late final PageController _pageController;
   late final AnimationController _conflictCountdownController;
+  late final AnimationController _dayActionPulseController;
   final _timetableViewportKey = GlobalKey();
   bool _isSyncing = false;
   int _conflictRotationTick = 0;
@@ -97,6 +98,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       _lastConflictCountdownValue = currentValue;
     });
     _conflictCountdownController.repeat();
+    _dayActionPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0) {
         ref.read(selectedWeekProvider.notifier).set(initialWeek);
@@ -108,6 +113,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   void dispose() {
     semesterCalendar.removeListener(_onCalendarChanged);
     _conflictCountdownController.dispose();
+    _dayActionPulseController.dispose();
     _edgePageTimer?.cancel();
     _dayActionTimer?.cancel();
     _pageController.dispose();
@@ -284,6 +290,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     required Future<void> Function() execute,
   }) {
     _dayActionTimer?.cancel();
+    _dayActionPulseController
+      ..stop()
+      ..reset()
+      ..repeat(reverse: true);
     final action = _PendingDayAction(
       week: week,
       weekday: weekday,
@@ -303,6 +313,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       if (action.remaining <= Duration.zero) {
         timer.cancel();
         _pendingDayAction = null;
+        _dayActionPulseController
+          ..stop()
+          ..reset();
         if (mounted) setState(() {});
         unawaited(action.execute());
         return;
@@ -321,6 +334,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     }
     _dayActionTimer?.cancel();
     _dayActionTimer = null;
+    _dayActionPulseController
+      ..stop()
+      ..reset();
     setState(() => _pendingDayAction = null);
   }
 
@@ -606,6 +622,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       listenable: semesterCalendar,
       builder: (context, _) => AppPage(
         root: true,
+        transparentBackground: settings.timetableBackgroundPath != null,
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerMove: (event) {
@@ -677,6 +694,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                   hiddenSlots: hide56 ? const {5, 6} : const {},
                                   countdownAnimation:
                                       _conflictCountdownController,
+                                  dayActionAnimation: _dayActionPulseController,
                                   borderColor: courseBorderColor,
                                   borderWidth:
                                       settings.timetableCourseBorderWidth,
@@ -686,10 +704,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.timetableCourseTextSize,
                                   timeTextSize: settings.timetableTimeTextSize,
                                   dateTextSize: settings.timetableDateTextSize,
-                                  backgroundImagePath:
-                                      settings.timetableBackgroundPath,
-                                  backgroundOpacity:
-                                      settings.timetableBackgroundOpacity,
                                   gridOpacity: settings.timetableGridOpacity,
                                   showGridLines:
                                       settings.showTimetableGridLines,

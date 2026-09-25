@@ -19,6 +19,15 @@ typedef _SemesterOption = ({
   String key,
 });
 
+const _scoreBandColors = <Color>[
+  Color(0xFFEA4335),
+  Color(0xFFFBBC05),
+  Color(0xFF4285F4),
+  Color(0xFF34A853),
+];
+
+const _scoreBandLabels = ['不及格', '及格', '良好', '优秀'];
+
 class GradeQueryPage extends StatefulWidget {
   final String studentId;
   final String password;
@@ -237,7 +246,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         AppLayout.pageGutter(context),
         AppSpacing.xs,
         AppLayout.pageGutter(context),
-        AppSpacing.sm,
+        AppSpacing.xs,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,9 +254,20 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           // 学年+学期 二合一：横向滚动选择栏
           _buildSemesterSelector(theme),
           if (grades.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            // 学分/绩点摘要：无边框、小字号，位于选择栏下方
-            _buildSummaryRow(theme, totalCredit, gpa),
+            const SizedBox(height: AppSpacing.md),
+            AppCard(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              child: Column(
+                children: [
+                  _buildSummaryRow(theme, totalCredit, gpa),
+                  const SizedBox(height: AppSpacing.md),
+                  _buildScoreDistribution(theme, grades),
+                ],
+              ),
+            ),
           ],
         ],
       ),
@@ -341,28 +361,113 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     );
   }
 
-  /// 学分 / 绩点摘要行：无边框胶囊、小字号，左对齐。
+  /// 学分 / 绩点摘要行。
   Widget _buildSummaryRow(FThemeData theme, double totalCredit, double gpa) {
-    // 学分靠左、绩点靠右，并比页面边缘再收进一层。
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            '该学期学分 ${totalCredit.toStringAsFixed(1)}',
-            style: theme.typography.body.xs.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '该学期学分 ${totalCredit.toStringAsFixed(1)}',
+          style: theme.typography.body.xs.copyWith(
+            color: theme.colors.mutedForeground,
           ),
-          Text(
-            '该学期绩点 ${gpa.toStringAsFixed(2)} / 5.0',
-            style: theme.typography.body.xs.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
+        ),
+        Text(
+          '该学期绩点 ${gpa.toStringAsFixed(2)} / 5.0',
+          style: theme.typography.body.xs.copyWith(
+            color: theme.colors.mutedForeground,
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScoreDistribution(FThemeData theme, List<GradeItem> grades) {
+    final counts = List<int>.filled(4, 0);
+    for (final grade in grades) {
+      final band = _scoreBandIndex(grade.score);
+      if (band != null) counts[band]++;
+    }
+    final total = counts.fold<int>(0, (sum, count) => sum + count);
+    final visibleBands = [
+      for (var index = 0; index < counts.length; index++)
+        if (counts[index] > 0) index,
+    ];
+    final distributionLabel = visibleBands.isEmpty
+        ? '暂无可识别成绩'
+        : visibleBands
+              .map((index) => '${_scoreBandLabels[index]}${counts[index]}门')
+              .join('，');
+    return Column(
+      children: [
+        Semantics(
+          label: '成绩分布：$distributionLabel',
+          child: SizedBox(
+            width: double.infinity,
+            height: 10,
+            child: total == 0
+                ? DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: theme.colors.muted,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final index in visibleBands)
+                        Expanded(
+                          flex: counts[index],
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.micro,
+                            ),
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: _scoreBandColors[index],
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (visibleBands.isNotEmpty)
+          Row(
+            children: [
+              for (final index in visibleBands)
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                          color: _scoreBandColors[index],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Flexible(
+                        child: Text(
+                          _scoreBandLabels[index],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.typography.body.xs.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
   }
 
@@ -402,14 +507,19 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   Widget _buildGradeTile(FThemeData theme, GradeItem grade) {
+    final details = [
+      grade.courseCode.trim(),
+      grade.department.trim(),
+    ].where((value) => value.isNotEmpty).join(' · ');
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: AppCard(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
-          vertical: AppSpacing.sm,
+          vertical: AppSpacing.md,
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
               child: Column(
@@ -417,28 +527,52 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                 children: [
                   Text(
                     grade.name,
-                    style: theme.typography.body.md.copyWith(
-                      fontWeight: FontWeight.w600,
+                    style: theme.typography.tileTitle.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    details.isEmpty ? '课程信息暂缺' : details,
+                    style: theme.typography.body.xs.copyWith(
+                      color: theme.colors.mutedForeground,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${grade.type} · ${grade.credit}学分 · 绩点${grade.gradePoint}',
-                    style: theme.typography.body.sm.copyWith(
-                      color: theme.colors.mutedForeground,
-                    ),
-                  ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            Text(
-              grade.score,
-              style: theme.typography.metric.copyWith(
-                fontWeight: FontWeight.w700,
-                color: _scoreColor(theme, grade.score),
+            const SizedBox(width: AppSpacing.lg),
+            SizedBox(
+              width: 76,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${_fmtNum(grade.credit)} 学分',
+                    style: theme.typography.body.xs.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  SizedBox(
+                    height: 34,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        grade.score,
+                        style: theme.typography.metric.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: _scoreColor(theme, grade.score),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -448,11 +582,8 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   Color _scoreColor(FThemeData theme, String score) {
-    final n = double.tryParse(score);
-    if (n == null) return theme.colors.foreground;
-    if (n >= 90) return theme.colors.primary;
-    if (n >= 60) return theme.colors.foreground;
-    return theme.colors.destructive;
+    final band = _scoreBandIndex(score);
+    return band == null ? theme.colors.foreground : _scoreBandColors[band];
   }
 
   // ── Academic Tab ──
@@ -781,6 +912,35 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
       ],
     );
   }
+}
+
+/// Maps numeric and common textual grades to the four display bands.
+int? _scoreBandIndex(String raw) {
+  final value = raw.trim();
+  final score = double.tryParse(value);
+  if (score != null) {
+    if (score < 60) return 0;
+    if (score < 80) return 1;
+    if (score < 90) return 2;
+    return 3;
+  }
+
+  if (value.contains('优秀')) return 3;
+  if (value.contains('良好')) return 2;
+  if (value.contains('不及格') ||
+      value.contains('不合格') ||
+      value.contains('未通过') ||
+      value.contains('挂科')) {
+    return 0;
+  }
+  if (value.contains('中等') ||
+      value.contains('一般') ||
+      value.contains('及格') ||
+      value.contains('合格') ||
+      value.contains('通过')) {
+    return 1;
+  }
+  return null;
 }
 
 /// 学分数字格式化：整数不带小数，其余保留 1 位。
