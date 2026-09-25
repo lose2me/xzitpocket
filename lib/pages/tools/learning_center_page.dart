@@ -65,30 +65,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       await repository.refresh();
       if (mounted) setState(() => _refreshSucceeded = true);
       if (mounted && showToast) {
-        showAppSnackBar(
-          context,
-          '题库已刷新',
-          severity: ToastSeverity.success,
-          showAboveNavBar: true,
-        );
+        showAppSnackBar(context, '题库已刷新', severity: ToastSeverity.success);
       }
     } on ControlApiException catch (error) {
       if (mounted) {
-        showAppSnackBar(
-          context,
-          error.message,
-          severity: ToastSeverity.error,
-          showAboveNavBar: true,
-        );
+        showAppSnackBar(context, error.message, severity: ToastSeverity.error);
       }
     } catch (_) {
       if (mounted) {
-        showAppSnackBar(
-          context,
-          '刷新题库失败，请稍后重试',
-          severity: ToastSeverity.error,
-          showAboveNavBar: true,
-        );
+        showAppSnackBar(context, '刷新题库失败，请稍后重试', severity: ToastSeverity.error);
       }
     } finally {
       if (mounted) setState(() => _refreshing = false);
@@ -385,12 +370,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Future<void> _openCdkRedeem(_QuestionBankGroup bank) async {
     final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
     if (!repository.canRedeemCdk || bank.id.trim().isEmpty) {
-      showAppSnackBar(
-        context,
-        '此题库需要 CDK 解锁',
-        severity: ToastSeverity.warning,
-        showAboveNavBar: true,
-      );
+      showAppSnackBar(context, '此题库需要 CDK 解锁', severity: ToastSeverity.warning);
       return;
     }
     final redeemed = await showFDialog<bool>(
@@ -404,12 +384,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
     );
     if (redeemed != true || !mounted) return;
-    showAppSnackBar(
-      context,
-      '题库兑换成功',
-      severity: ToastSeverity.success,
-      showAboveNavBar: true,
-    );
+    showAppSnackBar(context, '题库兑换成功', severity: ToastSeverity.success);
     final updated = _findBank(id: bank.id, name: bank.name, isNew: bank.isNew);
     if (updated != null && !updated.locked && updated.questions.isNotEmpty) {
       unawaited(_openQuestions(updated.questions, pageTitle: name));
@@ -733,12 +708,7 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
     if (_redeeming) return;
     final code = _controller.text.trim();
     if (code.isEmpty) {
-      showAppSnackBar(
-        context,
-        '请输入 CDK',
-        severity: ToastSeverity.warning,
-        showAboveNavBar: true,
-      );
+      showAppSnackBar(context, '请输入 CDK', severity: ToastSeverity.warning);
       return;
     }
     setState(() => _redeeming = true);
@@ -748,20 +718,10 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
       Navigator.of(context).pop(true);
     } on ControlApiException catch (error) {
       if (!mounted) return;
-      showAppSnackBar(
-        context,
-        error.message,
-        severity: ToastSeverity.error,
-        showAboveNavBar: true,
-      );
+      showAppSnackBar(context, error.message, severity: ToastSeverity.error);
     } catch (_) {
       if (!mounted) return;
-      showAppSnackBar(
-        context,
-        '题库兑换失败，请稍后重试',
-        severity: ToastSeverity.error,
-        showAboveNavBar: true,
-      );
+      showAppSnackBar(context, '题库兑换失败，请稍后重试', severity: ToastSeverity.error);
     } finally {
       if (mounted) setState(() => _redeeming = false);
     }

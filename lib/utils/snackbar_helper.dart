@@ -43,8 +43,6 @@ void showAppSnackBar(
   String message, {
   Duration duration = const Duration(seconds: 3),
   ToastSeverity severity = ToastSeverity.info,
-  // Kept for source compatibility. Toasts now always use the global layout.
-  bool? showAboveNavBar,
 }) {
   final overlay = context.mounted
       ? Overlay.of(context, rootOverlay: true)
