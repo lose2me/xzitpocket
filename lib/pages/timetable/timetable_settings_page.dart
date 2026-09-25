@@ -827,9 +827,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
   }
 
   Future<void> _pickBackground() async {
-    final picked = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-    );
+    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
     if (picked == null || !mounted) return;
     try {
       final screenSize = MediaQuery.sizeOf(context);
@@ -894,11 +892,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
   Future<img.Image?> _selectBackgroundCrop(
     img.Image source,
     double aspectRatio,
-  ) => showDialog<img.Image>(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) =>
-        _BackgroundCropDialog(source: source, aspectRatio: aspectRatio),
+  ) => Navigator.of(context).push<img.Image>(
+    MaterialPageRoute(
+      builder: (_) =>
+          _BackgroundCropPage(source: source, aspectRatio: aspectRatio),
+    ),
   );
 
   Future<void> _resetBackgroundCrop() async {
@@ -1037,27 +1035,27 @@ class _TimetableDaySnapshot {
   });
 }
 
-class _BackgroundCropDialog extends StatefulWidget {
+class _BackgroundCropPage extends StatefulWidget {
   final img.Image source;
   final double aspectRatio;
 
-  const _BackgroundCropDialog({
-    required this.source,
-    required this.aspectRatio,
-  });
+  const _BackgroundCropPage({required this.source, required this.aspectRatio});
 
   @override
-  State<_BackgroundCropDialog> createState() => _BackgroundCropDialogState();
+  State<_BackgroundCropPage> createState() => _BackgroundCropPageState();
 }
 
-class _BackgroundCropDialogState extends State<_BackgroundCropDialog> {
+class _BackgroundCropPageState extends State<_BackgroundCropPage> {
   late final Uint8List _previewBytes = Uint8List.fromList(
     img.encodeJpg(widget.source, quality: 95),
   );
   Offset _offset = Offset.zero;
+  Offset _gestureStartOffset = Offset.zero;
+  double _zoom = 1;
+  double _gestureStartZoom = 1;
   _BackgroundCropMetrics? _lastMetrics;
 
-  _BackgroundCropMetrics _metrics(Size canvasSize) {
+  _BackgroundCropMetrics _metrics(Size canvasSize, {double? zoom}) {
     final aspectRatio = widget.aspectRatio.isFinite && widget.aspectRatio > 0
         ? widget.aspectRatio
         : 1.0;
@@ -1075,13 +1073,14 @@ class _BackgroundCropDialogState extends State<_BackgroundCropDialog> {
       frameWidth / widget.source.width,
       frameHeight / widget.source.height,
     );
-    final imageWidth = widget.source.width * scale;
-    final imageHeight = widget.source.height * scale;
+    final effectiveScale = scale * (zoom ?? _zoom);
+    final imageWidth = widget.source.width * effectiveScale;
+    final imageHeight = widget.source.height * effectiveScale;
     final baseLeft = (canvasSize.width - imageWidth) / 2;
     final baseTop = (canvasSize.height - imageHeight) / 2;
     return _BackgroundCropMetrics(
       cropRect: cropRect,
-      scale: scale,
+      scale: effectiveScale,
       imageWidth: imageWidth,
       imageHeight: imageHeight,
       baseLeft: baseLeft,
@@ -1133,103 +1132,111 @@ class _BackgroundCropDialogState extends State<_BackgroundCropDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '调整背景图',
-              textAlign: TextAlign.center,
-              style: theme.typography.pageTitle,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              '拖动图片选择显示位置',
-              textAlign: TextAlign.center,
-              style: theme.typography.caption.copyWith(
-                color: theme.colors.mutedForeground,
+    return AppPage(
+      title: '调整背景图',
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.lg,
+          ),
+          child: Column(
+            children: [
+              Text(
+                '拖动图片选择位置，双指缩放图片',
+                textAlign: TextAlign.center,
+                style: theme.typography.caption.copyWith(
+                  color: theme.colors.mutedForeground,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final canvasHeight = math.min(
-                  400.0,
-                  math.max(220.0, MediaQuery.sizeOf(context).height * 0.48),
-                );
-                final canvasSize = Size(constraints.maxWidth, canvasHeight);
-                final metrics = _metrics(canvasSize);
-                _lastMetrics = metrics;
-                final imageLeft = metrics.baseLeft + _offset.dx;
-                final imageTop = metrics.baseTop + _offset.dy;
-                return SizedBox(
-                  width: canvasSize.width,
-                  height: canvasSize.height,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanUpdate: (details) {
-                      setState(() {
-                        _offset = _clampOffset(
-                          _offset + details.delta,
-                          metrics,
-                        );
-                      });
-                    },
-                    child: ClipRRect(
+              const SizedBox(height: AppSpacing.md),
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final canvasSize = Size(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    final metrics = _metrics(canvasSize);
+                    _lastMetrics = metrics;
+                    final imageLeft = metrics.baseLeft + _offset.dx;
+                    final imageTop = metrics.baseTop + _offset.dy;
+                    return ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ColoredBox(color: theme.colors.muted),
-                          Positioned(
-                            left: imageLeft,
-                            top: imageTop,
-                            width: metrics.imageWidth,
-                            height: metrics.imageHeight,
-                            child: Image.memory(
-                              _previewBytes,
-                              fit: BoxFit.fill,
-                              filterQuality: FilterQuality.high,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onScaleStart: (details) {
+                          _gestureStartOffset = _offset;
+                          _gestureStartZoom = _zoom;
+                        },
+                        onScaleUpdate: (details) {
+                          final nextZoom = (_gestureStartZoom * details.scale)
+                              .clamp(1.0, 4.0)
+                              .toDouble();
+                          final nextMetrics = _metrics(
+                            canvasSize,
+                            zoom: nextZoom,
+                          );
+                          setState(() {
+                            _zoom = nextZoom;
+                            _offset = _clampOffset(
+                              _gestureStartOffset + details.focalPointDelta,
+                              nextMetrics,
+                            );
+                          });
+                        },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ColoredBox(color: theme.colors.muted),
+                            Positioned(
+                              left: imageLeft,
+                              top: imageTop,
+                              width: metrics.imageWidth,
+                              height: metrics.imageHeight,
+                              child: Image.memory(
+                                _previewBytes,
+                                fit: BoxFit.fill,
+                                filterQuality: FilterQuality.high,
+                              ),
                             ),
-                          ),
-                          IgnorePointer(
-                            child: CustomPaint(
-                              painter: _CropOverlayPainter(metrics.cropRect),
+                            IgnorePointer(
+                              child: CustomPaint(
+                                painter: _CropOverlayPainter(metrics.cropRect),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FButton(
-                  variant: FButtonVariant.ghost,
-                  onPress: () => Navigator.pop(context),
-                  child: const Text('取消'),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                FButton(
-                  onPress: () {
-                    final metrics = _lastMetrics;
-                    if (metrics != null) {
-                      Navigator.pop(context, _crop(metrics));
-                    }
+                    );
                   },
-                  child: const Text('使用此位置'),
                 ),
-              ],
-            ),
-          ],
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  FButton(
+                    variant: FButtonVariant.ghost,
+                    onPress: () => Navigator.pop(context),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  FButton(
+                    onPress: () {
+                      final metrics = _lastMetrics;
+                      if (metrics != null) {
+                        Navigator.pop(context, _crop(metrics));
+                      }
+                    },
+                    child: const Text('使用此位置'),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
