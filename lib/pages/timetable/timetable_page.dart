@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -622,7 +623,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       listenable: semesterCalendar,
       builder: (context, _) => AppPage(
         root: true,
-        transparentBackground: settings.timetableBackgroundPath != null,
+        transparentBackground:
+            settings.timetableBackgroundFullscreen &&
+            settings.timetableBackgroundPath != null,
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerMove: (event) {
@@ -662,6 +665,23 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                       return Stack(
                         fit: StackFit.expand,
                         children: [
+                          if (!settings.timetableBackgroundFullscreen &&
+                              settings.timetableBackgroundPath != null &&
+                              settings.timetableBackgroundPath!.isNotEmpty)
+                            Positioned.fill(
+                              child: Opacity(
+                                opacity: settings.timetableBackgroundOpacity
+                                    .clamp(0.0, 1.0),
+                                child: Image.file(
+                                  File(settings.timetableBackgroundPath!),
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                  filterQuality: FilterQuality.high,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const SizedBox(),
+                                ),
+                              ),
+                            ),
                           PageView.builder(
                             key: _timetableViewportKey,
                             controller: _pageController,

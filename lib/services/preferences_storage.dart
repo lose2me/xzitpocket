@@ -57,6 +57,12 @@ class PreferencesStorage {
     }
   }
 
+  bool getTimetableBackgroundFullscreen() =>
+      _prefs.getBool('timetable_background_fullscreen') ?? true;
+
+  Future<void> setTimetableBackgroundFullscreen(bool value) =>
+      _prefs.setBool('timetable_background_fullscreen', value);
+
   double getTimetableBackgroundOpacity() =>
       (_prefs.getDouble('timetable_background_opacity') ?? 0.5)
           .clamp(0.0, 1.0)
@@ -146,6 +152,7 @@ class PreferencesStorage {
   Future<void> resetTimetableAppearance() async {
     await Future.wait([
       _prefs.remove('timetable_background_path'),
+      _prefs.remove('timetable_background_fullscreen'),
       _prefs.remove('timetable_background_opacity'),
       _prefs.remove('timetable_component_opacity'),
       _prefs.remove('timetable_grid_opacity'),

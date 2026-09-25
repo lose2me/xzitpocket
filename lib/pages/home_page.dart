@@ -80,7 +80,9 @@ class HomePageState extends ConsumerState<HomePage> {
         ? visibleTabs.indexOf(_currentIndex)
         : 0;
     final timetableBackgroundPath = _currentIndex == 0
-        ? settings.timetableBackgroundPath
+        ? settings.timetableBackgroundFullscreen
+              ? settings.timetableBackgroundPath
+              : null
         : null;
     final hasTimetableBackground =
         timetableBackgroundPath != null && timetableBackgroundPath.isNotEmpty;

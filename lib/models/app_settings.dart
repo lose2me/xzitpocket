@@ -97,6 +97,7 @@ class AppSettings {
   final AppThemeColor themeColor;
   final ClassAutomationMode classAutomationMode;
   final String? timetableBackgroundPath;
+  final bool timetableBackgroundFullscreen;
   final double timetableBackgroundOpacity;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
@@ -115,6 +116,7 @@ class AppSettings {
     this.themeColor = AppThemeColor.rose,
     this.classAutomationMode = ClassAutomationMode.off,
     this.timetableBackgroundPath,
+    this.timetableBackgroundFullscreen = true,
     this.timetableBackgroundOpacity = 0.5,
     this.timetableComponentOpacity = 0.6,
     this.timetableGridOpacity = 0.7,
@@ -136,6 +138,7 @@ class AppSettings {
     AppThemeColor? themeColor,
     ClassAutomationMode? classAutomationMode,
     Object? timetableBackgroundPath = _unset,
+    bool? timetableBackgroundFullscreen,
     double? timetableBackgroundOpacity,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
@@ -156,6 +159,8 @@ class AppSettings {
       timetableBackgroundPath: identical(timetableBackgroundPath, _unset)
           ? this.timetableBackgroundPath
           : timetableBackgroundPath as String?,
+      timetableBackgroundFullscreen:
+          timetableBackgroundFullscreen ?? this.timetableBackgroundFullscreen,
       timetableBackgroundOpacity:
           timetableBackgroundOpacity ?? this.timetableBackgroundOpacity,
       timetableComponentOpacity:

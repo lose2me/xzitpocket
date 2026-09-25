@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +24,25 @@ import '../profile/profile_components.dart';
 import 'timetable_providers.dart';
 
 int _tenthsDivisions(double min, double max) => ((max - min) * 10).round();
+
+double _backgroundAspectRatio(
+  Size size, {
+  required bool fullscreen,
+  EdgeInsets padding = EdgeInsets.zero,
+}) {
+  final width = size.width.clamp(1.0, double.infinity).toDouble();
+  if (fullscreen) {
+    final height = size.height.clamp(1.0, double.infinity).toDouble();
+    return width / height;
+  }
+
+  // The non-fullscreen image sits behind the timetable grid only. Keep the
+  // crop frame aligned with the space left after the week header and nav bar.
+  final contentHeight = (size.height - padding.vertical - 64 - 80)
+      .clamp(1.0, double.infinity)
+      .toDouble();
+  return width / contentHeight;
+}
 
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
@@ -299,6 +320,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
                 title: '课表背景图',
                 value: settings.timetableBackgroundPath == null ? '未设置' : '已设置',
                 onTap: _pickBackground,
+              ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.maximize,
+                title: '背景覆盖全屏',
+                value: settings.timetableBackgroundFullscreen,
+                onChange: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setTimetableBackgroundFullscreen(value),
               ),
               ProfileSettingsTile(
                 icon: FLucideIcons.trash2,
@@ -797,13 +826,31 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
     if (picked == null || !mounted) return;
     try {
       final screenSize = MediaQuery.sizeOf(context);
-      final aspectRatio = screenSize.width / screenSize.height;
+      final settings = ref.read(appSettingsProvider);
+      final aspectRatio = _backgroundAspectRatio(
+        screenSize,
+        fullscreen: settings.timetableBackgroundFullscreen,
+        padding: MediaQuery.paddingOf(context),
+      );
+      final decoded = img.decodeImage(await picked.readAsBytes());
+      if (decoded == null) {
+        throw const FormatException('无法读取图片');
+      }
+      final oriented = img.bakeOrientation(decoded);
+      if (!mounted) return;
+      final crop = await showDialog<img.Image>(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) =>
+            _BackgroundCropDialog(source: oriented, aspectRatio: aspectRatio),
+      );
+      if (crop == null || !mounted) return;
       final directory = await getApplicationDocumentsDirectory();
       final targetPath = p.join(
         directory.path,
         'timetable_background_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-      await _saveCroppedBackground(picked, targetPath, aspectRatio);
+      await File(targetPath).writeAsBytes(img.encodeJpg(crop, quality: 90));
       final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
       await ref
           .read(appSettingsProvider.notifier)
@@ -821,38 +868,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
         showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
       }
     }
-  }
-
-  Future<void> _saveCroppedBackground(
-    XFile picked,
-    String targetPath,
-    double aspectRatio,
-  ) async {
-    final decoded = img.decodeImage(await picked.readAsBytes());
-    if (decoded == null || !aspectRatio.isFinite || aspectRatio <= 0) {
-      await picked.saveTo(targetPath);
-      return;
-    }
-
-    final sourceRatio = decoded.width / decoded.height;
-    final cropWidth = sourceRatio > aspectRatio
-        ? (decoded.height * aspectRatio).round()
-        : decoded.width;
-    final cropHeight = sourceRatio > aspectRatio
-        ? decoded.height
-        : (decoded.width / aspectRatio).round();
-    final width = cropWidth.clamp(1, decoded.width).toInt();
-    final height = cropHeight.clamp(1, decoded.height).toInt();
-    final left = ((decoded.width - width) / 2).round();
-    final top = ((decoded.height - height) / 2).round();
-    final cropped = img.copyCrop(
-      decoded,
-      x: left,
-      y: top,
-      width: width,
-      height: height,
-    );
-    await File(targetPath).writeAsBytes(img.encodeJpg(cropped, quality: 90));
   }
 
   Future<void> _clearBackground() async {
@@ -926,4 +941,281 @@ class _TimetableDaySnapshot {
     required this.originalCourses,
     required this.currentCourses,
   });
+}
+
+class _BackgroundCropDialog extends StatefulWidget {
+  final img.Image source;
+  final double aspectRatio;
+
+  const _BackgroundCropDialog({
+    required this.source,
+    required this.aspectRatio,
+  });
+
+  @override
+  State<_BackgroundCropDialog> createState() => _BackgroundCropDialogState();
+}
+
+class _BackgroundCropDialogState extends State<_BackgroundCropDialog> {
+  late final Uint8List _previewBytes = Uint8List.fromList(
+    img.encodeJpg(widget.source, quality: 95),
+  );
+  Offset _offset = Offset.zero;
+  _BackgroundCropMetrics? _lastMetrics;
+
+  _BackgroundCropMetrics _metrics(Size canvasSize) {
+    final aspectRatio = widget.aspectRatio.isFinite && widget.aspectRatio > 0
+        ? widget.aspectRatio
+        : 1.0;
+    final frameWidth = math.min(
+      canvasSize.width - 24,
+      (canvasSize.height - 24) * aspectRatio,
+    );
+    final frameHeight = frameWidth / aspectRatio;
+    final cropRect = Rect.fromCenter(
+      center: canvasSize.center(Offset.zero),
+      width: frameWidth,
+      height: frameHeight,
+    );
+    final scale = math.max(
+      frameWidth / widget.source.width,
+      frameHeight / widget.source.height,
+    );
+    final imageWidth = widget.source.width * scale;
+    final imageHeight = widget.source.height * scale;
+    final baseLeft = (canvasSize.width - imageWidth) / 2;
+    final baseTop = (canvasSize.height - imageHeight) / 2;
+    return _BackgroundCropMetrics(
+      cropRect: cropRect,
+      scale: scale,
+      imageWidth: imageWidth,
+      imageHeight: imageHeight,
+      baseLeft: baseLeft,
+      baseTop: baseTop,
+    );
+  }
+
+  Offset _clampOffset(Offset offset, _BackgroundCropMetrics metrics) {
+    final minX =
+        metrics.cropRect.right - (metrics.baseLeft + metrics.imageWidth);
+    final maxX = metrics.cropRect.left - metrics.baseLeft;
+    final minY =
+        metrics.cropRect.bottom - (metrics.baseTop + metrics.imageHeight);
+    final maxY = metrics.cropRect.top - metrics.baseTop;
+    return Offset(
+      offset.dx.clamp(minX, maxX).toDouble(),
+      offset.dy.clamp(minY, maxY).toDouble(),
+    );
+  }
+
+  img.Image _crop(_BackgroundCropMetrics metrics) {
+    final imageLeft = metrics.baseLeft + _offset.dx;
+    final imageTop = metrics.baseTop + _offset.dy;
+    final x = ((metrics.cropRect.left - imageLeft) / metrics.scale)
+        .round()
+        .clamp(0, widget.source.width - 1)
+        .toInt();
+    final y = ((metrics.cropRect.top - imageTop) / metrics.scale)
+        .round()
+        .clamp(0, widget.source.height - 1)
+        .toInt();
+    final width = (metrics.cropRect.width / metrics.scale)
+        .round()
+        .clamp(1, widget.source.width - x)
+        .toInt();
+    final height = (metrics.cropRect.height / metrics.scale)
+        .round()
+        .clamp(1, widget.source.height - y)
+        .toInt();
+    return img.copyCrop(
+      widget.source,
+      x: x,
+      y: y,
+      width: width,
+      height: height,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '调整背景图',
+              textAlign: TextAlign.center,
+              style: theme.typography.pageTitle,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '拖动图片选择显示位置',
+              textAlign: TextAlign.center,
+              style: theme.typography.caption.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final canvasHeight = math.min(
+                  400.0,
+                  math.max(220.0, MediaQuery.sizeOf(context).height * 0.48),
+                );
+                final canvasSize = Size(constraints.maxWidth, canvasHeight);
+                final metrics = _metrics(canvasSize);
+                _lastMetrics = metrics;
+                final imageLeft = metrics.baseLeft + _offset.dx;
+                final imageTop = metrics.baseTop + _offset.dy;
+                return SizedBox(
+                  width: canvasSize.width,
+                  height: canvasSize.height,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanUpdate: (details) {
+                      setState(() {
+                        _offset = _clampOffset(
+                          _offset + details.delta,
+                          metrics,
+                        );
+                      });
+                    },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ColoredBox(color: theme.colors.muted),
+                          Positioned(
+                            left: imageLeft,
+                            top: imageTop,
+                            width: metrics.imageWidth,
+                            height: metrics.imageHeight,
+                            child: Image.memory(
+                              _previewBytes,
+                              fit: BoxFit.fill,
+                              filterQuality: FilterQuality.high,
+                            ),
+                          ),
+                          IgnorePointer(
+                            child: CustomPaint(
+                              painter: _CropOverlayPainter(metrics.cropRect),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                FButton(
+                  variant: FButtonVariant.ghost,
+                  onPress: () => Navigator.pop(context),
+                  child: const Text('取消'),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                FButton(
+                  onPress: () {
+                    final metrics = _lastMetrics;
+                    if (metrics != null) {
+                      Navigator.pop(context, _crop(metrics));
+                    }
+                  },
+                  child: const Text('使用此位置'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BackgroundCropMetrics {
+  final Rect cropRect;
+  final double scale;
+  final double imageWidth;
+  final double imageHeight;
+  final double baseLeft;
+  final double baseTop;
+
+  const _BackgroundCropMetrics({
+    required this.cropRect,
+    required this.scale,
+    required this.imageWidth,
+    required this.imageHeight,
+    required this.baseLeft,
+    required this.baseTop,
+  });
+}
+
+class _CropOverlayPainter extends CustomPainter {
+  final Rect cropRect;
+
+  const _CropOverlayPainter(this.cropRect);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final shade = Paint()..color = const Color(0x99000000);
+    canvas
+      ..drawRect(Rect.fromLTWH(0, 0, size.width, cropRect.top), shade)
+      ..drawRect(
+        Rect.fromLTWH(
+          0,
+          cropRect.bottom,
+          size.width,
+          size.height - cropRect.bottom,
+        ),
+        shade,
+      )
+      ..drawRect(
+        Rect.fromLTWH(0, cropRect.top, cropRect.left, cropRect.height),
+        shade,
+      )
+      ..drawRect(
+        Rect.fromLTWH(
+          cropRect.right,
+          cropRect.top,
+          size.width - cropRect.right,
+          cropRect.height,
+        ),
+        shade,
+      );
+
+    final border = Paint()
+      ..color = const Color(0xFFFFFFFF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRect(cropRect, border);
+
+    final guide = Paint()
+      ..color = const Color(0x99FFFFFF)
+      ..strokeWidth = 0.7;
+    for (var i = 1; i < 3; i++) {
+      final dx = cropRect.left + cropRect.width * i / 3;
+      final dy = cropRect.top + cropRect.height * i / 3;
+      canvas
+        ..drawLine(Offset(dx, cropRect.top), Offset(dx, cropRect.bottom), guide)
+        ..drawLine(
+          Offset(cropRect.left, dy),
+          Offset(cropRect.right, dy),
+          guide,
+        );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _CropOverlayPainter oldDelegate) =>
+      oldDelegate.cropRect != cropRect;
 }
