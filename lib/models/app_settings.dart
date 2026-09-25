@@ -105,9 +105,9 @@ class AppSettings {
   final double timetableDateTextSize;
   final double timetableCourseBorderWidth;
   final double timetableCourseBorderOpacity;
-  final bool showTimetableAdjustments;
   final bool showTimetableGridLines;
   final bool showTodayGridLines;
+  final bool useCloudTimetableAdjustments;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
   const AppSettings({
@@ -123,9 +123,9 @@ class AppSettings {
     this.timetableDateTextSize = 12.0,
     this.timetableCourseBorderWidth = 0.5,
     this.timetableCourseBorderOpacity = 0.6,
-    this.showTimetableAdjustments = true,
     this.showTimetableGridLines = true,
     this.showTodayGridLines = false,
+    this.useCloudTimetableAdjustments = true,
     this.hiddenServiceFeatures = const {},
   });
 
@@ -144,9 +144,9 @@ class AppSettings {
     double? timetableDateTextSize,
     double? timetableCourseBorderWidth,
     double? timetableCourseBorderOpacity,
-    bool? showTimetableAdjustments,
     bool? showTimetableGridLines,
     bool? showTodayGridLines,
+    bool? useCloudTimetableAdjustments,
     Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
     return AppSettings(
@@ -171,11 +171,11 @@ class AppSettings {
           timetableCourseBorderWidth ?? this.timetableCourseBorderWidth,
       timetableCourseBorderOpacity:
           timetableCourseBorderOpacity ?? this.timetableCourseBorderOpacity,
-      showTimetableAdjustments:
-          showTimetableAdjustments ?? this.showTimetableAdjustments,
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
       showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,
+      useCloudTimetableAdjustments:
+          useCloudTimetableAdjustments ?? this.useCloudTimetableAdjustments,
       hiddenServiceFeatures:
           hiddenServiceFeatures ?? this.hiddenServiceFeatures,
     );

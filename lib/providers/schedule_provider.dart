@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/semester_config.dart';
 import '../models/course.dart';
+import '../models/school_calendar.dart';
 import '../services/course_storage.dart';
 import '../services/widget_service.dart';
+import 'app_settings_provider.dart';
 import 'config_provider.dart';
 
 final scheduleProvider =
@@ -29,6 +31,15 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
   }
 
   List<Course> get originalCourses => List.unmodifiable(_originalCourses);
+
+  Future<void> applyCloudAdjustments() async {
+    if (!ref.read(appSettingsProvider).useCloudTimetableAdjustments) return;
+    final adjusted = await _storage.applyCloudAdjustments(
+      days: semesterCalendar.days,
+      semesterStart: semesterStartDate,
+    );
+    if (adjusted) await _reload();
+  }
 
   /// Returns the stable Hive key for the exact course instance shown by the UI.
   ///
@@ -79,9 +90,11 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
           collegeName: collegeName,
           className: className,
         );
-    if (_sameCourses(_courses, courses)) return;
-    await _storage.saveCourses(courses);
-    await _reload();
+    if (!_sameCourses(_courses, courses)) {
+      await _storage.saveCourses(courses);
+      await _reload();
+    }
+    await applyCloudAdjustments();
   }
 
   bool _sameCourses(List<Course> left, List<Course> right) {

@@ -21,6 +21,8 @@ enum TimetableDayActionType { move, clear, restore }
 
 class TimetableDayActionIndicator {
   final int weekday;
+  final int targetWeek;
+  final int targetWeekday;
   final String label;
   final int seconds;
   final TimetableDayActionType type;
@@ -28,6 +30,8 @@ class TimetableDayActionIndicator {
 
   const TimetableDayActionIndicator({
     required this.weekday,
+    required this.targetWeek,
+    required this.targetWeekday,
     required this.label,
     required this.seconds,
     required this.type,
@@ -67,7 +71,6 @@ class TimetableGrid extends StatefulWidget {
   final TimetableDayActionIndicator? pendingDayAction;
   final ValueChanged<int>? onPendingDayActionCancel;
   final Set<int> adjustedWeekdays;
-  final bool showTimetableAdjustments;
   final bool suppressDayDrop;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
@@ -105,7 +108,6 @@ class TimetableGrid extends StatefulWidget {
     this.pendingDayAction,
     this.onPendingDayActionCancel,
     this.adjustedWeekdays = const {},
-    this.showTimetableAdjustments = true,
     this.suppressDayDrop = false,
     this.countdownAnimation,
     required this.borderColor,
@@ -591,9 +593,7 @@ class _TimetableGridState extends State<TimetableGrid> {
   }) {
     final theme = context.theme;
     final highlighted = !widget.suppressDayDrop && _dragHoverWeekday == weekday;
-    final adjusted =
-        widget.showTimetableAdjustments &&
-        widget.adjustedWeekdays.contains(weekday);
+    final adjusted = widget.adjustedWeekdays.contains(weekday);
     final pending =
         widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true
         ? widget.pendingDayAction
@@ -601,6 +601,10 @@ class _TimetableGridState extends State<TimetableGrid> {
     final pendingAffectsDay =
         widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true;
     final draggingSource = _dragSourceWeekday == weekday;
+    final pendingIsMoveSource =
+        pending != null &&
+        pending.type == TimetableDayActionType.move &&
+        (widget.week != pending.targetWeek || weekday != pending.targetWeekday);
     final actionType = pendingAffectsDay
         ? widget.pendingDayAction!.type
         : draggingSource
@@ -608,7 +612,9 @@ class _TimetableGridState extends State<TimetableGrid> {
         : null;
     final actionColor = _actionColor(theme, actionType);
     final header = GestureDetector(
-      onTap: pending == null
+      onTap: widget.pendingDayAction != null && pending == null
+          ? null
+          : pending == null
           ? () => _handleHeaderTap(weekday)
           : () => widget.onPendingDayActionCancel?.call(weekday),
       child: SizedBox(
@@ -637,7 +643,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                         weekdayLabel: weekdayLabel,
                         isToday: isToday,
                       )
-                    : _buildPendingDayAction(theme, pending),
+                    : _buildPendingDayAction(
+                        theme,
+                        pending,
+                        pendingIsMoveSource ? '被移动' : null,
+                      ),
                 if (adjusted && pending == null)
                   Positioned(
                     top: 2,
@@ -707,7 +717,7 @@ class _TimetableGridState extends State<TimetableGrid> {
       onAcceptWithDetails: (details) =>
           _acceptColumnDrop(weekday, details.data),
       builder: (context, candidateData, rejectedData) =>
-          canDrag && pending == null ? dragChild : header,
+          canDrag && widget.pendingDayAction == null ? dragChild : header,
     );
   }
 
@@ -755,6 +765,7 @@ class _TimetableGridState extends State<TimetableGrid> {
   Widget _buildPendingDayAction(
     FThemeData theme,
     TimetableDayActionIndicator action,
+    String? labelOverride,
   ) => Column(
     mainAxisAlignment: MainAxisAlignment.center,
     children: [
@@ -767,7 +778,7 @@ class _TimetableGridState extends State<TimetableGrid> {
         ),
       ),
       Text(
-        action.label,
+        labelOverride ?? action.label,
         maxLines: 1,
         overflow: TextOverflow.clip,
         style: theme.typography.caption.copyWith(

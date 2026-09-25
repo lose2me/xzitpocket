@@ -150,7 +150,6 @@ void main() {
       await storage.setTimetableDateTextSize(13);
       await storage.setTimetableCourseBorderWidth(1.2);
       await storage.setTimetableCourseBorderOpacity(0.35);
-      await storage.setShowTimetableAdjustments(false);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(false);
 
@@ -164,7 +163,6 @@ void main() {
       expect(storage.getTimetableDateTextSize(), 13);
       expect(storage.getTimetableCourseBorderWidth(), 1.2);
       expect(storage.getTimetableCourseBorderOpacity(), 0.35);
-      expect(storage.getShowTimetableAdjustments(), isFalse);
       expect(storage.getShowTimetableGridLines(), isFalse);
       expect(storage.getShowTodayGridLines(), isFalse);
     });
@@ -253,7 +251,6 @@ void main() {
       await storage.setTimetableDateTextSize(14);
       await storage.setTimetableCourseBorderWidth(2);
       await storage.setTimetableCourseBorderOpacity(0.2);
-      await storage.setShowTimetableAdjustments(false);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(true);
 
@@ -268,7 +265,6 @@ void main() {
       expect(storage.getTimetableDateTextSize(), 12);
       expect(storage.getTimetableCourseBorderWidth(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
-      expect(storage.getShowTimetableAdjustments(), isTrue);
       expect(storage.getShowTimetableGridLines(), isTrue);
       expect(storage.getShowTodayGridLines(), isFalse);
     });

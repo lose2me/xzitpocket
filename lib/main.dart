@@ -77,6 +77,12 @@ Future<void> _finishStartup(
               versions.schoolCalendar) {
         final days = await ControlService.instance.fetchSchoolCalendar();
         semesterCalendar.replaceDays(days);
+        if (preferencesStorage.getUseCloudTimetableAdjustments()) {
+          await courseStorage.applyCloudAdjustments(
+            days: days,
+            semesterStart: semesterStartDate,
+          );
+        }
         await preferencesStorage.setSchoolCalendarCache(
           schoolCalendarDaysToJson(days),
         );

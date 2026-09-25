@@ -81,6 +81,7 @@ class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {
   final String title;
   final String? value;
   final bool expanded;
+  final bool expandable;
   final Widget child;
   final VoidCallback onTap;
 
@@ -91,14 +92,15 @@ class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {
     required this.expanded,
     required this.child,
     required this.onTap,
+    this.expandable = true,
     this.value,
   });
 
   @override
   Widget build(BuildContext context) => FTile.raw(
     style: _profileTileStyle,
-    semanticsExpanded: expanded,
-    onPress: onTap,
+    semanticsExpanded: expandable ? expanded : null,
+    onPress: expandable ? onTap : null,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -112,14 +114,18 @@ class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {
               Text(value!),
             ],
             const SizedBox(width: AppSpacing.sm),
-            Icon(
-              expanded ? FLucideIcons.chevronDown : FLucideIcons.chevronRight,
-              size: 18,
-              color: context.theme.colors.mutedForeground,
-            ),
+            if (expandable)
+              Icon(
+                expanded ? FLucideIcons.chevronDown : FLucideIcons.chevronRight,
+                size: 18,
+                color: context.theme.colors.mutedForeground,
+              ),
           ],
         ),
-        if (expanded) ...[const SizedBox(height: AppSpacing.md), child],
+        if (expandable && expanded) ...[
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
       ],
     ),
   );

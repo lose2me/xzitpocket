@@ -89,6 +89,34 @@ void main() {
     expect(decoded, [days[1], days[0]]);
   });
 
+  test('roundtrips cloud course adjustment parameters', () {
+    final days = [
+      SchoolDay(
+        date: DateTime(2027, 2, 22),
+        weekday: 1,
+        holiday: false,
+        adjustment: '20270223',
+      ),
+      SchoolDay(
+        date: DateTime(2027, 2, 23),
+        weekday: 2,
+        holiday: false,
+        adjustment: '/',
+      ),
+    ];
+    final decoded = schoolCalendarDaysFromJson(schoolCalendarDaysToJson(days));
+    expect(decoded, days);
+  });
+
+  test('rejects invalid cloud course adjustment parameters', () {
+    expect(
+      () => schoolCalendarDaysFromJson(
+        '[{"date":"2027-02-22","weekday":1,"holiday":false,"adjustment":"20270231"}]',
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('rejects non-contiguous calendar data', () {
     expect(
       () => schoolCalendarDaysFromJson(

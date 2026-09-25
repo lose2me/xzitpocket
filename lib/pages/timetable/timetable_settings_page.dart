@@ -8,7 +8,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../models/app_settings.dart';
+import '../../models/course.dart';
+import '../../models/school_calendar.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/schedule_provider.dart';
 import '../../services/native_automation_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
@@ -26,6 +29,8 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
 
 class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   final _imagePicker = ImagePicker();
+  bool _adjustmentDetailsExpanded = false;
+  bool _cloudRulesExpanded = false;
 
   @override
   void initState() {
@@ -44,6 +49,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       showNonCurrentWeekCoursesProvider,
     );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
+    final coursesAsync = ref.watch(scheduleProvider);
+    final hasOriginalBaseline = ref
+        .read(scheduleProvider.notifier)
+        .originalCourses
+        .isNotEmpty;
+    final adjustments = _buildAdjustmentRules(coursesAsync.value);
+    final hasLocalRules = hasOriginalBaseline && adjustments.isNotEmpty;
+    final hasCloudRules = _cloudAdjustments.isNotEmpty;
 
     return AppPage(
       title: '课表设置',
@@ -52,6 +65,47 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         children: [
+          const ProfileSectionLabel(title: '课程规则'),
+          ProfileSettingsGroup(
+            children: [
+              ProfileSettingsExpandableTile(
+                icon: FLucideIcons.history,
+                title: '本地课程规则',
+                value: !hasOriginalBaseline
+                    ? '暂无基线'
+                    : adjustments.isEmpty
+                    ? '无变动'
+                    : '${adjustments.length} 条规则',
+                expanded: hasLocalRules && _adjustmentDetailsExpanded,
+                expandable: hasLocalRules,
+                onTap: () => setState(
+                  () =>
+                      _adjustmentDetailsExpanded = !_adjustmentDetailsExpanded,
+                ),
+                child: _buildAdjustmentDetails(
+                  adjustments,
+                  hasOriginalBaseline: hasOriginalBaseline,
+                ),
+              ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.cloud,
+                title: '启用云端课程规则',
+                value: settings.useCloudTimetableAdjustments,
+                onChange: _setCloudAdjustmentsEnabled,
+              ),
+              ProfileSettingsExpandableTile(
+                icon: FLucideIcons.cloud,
+                title: '云端课程规则',
+                value: '${_cloudAdjustments.length} 条规则',
+                expanded: hasCloudRules && _cloudRulesExpanded,
+                expandable: hasCloudRules,
+                onTap: () =>
+                    setState(() => _cloudRulesExpanded = !_cloudRulesExpanded),
+                child: _buildCloudRuleDetails(),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '显示'),
           ProfileSettingsGroup(
             children: [
@@ -85,14 +139,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 onChange: (value) => ref
                     .read(appSettingsProvider.notifier)
                     .setShowTodayGridLines(value),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.pencilLine,
-                title: '显示对原课表的调整',
-                value: settings.showTimetableAdjustments,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setShowTimetableAdjustments(value),
               ),
             ],
           ),
@@ -274,6 +320,234 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       ),
     );
   }
+
+  List<_TimetableAdjustment> _buildAdjustmentRules(List<Course>? courses) {
+    final current = courses ?? const <Course>[];
+    final original = ref.read(scheduleProvider.notifier).originalCourses;
+    if (original.isEmpty && current.isEmpty) return const [];
+
+    final maxWeek = <int>[
+      semesterCalendar.totalWeeks,
+      ...current.expand((course) => course.weeks),
+      ...original.expand((course) => course.weeks),
+    ].fold<int>(1, (maximum, value) => value > maximum ? value : maximum);
+    final snapshots = <String, _TimetableDaySnapshot>{};
+    for (var week = 1; week <= maxWeek; week++) {
+      final dates = semesterCalendar.weekDates(week);
+      for (var weekday = 1; weekday <= 7; weekday++) {
+        final originalCourses = _coursesForDay(original, weekday, week);
+        final currentCourses = _coursesForDay(current, weekday, week);
+        final date = dates[weekday - 1];
+        snapshots[_dateKey(date)] = _TimetableDaySnapshot(
+          date: date,
+          originalCourses: originalCourses,
+          currentCourses: currentCourses,
+        );
+      }
+    }
+
+    final rules = <_TimetableAdjustment>[];
+    final movedSources = <String>{};
+    for (final target in snapshots.values) {
+      final currentSignature = _courseSignatures(target.currentCourses)
+          .join('\u001e');
+      if (currentSignature.isEmpty ||
+          currentSignature ==
+              _courseSignatures(target.originalCourses).join('\u001e')) {
+        continue;
+      }
+      final candidates = snapshots.values.where((source) {
+        if (source.date == target.date ||
+            source.originalCourses.isEmpty ||
+            source.currentCourses.isNotEmpty) {
+          return false;
+        }
+        return _courseSignatures(source.originalCourses).join('\u001e') ==
+            currentSignature;
+      }).toList();
+      if (candidates.length == 1) {
+        final source = candidates.single;
+        rules.add(
+          _TimetableAdjustment(
+            sourceDate: source.date,
+            operation: '移动',
+            targetDate: target.date,
+          ),
+        );
+        movedSources.add(_dateKey(source.date));
+      }
+    }
+
+    for (final day in snapshots.values) {
+      if (day.originalCourses.isEmpty ||
+          day.currentCourses.isNotEmpty ||
+          movedSources.contains(_dateKey(day.date))) {
+        continue;
+      }
+      rules.add(_TimetableAdjustment(sourceDate: day.date, operation: '清空'));
+    }
+    rules.sort((left, right) => left.sourceDate.compareTo(right.sourceDate));
+    return rules;
+  }
+
+  String _dateKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
+
+  DateTime? _parseDateKey(String value) {
+    if (!RegExp(r'^\d{8}$').hasMatch(value)) return null;
+    final date = DateTime(
+      int.parse(value.substring(0, 4)),
+      int.parse(value.substring(4, 6)),
+      int.parse(value.substring(6, 8)),
+    );
+    if (_dateKey(date) != value) return null;
+    return date;
+  }
+
+  List<SchoolDay> get _cloudAdjustments => semesterCalendar.days
+      .where((day) => day.adjustment != null && day.adjustment!.isNotEmpty)
+      .toList();
+
+  Future<void> _setCloudAdjustmentsEnabled(bool enabled) async {
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setUseCloudTimetableAdjustments(enabled);
+    if (enabled && mounted) {
+      await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
+    }
+  }
+
+  Widget _buildCloudRuleDetails() {
+    if (_cloudAdjustments.isEmpty) return const SizedBox.shrink();
+    final rows = <_TimetableAdjustment>[];
+    for (final day in _cloudAdjustments) {
+      final value = day.adjustment!;
+      if (value == '/') {
+        rows.add(_TimetableAdjustment(sourceDate: day.date, operation: '清空'));
+        continue;
+      }
+      final source = _parseDateKey(value);
+      if (source != null) {
+        rows.add(
+          _TimetableAdjustment(
+            sourceDate: source,
+            operation: '移动',
+            targetDate: day.date,
+          ),
+        );
+      }
+    }
+    if (rows.isEmpty) return const SizedBox.shrink();
+    rows.sort((left, right) => left.sourceDate.compareTo(right.sourceDate));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < rows.length; index++) ...[
+          if (index > 0)
+            Divider(height: AppSpacing.lg, color: context.theme.colors.border),
+          _buildAdjustmentRow(rows[index]),
+        ],
+      ],
+    );
+  }
+
+  List<Course> _coursesForDay(List<Course> courses, int weekday, int week) =>
+      [
+        for (final course in courses)
+          if (course.weekday == weekday && course.weeks.contains(week)) course,
+      ]..sort((left, right) {
+        final session = left.startSession.compareTo(right.startSession);
+        if (session != 0) return session;
+        return left.title.compareTo(right.title);
+      });
+
+  List<String> _courseSignatures(List<Course> courses) => [
+    for (final course in courses)
+      [
+        course.title,
+        course.teacher,
+        ([...course.sessions]..sort()).join(','),
+        course.campus,
+        course.place,
+        course.colorIndex,
+        course.courseId,
+      ].join('\u001f'),
+  ]..sort();
+
+  Widget _buildAdjustmentDetails(
+    List<_TimetableAdjustment> adjustments, {
+    required bool hasOriginalBaseline,
+  }) {
+    if (!hasOriginalBaseline || adjustments.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var index = 0; index < adjustments.length; index++) ...[
+          if (index > 0)
+            Divider(height: AppSpacing.lg, color: context.theme.colors.border),
+          _buildAdjustmentRow(adjustments[index]),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildAdjustmentRow(_TimetableAdjustment adjustment) {
+    return Row(
+      children: [
+        Expanded(child: _dateOperationLabel(adjustment.sourceDate)),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+          child: _operationLabel(adjustment.operation),
+        ),
+        Expanded(
+          child: adjustment.targetDate == null
+              ? const SizedBox()
+              : Align(
+                  alignment: Alignment.centerRight,
+                  child: _dateOperationLabel(adjustment.targetDate!),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _operationLabel(String operation) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        operation,
+        style: context.theme.typography.caption.copyWith(
+          color: operation == '清空'
+              ? context.theme.colors.destructive
+              : context.theme.colors.primary,
+        ),
+      ),
+    ],
+  );
+
+  Widget _dateOperationLabel(DateTime date, [String? subtitle]) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        _visualDateLabel(date),
+        style: context.theme.typography.bodySmall.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      if (subtitle != null)
+        Text(
+          subtitle,
+          style: context.theme.typography.caption.copyWith(
+            color: context.theme.colors.mutedForeground,
+          ),
+        ),
+    ],
+  );
+
+  String _visualDateLabel(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
   String _automationLabel(ClassAutomationMode mode) => switch (mode) {
     ClassAutomationMode.off => '关闭',
@@ -528,4 +802,28 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       showAppSnackBar(context, '个性化设置已重置', severity: ToastSeverity.success);
     }
   }
+}
+
+class _TimetableAdjustment {
+  final DateTime sourceDate;
+  final String operation;
+  final DateTime? targetDate;
+
+  const _TimetableAdjustment({
+    required this.sourceDate,
+    required this.operation,
+    this.targetDate,
+  });
+}
+
+class _TimetableDaySnapshot {
+  final DateTime date;
+  final List<Course> originalCourses;
+  final List<Course> currentCourses;
+
+  const _TimetableDaySnapshot({
+    required this.date,
+    required this.originalCourses,
+    required this.currentCourses,
+  });
 }

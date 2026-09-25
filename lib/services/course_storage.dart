@@ -2,6 +2,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../models/course.dart';
 import '../models/course.g.dart';
+import '../models/school_calendar.dart';
 
 const _courseBoxName = 'courses';
 const _originalCourseBoxName = 'courses_original';
@@ -46,6 +47,101 @@ class CourseStorage {
     for (final c in courses) {
       await _courseBox.add(c);
     }
+  }
+
+  /// Applies administrator-managed school-calendar adjustments to the current
+  /// timetable. Every source lookup is made against the original snapshot, so
+  /// mappings never form a chain (A -> B cannot feed a later B -> C rule).
+  /// The target occurrence is cleared before the original source occurrence is
+  /// copied into it. A slash clears the target without copying anything.
+  Future<bool> applyCloudAdjustments({
+    required Iterable<SchoolDay> days,
+    required DateTime semesterStart,
+  }) async {
+    if (_originalCourseBox.isEmpty) return false;
+    final rules = days
+        .where((day) => day.adjustment != null && day.adjustment!.isNotEmpty)
+        .toList();
+    if (rules.isEmpty) return false;
+
+    var changed = false;
+    for (final target in rules) {
+      final targetWeek = _weekOfDate(target.date, semesterStart);
+      if (targetWeek < 1) continue;
+      await clearCourseDayOccurrence(
+        weekday: target.date.weekday,
+        week: targetWeek,
+      );
+      changed = true;
+      final sourceValue = target.adjustment!;
+      if (sourceValue == '/') continue;
+      final sourceDate = _parseAdjustmentDate(sourceValue);
+      if (sourceDate == null) continue;
+      final sourceWeek = _weekOfDate(sourceDate, semesterStart);
+      if (sourceWeek < 1) continue;
+
+      final sourceCourses = _originalCourseBox.values
+          .where(
+            (course) =>
+                course.weekday == sourceDate.weekday &&
+                course.weeks.contains(sourceWeek),
+          )
+          .toList();
+      final remaining = _courseBox.toMap().map(
+        (key, value) => MapEntry(key as int, value),
+      );
+      for (final source in sourceCourses) {
+        MapEntry<int, Course>? match;
+        for (final entry in remaining.entries) {
+          if (entry.value.weekday == target.date.weekday &&
+              _sameCourseExceptWeekAndWeekday(entry.value, source)) {
+            match = entry;
+            break;
+          }
+        }
+        if (match != null) {
+          final weeks = {...match.value.weeks, targetWeek}.toList()..sort();
+          final updated = match.value.copyWith(weeks: weeks);
+          await _courseBox.put(match.key, updated);
+          remaining[match.key] = updated;
+        } else {
+          final copy = source.copyWith(
+            weekday: target.date.weekday,
+            weeks: [targetWeek],
+          );
+          final key = await _courseBox.add(copy);
+          remaining[key] = copy;
+        }
+      }
+    }
+    return changed;
+  }
+
+  int _weekOfDate(DateTime date, DateTime semesterStart) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final start = DateTime(
+      semesterStart.year,
+      semesterStart.month,
+      semesterStart.day,
+    );
+    final monday = start.subtract(Duration(days: start.weekday - 1));
+    if (normalized.isBefore(monday)) return 0;
+    return (normalized.difference(monday).inDays ~/ 7) + 1;
+  }
+
+  DateTime? _parseAdjustmentDate(String value) {
+    if (!RegExp(r'^\d{8}$').hasMatch(value)) return null;
+    final parsed = DateTime(
+      int.parse(value.substring(0, 4)),
+      int.parse(value.substring(4, 6)),
+      int.parse(value.substring(6, 8)),
+    );
+    if (parsed.year.toString().padLeft(4, '0') != value.substring(0, 4) ||
+        parsed.month.toString().padLeft(2, '0') != value.substring(4, 6) ||
+        parsed.day.toString().padLeft(2, '0') != value.substring(6, 8)) {
+      return null;
+    }
+    return parsed;
   }
 
   /// Restores one local day/week from the last successful教务系统 snapshot.

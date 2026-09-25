@@ -326,12 +326,14 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   TimetableDayActionIndicator? _dayActionIndicator(int week) {
     final action = _pendingDayAction;
-    if (action == null || action.week != week) return null;
+    if (action == null) return null;
     final affectedWeekdays = action.affectedDaysByWeek[week];
     if (affectedWeekdays == null || affectedWeekdays.isEmpty) return null;
     final milliseconds = action.remaining.inMilliseconds.clamp(0, 3000);
     return TimetableDayActionIndicator(
       weekday: action.weekday,
+      targetWeek: action.week,
+      targetWeekday: action.weekday,
       label: action.label,
       seconds: ((milliseconds + 999) ~/ 1000).clamp(1, 3),
       type: action.type,
@@ -734,8 +736,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                     courses,
                                     week,
                                   ),
-                                  showTimetableAdjustments:
-                                      settings.showTimetableAdjustments,
                                   suppressDayDrop: _edgeTriggerSide != null,
                                 ),
                               );

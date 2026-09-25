@@ -36,9 +36,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableDateTextSize: _storage.getTimetableDateTextSize(),
       timetableCourseBorderWidth: _storage.getTimetableCourseBorderWidth(),
       timetableCourseBorderOpacity: _storage.getTimetableCourseBorderOpacity(),
-      showTimetableAdjustments: _storage.getShowTimetableAdjustments(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
       showTodayGridLines: _storage.getShowTodayGridLines(),
+      useCloudTimetableAdjustments: _storage.getUseCloudTimetableAdjustments(),
       hiddenServiceFeatures: {
         for (final value in _storage.getHiddenServiceFeatures())
           ...AppServiceFeature.values.where(
@@ -140,7 +140,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableDateTextSize: defaults.timetableDateTextSize,
       timetableCourseBorderWidth: defaults.timetableCourseBorderWidth,
       timetableCourseBorderOpacity: defaults.timetableCourseBorderOpacity,
-      showTimetableAdjustments: defaults.showTimetableAdjustments,
       showTimetableGridLines: defaults.showTimetableGridLines,
       showTodayGridLines: defaults.showTodayGridLines,
     );
@@ -151,14 +150,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(showTimetableGridLines: value);
   }
 
-  Future<void> setShowTimetableAdjustments(bool value) async {
-    await _storage.setShowTimetableAdjustments(value);
-    state = state.copyWith(showTimetableAdjustments: value);
-  }
-
   Future<void> setShowTodayGridLines(bool value) async {
     await _storage.setShowTodayGridLines(value);
     state = state.copyWith(showTodayGridLines: value);
+  }
+
+  Future<void> setUseCloudTimetableAdjustments(bool value) async {
+    await _storage.setUseCloudTimetableAdjustments(value);
+    state = state.copyWith(useCloudTimetableAdjustments: value);
   }
 
   Future<void> setServiceFeatureVisible(

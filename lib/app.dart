@@ -11,6 +11,7 @@ import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
 import 'providers/config_provider.dart';
+import 'providers/schedule_provider.dart';
 import 'services/course_storage.dart';
 import 'services/control_service.dart';
 import 'services/talker.dart';
@@ -87,6 +88,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
           semesterCalendar.replaceDays(days);
           await prefs.setSchoolCalendarCache(schoolCalendarDaysToJson(days));
           await prefs.setSchoolCalendarVersion(versions.schoolCalendar);
+          await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
         }
       }
     } catch (error, stackTrace) {

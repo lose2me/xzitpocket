@@ -12,12 +12,14 @@ class SchoolDay {
   final int weekday; // 1=周一 … 7=周日
   final bool holiday; // 是否放假（周末 + 标注的节假日）
   final String? festival; // 特殊节日名（如 国庆），无则 null
+  final String? adjustment; // 云端课程调整：源日期 YYYYMMDD，/ 表示清空
 
   const SchoolDay({
     required this.date,
     required this.weekday,
     required this.holiday,
     this.festival,
+    this.adjustment,
   });
 
   Map<String, dynamic> toJson() => {
@@ -26,6 +28,7 @@ class SchoolDay {
     'weekday': weekday,
     'holiday': holiday,
     'festival': festival,
+    'adjustment': adjustment,
   };
 
   factory SchoolDay.fromJson(Map<String, dynamic> json) {
@@ -52,11 +55,31 @@ class SchoolDay {
     final festival = rawFestival == null || rawFestival == false
         ? null
         : rawFestival.toString().trim();
+    final rawAdjustment = json['adjustment']?.toString().trim() ?? '';
+    if (rawAdjustment.isNotEmpty && rawAdjustment != '/') {
+      if (!RegExp(r'^\d{8}$').hasMatch(rawAdjustment)) {
+        throw const FormatException('课程调整日期格式无效');
+      }
+      final sourceDate = DateTime(
+        int.parse(rawAdjustment.substring(0, 4)),
+        int.parse(rawAdjustment.substring(4, 6)),
+        int.parse(rawAdjustment.substring(6, 8)),
+      );
+      if (sourceDate.year.toString().padLeft(4, '0') !=
+              rawAdjustment.substring(0, 4) ||
+          sourceDate.month.toString().padLeft(2, '0') !=
+              rawAdjustment.substring(4, 6) ||
+          sourceDate.day.toString().padLeft(2, '0') !=
+              rawAdjustment.substring(6, 8)) {
+        throw const FormatException('课程调整日期无效');
+      }
+    }
     return SchoolDay(
       date: date,
       weekday: weekday,
       holiday: holiday,
       festival: festival == null || festival.isEmpty ? null : festival,
+      adjustment: rawAdjustment.isEmpty ? null : rawAdjustment,
     );
   }
 
@@ -66,10 +89,11 @@ class SchoolDay {
       other.date == date &&
       other.weekday == weekday &&
       other.holiday == holiday &&
-      other.festival == festival;
+      other.festival == festival &&
+      other.adjustment == adjustment;
 
   @override
-  int get hashCode => Object.hash(date, weekday, holiday, festival);
+  int get hashCode => Object.hash(date, weekday, holiday, festival, adjustment);
 }
 
 /// 每日原始数据：(年, 月, 日, 星期几, 放假, 节日)。

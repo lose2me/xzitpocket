@@ -143,12 +143,6 @@ class PreferencesStorage {
         value.clamp(0.0, 1.0).toDouble(),
       );
 
-  bool getShowTimetableAdjustments() =>
-      _prefs.getBool('show_timetable_adjustments') ?? true;
-
-  Future<void> setShowTimetableAdjustments(bool value) =>
-      _prefs.setBool('show_timetable_adjustments', value);
-
   Future<void> resetTimetableAppearance() async {
     await Future.wait([
       _prefs.remove('timetable_background_path'),
@@ -160,7 +154,6 @@ class PreferencesStorage {
       _prefs.remove('timetable_date_text_size'),
       _prefs.remove('timetable_course_border_width'),
       _prefs.remove('timetable_course_border_opacity'),
-      _prefs.remove('show_timetable_adjustments'),
       _prefs.remove('show_timetable_grid_lines'),
       _prefs.remove('show_today_grid_lines'),
     ]);
@@ -177,6 +170,12 @@ class PreferencesStorage {
 
   Future<void> setShowTodayGridLines(bool value) =>
       _prefs.setBool('show_today_grid_lines', value);
+
+  bool getUseCloudTimetableAdjustments() =>
+      _prefs.getBool('use_cloud_timetable_adjustments') ?? true;
+
+  Future<void> setUseCloudTimetableAdjustments(bool value) =>
+      _prefs.setBool('use_cloud_timetable_adjustments', value);
 
   // ── School calendar cache ──
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:xzitpocket/models/course.dart';
+import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/providers/config_provider.dart';
 import 'package:xzitpocket/providers/schedule_provider.dart';
 import 'package:xzitpocket/services/course_storage.dart';
@@ -141,6 +142,53 @@ void main() {
     expect(storage.getCourses().single.title, '原始周一课程');
     expect(storage.getCourses().single.weeks, [1, 2]);
   });
+
+  test(
+    'applies calendar adjustments from the original snapshot without chaining',
+    () async {
+      await storage.clearCourses();
+      final source = _course(
+        title: '原始周三课程',
+        weekday: 3,
+        weeks: const [1],
+        courseId: 'WED-1',
+      );
+      final oldTarget = _course(
+        title: '原始周二课程',
+        weekday: 2,
+        weeks: const [1],
+        courseId: 'TUE-1',
+      );
+      await storage.saveCourses([source, oldTarget]);
+
+      final start = DateTime(2026, 8, 31);
+      final days = [
+        for (var i = 0; i < 7; i++)
+          SchoolDay(
+            date: start.add(Duration(days: i)),
+            weekday: i + 1,
+            holiday: false,
+            adjustment: i == 1 ? '20260902' : (i == 2 ? '/' : null),
+          ),
+      ];
+      expect(
+        await storage.applyCloudAdjustments(days: days, semesterStart: start),
+        isTrue,
+      );
+
+      final courses = storage.getCourses();
+      expect(
+        courses
+            .where((course) => course.weekday == 2 && course.isInWeek(1))
+            .map((course) => course.title),
+        ['原始周三课程'],
+      );
+      expect(
+        courses.where((course) => course.weekday == 3 && course.isInWeek(1)),
+        isEmpty,
+      );
+    },
+  );
 }
 
 Course _course({
