@@ -618,14 +618,27 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final courseBorderColor = context.theme.colors.foreground;
     final courseOpacity = settings.timetableComponentOpacity;
     final courseBorderOpacity = settings.timetableCourseBorderOpacity;
+    final hasFullscreenBackground =
+        settings.timetableBackgroundFullscreen &&
+        settings.timetableBackgroundPath != null &&
+        settings.timetableBackgroundPath!.isNotEmpty;
+    final fixedSurfaceColor = hasFullscreenBackground
+        ? context.theme.colors.background.withValues(alpha: 0.84)
+        : null;
+    final timeColumnSurfaceColor = hasFullscreenBackground
+        ? context.theme.colors.background.withValues(alpha: 0.92)
+        : null;
 
     return ListenableBuilder(
       listenable: semesterCalendar,
       builder: (context, _) => AppPage(
         root: true,
-        transparentBackground:
-            settings.timetableBackgroundFullscreen &&
-            settings.timetableBackgroundPath != null,
+        transparentBackground: hasFullscreenBackground,
+        systemOverlayStyle: hasFullscreenBackground
+            ? context.theme.colors.systemOverlayStyle.copyWith(
+                statusBarColor: fixedSurfaceColor,
+              )
+            : null,
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerMove: (event) {
@@ -638,15 +651,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               children: [
                 Consumer(
                   builder: (context, ref, child) => DecoratedBox(
-                    decoration: BoxDecoration(
-                      color:
-                          settings.timetableBackgroundFullscreen &&
-                              settings.timetableBackgroundPath != null
-                          ? context.theme.colors.background.withValues(
-                              alpha: 0.84,
-                            )
-                          : null,
-                    ),
+                    decoration: BoxDecoration(color: fixedSurfaceColor),
                     child: WeekHeader(
                       calendar: semesterCalendar,
                       selectedWeek: ref.watch(selectedWeekProvider),
@@ -736,6 +741,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                   timeTextSize: settings.timetableTimeTextSize,
                                   dateTextSize: settings.timetableDateTextSize,
                                   gridOpacity: settings.timetableGridOpacity,
+                                  fixedSurfaceColor: fixedSurfaceColor,
+                                  timeColumnSurfaceColor:
+                                      timeColumnSurfaceColor,
                                   showGridLines:
                                       settings.showTimetableGridLines,
                                   showTodayGridLines:

@@ -25,6 +25,7 @@ class HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
   bool _isNavigating = false;
   late final PageController _pageController;
+  late final PageController _backgroundPageController;
 
   /// The three tab pages are built once and the SAME widget instances are
   /// reused across rebuilds. The IME (viewInsets) animation rebuilds the
@@ -41,6 +42,7 @@ class HomePageState extends ConsumerState<HomePage> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    _backgroundPageController = PageController();
     _timetablePage = TimetablePage(key: TimetablePage.globalKey);
     _toolsPage = ToolsPage(key: ToolsPage.globalKey);
     _profilePage = ProfilePage(key: ProfilePage.globalKey);
@@ -49,6 +51,7 @@ class HomePageState extends ConsumerState<HomePage> {
   @override
   void dispose() {
     _pageController.dispose();
+    _backgroundPageController.dispose();
     super.dispose();
   }
 
@@ -58,9 +61,13 @@ class HomePageState extends ConsumerState<HomePage> {
       setState(() => _currentIndex = 0);
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_pageController.hasClients) return;
-      if (_pageController.page?.round() != 0) {
+      if (!mounted) return;
+      if (_pageController.hasClients && _pageController.page?.round() != 0) {
         _pageController.jumpToPage(0);
+      }
+      if (_backgroundPageController.hasClients &&
+          _backgroundPageController.page?.round() != 0) {
+        _backgroundPageController.jumpToPage(0);
       }
       TimetablePage.globalKey.currentState?.jumpToCurrentWeek();
     });
@@ -83,12 +90,27 @@ class HomePageState extends ConsumerState<HomePage> {
     final timetableBackgroundPath = settings.timetableBackgroundPath;
     final hasBackgroundAsset =
         timetableBackgroundPath != null && timetableBackgroundPath.isNotEmpty;
+    final hasFullscreenBackground =
+        hasBackgroundAsset && settings.timetableBackgroundFullscreen;
     final showGlobalBackground =
-        hasBackgroundAsset &&
-        settings.timetableBackgroundFullscreen &&
-        (_currentIndex == 0 || _isNavigating);
+        hasFullscreenBackground && (_currentIndex == 0 || _isNavigating);
+    final backgroundVisibleBehindNavigation =
+        showGlobalBackground && _currentIndex == 0;
+    final backgroundSurfaceColor = context.theme.colors.background.withValues(
+      alpha: 0.84,
+    );
+    if (hasFullscreenBackground) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _isNavigating || !_backgroundPageController.hasClients) {
+          return;
+        }
+        if (_backgroundPageController.page?.round() != _currentIndex) {
+          _backgroundPageController.jumpToPage(_currentIndex);
+        }
+      });
+    }
     final shell = FScaffold(
-      scaffoldStyle: hasBackgroundAsset && settings.timetableBackgroundFullscreen
+      scaffoldStyle: showGlobalBackground
           ? const FScaffoldStyleDelta.delta(
               backgroundColor: Color(0x00000000),
               sidebarBackgroundColor: Color(0x00000000),
@@ -97,7 +119,7 @@ class HomePageState extends ConsumerState<HomePage> {
       resizeToAvoidBottomInset: false,
       childPad: false,
       footer: FBottomNavigationBar(
-        style: hasBackgroundAsset && settings.timetableBackgroundFullscreen
+        style: backgroundVisibleBehindNavigation
             ? FBottomNavigationBarStyleDelta.delta(
                 decoration: DecorationDelta.boxDelta(
                   color: context.theme.colors.background.withValues(
@@ -118,17 +140,29 @@ class HomePageState extends ConsumerState<HomePage> {
             _isNavigating = true;
           });
           if (_pageController.hasClients) {
+            final transitions = <Future<void>>[
+              _pageController.animateToPage(
+                targetTab,
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeOutCubic,
+              ),
+            ];
+            if (_backgroundPageController.hasClients) {
+              transitions.add(
+                _backgroundPageController.animateToPage(
+                  targetTab,
+                  duration: const Duration(milliseconds: 240),
+                  curve: Curves.easeOutCubic,
+                ),
+              );
+            }
             unawaited(
-              _pageController
-                  .animateToPage(
-                    targetTab,
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                  )
-                  .whenComplete(() {
-                    if (mounted) setState(() => _isNavigating = false);
-                  }),
+              Future.wait(transitions).whenComplete(() {
+                if (mounted) setState(() => _isNavigating = false);
+              }),
             );
+          } else {
+            setState(() => _isNavigating = false);
           }
           if (targetTab == 1) {
             // The page is lazy-built, so its state may not exist until the
@@ -189,26 +223,53 @@ class HomePageState extends ConsumerState<HomePage> {
     // Keep the shell's own inset at zero. Profile injects the live inset into
     // its dedicated root scaffold; this prevents the nav shell and timetable
     // render tree from participating in the keyboard animation.
-    if (!hasBackgroundAsset) return shell;
+    if (!hasFullscreenBackground) return shell;
 
     return Stack(
       fit: StackFit.expand,
       children: [
         Positioned.fill(
           child: IgnorePointer(
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOut,
-              opacity: showGlobalBackground
-                  ? settings.timetableBackgroundOpacity.clamp(0.0, 1.0)
-                  : 0,
-              child: Image.file(
-                File(timetableBackgroundPath),
-                fit: BoxFit.cover,
-                alignment: Alignment.center,
-                filterQuality: FilterQuality.high,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(),
-              ),
+            child: PageView.builder(
+              controller: _backgroundPageController,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: 3,
+              itemBuilder: (context, index) {
+                if (index != 0) {
+                  return ColoredBox(color: context.theme.colors.background);
+                }
+                return ColoredBox(
+                  color: context.theme.colors.background,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      AnimatedOpacity(
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOut,
+                        opacity: settings.timetableBackgroundOpacity.clamp(
+                          0.0,
+                          1.0,
+                        ),
+                        child: Image.file(
+                          File(timetableBackgroundPath),
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          filterQuality: FilterQuality.high,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const SizedBox(),
+                        ),
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: MediaQuery.paddingOf(context).top,
+                        child: ColoredBox(color: backgroundSurfaceColor),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -229,9 +290,27 @@ class _KeyboardIsolatedShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    // Android freeform/split windows can report system insets that are larger
+    // than the available content height. Capping them keeps the page body
+    // from being laid out at zero height while retaining a small safe margin.
+    final compactWindow = mediaQuery.size.height < 520;
+    final normalizedMediaQuery = compactWindow
+        ? mediaQuery.copyWith(
+            padding: mediaQuery.padding.copyWith(
+              top: mediaQuery.padding.top.clamp(0.0, 24.0).toDouble(),
+              bottom: mediaQuery.padding.bottom.clamp(0.0, 24.0).toDouble(),
+            ),
+            viewPadding: mediaQuery.viewPadding.copyWith(
+              top: mediaQuery.viewPadding.top.clamp(0.0, 24.0).toDouble(),
+              bottom: mediaQuery.viewPadding.bottom.clamp(0.0, 24.0).toDouble(),
+            ),
+          )
+        : mediaQuery;
     return MediaQuery(
-      data: mediaQuery.copyWith(viewInsets: EdgeInsets.zero),
-      child: Builder(builder: (context) => builder(context, mediaQuery)),
+      data: normalizedMediaQuery.copyWith(viewInsets: EdgeInsets.zero),
+      child: Builder(
+        builder: (context) => builder(context, normalizedMediaQuery),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
@@ -837,13 +838,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
         fullscreen: settings.timetableBackgroundFullscreen,
         padding: MediaQuery.paddingOf(context),
       );
-      final decoded = img.decodeImage(await picked.readAsBytes());
-      if (decoded == null) {
-        throw const FormatException('无法读取图片');
-      }
-      final oriented = img.bakeOrientation(decoded);
+      final sourceBytes = await picked.readAsBytes();
       if (!mounted) return;
-      final crop = await _selectBackgroundCrop(oriented, aspectRatio);
+      final crop = await _selectBackgroundCrop(sourceBytes, aspectRatio);
       if (crop == null || !mounted) return;
       final directory = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -859,7 +856,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
         'timetable_background_original_$timestamp$originalExtension',
       );
       await picked.saveTo(originalPath);
-      await File(targetPath).writeAsBytes(img.encodeJpg(crop, quality: 90));
+      final cropBytes = await _encodeJpgInIsolate(crop, quality: 90);
+      await File(targetPath).writeAsBytes(cropBytes);
       final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
       final oldOriginalPath = ref
           .read(appSettingsProvider)
@@ -890,12 +888,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
   }
 
   Future<img.Image?> _selectBackgroundCrop(
-    img.Image source,
+    Uint8List sourceBytes,
     double aspectRatio,
   ) => Navigator.of(context).push<img.Image>(
     MaterialPageRoute(
-      builder: (_) =>
-          _BackgroundCropPage(source: source, aspectRatio: aspectRatio),
+      builder: (_) => _BackgroundCropPage(
+        sourceBytes: sourceBytes,
+        aspectRatio: aspectRatio,
+      ),
     ),
   );
 
@@ -911,17 +911,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
         ? originalPath
         : currentPath;
     try {
-      final decoded = img.decodeImage(await File(sourcePath).readAsBytes());
-      if (decoded == null || !mounted) return;
-      final source = img.bakeOrientation(decoded);
+      final sourceBytes = await File(sourcePath).readAsBytes();
+      if (!mounted) return;
       final aspectRatio = _backgroundAspectRatio(
         MediaQuery.sizeOf(context),
         fullscreen: settings.timetableBackgroundFullscreen,
         padding: MediaQuery.paddingOf(context),
       );
-      final crop = await _selectBackgroundCrop(source, aspectRatio);
+      final crop = await _selectBackgroundCrop(sourceBytes, aspectRatio);
       if (crop == null || !mounted) return;
-      await File(currentPath).writeAsBytes(img.encodeJpg(crop, quality: 90));
+      final cropBytes = await _encodeJpgInIsolate(crop, quality: 90);
+      await File(currentPath).writeAsBytes(cropBytes);
       if (mounted) {
         showAppSnackBar(context, '背景图显示区域已更新', severity: ToastSeverity.success);
       }
@@ -1035,98 +1035,151 @@ class _TimetableDaySnapshot {
   });
 }
 
+Future<Uint8List> _prepareCropSource(Uint8List bytes) async {
+  return Isolate.run(() {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) return Uint8List(0);
+    var oriented = img.bakeOrientation(decoded);
+    const maxDimension = 2400;
+    if (oriented.width > maxDimension || oriented.height > maxDimension) {
+      oriented = img.copyResize(
+        oriented,
+        width: oriented.width >= oriented.height ? maxDimension : null,
+        height: oriented.height > oriented.width ? maxDimension : null,
+        interpolation: img.Interpolation.average,
+      );
+    }
+    return Uint8List.fromList(img.encodeJpg(oriented, quality: 92));
+  });
+}
+
+Future<Uint8List> _encodeJpgInIsolate(img.Image image, {required int quality}) {
+  return Isolate.run(
+    () => Uint8List.fromList(img.encodeJpg(image, quality: quality)),
+  );
+}
+
 class _BackgroundCropPage extends StatefulWidget {
-  final img.Image source;
+  final Uint8List sourceBytes;
   final double aspectRatio;
 
-  const _BackgroundCropPage({required this.source, required this.aspectRatio});
+  const _BackgroundCropPage({
+    required this.sourceBytes,
+    required this.aspectRatio,
+  });
 
   @override
   State<_BackgroundCropPage> createState() => _BackgroundCropPageState();
 }
 
 class _BackgroundCropPageState extends State<_BackgroundCropPage> {
-  late final Uint8List _previewBytes = Uint8List.fromList(
-    img.encodeJpg(widget.source, quality: 95),
-  );
-  Offset _offset = Offset.zero;
-  Offset _gestureStartOffset = Offset.zero;
-  double _zoom = 1;
-  double _gestureStartZoom = 1;
+  img.Image? _source;
+  Uint8List? _previewBytes;
+  Object? _loadError;
+  Rect? _selectionRect;
+  Rect? _gestureStartSelection;
   _BackgroundCropMetrics? _lastMetrics;
 
-  _BackgroundCropMetrics _metrics(Size canvasSize, {double? zoom}) {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadSource());
+  }
+
+  Future<void> _loadSource() async {
+    try {
+      final bytes = await _prepareCropSource(widget.sourceBytes);
+      if (bytes.isEmpty) throw const FormatException('无法读取图片');
+      final source = img.decodeImage(bytes);
+      if (source == null) throw const FormatException('无法读取图片');
+      if (!mounted) return;
+      setState(() {
+        _source = source;
+        _previewBytes = bytes;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _loadError = error);
+    }
+  }
+
+  _BackgroundCropMetrics _metrics(Size canvasSize) {
+    final source = _source!;
     final aspectRatio = widget.aspectRatio.isFinite && widget.aspectRatio > 0
         ? widget.aspectRatio
         : 1.0;
-    final frameWidth = math.min(
-      canvasSize.width - 24,
-      (canvasSize.height - 24) * aspectRatio,
+    final imageScale = math.max(
+      canvasSize.width / source.width,
+      canvasSize.height / source.height,
     );
-    final frameHeight = frameWidth / aspectRatio;
-    final cropRect = Rect.fromCenter(
+    final imageRect = Rect.fromCenter(
       center: canvasSize.center(Offset.zero),
-      width: frameWidth,
-      height: frameHeight,
+      width: source.width * imageScale,
+      height: source.height * imageScale,
     );
-    final scale = math.max(
-      frameWidth / widget.source.width,
-      frameHeight / widget.source.height,
+    final selectionBounds = imageRect.intersect(Offset.zero & canvasSize);
+    final maxWidth = math.min(
+      selectionBounds.width,
+      selectionBounds.height * aspectRatio,
     );
-    final effectiveScale = scale * (zoom ?? _zoom);
-    final imageWidth = widget.source.width * effectiveScale;
-    final imageHeight = widget.source.height * effectiveScale;
-    final baseLeft = (canvasSize.width - imageWidth) / 2;
-    final baseTop = (canvasSize.height - imageHeight) / 2;
+    final defaultWidth = maxWidth * 0.86;
+    final defaultHeight = defaultWidth / aspectRatio;
+    final defaultRect = Rect.fromCenter(
+      center: selectionBounds.center,
+      width: defaultWidth,
+      height: defaultHeight,
+    );
     return _BackgroundCropMetrics(
-      cropRect: cropRect,
-      scale: effectiveScale,
-      imageWidth: imageWidth,
-      imageHeight: imageHeight,
-      baseLeft: baseLeft,
-      baseTop: baseTop,
+      imageRect: imageRect,
+      selectionBounds: selectionBounds,
+      sourceScale: imageScale,
+      defaultCropRect: defaultRect,
     );
   }
 
-  Offset _clampOffset(Offset offset, _BackgroundCropMetrics metrics) {
-    final minX =
-        metrics.cropRect.right - (metrics.baseLeft + metrics.imageWidth);
-    final maxX = metrics.cropRect.left - metrics.baseLeft;
-    final minY =
-        metrics.cropRect.bottom - (metrics.baseTop + metrics.imageHeight);
-    final maxY = metrics.cropRect.top - metrics.baseTop;
-    return Offset(
-      offset.dx.clamp(minX, maxX).toDouble(),
-      offset.dy.clamp(minY, maxY).toDouble(),
+  Rect _clampSelection(Rect rect, _BackgroundCropMetrics metrics) {
+    final aspectRatio = widget.aspectRatio.isFinite && widget.aspectRatio > 0
+        ? widget.aspectRatio
+        : 1.0;
+    final maxWidth = math.min(
+      metrics.selectionBounds.width,
+      metrics.selectionBounds.height * aspectRatio,
     );
+    final minWidth = math.min(72.0, maxWidth);
+    final width = rect.width.clamp(minWidth, maxWidth).toDouble();
+    final height = width / aspectRatio;
+    final center = Offset(
+      rect.center.dx.clamp(
+        metrics.selectionBounds.left + width / 2,
+        metrics.selectionBounds.right - width / 2,
+      ),
+      rect.center.dy.clamp(
+        metrics.selectionBounds.top + height / 2,
+        metrics.selectionBounds.bottom - height / 2,
+      ),
+    );
+    return Rect.fromCenter(center: center, width: width, height: height);
   }
 
   img.Image _crop(_BackgroundCropMetrics metrics) {
-    final imageLeft = metrics.baseLeft + _offset.dx;
-    final imageTop = metrics.baseTop + _offset.dy;
-    final x = ((metrics.cropRect.left - imageLeft) / metrics.scale)
+    final source = _source!;
+    final cropRect = _selectionRect ?? metrics.defaultCropRect;
+    final x = ((cropRect.left - metrics.imageRect.left) / metrics.sourceScale)
         .round()
-        .clamp(0, widget.source.width - 1)
+        .clamp(0, source.width - 1)
         .toInt();
-    final y = ((metrics.cropRect.top - imageTop) / metrics.scale)
+    final y = ((cropRect.top - metrics.imageRect.top) / metrics.sourceScale)
         .round()
-        .clamp(0, widget.source.height - 1)
+        .clamp(0, source.height - 1)
         .toInt();
-    final width = (metrics.cropRect.width / metrics.scale)
+    final width = (cropRect.width / metrics.sourceScale)
         .round()
-        .clamp(1, widget.source.width - x)
+        .clamp(1, source.width - x)
         .toInt();
-    final height = (metrics.cropRect.height / metrics.scale)
+    final height = (cropRect.height / metrics.sourceScale)
         .round()
-        .clamp(1, widget.source.height - y)
+        .clamp(1, source.height - y)
         .toInt();
-    return img.copyCrop(
-      widget.source,
-      x: x,
-      y: y,
-      width: width,
-      height: height,
-    );
+    return img.copyCrop(source, x: x, y: y, width: width, height: height);
   }
 
   @override
@@ -1137,78 +1190,80 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
+            0,
             AppSpacing.sm,
-            AppSpacing.lg,
+            0,
             AppSpacing.lg,
           ),
           child: Column(
             children: [
-              Text(
-                '拖动图片选择位置，双指缩放图片',
-                textAlign: TextAlign.center,
-                style: theme.typography.caption.copyWith(
-                  color: theme.colors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
+                    final source = _source;
+                    final previewBytes = _previewBytes;
+                    if (source == null || previewBytes == null) {
+                      return Center(
+                        child: _loadError == null
+                            ? const CircularProgressIndicator()
+                            : Text('图片读取失败', style: theme.typography.bodySmall),
+                      );
+                    }
                     final canvasSize = Size(
                       constraints.maxWidth,
                       constraints.maxHeight,
                     );
                     final metrics = _metrics(canvasSize);
+                    final selection = _clampSelection(
+                      _selectionRect ?? metrics.defaultCropRect,
+                      metrics,
+                    );
+                    _selectionRect = selection;
                     _lastMetrics = metrics;
-                    final imageLeft = metrics.baseLeft + _offset.dx;
-                    final imageTop = metrics.baseTop + _offset.dy;
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onScaleStart: (details) {
-                          _gestureStartOffset = _offset;
-                          _gestureStartZoom = _zoom;
-                        },
-                        onScaleUpdate: (details) {
-                          final nextZoom = (_gestureStartZoom * details.scale)
-                              .clamp(1.0, 4.0)
-                              .toDouble();
-                          final nextMetrics = _metrics(
-                            canvasSize,
-                            zoom: nextZoom,
-                          );
-                          setState(() {
-                            _zoom = nextZoom;
-                            _offset = _clampOffset(
-                              _gestureStartOffset + details.focalPointDelta,
-                              nextMetrics,
-                            );
-                          });
-                        },
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            ColoredBox(color: theme.colors.muted),
-                            Positioned(
-                              left: imageLeft,
-                              top: imageTop,
-                              width: metrics.imageWidth,
-                              height: metrics.imageHeight,
-                              child: Image.memory(
-                                _previewBytes,
-                                fit: BoxFit.fill,
-                                filterQuality: FilterQuality.high,
-                              ),
+                    return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onScaleStart: (details) {
+                        _gestureStartSelection = selection;
+                      },
+                      onScaleUpdate: (details) {
+                        final start = _gestureStartSelection ?? selection;
+                        final current = _selectionRect ?? start;
+                        final isPinching = details.pointerCount > 1;
+                        final aspectRatio =
+                            widget.aspectRatio.isFinite &&
+                                widget.aspectRatio > 0
+                            ? widget.aspectRatio
+                            : 1.0;
+                        final width = isPinching
+                            ? start.width * details.scale
+                            : start.width;
+                        final moved = Rect.fromCenter(
+                          center: current.center + details.focalPointDelta,
+                          width: width,
+                          height: width / aspectRatio,
+                        );
+                        setState(() {
+                          _selectionRect = _clampSelection(moved, metrics);
+                        });
+                      },
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ColoredBox(color: theme.colors.muted),
+                          Positioned.fromRect(
+                            rect: metrics.imageRect,
+                            child: Image.memory(
+                              previewBytes,
+                              fit: BoxFit.fill,
+                              filterQuality: FilterQuality.high,
                             ),
-                            IgnorePointer(
-                              child: CustomPaint(
-                                painter: _CropOverlayPainter(metrics.cropRect),
-                              ),
+                          ),
+                          IgnorePointer(
+                            child: CustomPaint(
+                              painter: _CropOverlayPainter(selection),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     );
                   },
@@ -1227,7 +1282,7 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
                   FButton(
                     onPress: () {
                       final metrics = _lastMetrics;
-                      if (metrics != null) {
+                      if (metrics != null && _source != null) {
                         Navigator.pop(context, _crop(metrics));
                       }
                     },
@@ -1244,20 +1299,16 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
 }
 
 class _BackgroundCropMetrics {
-  final Rect cropRect;
-  final double scale;
-  final double imageWidth;
-  final double imageHeight;
-  final double baseLeft;
-  final double baseTop;
+  final Rect imageRect;
+  final Rect selectionBounds;
+  final double sourceScale;
+  final Rect defaultCropRect;
 
   const _BackgroundCropMetrics({
-    required this.cropRect,
-    required this.scale,
-    required this.imageWidth,
-    required this.imageHeight,
-    required this.baseLeft,
-    required this.baseTop,
+    required this.imageRect,
+    required this.selectionBounds,
+    required this.sourceScale,
+    required this.defaultCropRect,
   });
 }
 

@@ -13,6 +13,7 @@ class AppPage extends StatelessWidget {
   final bool childPad;
   final bool transparentBackground;
   final bool? resizeToAvoidBottomInset;
+  final SystemUiOverlayStyle? systemOverlayStyle;
 
   /// 自定义标题栏样式（默认跟随主题）。
   final FHeaderStyleDelta? headerStyle;
@@ -27,6 +28,7 @@ class AppPage extends StatelessWidget {
     this.childPad = false,
     this.transparentBackground = false,
     this.resizeToAvoidBottomInset,
+    this.systemOverlayStyle,
     this.headerStyle,
   });
 
@@ -86,7 +88,7 @@ class AppPage extends StatelessWidget {
         : scaffold;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: context.theme.colors.systemOverlayStyle,
+      value: systemOverlayStyle ?? context.theme.colors.systemOverlayStyle,
       child: isolatedScaffold,
     );
   }
