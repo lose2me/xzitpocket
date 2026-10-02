@@ -81,8 +81,7 @@ class TimetableGrid extends StatefulWidget {
   final double timeTextSize;
   final double dateTextSize;
   final double gridOpacity;
-  final Color? fixedSurfaceColor;
-  final Color? timeColumnSurfaceColor;
+  final bool showHeaderDivider;
   final bool showTodayGridLines;
   final bool showGridLines;
 
@@ -119,8 +118,7 @@ class TimetableGrid extends StatefulWidget {
     this.timeTextSize = 11.0,
     this.dateTextSize = 12.0,
     this.gridOpacity = 0.5,
-    this.fixedSurfaceColor,
-    this.timeColumnSurfaceColor,
+    this.showHeaderDivider = true,
     this.showTodayGridLines = false,
     this.showGridLines = true,
   });
@@ -277,52 +275,50 @@ class _TimetableGridState extends State<TimetableGrid> {
     final content = Column(
       children: [
         // Weekday headers row
-        DecoratedBox(
-          decoration: BoxDecoration(color: widget.fixedSurfaceColor),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  SizedBox(
-                    width: 40,
-                    child: Center(
-                      child: Text(
-                        '${dates[0].month}月',
-                        style: theme.typography.caption.copyWith(
-                          fontSize: widget.dateTextSize,
-                          fontWeight: FontWeight.w600,
-                          color: theme.colors.mutedForeground,
-                        ),
+        Column(
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 40,
+                  child: Center(
+                    child: Text(
+                      '${dates[0].month}月',
+                      style: theme.typography.caption.copyWith(
+                        fontSize: widget.dateTextSize,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colors.mutedForeground,
                       ),
                     ),
                   ),
-                  ...List.generate(dayCount, (i) {
-                    final date = dates[i];
-                    final isToday =
-                        date.year == today.year &&
-                        date.month == today.month &&
-                        date.day == today.day;
-                    return Expanded(
-                      child: _buildDayHeader(
-                        context,
-                        weekday: i + 1,
-                        date: date,
-                        weekdayLabel: weekdays[i],
-                        isToday: isToday,
-                        canDrag: currentByWeekday[i + 1]?.isNotEmpty == true,
-                      ),
-                    );
-                  }),
-                ],
-              ),
+                ),
+                ...List.generate(dayCount, (i) {
+                  final date = dates[i];
+                  final isToday =
+                      date.year == today.year &&
+                      date.month == today.month &&
+                      date.day == today.day;
+                  return Expanded(
+                    child: _buildDayHeader(
+                      context,
+                      weekday: i + 1,
+                      date: date,
+                      weekdayLabel: weekdays[i],
+                      isToday: isToday,
+                      canDrag: currentByWeekday[i + 1]?.isNotEmpty == true,
+                    ),
+                  );
+                }),
+              ],
+            ),
+            if (widget.showHeaderDivider)
               FDivider(
                 style: FDividerStyleDelta.delta(
                   color: theme.colors.border,
                   padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
         // Timetable grid
         Expanded(
@@ -352,9 +348,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                         slotCount: widget.slotCount,
                         hiddenSlots: widget.hiddenSlots,
                         textSize: widget.timeTextSize,
-                        surfaceColor:
-                            widget.timeColumnSurfaceColor ??
-                            widget.fixedSurfaceColor,
                       ),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;

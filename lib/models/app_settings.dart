@@ -97,9 +97,6 @@ class AppSettings {
   final AppThemeColor themeColor;
   final ClassAutomationMode classAutomationMode;
   final String? timetableBackgroundPath;
-  final String? timetableBackgroundOriginalPath;
-  final bool timetableBackgroundFullscreen;
-  final double timetableBackgroundOpacity;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
   final double timetableCourseTextSize;
@@ -117,9 +114,6 @@ class AppSettings {
     this.themeColor = AppThemeColor.rose,
     this.classAutomationMode = ClassAutomationMode.off,
     this.timetableBackgroundPath,
-    this.timetableBackgroundOriginalPath,
-    this.timetableBackgroundFullscreen = true,
-    this.timetableBackgroundOpacity = 0.5,
     this.timetableComponentOpacity = 0.6,
     this.timetableGridOpacity = 0.7,
     this.timetableCourseTextSize = 12.0,
@@ -140,9 +134,6 @@ class AppSettings {
     AppThemeColor? themeColor,
     ClassAutomationMode? classAutomationMode,
     Object? timetableBackgroundPath = _unset,
-    Object? timetableBackgroundOriginalPath = _unset,
-    bool? timetableBackgroundFullscreen,
-    double? timetableBackgroundOpacity,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
     double? timetableCourseTextSize,
@@ -162,14 +153,6 @@ class AppSettings {
       timetableBackgroundPath: identical(timetableBackgroundPath, _unset)
           ? this.timetableBackgroundPath
           : timetableBackgroundPath as String?,
-      timetableBackgroundOriginalPath:
-          identical(timetableBackgroundOriginalPath, _unset)
-          ? this.timetableBackgroundOriginalPath
-          : timetableBackgroundOriginalPath as String?,
-      timetableBackgroundFullscreen:
-          timetableBackgroundFullscreen ?? this.timetableBackgroundFullscreen,
-      timetableBackgroundOpacity:
-          timetableBackgroundOpacity ?? this.timetableBackgroundOpacity,
       timetableComponentOpacity:
           timetableComponentOpacity ?? this.timetableComponentOpacity,
       timetableGridOpacity: timetableGridOpacity ?? this.timetableGridOpacity,

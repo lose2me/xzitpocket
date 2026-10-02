@@ -18,6 +18,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   @override
   AppSettings build() {
     _storage = ref.watch(preferencesStorageProvider);
+    unawaited(_storage.clearLegacyTimetableBackgroundSettings());
     unawaited(NativeAutomationService.refreshClassAutomation());
     return AppSettings(
       themePreference: AppThemePreference.fromStorage(
@@ -28,11 +29,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         _storage.getClassAutomationMode(),
       ),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
-      timetableBackgroundOriginalPath: _storage
-          .getTimetableBackgroundOriginalPath(),
-      timetableBackgroundFullscreen: _storage
-          .getTimetableBackgroundFullscreen(),
-      timetableBackgroundOpacity: _storage.getTimetableBackgroundOpacity(),
       timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
       timetableCourseTextSize: _storage.getTimetableCourseTextSize(),
@@ -83,22 +79,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(timetableBackgroundPath: path);
   }
 
-  Future<void> setTimetableBackgroundOriginalPath(String? path) async {
-    await _storage.setTimetableBackgroundOriginalPath(path);
-    state = state.copyWith(timetableBackgroundOriginalPath: path);
-  }
-
-  Future<void> setTimetableBackgroundFullscreen(bool value) async {
-    await _storage.setTimetableBackgroundFullscreen(value);
-    state = state.copyWith(timetableBackgroundFullscreen: value);
-  }
-
-  Future<void> setTimetableBackgroundOpacity(double value) async {
-    final normalized = value.clamp(0.0, 1.0).toDouble();
-    await _storage.setTimetableBackgroundOpacity(normalized);
-    state = state.copyWith(timetableBackgroundOpacity: normalized);
-  }
-
   Future<void> setTimetableComponentOpacity(double value) async {
     final normalized = value.clamp(0.0, 1.0).toDouble();
     await _storage.setTimetableComponentOpacity(normalized);
@@ -146,9 +126,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     const defaults = AppSettings();
     state = state.copyWith(
       timetableBackgroundPath: null,
-      timetableBackgroundOriginalPath: null,
-      timetableBackgroundFullscreen: defaults.timetableBackgroundFullscreen,
-      timetableBackgroundOpacity: defaults.timetableBackgroundOpacity,
       timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
       timetableCourseTextSize: defaults.timetableCourseTextSize,

@@ -9,7 +9,6 @@ class TimeColumn extends StatelessWidget {
   final int slotCount;
   final Set<int> hiddenSlots;
   final double textSize;
-  final Color? surfaceColor;
 
   const TimeColumn({
     super.key,
@@ -17,7 +16,6 @@ class TimeColumn extends StatelessWidget {
     this.slotCount = 14,
     this.hiddenSlots = const {},
     this.textSize = 11.0,
-    this.surfaceColor,
   });
 
   @override
@@ -25,51 +23,48 @@ class TimeColumn extends StatelessWidget {
     final theme = context.theme;
     return SizedBox(
       width: 40,
-      child: ColoredBox(
-        color: surfaceColor ?? const Color(0x00000000),
-        child: Column(
-          children: List.generate(slotCount, (i) {
-            if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
-            final slot = kTimeSlots[i];
-            return SizedBox(
-              height: cellHeight,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '${slot.index}',
-                      style: theme.typography.caption.copyWith(
-                        fontSize: textSize,
-                        height: 4 / 3,
-                        fontWeight: FontWeight.w600,
-                        color: theme.colors.mutedForeground,
-                      ),
+      child: Column(
+        children: List.generate(slotCount, (i) {
+          if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
+          final slot = kTimeSlots[i];
+          return SizedBox(
+            height: cellHeight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${slot.index}',
+                    style: theme.typography.caption.copyWith(
+                      fontSize: textSize,
+                      height: 4 / 3,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colors.mutedForeground,
                     ),
-                    Text(
-                      slot.start,
-                      style: theme.typography.caption.copyWith(
-                        fontSize: textSize,
-                        height: 14 / 11,
-                        color: theme.colors.mutedForeground,
-                      ),
+                  ),
+                  Text(
+                    slot.start,
+                    style: theme.typography.caption.copyWith(
+                      fontSize: textSize,
+                      height: 14 / 11,
+                      color: theme.colors.mutedForeground,
                     ),
-                    Text(
-                      slot.end,
-                      style: theme.typography.caption.copyWith(
-                        fontSize: textSize,
-                        height: 14 / 11,
-                        color: theme.colors.mutedForeground,
-                      ),
+                  ),
+                  Text(
+                    slot.end,
+                    style: theme.typography.caption.copyWith(
+                      fontSize: textSize,
+                      height: 14 / 11,
+                      color: theme.colors.mutedForeground,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            );
-          }),
-        ),
+            ),
+          );
+        }),
       ),
     );
   }

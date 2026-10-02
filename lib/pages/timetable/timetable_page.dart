@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -618,25 +617,18 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final courseBorderColor = context.theme.colors.foreground;
     final courseOpacity = settings.timetableComponentOpacity;
     final courseBorderOpacity = settings.timetableCourseBorderOpacity;
-    final hasFullscreenBackground =
-        settings.timetableBackgroundFullscreen &&
+    final hasBackground =
         settings.timetableBackgroundPath != null &&
         settings.timetableBackgroundPath!.isNotEmpty;
-    final fixedSurfaceColor = hasFullscreenBackground
-        ? context.theme.colors.background.withValues(alpha: 0.84)
-        : null;
-    final timeColumnSurfaceColor = hasFullscreenBackground
-        ? context.theme.colors.background.withValues(alpha: 0.92)
-        : null;
 
     return ListenableBuilder(
       listenable: semesterCalendar,
       builder: (context, _) => AppPage(
         root: true,
-        transparentBackground: hasFullscreenBackground,
-        systemOverlayStyle: hasFullscreenBackground
+        transparentBackground: hasBackground,
+        systemOverlayStyle: hasBackground
             ? context.theme.colors.systemOverlayStyle.copyWith(
-                statusBarColor: fixedSurfaceColor,
+                statusBarColor: const Color(0x00000000),
               )
             : null,
         child: Listener(
@@ -650,20 +642,17 @@ class TimetablePageState extends ConsumerState<TimetablePage>
             child: Column(
               children: [
                 Consumer(
-                  builder: (context, ref, child) => DecoratedBox(
-                    decoration: BoxDecoration(color: fixedSurfaceColor),
-                    child: WeekHeader(
-                      calendar: semesterCalendar,
-                      selectedWeek: ref.watch(selectedWeekProvider),
-                      currentWeek: currentWeek,
-                      onSync: _isSyncing ? null : _onSync,
-                      syncing: _isSyncing,
-                      onJumpToCurrentWeek: jumpToCurrentWeek,
-                      onSettings: () => Navigator.of(context).push(
-                        appRoute(
-                          name: AppRouteNames.timetableSettings,
-                          builder: (_) => const TimetableSettingsPage(),
-                        ),
+                  builder: (context, ref, child) => WeekHeader(
+                    calendar: semesterCalendar,
+                    selectedWeek: ref.watch(selectedWeekProvider),
+                    currentWeek: currentWeek,
+                    onSync: _isSyncing ? null : _onSync,
+                    syncing: _isSyncing,
+                    onJumpToCurrentWeek: jumpToCurrentWeek,
+                    onSettings: () => Navigator.of(context).push(
+                      appRoute(
+                        name: AppRouteNames.timetableSettings,
+                        builder: (_) => const TimetableSettingsPage(),
                       ),
                     ),
                   ),
@@ -681,23 +670,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                       return Stack(
                         fit: StackFit.expand,
                         children: [
-                          if (!settings.timetableBackgroundFullscreen &&
-                              settings.timetableBackgroundPath != null &&
-                              settings.timetableBackgroundPath!.isNotEmpty)
-                            Positioned.fill(
-                              child: Opacity(
-                                opacity: settings.timetableBackgroundOpacity
-                                    .clamp(0.0, 1.0),
-                                child: Image.file(
-                                  File(settings.timetableBackgroundPath!),
-                                  fit: BoxFit.cover,
-                                  alignment: Alignment.center,
-                                  filterQuality: FilterQuality.high,
-                                  errorBuilder: (context, error, stackTrace) =>
-                                      const SizedBox(),
-                                ),
-                              ),
-                            ),
                           PageView.builder(
                             key: _timetableViewportKey,
                             controller: _pageController,
@@ -741,9 +713,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                   timeTextSize: settings.timetableTimeTextSize,
                                   dateTextSize: settings.timetableDateTextSize,
                                   gridOpacity: settings.timetableGridOpacity,
-                                  fixedSurfaceColor: fixedSurfaceColor,
-                                  timeColumnSurfaceColor:
-                                      timeColumnSurfaceColor,
+                                  showHeaderDivider: !hasBackground,
                                   showGridLines:
                                       settings.showTimetableGridLines,
                                   showTodayGridLines:

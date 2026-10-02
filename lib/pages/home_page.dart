@@ -23,7 +23,6 @@ class HomePage extends ConsumerStatefulWidget {
 
 class HomePageState extends ConsumerState<HomePage> {
   int _currentIndex = 0;
-  bool _isNavigating = false;
   late final PageController _pageController;
   late final PageController _backgroundPageController;
 
@@ -90,18 +89,12 @@ class HomePageState extends ConsumerState<HomePage> {
     final timetableBackgroundPath = settings.timetableBackgroundPath;
     final hasBackgroundAsset =
         timetableBackgroundPath != null && timetableBackgroundPath.isNotEmpty;
-    final hasFullscreenBackground =
-        hasBackgroundAsset && settings.timetableBackgroundFullscreen;
-    final showGlobalBackground =
-        hasFullscreenBackground && (_currentIndex == 0 || _isNavigating);
+    final showGlobalBackground = hasBackgroundAsset && _currentIndex == 0;
     final backgroundVisibleBehindNavigation =
         showGlobalBackground && _currentIndex == 0;
-    final backgroundSurfaceColor = context.theme.colors.background.withValues(
-      alpha: 0.84,
-    );
-    if (hasFullscreenBackground) {
+    if (hasBackgroundAsset) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _isNavigating || !_backgroundPageController.hasClients) {
+        if (!mounted || !_backgroundPageController.hasClients) {
           return;
         }
         if (_backgroundPageController.page?.round() != _currentIndex) {
@@ -122,12 +115,19 @@ class HomePageState extends ConsumerState<HomePage> {
         style: backgroundVisibleBehindNavigation
             ? FBottomNavigationBarStyleDelta.delta(
                 decoration: DecorationDelta.boxDelta(
-                  color: context.theme.colors.background.withValues(
-                    alpha: 0.86,
-                  ),
+                  color: const Color(0x00000000),
+                  border: const Border.fromBorderSide(BorderSide.none),
                 ),
+                backgroundFilter: null,
+                slideableItems: FVariantsValueDelta.delta([
+                  FVariantValueDeltaOperation.all(false),
+                ]),
               )
-            : const FBottomNavigationBarStyleDelta.context(),
+            : FBottomNavigationBarStyleDelta.delta(
+                slideableItems: FVariantsValueDelta.delta([
+                  FVariantValueDeltaOperation.all(false),
+                ]),
+              ),
         index: selectedNavigationIndex,
         onChange: (i) {
           final targetTab = visibleTabs[i];
@@ -135,34 +135,12 @@ class HomePageState extends ConsumerState<HomePage> {
             ProfilePage.globalKey.currentState?.finishRoomIdEditing();
           }
           if (_currentIndex == targetTab) return;
-          setState(() {
-            _currentIndex = targetTab;
-            _isNavigating = true;
-          });
+          setState(() => _currentIndex = targetTab);
           if (_pageController.hasClients) {
-            final transitions = <Future<void>>[
-              _pageController.animateToPage(
-                targetTab,
-                duration: const Duration(milliseconds: 240),
-                curve: Curves.easeOutCubic,
-              ),
-            ];
-            if (_backgroundPageController.hasClients) {
-              transitions.add(
-                _backgroundPageController.animateToPage(
-                  targetTab,
-                  duration: const Duration(milliseconds: 240),
-                  curve: Curves.easeOutCubic,
-                ),
-              );
-            }
-            unawaited(
-              Future.wait(transitions).whenComplete(() {
-                if (mounted) setState(() => _isNavigating = false);
-              }),
-            );
-          } else {
-            setState(() => _isNavigating = false);
+            _pageController.jumpToPage(targetTab);
+          }
+          if (_backgroundPageController.hasClients) {
+            _backgroundPageController.jumpToPage(targetTab);
           }
           if (targetTab == 1) {
             // The page is lazy-built, so its state may not exist until the
@@ -223,7 +201,7 @@ class HomePageState extends ConsumerState<HomePage> {
     // Keep the shell's own inset at zero. Profile injects the live inset into
     // its dedicated root scaffold; this prevents the nav shell and timetable
     // render tree from participating in the keyboard animation.
-    if (!hasFullscreenBackground) return shell;
+    if (!hasBackgroundAsset) return shell;
 
     return Stack(
       fit: StackFit.expand,
@@ -235,39 +213,14 @@ class HomePageState extends ConsumerState<HomePage> {
               physics: const NeverScrollableScrollPhysics(),
               itemCount: 3,
               itemBuilder: (context, index) {
-                if (index != 0) {
-                  return ColoredBox(color: context.theme.colors.background);
-                }
-                return ColoredBox(
-                  color: context.theme.colors.background,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      AnimatedOpacity(
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOut,
-                        opacity: settings.timetableBackgroundOpacity.clamp(
-                          0.0,
-                          1.0,
-                        ),
-                        child: Image.file(
-                          File(timetableBackgroundPath),
-                          fit: BoxFit.cover,
-                          alignment: Alignment.center,
-                          filterQuality: FilterQuality.high,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const SizedBox(),
-                        ),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: MediaQuery.paddingOf(context).top,
-                        child: ColoredBox(color: backgroundSurfaceColor),
-                      ),
-                    ],
-                  ),
+                if (index != 0) return const SizedBox.expand();
+                return Image.file(
+                  File(timetableBackgroundPath),
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
+                  filterQuality: FilterQuality.high,
+                  errorBuilder: (context, error, stackTrace) =>
+                      const SizedBox(),
                 );
               },
             ),

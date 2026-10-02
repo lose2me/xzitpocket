@@ -57,32 +57,13 @@ class PreferencesStorage {
     }
   }
 
-  String? getTimetableBackgroundOriginalPath() =>
-      _prefs.getString('timetable_background_original_path');
-
-  Future<void> setTimetableBackgroundOriginalPath(String? path) async {
-    if (path == null || path.isEmpty) {
-      await _prefs.remove('timetable_background_original_path');
-    } else {
-      await _prefs.setString('timetable_background_original_path', path);
-    }
+  Future<void> clearLegacyTimetableBackgroundSettings() async {
+    await Future.wait([
+      _prefs.remove('timetable_background_original_path'),
+      _prefs.remove('timetable_background_fullscreen'),
+      _prefs.remove('timetable_background_opacity'),
+    ]);
   }
-
-  bool getTimetableBackgroundFullscreen() =>
-      _prefs.getBool('timetable_background_fullscreen') ?? true;
-
-  Future<void> setTimetableBackgroundFullscreen(bool value) =>
-      _prefs.setBool('timetable_background_fullscreen', value);
-
-  double getTimetableBackgroundOpacity() =>
-      (_prefs.getDouble('timetable_background_opacity') ?? 0.5)
-          .clamp(0.0, 1.0)
-          .toDouble();
-
-  Future<void> setTimetableBackgroundOpacity(double value) => _prefs.setDouble(
-    'timetable_background_opacity',
-    value.clamp(0.0, 1.0).toDouble(),
-  );
 
   double getTimetableComponentOpacity() =>
       (_prefs.getDouble('timetable_component_opacity') ?? 0.7)
@@ -163,6 +144,8 @@ class PreferencesStorage {
   Future<void> resetTimetableAppearance() async {
     await Future.wait([
       _prefs.remove('timetable_background_path'),
+      // Remove settings from versions that supported separate source images,
+      // non-fullscreen backgrounds, and background opacity.
       _prefs.remove('timetable_background_original_path'),
       _prefs.remove('timetable_background_fullscreen'),
       _prefs.remove('timetable_background_opacity'),

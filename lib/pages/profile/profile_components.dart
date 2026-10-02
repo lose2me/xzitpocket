@@ -54,6 +54,7 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
   final String title;
   final String? value;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
 
   const ProfileSettingsTile({
     super.key,
@@ -61,6 +62,7 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
     required this.title,
     this.value,
     this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -69,10 +71,11 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
     prefix: Icon(icon, size: 20),
     title: Text(title),
     details: value == null ? null : Text(value!),
-    suffix: onTap == null
+    suffix: onTap == null && onLongPress == null
         ? null
         : const Icon(FLucideIcons.chevronRight, size: 18),
     onPress: onTap,
+    onLongPress: onLongPress,
   );
 }
 
