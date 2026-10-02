@@ -61,8 +61,12 @@ internal object CourseReminderScheduler {
                 val start = runCatching {
                     dateFormat.parse("${course.date} ${course.startTime}")?.time
                 }.getOrNull() ?: return@forEach
-                val triggerAt = start - minutes * 60_000L
-                if (triggerAt <= now) return@forEach
+                var triggerAt = start - minutes * 60_000L
+                if (start <= now) return@forEach
+                // If the app is enabled after the configured lead time, still
+                // remind once while the class has not started. This also makes
+                // changing the system clock to shortly before class testable.
+                if (triggerAt <= now) triggerAt = now + 1_000L
                 val requestCode = REQUEST_BASE + slot++
                 val intent = Intent(context, CourseReminderReceiver::class.java).apply {
                     action = ACTION_REMINDER

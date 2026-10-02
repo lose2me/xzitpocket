@@ -90,6 +90,15 @@ class NativeAutomationService {
     }
   }
 
+  static Future<void> openNotificationSettings() async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('openNotificationSettings');
+    } on MissingPluginException {
+      // Ignore on unsupported platforms.
+    }
+  }
+
   static Future<void> openBackgroundAndAutostartSettings() async {
     if (!_isAndroid) return;
     try {

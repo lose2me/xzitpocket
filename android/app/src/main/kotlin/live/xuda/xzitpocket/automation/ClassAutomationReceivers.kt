@@ -3,6 +3,7 @@ package live.xuda.xzitpocket.automation
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import live.xuda.xzitpocket.widget.CourseReminderScheduler
 
 class ClassAutomationAlarmReceiver : BroadcastReceiver() {
@@ -38,8 +39,16 @@ class ClassAutomationBootReceiver : BroadcastReceiver() {
                 val appContext = context.applicationContext
                 Thread {
                     try {
-                        ClassAutomationController.refreshNow(appContext)
-                        CourseReminderScheduler.refreshNow(appContext)
+                        runCatching {
+                            ClassAutomationController.refreshNow(appContext)
+                        }.onFailure { error ->
+                            Log.e("ClassAutomationReceiver", "Failed to refresh class automation", error)
+                        }
+                        runCatching {
+                            CourseReminderScheduler.refreshNow(appContext)
+                        }.onFailure { error ->
+                            Log.e("ClassAutomationReceiver", "Failed to refresh course reminders", error)
+                        }
                     } finally {
                         pendingResult.finish()
                     }

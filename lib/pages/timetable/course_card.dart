@@ -71,7 +71,6 @@ class CourseCard extends StatelessWidget {
         ? Border.all(color: effectiveBorderColor, width: borderWidth)
         : null;
     final card = Container(
-      margin: EdgeInsets.all(outerPadding),
       padding: EdgeInsets.all(innerPadding),
       decoration: BoxDecoration(
         color: bgColor,
@@ -82,75 +81,69 @@ class CourseCard extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: borderRadius,
-            child: OverflowBox(
-              alignment: Alignment.topLeft,
-              maxHeight: double.infinity,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  top: countdownAnimation == null ? 0 : 7,
-                ),
-                child: Column(
-                  crossAxisAlignment: centerHorizontal
-                      ? CrossAxisAlignment.center
-                      : CrossAxisAlignment.start,
-                  mainAxisAlignment: centerVertical
-                      ? MainAxisAlignment.center
-                      : MainAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+            child: Padding(
+              padding: EdgeInsets.only(top: countdownAnimation == null ? 0 : 7),
+              child: Column(
+                crossAxisAlignment: centerHorizontal
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
+                mainAxisAlignment: centerVertical
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start,
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Text(
+                    course.title,
+                    style: TextStyle(
+                      fontSize: textSize,
+                      fontWeight: FontWeight.w600,
+                      color: resolvedTextColor,
+                      height: 4 / 3,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  if (showStartTime)
                     Text(
-                      course.title,
+                      '${course.startSession} ${_startTime(course.startSession)}',
                       style: TextStyle(
-                        fontSize: textSize,
-                        fontWeight: FontWeight.w600,
-                        color: resolvedTextColor,
-                        height: 4 / 3,
+                        fontSize: textSize * 11 / 12,
+                        color: secondaryTextColor,
+                        height: 14 / 11,
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    if (showStartTime)
-                      Text(
-                        '${course.startSession} ${_startTime(course.startSession)}',
-                        style: TextStyle(
-                          fontSize: textSize * 11 / 12,
-                          color: secondaryTextColor,
-                          height: 14 / 11,
-                          letterSpacing: 0,
-                        ),
+                  if (!hideLocation && course.place.isNotEmpty)
+                    Text(
+                      '${removeLocationAt ? '' : '@'}${course.place}',
+                      style: TextStyle(
+                        fontSize: textSize * 11 / 12,
+                        color: secondaryTextColor,
+                        height: 14 / 11,
+                        letterSpacing: 0,
                       ),
-                    if (!hideLocation && course.place.isNotEmpty)
-                      Text(
-                        '${removeLocationAt ? '' : '@'}${course.place}',
-                        style: TextStyle(
-                          fontSize: textSize * 11 / 12,
-                          color: secondaryTextColor,
-                          height: 14 / 11,
-                          letterSpacing: 0,
-                        ),
+                    ),
+                  if (!hideLocation && course.campus.isNotEmpty)
+                    Text(
+                      course.campus,
+                      style: TextStyle(
+                        fontSize: textSize * 11 / 12,
+                        color: secondaryTextColor,
+                        height: 14 / 11,
+                        letterSpacing: 0,
                       ),
-                    if (!hideLocation && course.campus.isNotEmpty)
-                      Text(
-                        course.campus,
-                        style: TextStyle(
-                          fontSize: textSize * 11 / 12,
-                          color: secondaryTextColor,
-                          height: 14 / 11,
-                          letterSpacing: 0,
-                        ),
+                    ),
+                  if (!hideTeacher && course.teacher.isNotEmpty)
+                    Text(
+                      course.teacher,
+                      style: TextStyle(
+                        fontSize: textSize * 11 / 12,
+                        color: secondaryTextColor,
+                        height: 14 / 11,
+                        letterSpacing: 0,
                       ),
-                    if (!hideTeacher && course.teacher.isNotEmpty)
-                      Text(
-                        course.teacher,
-                        style: TextStyle(
-                          fontSize: textSize * 11 / 12,
-                          color: secondaryTextColor,
-                          height: 14 / 11,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -187,15 +180,17 @@ class CourseCard extends StatelessWidget {
         ],
       ),
     );
-    if (borderType != 'dashed' || courseBorderOpacity <= 0) return card;
-    return CustomPaint(
-      foregroundPainter: _DashedBorderPainter(
-        color: effectiveBorderColor,
-        width: borderWidth,
-        radius: cornerRadius,
-      ),
-      child: card,
-    );
+    final decorated = borderType == 'dashed' && courseBorderOpacity > 0
+        ? CustomPaint(
+            foregroundPainter: _DashedBorderPainter(
+              color: effectiveBorderColor,
+              width: borderWidth,
+              radius: cornerRadius,
+            ),
+            child: card,
+          )
+        : card;
+    return Container(margin: EdgeInsets.all(outerPadding), child: decorated);
   }
 
   String _startTime(int session) => kTimeSlots

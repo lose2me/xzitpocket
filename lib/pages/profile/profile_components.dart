@@ -1,4 +1,4 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
 import '../../ui/app_components.dart';
@@ -68,7 +68,7 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
   @override
   Widget build(BuildContext context) => FTile(
     style: _profileTileStyle,
-    prefix: Icon(icon, size: 20),
+    prefix: Icon(icon, size: 20, color: context.theme.colors.primary),
     title: Text(title),
     details: value == null ? null : Text(value!),
     suffix: onTap == null && onLongPress == null
@@ -103,13 +103,16 @@ class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {
   Widget build(BuildContext context) => FTile.raw(
     style: _profileTileStyle,
     semanticsExpanded: expandable ? expanded : null,
-    onPress: expandable ? onTap : null,
+    // Keep a non-expandable row visually enabled; a null handler makes
+    // Forui apply its disabled icon/text colors even when the row is merely
+    // informational.
+    onPress: expandable ? onTap : () {},
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Icon(icon, size: 20, color: context.theme.colors.foreground),
+            Icon(icon, size: 20, color: context.theme.colors.primary),
             const SizedBox(width: AppSpacing.sm),
             Expanded(child: Text(title)),
             if (value != null) ...[
@@ -150,13 +153,162 @@ class ProfileSettingsControlTile extends StatelessWidget with FTileMixin {
 
   @override
   Widget build(BuildContext context) => FTile.raw(
-    prefix: Icon(icon, size: 20),
+    prefix: Icon(icon, size: 20, color: context.theme.colors.primary),
     onPress: onTap,
     child: Row(
       children: [
         Expanded(child: Text(title)),
         const SizedBox(width: AppSpacing.sm),
-        child,
+        Flexible(child: child),
+      ],
+    ),
+  );
+}
+
+class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
+  final IconData icon;
+  final String title;
+  final double value;
+  final double min;
+  final double max;
+  final int? divisions;
+  final String suffix;
+  final double displayMultiplier;
+  final int displayDecimals;
+  final ValueChanged<double> onChanged;
+
+  const ProfileSettingsSliderTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.onChanged,
+    this.divisions,
+    this.suffix = '',
+    this.displayMultiplier = 1,
+    this.displayDecimals = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) => FTile.raw(
+    style: _profileTileStyle,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: context.theme.colors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(title)),
+            Text(
+              '${(value * displayMultiplier).toStringAsFixed(displayDecimals)}$suffix',
+            ),
+          ],
+        ),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          onChanged: onChanged,
+        ),
+      ],
+    ),
+  );
+}
+
+class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
+  final IconData icon;
+  final String title;
+  final Color? value;
+  final List<Color> colors;
+  final ValueChanged<Color?> onChanged;
+  final bool allowReset;
+
+  const ProfileSettingsColorTile({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.colors,
+    required this.onChanged,
+    this.allowReset = true,
+  });
+
+  @override
+  Widget build(BuildContext context) => FTile.raw(
+    style: _profileTileStyle,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: context.theme.colors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: Text(title)),
+            Text(
+              value == null
+                  ? '跟随主题'
+                  : '#${value!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              if (allowReset)
+                GestureDetector(
+                  onTap: () => onChanged(null),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: context.theme.colors.background,
+                      border: Border.all(
+                        color: value == null
+                            ? context.theme.colors.primary
+                            : context.theme.colors.border,
+                        width: value == null ? 3 : 1,
+                      ),
+                    ),
+                    child: SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: Icon(
+                        Icons.block,
+                        size: 30,
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                    ),
+                  ),
+                ),
+              if (allowReset) const SizedBox(width: AppSpacing.sm),
+              for (final color in colors)
+                Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: GestureDetector(
+                    onTap: () => onChanged(color),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color,
+                        border: Border.all(
+                          color: value?.toARGB32() == color.toARGB32()
+                              ? context.theme.colors.primary
+                              : context.theme.colors.border,
+                          width: value?.toARGB32() == color.toARGB32() ? 3 : 1,
+                        ),
+                      ),
+                      child: const SizedBox(width: 30, height: 30),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
     ),
   );
@@ -181,7 +333,7 @@ class ProfileSettingsCheckboxTile extends StatelessWidget with FTileMixin {
     checked: value,
     child: FTile(
       style: _profileTileStyle,
-      prefix: Icon(icon, size: 20),
+      prefix: Icon(icon, size: 20, color: context.theme.colors.primary),
       title: Text(title),
       suffix: ExcludeSemantics(
         // 勾选框自身可点击；点击方框由手势竞技场优先交给子控件处理，

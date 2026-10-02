@@ -85,6 +85,7 @@ class TimetableGrid extends StatefulWidget {
   final bool showHeaderDivider;
   final bool showTodayGridLines;
   final bool showGridLines;
+  final bool showBelowFoldIndicator;
   final double sectionHeight;
   final double timeColumnWidth;
   final double dayHeaderHeight;
@@ -140,6 +141,7 @@ class TimetableGrid extends StatefulWidget {
     this.showHeaderDivider = true,
     this.showTodayGridLines = false,
     this.showGridLines = true,
+    this.showBelowFoldIndicator = true,
     this.sectionHeight = 70.0,
     this.timeColumnWidth = 40.0,
     this.dayHeaderHeight = 45.0,
@@ -300,6 +302,9 @@ class _TimetableGridState extends State<TimetableGrid> {
         .toDouble();
 
     final dayCount = showWeekendColumns ? 7 : 5;
+    final effectiveTimeColumnWidth = widget.hideDateUnderDay
+        ? math.min(widget.timeColumnWidth, 28.0)
+        : widget.timeColumnWidth;
 
     // Cheap pre-compute: only the variant selection happens here (from the
     // cached day slots), never the grouping/backtracking.
@@ -317,7 +322,7 @@ class _TimetableGridState extends State<TimetableGrid> {
             Row(
               children: [
                 SizedBox(
-                  width: widget.timeColumnWidth,
+                  width: effectiveTimeColumnWidth,
                   child: Center(
                     child: Text(
                       '${dates[0].month}月',
@@ -400,7 +405,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                     children: [
                       TimeColumn(
                         cellHeight: cellHeight,
-                        width: widget.timeColumnWidth,
+                        width: effectiveTimeColumnWidth,
                         slotCount: widget.slotCount,
                         hiddenSlots: widget.hiddenSlots,
                         textSize: widget.timeTextSize,
@@ -536,7 +541,8 @@ class _TimetableGridState extends State<TimetableGrid> {
                                       ),
                                     );
                                   }),
-                                  if (_showBelowFoldIndicator &&
+                                  if (widget.showBelowFoldIndicator &&
+                                      _showBelowFoldIndicator &&
                                       visibleSessions.isNotEmpty &&
                                       _hasLaterCourse(
                                         currentByWeekday[weekday],

@@ -5,11 +5,46 @@ import 'package:xzitpocket/models/course.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/pages/timetable/course_form_page.dart';
 import 'package:xzitpocket/pages/timetable/course_picker_sheet.dart';
+import 'package:xzitpocket/pages/timetable/course_card.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/ui/app_components.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
 
 void main() {
+  testWidgets('course text vertical centering affects the card layout', (
+    tester,
+  ) async {
+    final course = Course(
+      title: '垂直居中测试',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 140,
+          height: 120,
+          child: CourseCard(
+            course: course,
+            borderColor: Colors.black,
+            centerVertical: true,
+            hideLocation: true,
+            hideTeacher: true,
+          ),
+        ),
+      ),
+    );
+
+    final cardRect = tester.getRect(find.byType(CourseCard));
+    final titleRect = tester.getRect(find.text('垂直居中测试'));
+    expect(titleRect.center.dy, closeTo(cardRect.center.dy, 5));
+  });
+
   testWidgets('timetable date divider has no surrounding vertical gap', (
     tester,
   ) async {

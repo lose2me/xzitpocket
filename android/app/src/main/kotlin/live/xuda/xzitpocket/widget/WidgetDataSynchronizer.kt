@@ -1,6 +1,7 @@
 package live.xuda.xzitpocket.widget
 
 import android.content.Context
+import android.util.Log
 import live.xuda.xzitpocket.automation.ClassAutomationScheduler
 import java.util.Calendar
 
@@ -12,11 +13,15 @@ internal object WidgetDataSynchronizer {
         synchronized(syncLock) {
             val snapshot = buildSnapshot(context)
             WidgetPrefsRepository.saveSnapshot(context, snapshot)
-            ClassAutomationScheduler.enqueueWork(context)
-            // Rebuild RTC alarms in the same sync pass. A queued WorkManager
-            // job can be delayed long enough to miss a short reminder window.
+        }
+        ClassAutomationScheduler.enqueueWork(context)
+        WidgetUpdateHelper.updateAllWidgets(context)
+        // Alarm scheduling is best-effort and must not prevent the widget
+        // snapshot from being committed when a vendor rejects an alarm call.
+        try {
             CourseReminderScheduler.refreshNow(context)
-            WidgetUpdateHelper.updateAllWidgets(context)
+        } catch (error: Exception) {
+            Log.e("WidgetDataSynchronizer", "Failed to schedule course reminders", error)
         }
     }
 

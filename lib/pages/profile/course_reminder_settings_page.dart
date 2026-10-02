@@ -44,6 +44,7 @@ class _CourseReminderSettingsPageState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_loadPermissionStatus());
+      unawaited(NativeAutomationService.refreshCourseReminders());
       if (_automationPermissionFlowActive) {
         unawaited(_continueAutomationPermissionFlow());
       }
@@ -78,6 +79,7 @@ class _CourseReminderSettingsPageState
                   await notifier.setCourseReminderEnabled(value);
                   if (value) {
                     await NativeAutomationService.requestNotificationPermission();
+                    await NativeAutomationService.refreshCourseReminders();
                     await _loadPermissionStatus();
                   }
                 },
@@ -124,7 +126,7 @@ class _CourseReminderSettingsPageState
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.notificationsGranted),
                 onTap: () async {
-                  await NativeAutomationService.requestNotificationPermission();
+                  await NativeAutomationService.openNotificationSettings();
                   await _loadPermissionStatus();
                 },
               ),
@@ -176,11 +178,36 @@ class _CourseReminderSettingsPageState
           const ProfileSectionLabel(title: '课堂勿扰'),
           ProfileSettingsGroup(
             children: [
-              ProfileSettingsTile(
+              ProfileSettingsControlTile(
                 icon: FLucideIcons.bellOff,
                 title: '课堂勿扰',
-                value: _automationLabel(settings.classAutomationMode),
-                onTap: () => _openAutomationSheet(settings.classAutomationMode),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _automationButton(
+                        mode: ClassAutomationMode.off,
+                        label: '关闭',
+                        current: settings.classAutomationMode,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: _automationButton(
+                        mode: ClassAutomationMode.dnd,
+                        label: '上课恢复',
+                        current: settings.classAutomationMode,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: _automationButton(
+                        mode: ClassAutomationMode.dndKeep,
+                        label: '保持勿扰',
+                        current: settings.classAutomationMode,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -191,41 +218,18 @@ class _CourseReminderSettingsPageState
 
   String _permissionLabel(bool granted) => granted ? '已授权' : '未授权';
 
-  String _automationLabel(ClassAutomationMode mode) => switch (mode) {
-    ClassAutomationMode.off => '关闭',
-    ClassAutomationMode.dnd => '上课时开启',
-    ClassAutomationMode.dndKeep => '下课不恢复',
-  };
+  Widget _automationButton({
+    required ClassAutomationMode mode,
+    required String label,
+    required ClassAutomationMode current,
+  }) => FButton(
+    variant: current == mode ? FButtonVariant.primary : FButtonVariant.outline,
+    onPress: () => unawaited(_setAutomationMode(mode)),
+    child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+  );
 
-  Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {
-    final selected = await showAppSheet<ClassAutomationMode>(
-      context: context,
-      builder: (context) => AppOptionSheet<ClassAutomationMode>(
-        title: '课堂勿扰',
-        value: currentMode,
-        options: [
-          const AppOption(
-            value: ClassAutomationMode.off,
-            title: '关闭',
-            subtitle: '不自动调节手机模式',
-            icon: FLucideIcons.bellOff,
-          ),
-          const AppOption(
-            value: ClassAutomationMode.dnd,
-            title: '上课开启，下课恢复',
-            subtitle: '上课静音，下课后自动恢复',
-            icon: FLucideIcons.bellRing,
-          ),
-          const AppOption(
-            value: ClassAutomationMode.dndKeep,
-            title: '上课开启，下课不恢复',
-            subtitle: '上课静音，下课后保持勿扰',
-            icon: FLucideIcons.vibrateOff,
-          ),
-        ],
-      ),
-    );
-    if (selected == null) return;
+  Future<void> _setAutomationMode(ClassAutomationMode selected) async {
+    final currentMode = ref.read(appSettingsProvider).classAutomationMode;
     if (selected != currentMode) {
       await ref
           .read(appSettingsProvider.notifier)

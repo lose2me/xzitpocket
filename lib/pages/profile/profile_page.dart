@@ -246,7 +246,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 ),
               ),
               ProfileSettingsTile(
-                icon: FLucideIcons.sunMoon,
+                icon: FLucideIcons.settings,
                 title: '功能启用',
                 onTap: () => Navigator.of(context).push(
                   appRoute(

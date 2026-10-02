@@ -20,7 +20,6 @@ class AppearanceSettingsPage extends ConsumerWidget {
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         children: [
-          const ProfileSectionLabel(title: '隐藏功能入口'),
           ProfileSettingsGroup(
             children: [
               for (final feature in AppServiceFeature.values)
@@ -50,5 +49,4 @@ class AppearanceSettingsPage extends ConsumerWidget {
     AppServiceFeature.calendar => FLucideIcons.calendarDays,
     AppServiceFeature.teacherEvaluation => FLucideIcons.messageSquareMore,
   };
-
 }

@@ -32,6 +32,18 @@ double _backgroundAspectRatio(Size size) {
   return width / height;
 }
 
+const _styleColors = <Color>[
+  Color(0xFF172033),
+  Color(0xFF475569),
+  Color(0xFF64748B),
+  Color(0xFF2563EB),
+  Color(0xFF047857),
+  Color(0xFFBE123C),
+  Color(0xFFC2410C),
+  Color(0xFF7C3AED),
+  Color(0xFFF8FAFC),
+];
+
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -50,11 +62,33 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       title: '个性化设置',
       child: Column(
         children: [
-          SizedBox(
-            height: 340,
-            child: _TimetableGridPreview(
-              settings: settings,
-              showWeekendColumns: showWeekendColumns,
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: context.theme.colors.background,
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(22),
+              ),
+              border: Border(
+                bottom: BorderSide(
+                  color: context.theme.colors.border,
+                  width: 1.5,
+                ),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(22),
+              ),
+              child: SizedBox(
+                height:
+                    settings.timetableDayHeaderHeight +
+                    settings.timetableSectionHeight * 2 +
+                    2,
+                child: _TimetableGridPreview(
+                  settings: settings,
+                  showWeekendColumns: showWeekendColumns,
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -63,6 +97,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
               topPadding: AppSpacing.md,
               bottomPadding: AppSpacing.xxl,
               children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FButton(
+                    variant: FButtonVariant.outline,
+                    onPress: _resetAppearance,
+                    prefix: const Icon(FLucideIcons.refreshCw),
+                    child: const Text('重置个性化设置'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
                 const ProfileSectionLabel(title: '软件主题'),
                 ProfileSettingsGroup(
                   children: [
@@ -72,11 +117,25 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: _themeTitle(settings.themePreference),
                       onTap: () => _openThemeSheet(settings.themePreference),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsColorTile(
                       icon: FLucideIcons.palette,
                       title: '软件主题色',
-                      value: settings.themeColor.label,
-                      onTap: () => _openThemeColorSheet(settings.themeColor),
+                      value: settings.themeColor.color,
+                      colors: [
+                        for (final item in AppThemeColor.values) item.color,
+                      ],
+                      allowReset: false,
+                      onChanged: (color) {
+                        if (color == null) return;
+                        final selected = AppThemeColor.values.firstWhere(
+                          (item) => item.color == color,
+                        );
+                        unawaited(
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setThemeColor(selected),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -84,159 +143,127 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 const ProfileSectionLabel(title: '课表网格'),
                 ProfileSettingsGroup(
                   children: [
-                    ProfileSettingsTile(
+                    ProfileSettingsSliderTile(
                       icon: FLucideIcons.rows3,
                       title: '课节高度',
-                      value:
-                          '${settings.timetableSectionHeight.toStringAsFixed(0)} px',
-                      onTap: () => _openNumberSheet(
-                        title: '课节高度',
-                        currentValue: settings.timetableSectionHeight,
-                        min: 40,
-                        max: 140,
-                        divisions: 100,
-                        suffix: ' px',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableSectionHeight(value),
-                      ),
+                      value: settings.timetableSectionHeight,
+                      min: 40,
+                      max: 140,
+                      divisions: 100,
+                      suffix: ' px',
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableSectionHeight(value),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsSliderTile(
                       icon: FLucideIcons.columns3,
                       title: '时间列宽度',
-                      value:
-                          '${settings.timetableTimeColumnWidth.toStringAsFixed(0)} px',
-                      onTap: () => _openNumberSheet(
-                        title: '时间列宽度',
-                        currentValue: settings.timetableTimeColumnWidth,
-                        min: 20,
-                        max: 80,
-                        divisions: 60,
-                        suffix: ' px',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableTimeColumnWidth(value),
-                      ),
+                      value: settings.timetableTimeColumnWidth,
+                      min: 20,
+                      max: 80,
+                      divisions: 60,
+                      suffix: ' px',
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTimeColumnWidth(value),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsSliderTile(
                       icon: FLucideIcons.panelTop,
                       title: '日期栏高度',
-                      value:
-                          '${settings.timetableDayHeaderHeight.toStringAsFixed(0)} px',
-                      onTap: () => _openNumberSheet(
-                        title: '日期栏高度',
-                        currentValue: settings.timetableDayHeaderHeight,
-                        min: 30,
-                        max: 80,
-                        divisions: 50,
-                        suffix: ' px',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableDayHeaderHeight(value),
-                      ),
-                    ),
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.type,
-                      title: '课程字体缩放',
-                      value:
-                          '${settings.timetableCourseFontScale.toStringAsFixed(1)}x',
-                      onTap: () => _openNumberSheet(
-                        title: '课程字体缩放',
-                        currentValue: settings.timetableCourseFontScale,
-                        min: 0.5,
-                        max: 2,
-                        divisions: 15,
-                        suffix: 'x',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableCourseFontScale(value),
-                      ),
-                    ),
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.cornerDownRight,
-                      title: '课程块圆角',
-                      value:
-                          '${settings.timetableCourseCornerRadius.toStringAsFixed(0)} px',
-                      onTap: () => _openNumberSheet(
-                        title: '课程块圆角',
-                        currentValue: settings.timetableCourseCornerRadius,
-                        min: 0,
-                        max: 24,
-                        divisions: 24,
-                        suffix: ' px',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableCourseCornerRadius(value),
-                      ),
-                    ),
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.arrowDownUp,
-                      title: '课程块内边距',
-                      value:
-                          '${settings.timetableCourseInnerPadding.toStringAsFixed(0)} px',
-                      onTap: () => _openNumberSheet(
-                        title: '课程块内边距',
-                        currentValue: settings.timetableCourseInnerPadding,
-                        min: 0,
-                        max: 12,
-                        divisions: 12,
-                        suffix: ' px',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableCourseInnerPadding(value),
-                      ),
-                    ),
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.move,
-                      title: '课程块外边距',
-                      value:
-                          '${settings.timetableCourseOuterPadding.toStringAsFixed(0)} px',
-                      onTap: () => _openNumberSheet(
-                        title: '课程块外边距',
-                        currentValue: settings.timetableCourseOuterPadding,
-                        min: 0,
-                        max: 8,
-                        divisions: 8,
-                        suffix: ' px',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableCourseOuterPadding(value),
-                      ),
-                    ),
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.layers,
-                      title: '课程块透明度',
-                      value:
-                          '${(settings.timetableCourseAlpha * 100).round()}%',
-                      onTap: () => _openOpacitySheet(
-                        title: '课程块透明度',
-                        currentValue: settings.timetableCourseAlpha,
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableCourseAlpha(value),
-                      ),
+                      value: settings.timetableDayHeaderHeight,
+                      min: 30,
+                      max: 80,
+                      divisions: 50,
+                      suffix: ' px',
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableDayHeaderHeight(value),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                const ProfileSectionLabel(title: '课程显示'),
+                const ProfileSectionLabel(title: '课程块'),
                 ProfileSettingsGroup(
                   children: [
-                    ProfileSettingsCheckboxTile(
-                      icon: FLucideIcons.clock3,
-                      title: '隐藏时间细节',
-                      value: settings.timetableHideSectionTime,
-                      onChange: (value) => ref
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.type,
+                      title: '课程字体缩放',
+                      value: settings.timetableCourseFontScale,
+                      min: 0.5,
+                      max: 2,
+                      divisions: 15,
+                      suffix: 'x',
+                      onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
-                          .setTimetableHideSectionTime(value),
+                          .setTimetableCourseFontScale(value),
                     ),
-                    ProfileSettingsCheckboxTile(
-                      icon: FLucideIcons.calendarDays,
-                      title: '隐藏日期',
-                      value: settings.timetableHideDateUnderDay,
-                      onChange: (value) => ref
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.cornerDownRight,
+                      title: '课程块圆角',
+                      value: settings.timetableCourseCornerRadius,
+                      min: 0,
+                      max: 24,
+                      divisions: 24,
+                      suffix: ' px',
+                      onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
-                          .setTimetableHideDateUnderDay(value),
+                          .setTimetableCourseCornerRadius(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.arrowDownUp,
+                      title: '课程块内边距',
+                      value: settings.timetableCourseInnerPadding,
+                      min: 0,
+                      max: 12,
+                      divisions: 12,
+                      suffix: ' px',
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableCourseInnerPadding(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.move,
+                      title: '课程块外边距',
+                      value: settings.timetableCourseOuterPadding,
+                      min: 0,
+                      max: 8,
+                      divisions: 8,
+                      suffix: ' px',
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableCourseOuterPadding(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '课程块透明度',
+                      value: settings.timetableCourseAlpha,
+                      min: 0.1,
+                      max: 1,
+                      divisions: 18,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableCourseAlpha(value),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.squareDashed,
+                      title: '课程块边框',
+                      value: _borderTypeLabel(settings.timetableBorderType),
+                      onTap: () =>
+                          _openBorderTypeSheet(settings.timetableBorderType),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.type,
+                      title: '课程块文字颜色',
+                      value: settings.timetableCourseTextColor,
+                      colors: _styleColors,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseTextColor(color),
+                      ),
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.clock,
@@ -286,6 +313,28 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableTextAlignCenterVertical(value),
                     ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const ProfileSectionLabel(title: '界面显示'),
+                ProfileSettingsGroup(
+                  children: [
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.clock3,
+                      title: '隐藏时间细节',
+                      value: settings.timetableHideSectionTime,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideSectionTime(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.calendarDays,
+                      title: '隐藏日期',
+                      value: settings.timetableHideDateUnderDay,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideDateUnderDay(value),
+                    ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.grid2x2,
                       title: '隐藏网格线',
@@ -294,36 +343,29 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setShowTimetableGridLines(!value),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
                       title: '页面文字颜色',
-                      value: _colorLabel(settings.timetablePageTextColor),
-                      onTap: () => _openStyleColorSheet(
-                        title: '页面文字颜色',
-                        current: settings.timetablePageTextColor,
-                        onSave: ref
+                      value: settings.timetablePageTextColor,
+                      colors: _styleColors,
+                      onChanged: (color) => unawaited(
+                        ref
                             .read(appSettingsProvider.notifier)
-                            .setTimetablePageTextColor,
+                            .setTimetablePageTextColor(color),
                       ),
                     ),
                     ProfileSettingsTile(
-                      icon: FLucideIcons.type,
-                      title: '课程块文字颜色',
-                      value: _colorLabel(settings.timetableCourseTextColor),
-                      onTap: () => _openStyleColorSheet(
-                        title: '课程块文字颜色',
-                        current: settings.timetableCourseTextColor,
-                        onSave: ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetableCourseTextColor,
-                      ),
-                    ),
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.squareDashed,
-                      title: '课程块边框',
-                      value: _borderTypeLabel(settings.timetableBorderType),
-                      onTap: () =>
-                          _openBorderTypeSheet(settings.timetableBorderType),
+                      icon: FLucideIcons.image,
+                      title: '课表背景图',
+                      value: settings.timetableBackgroundPath == null
+                          ? '点击选择'
+                          : '已设置（长按删除）',
+                      onTap: settings.timetableBackgroundPath == null
+                          ? _pickBackground
+                          : null,
+                      onLongPress: settings.timetableBackgroundPath == null
+                          ? null
+                          : _clearBackground,
                     ),
                   ],
                 ),
@@ -338,34 +380,31 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       onTap: () =>
                           _openWidgetThemeSheet(settings.widgetThemePreference),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsSliderTile(
                       icon: FLucideIcons.type,
                       title: '小组件字体缩放',
-                      value: '${settings.widgetFontScale.toStringAsFixed(1)}x',
-                      onTap: () => _openNumberSheet(
-                        title: '小组件字体缩放',
-                        currentValue: settings.widgetFontScale,
-                        min: 0.5,
-                        max: 2.0,
-                        divisions: _tenthsDivisions(0.5, 2.0),
-                        suffix: 'x',
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setWidgetFontScale(value),
-                      ),
+                      value: settings.widgetFontScale,
+                      min: 0.5,
+                      max: 2.0,
+                      divisions: _tenthsDivisions(0.5, 2.0),
+                      suffix: 'x',
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setWidgetFontScale(value),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsSliderTile(
                       icon: FLucideIcons.layers,
                       title: '小组件背景透明度',
-                      value:
-                          '${(settings.widgetBackgroundAlpha * 100).round()}%',
-                      onTap: () => _openOpacitySheet(
-                        title: '小组件背景透明度',
-                        currentValue: settings.widgetBackgroundAlpha,
-                        onSave: (value) => ref
-                            .read(appSettingsProvider.notifier)
-                            .setWidgetBackgroundAlpha(value),
-                      ),
+                      value: settings.widgetBackgroundAlpha,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setWidgetBackgroundAlpha(value),
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.calendarDays,
@@ -392,34 +431,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .setWidgetHideTeacher(value),
                     ),
                   ],
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                const ProfileSectionLabel(title: '背景图'),
-                ProfileSettingsGroup(
-                  children: [
-                    ProfileSettingsTile(
-                      icon: FLucideIcons.image,
-                      title: '课表背景图',
-                      value: settings.timetableBackgroundPath == null
-                          ? '未设置'
-                          : '已设置',
-                      onTap: _pickBackground,
-                      onLongPress: settings.timetableBackgroundPath == null
-                          ? null
-                          : _clearBackground,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.xxl),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FButton(
-                    variant: FButtonVariant.outline,
-                    onPress: _resetAppearance,
-                    prefix: const Icon(FLucideIcons.refreshCw),
-                    child: const Text('重置个性化设置'),
-                  ),
                 ),
               ],
             ),
@@ -681,83 +692,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     TimetableBorderType.dashed => '虚线',
   };
 
-  String _colorLabel(Color? color) {
-    if (color == null) return '跟随主题';
-    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
-  }
-
-  Future<void> _openStyleColorSheet({
-    required String title,
-    required Color? current,
-    required Future<void> Function(Color? value) onSave,
-  }) async {
-    final resetToken = Object();
-    const palette = [
-      Color(0xFF172033),
-      Color(0xFF475569),
-      Color(0xFF64748B),
-      Color(0xFF2563EB),
-      Color(0xFF047857),
-      Color(0xFFBE123C),
-      Color(0xFFC2410C),
-      Color(0xFF7C3AED),
-      Color(0xFFF8FAFC),
-    ];
-    final selected = await showAppSheet<Object?>(
-      context: context,
-      builder: (context) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.lg,
-          AppSpacing.md,
-          AppSpacing.lg,
-          AppSpacing.xl,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(title, textAlign: TextAlign.center),
-            const SizedBox(height: AppSpacing.lg),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: AppSpacing.md,
-              runSpacing: AppSpacing.md,
-              children: [
-                for (final color in palette)
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(color),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: current == color
-                              ? context.theme.colors.primary
-                              : context.theme.colors.border,
-                          width: current == color ? 3 : 1,
-                        ),
-                      ),
-                      child: const SizedBox(width: 38, height: 38),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(resetToken),
-              child: const Text('跟随主题'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (selected == resetToken) {
-      await onSave(null);
-    } else if (selected is Color && selected != current) {
-      await onSave(selected);
-    }
-  }
-
   Future<void> _openBorderTypeSheet(TimetableBorderType current) async {
     final selected = await showAppSheet<TimetableBorderType>(
       context: context,
@@ -811,28 +745,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     await ref.read(appSettingsProvider.notifier).setThemePreference(selected);
   }
 
-  Future<void> _openThemeColorSheet(AppThemeColor current) async {
-    final selected = await showAppSheet<AppThemeColor>(
-      context: context,
-      builder: (context) => AppOptionSheet<AppThemeColor>(
-        title: '软件主题色',
-        value: current,
-        options: [
-          for (final color in AppThemeColor.values)
-            AppOption(
-              value: color,
-              title: color.label,
-              icon: color == current
-                  ? FLucideIcons.circleCheck
-                  : FLucideIcons.circle,
-            ),
-        ],
-      ),
-    );
-    if (selected == null || selected == current) return;
-    await ref.read(appSettingsProvider.notifier).setThemeColor(selected);
-  }
-
   Future<void> _openWidgetThemeSheet(WidgetThemePreference current) async {
     final selected = await showAppSheet<WidgetThemePreference>(
       context: context,
@@ -855,124 +767,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     await ref
         .read(appSettingsProvider.notifier)
         .setWidgetThemePreference(selected);
-  }
-
-  Future<void> _openOpacitySheet({
-    required String title,
-    required double currentValue,
-    required Future<void> Function(double value) onSave,
-  }) async {
-    var value = currentValue;
-    final selected = await showAppSheet<double>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.sm,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: context.theme.typography.pageTitle,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '${(value * 100).round()}%',
-                textAlign: TextAlign.center,
-                style: context.theme.typography.bodySmall.copyWith(
-                  color: context.theme.colors.mutedForeground,
-                ),
-              ),
-              Material(
-                type: MaterialType.transparency,
-                child: Slider(
-                  value: value,
-                  min: 0,
-                  max: 1,
-                  divisions: 20,
-                  activeColor: context.theme.colors.primary,
-                  onChanged: (next) => setState(() => value = next),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FButton(
-                onPress: () => Navigator.pop(context, value),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (selected != null && selected != currentValue) await onSave(selected);
-  }
-
-  Future<void> _openNumberSheet({
-    required String title,
-    required double currentValue,
-    required double min,
-    required double max,
-    required int divisions,
-    required String suffix,
-    required Future<void> Function(double value) onSave,
-  }) async {
-    var value = currentValue;
-    final selected = await showAppSheet<double>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.sm,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: context.theme.typography.pageTitle,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '${value.toStringAsFixed(1)}$suffix',
-                textAlign: TextAlign.center,
-                style: context.theme.typography.bodySmall.copyWith(
-                  color: context.theme.colors.mutedForeground,
-                ),
-              ),
-              Material(
-                type: MaterialType.transparency,
-                child: Slider(
-                  value: value,
-                  min: min,
-                  max: max,
-                  divisions: divisions,
-                  activeColor: context.theme.colors.primary,
-                  onChanged: (next) => setState(() => value = next),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              FButton(
-                onPress: () => Navigator.pop(context, value),
-                child: const Text('确定'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (selected != null && selected != currentValue) await onSave(selected);
   }
 
   Future<void> _pickBackground() async {
@@ -1046,13 +840,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   }
 
   Future<void> _resetAppearance() async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '重置个性化设置',
-      message: '将恢复课表、小组件的文字、透明度、网格和背景图默认设置。',
-      confirmLabel: '重置',
-    );
-    if (!confirmed || !mounted) return;
+    if (!mounted) return;
 
     final backgroundPath = ref
         .read(appSettingsProvider)
@@ -1294,7 +1082,7 @@ class _TimetableGridPreview extends StatelessWidget {
             showWeekendColumns: showWeekendColumns,
             calendar: semesterCalendar,
             slotCount: 14,
-            visibleSlots: 4,
+            visibleSlots: 2,
             borderColor: theme.colors.foreground,
             borderWidth: 0.5,
             courseOpacity: settings.timetableCourseAlpha,
@@ -1306,6 +1094,7 @@ class _TimetableGridPreview extends StatelessWidget {
             showHeaderDivider: backgroundPath == null || backgroundPath.isEmpty,
             showTodayGridLines: settings.showTodayGridLines,
             showGridLines: settings.showTimetableGridLines,
+            showBelowFoldIndicator: false,
             sectionHeight: settings.timetableSectionHeight,
             timeColumnWidth: settings.timetableTimeColumnWidth,
             dayHeaderHeight: settings.timetableDayHeaderHeight,
