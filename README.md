@@ -25,6 +25,10 @@
 - [x] 更多个性化设置
 *以优先级排序*
 
+## 致谢
+
+感谢 [shiguangschedule](https://github.com/xingheyuzhuan/shiguangschedule) 项目在桌面小组件、系统通知、课堂提醒和个性化设置方面提供的思路参考。
+
 ## 软件截图
 <p align="center">
   <img src="https://github.com/lose2me/xzitpocket/blob/main/screenshots/1.jpg" width="180px" />

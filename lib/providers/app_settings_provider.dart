@@ -20,6 +20,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     _storage = ref.watch(preferencesStorageProvider);
     unawaited(_storage.clearLegacyTimetableBackgroundSettings());
     unawaited(NativeAutomationService.refreshClassAutomation());
+    unawaited(NativeAutomationService.refreshCourseReminders());
     return AppSettings(
       themePreference: AppThemePreference.fromStorage(
         _storage.getThemePreference(),
@@ -28,6 +29,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
+      courseReminderEnabled: _storage.getCourseReminderEnabled(),
+      courseReminderMinutes: _storage.getCourseReminderMinutes(),
+      wearableNotificationCompatibility: _storage
+          .getWearableNotificationCompatibility(),
+      widgetThemePreference: WidgetThemePreference.fromStorage(
+        _storage.getWidgetThemePreference(),
+      ),
+      widgetFontScale: _storage.getWidgetFontScale(),
+      widgetBackgroundAlpha: _storage.getWidgetBackgroundAlpha(),
+      widgetHideTeacher: _storage.getWidgetHideTeacher(),
+      widgetHideLocation: _storage.getWidgetHideLocation(),
+      widgetHideDate: _storage.getWidgetHideDate(),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
       timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
@@ -72,6 +85,71 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setClassAutomationMode(mode.storageValue);
     state = state.copyWith(classAutomationMode: mode);
     await NativeAutomationService.refreshClassAutomation();
+  }
+
+  Future<void> setCourseReminderEnabled(bool value) async {
+    await _storage.setCourseReminderEnabled(value);
+    state = state.copyWith(courseReminderEnabled: value);
+    await NativeAutomationService.refreshCourseReminders();
+  }
+
+  Future<void> setCourseReminderMinutes(int value) async {
+    final normalized = value.clamp(1, 60);
+    await _storage.setCourseReminderMinutes(normalized);
+    state = state.copyWith(courseReminderMinutes: normalized);
+    await NativeAutomationService.refreshCourseReminders();
+  }
+
+  Future<void> setWearableNotificationCompatibility(bool value) async {
+    await _storage.setWearableNotificationCompatibility(value);
+    state = state.copyWith(wearableNotificationCompatibility: value);
+    await NativeAutomationService.refreshCourseReminders();
+  }
+
+  Future<void> setWidgetThemePreference(WidgetThemePreference value) async {
+    await _storage.setWidgetThemePreference(value.storageValue);
+    state = state.copyWith(widgetThemePreference: value);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetFontScale(double value) async {
+    final normalized = value.clamp(0.5, 2.0).toDouble();
+    await _storage.setWidgetFontScale(normalized);
+    state = state.copyWith(widgetFontScale: normalized);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetBackgroundAlpha(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    await _storage.setWidgetBackgroundAlpha(normalized);
+    state = state.copyWith(widgetBackgroundAlpha: normalized);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetHideTeacher(bool value) async {
+    await _storage.setWidgetHideTeacher(value);
+    state = state.copyWith(widgetHideTeacher: value);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetHideLocation(bool value) async {
+    await _storage.setWidgetHideLocation(value);
+    state = state.copyWith(widgetHideLocation: value);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetHideDate(bool value) async {
+    await _storage.setWidgetHideDate(value);
+    state = state.copyWith(widgetHideDate: value);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> _refreshWidgetSettings() async {
+    try {
+      await WidgetService.refreshWidget();
+    } on WidgetSyncException {
+      // Widget instances may not exist yet; settings still persist for later.
+    }
   }
 
   Future<void> setTimetableBackgroundPath(String? path) async {
@@ -135,7 +213,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseBorderOpacity: defaults.timetableCourseBorderOpacity,
       showTimetableGridLines: defaults.showTimetableGridLines,
       showTodayGridLines: defaults.showTodayGridLines,
+      widgetThemePreference: defaults.widgetThemePreference,
+      widgetFontScale: defaults.widgetFontScale,
+      widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,
+      widgetHideTeacher: defaults.widgetHideTeacher,
+      widgetHideLocation: defaults.widgetHideLocation,
+      widgetHideDate: defaults.widgetHideDate,
     );
+    await _refreshWidgetSettings();
   }
 
   Future<void> setShowTimetableGridLines(bool value) async {

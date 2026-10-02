@@ -28,6 +28,7 @@ internal enum class WidgetThemeMode {
 internal object WidgetThemeSupport {
     private const val FLUTTER_PREFS = "FlutterSharedPreferences"
     private const val KEY_THEME_PREFERENCE = "flutter.theme_preference"
+    private const val KEY_WIDGET_THEME_PREFERENCE = "flutter.widget_theme_preference"
 
     fun resolveThemeMode(context: Context): WidgetThemeMode {
         return when (readPreference(context)) {
@@ -82,9 +83,9 @@ internal object WidgetThemeSupport {
     }
 
     private fun readPreference(context: Context): WidgetThemePreference {
-        val value = context
-            .getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
-            .getString(KEY_THEME_PREFERENCE, WidgetThemePreference.SYSTEM.value)
+        val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
+        val value = prefs.getString(KEY_WIDGET_THEME_PREFERENCE, null)
+            ?: prefs.getString(KEY_THEME_PREFERENCE, WidgetThemePreference.SYSTEM.value)
         return WidgetThemePreference.fromValue(value)
     }
 

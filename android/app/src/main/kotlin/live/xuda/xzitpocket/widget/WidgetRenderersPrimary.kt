@@ -7,6 +7,16 @@ import live.xuda.xzitpocket.R
 internal object TinyWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_tiny)
+        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        WidgetRenderSupport.applyTextScale(
+            views,
+            style,
+            WidgetRenderSupport.TextSpec(R.id.tv_course_title, 15f),
+            WidgetRenderSupport.TextSpec(R.id.tv_course_place, 11f),
+            WidgetRenderSupport.TextSpec(R.id.tv_course_time, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
+        )
         WidgetRenderSupport.attachRootClick(context, views)
         WidgetRenderSupport.setBackgroundResource(
             views,
@@ -83,12 +93,12 @@ internal object TinyWidgetRenderer {
                         R.color.widget_sub_color,
                     )
                     views.setTextViewText(R.id.tv_course_title, nextCourse.title)
-                    views.setTextViewText(
+                    val details = WidgetRenderSupport.courseDetails(nextCourse, style)
+                    views.setViewVisibility(
                         R.id.tv_course_place,
-                        listOf(nextCourse.campus, nextCourse.place)
-                            .filter { it.isNotBlank() }
-                            .joinToString(" "),
+                        if (details.isBlank()) View.GONE else View.VISIBLE,
                     )
+                    views.setTextViewText(R.id.tv_course_place, details)
                     views.setTextViewText(
                         R.id.tv_course_time,
                         "${nextCourse.startTime.take(5)}-${nextCourse.endTime.take(5)}",
@@ -104,6 +114,16 @@ internal object TinyWidgetRenderer {
 internal object CompactWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_compact)
+        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        WidgetRenderSupport.applyTextScale(
+            views,
+            style,
+            WidgetRenderSupport.TextSpec(R.id.tv_week, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 14f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
+        )
+        WidgetRenderSupport.applyDateVisibility(views, style, R.id.tv_header_title)
         WidgetRenderSupport.attachRootClick(context, views)
         WidgetRenderSupport.applyPanelBackgrounds(
             context,
@@ -189,6 +209,16 @@ internal object CompactWidgetRenderer {
 internal object ModerateWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_moderate)
+        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        WidgetRenderSupport.applyTextScale(
+            views,
+            style,
+            WidgetRenderSupport.TextSpec(R.id.tv_week, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 14f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
+        )
+        WidgetRenderSupport.applyDateVisibility(views, style, R.id.tv_header_title)
         WidgetRenderSupport.attachRootClick(context, views)
         WidgetRenderSupport.applyPanelBackgrounds(
             context,

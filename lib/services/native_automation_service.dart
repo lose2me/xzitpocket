@@ -25,6 +25,30 @@ class AutomationPermissionStatus {
   );
 }
 
+class CourseReminderPermissionStatus {
+  final bool notificationsGranted;
+  final bool exactAlarmGranted;
+
+  const CourseReminderPermissionStatus({
+    required this.notificationsGranted,
+    required this.exactAlarmGranted,
+  });
+
+  bool get isFullyGranted => notificationsGranted && exactAlarmGranted;
+
+  factory CourseReminderPermissionStatus.fromMap(Map<Object?, Object?> map) {
+    return CourseReminderPermissionStatus(
+      notificationsGranted: map['notificationsGranted'] as bool? ?? true,
+      exactAlarmGranted: map['exactAlarmGranted'] as bool? ?? true,
+    );
+  }
+
+  static const fallback = CourseReminderPermissionStatus(
+    notificationsGranted: true,
+    exactAlarmGranted: true,
+  );
+}
+
 class NativeAutomationService {
   static const _channel = MethodChannel('live.xuda.xzitpocket/app_bridge');
 
@@ -36,6 +60,39 @@ class NativeAutomationService {
       await _channel.invokeMethod<void>('refreshClassAutomation');
     } on MissingPluginException {
       // Ignore on unsupported platforms.
+    }
+  }
+
+  static Future<void> refreshCourseReminders() async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('refreshCourseReminders');
+    } on MissingPluginException {
+      // Ignore on unsupported platforms.
+    }
+  }
+
+  static Future<void> requestNotificationPermission() async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('requestNotificationPermission');
+    } on MissingPluginException {
+      // Ignore on unsupported platforms.
+    }
+  }
+
+  static Future<CourseReminderPermissionStatus>
+  getCourseReminderPermissionStatus() async {
+    if (!_isAndroid) return CourseReminderPermissionStatus.fallback;
+    try {
+      final result =
+          await _channel.invokeMapMethod<Object?, Object?>(
+            'getCourseReminderPermissions',
+          ) ??
+          const <Object?, Object?>{};
+      return CourseReminderPermissionStatus.fromMap(result);
+    } on MissingPluginException {
+      return CourseReminderPermissionStatus.fallback;
     }
   }
 

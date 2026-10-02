@@ -7,6 +7,23 @@ import live.xuda.xzitpocket.R
 internal object DoubleDaysWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_double_days)
+        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        WidgetRenderSupport.applyTextScale(
+            views,
+            style,
+            WidgetRenderSupport.TextSpec(R.id.tv_today_title, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_tomorrow_title, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_empty_today, 11f),
+            WidgetRenderSupport.TextSpec(R.id.tv_empty_tomorrow, 11f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
+        )
+        WidgetRenderSupport.applyDateVisibility(
+            views,
+            style,
+            R.id.tv_today_title,
+            R.id.tv_tomorrow_title,
+        )
         WidgetRenderSupport.attachRootClick(context, views)
         WidgetRenderSupport.applyPanelBackgrounds(
             context,
@@ -126,6 +143,16 @@ internal object DoubleDaysWidgetRenderer {
 internal object LargeWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_large)
+        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        WidgetRenderSupport.applyTextScale(
+            views,
+            style,
+            WidgetRenderSupport.TextSpec(R.id.tv_week, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 14f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
+            WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
+        )
+        WidgetRenderSupport.applyDateVisibility(views, style, R.id.tv_header_title)
         WidgetRenderSupport.attachRootClick(context, views)
         WidgetRenderSupport.applyPanelBackgrounds(
             context,

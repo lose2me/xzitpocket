@@ -54,6 +54,21 @@ enum AppThemeColor {
   }
 }
 
+enum WidgetThemePreference {
+  system,
+  light,
+  dark;
+
+  String get storageValue => name;
+
+  static WidgetThemePreference fromStorage(String? value) {
+    return WidgetThemePreference.values.firstWhere(
+      (item) => item.storageValue == value,
+      orElse: () => WidgetThemePreference.system,
+    );
+  }
+}
+
 enum ClassAutomationMode {
   off,
   dnd,
@@ -96,6 +111,15 @@ class AppSettings {
   final AppThemePreference themePreference;
   final AppThemeColor themeColor;
   final ClassAutomationMode classAutomationMode;
+  final bool courseReminderEnabled;
+  final int courseReminderMinutes;
+  final bool wearableNotificationCompatibility;
+  final WidgetThemePreference widgetThemePreference;
+  final double widgetFontScale;
+  final double widgetBackgroundAlpha;
+  final bool widgetHideTeacher;
+  final bool widgetHideLocation;
+  final bool widgetHideDate;
   final String? timetableBackgroundPath;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
@@ -113,6 +137,15 @@ class AppSettings {
     this.themePreference = AppThemePreference.system,
     this.themeColor = AppThemeColor.rose,
     this.classAutomationMode = ClassAutomationMode.off,
+    this.courseReminderEnabled = false,
+    this.courseReminderMinutes = 15,
+    this.wearableNotificationCompatibility = false,
+    this.widgetThemePreference = WidgetThemePreference.system,
+    this.widgetFontScale = 1.0,
+    this.widgetBackgroundAlpha = 1.0,
+    this.widgetHideTeacher = false,
+    this.widgetHideLocation = false,
+    this.widgetHideDate = false,
     this.timetableBackgroundPath,
     this.timetableComponentOpacity = 0.6,
     this.timetableGridOpacity = 0.7,
@@ -133,6 +166,15 @@ class AppSettings {
     AppThemePreference? themePreference,
     AppThemeColor? themeColor,
     ClassAutomationMode? classAutomationMode,
+    bool? courseReminderEnabled,
+    int? courseReminderMinutes,
+    bool? wearableNotificationCompatibility,
+    WidgetThemePreference? widgetThemePreference,
+    double? widgetFontScale,
+    double? widgetBackgroundAlpha,
+    bool? widgetHideTeacher,
+    bool? widgetHideLocation,
+    bool? widgetHideDate,
     Object? timetableBackgroundPath = _unset,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
@@ -150,6 +192,21 @@ class AppSettings {
       themePreference: themePreference ?? this.themePreference,
       themeColor: themeColor ?? this.themeColor,
       classAutomationMode: classAutomationMode ?? this.classAutomationMode,
+      courseReminderEnabled:
+          courseReminderEnabled ?? this.courseReminderEnabled,
+      courseReminderMinutes:
+          courseReminderMinutes ?? this.courseReminderMinutes,
+      wearableNotificationCompatibility:
+          wearableNotificationCompatibility ??
+          this.wearableNotificationCompatibility,
+      widgetThemePreference:
+          widgetThemePreference ?? this.widgetThemePreference,
+      widgetFontScale: widgetFontScale ?? this.widgetFontScale,
+      widgetBackgroundAlpha:
+          widgetBackgroundAlpha ?? this.widgetBackgroundAlpha,
+      widgetHideTeacher: widgetHideTeacher ?? this.widgetHideTeacher,
+      widgetHideLocation: widgetHideLocation ?? this.widgetHideLocation,
+      widgetHideDate: widgetHideDate ?? this.widgetHideDate,
       timetableBackgroundPath: identical(timetableBackgroundPath, _unset)
           ? this.timetableBackgroundPath
           : timetableBackgroundPath as String?,

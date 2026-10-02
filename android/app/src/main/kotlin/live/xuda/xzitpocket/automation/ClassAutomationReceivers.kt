@@ -3,6 +3,7 @@ package live.xuda.xzitpocket.automation
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import live.xuda.xzitpocket.widget.CourseReminderScheduler
 
 class ClassAutomationAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(
@@ -24,7 +25,10 @@ class ClassAutomationBootReceiver : BroadcastReceiver() {
         when (intent?.action) {
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
-            -> ClassAutomationScheduler.enqueueWork(context)
+            -> {
+                ClassAutomationScheduler.enqueueWork(context)
+                CourseReminderScheduler.enqueueWork(context)
+            }
         }
     }
 }

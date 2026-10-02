@@ -4,6 +4,7 @@ import android.content.Context
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.security.MessageDigest
 
 internal object WidgetPrefsRepository {
     private const val PREFS_NAME = "HomeWidgetPreferences"
@@ -13,6 +14,13 @@ internal object WidgetPrefsRepository {
     fun readScheduleSource(context: Context): ScheduleSource? {
         val raw = prefs(context).getString(KEY_SCHEDULE_DATA, null)
         return ScheduleSource.fromJson(raw)
+    }
+
+    fun readScheduleFingerprint(context: Context): String? {
+        val raw = prefs(context).getString(KEY_SCHEDULE_DATA, null) ?: return null
+        return MessageDigest.getInstance("SHA-256")
+            .digest(raw.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
     }
 
     fun readSnapshot(context: Context): WidgetSnapshot {

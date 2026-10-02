@@ -17,7 +17,6 @@ import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/schedule_provider.dart';
-import '../../services/native_automation_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
@@ -40,33 +39,10 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
       _TimetableSettingsPageState();
 }
 
-class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
-    with WidgetsBindingObserver {
+class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   final _imagePicker = ImagePicker();
   bool _adjustmentDetailsExpanded = false;
   bool _cloudRulesExpanded = false;
-  bool _automationPermissionFlowActive = false;
-  final _promptedAutomationPermissions = <String>{};
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _automationPermissionFlowActive) {
-      unawaited(_continueAutomationPermissionFlow());
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
@@ -84,12 +60,82 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
     final hasCloudRules = _cloudAdjustments.isNotEmpty;
 
     return AppPage(
-      title: '课表设置',
+      title: '个性化设置',
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         children: [
+          _TimetableStylePreview(settings: settings),
+          const SizedBox(height: AppSpacing.md),
+          _WidgetStylePreview(settings: settings),
+          const SizedBox(height: AppSpacing.xl),
+          const ProfileSectionLabel(title: '小组件样式'),
+          ProfileSettingsGroup(
+            children: [
+              ProfileSettingsTile(
+                icon: FLucideIcons.sunMoon,
+                title: '小组件主题',
+                value: _widgetThemeLabel(settings.widgetThemePreference),
+                onTap: () => _openWidgetThemeSheet(
+                  settings.widgetThemePreference,
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.type,
+                title: '小组件字体缩放',
+                value: '${settings.widgetFontScale.toStringAsFixed(1)}x',
+                onTap: () => _openNumberSheet(
+                  title: '小组件字体缩放',
+                  currentValue: settings.widgetFontScale,
+                  min: 0.5,
+                  max: 2.0,
+                  divisions: _tenthsDivisions(0.5, 2.0),
+                  suffix: 'x',
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setWidgetFontScale(value),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.layers,
+                title: '小组件背景透明度',
+                value: '${(settings.widgetBackgroundAlpha * 100).round()}%',
+                onTap: () => _openOpacitySheet(
+                  title: '小组件背景透明度',
+                  currentValue: settings.widgetBackgroundAlpha,
+                  onSave: (value) => ref
+                      .read(appSettingsProvider.notifier)
+                      .setWidgetBackgroundAlpha(value),
+                ),
+              ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.calendarDays,
+                title: '隐藏小组件日期',
+                value: settings.widgetHideDate,
+                onChange: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setWidgetHideDate(value),
+              ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.mapPinOff,
+                title: '隐藏小组件地点',
+                value: settings.widgetHideLocation,
+                onChange: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setWidgetHideLocation(value),
+              ),
+              ProfileSettingsCheckboxTile(
+                icon: FLucideIcons.userRoundX,
+                title: '隐藏小组件教师',
+                value: settings.widgetHideTeacher,
+                onChange: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setWidgetHideTeacher(value),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '课程规则'),
           ProfileSettingsGroup(
             children: [
@@ -298,18 +344,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
                 onLongPress: settings.timetableBackgroundPath == null
                     ? null
                     : _clearBackground,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '课堂勿扰'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.bellOff,
-                title: '课堂勿扰',
-                value: _automationLabel(settings.classAutomationMode),
-                onTap: () => _openAutomationSheet(settings.classAutomationMode),
               ),
             ],
           ),
@@ -557,108 +591,38 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
   String _visualDateLabel(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  String _automationLabel(ClassAutomationMode mode) => switch (mode) {
-    ClassAutomationMode.off => '关闭',
-    ClassAutomationMode.dnd => '上课时开启',
-    ClassAutomationMode.dndKeep => '下课不恢复',
+  String _widgetThemeLabel(WidgetThemePreference preference) => switch (
+    preference
+  ) {
+    WidgetThemePreference.system => '跟随系统',
+    WidgetThemePreference.light => '浅色',
+    WidgetThemePreference.dark => '深色',
   };
 
-  Future<void> _openAutomationSheet(ClassAutomationMode currentMode) async {
-    final selected = await showAppSheet<ClassAutomationMode>(
+  Future<void> _openWidgetThemeSheet(
+    WidgetThemePreference current,
+  ) async {
+    final selected = await showAppSheet<WidgetThemePreference>(
       context: context,
-      builder: (context) => AppOptionSheet<ClassAutomationMode>(
-        title: '课堂勿扰',
-        value: currentMode,
+      builder: (context) => AppOptionSheet<WidgetThemePreference>(
+        title: '小组件主题',
+        value: current,
         options: [
-          const AppOption(
-            value: ClassAutomationMode.off,
-            title: '关闭',
-            subtitle: '不自动调节手机模式',
-            icon: FLucideIcons.bellOff,
-          ),
-          const AppOption(
-            value: ClassAutomationMode.dnd,
-            title: '上课开启，下课恢复',
-            subtitle: '上课静音，下课后自动恢复',
-            icon: FLucideIcons.bellRing,
-          ),
-          const AppOption(
-            value: ClassAutomationMode.dndKeep,
-            title: '上课开启，下课不恢复',
-            subtitle: '上课静音，下课后保持勿扰',
-            icon: FLucideIcons.vibrateOff,
-          ),
+          for (final item in WidgetThemePreference.values)
+            AppOption(
+              value: item,
+              title: _widgetThemeLabel(item),
+              icon: item == current
+                  ? FLucideIcons.circleCheck
+                  : FLucideIcons.circle,
+            ),
         ],
       ),
     );
-    if (selected == null) return;
-    if (selected != currentMode) {
-      await ref
-          .read(appSettingsProvider.notifier)
-          .setClassAutomationMode(selected);
-    }
-    if (!mounted || selected == ClassAutomationMode.off) return;
-    final status = await NativeAutomationService.getPermissionStatus();
-    if (!mounted || status.isFullyGranted) return;
-    _automationPermissionFlowActive = true;
-    _promptedAutomationPermissions.clear();
-    final missing = [
-      if (!status.hasDndPermission) '勿扰',
-      if (!status.hasExactAlarmPermission) '精确闹钟',
-    ];
-    showAppSnackBar(
-      context,
-      '需要开启${missing.join('和')}权限',
-      severity: ToastSeverity.warning,
-    );
-    await _continueAutomationPermissionFlow(status);
-  }
-
-  Future<void> _continueAutomationPermissionFlow([
-    AutomationPermissionStatus? knownStatus,
-  ]) async {
-    if (!mounted || !_automationPermissionFlowActive) return;
-    final status =
-        knownStatus ?? await NativeAutomationService.getPermissionStatus();
-    if (!mounted) return;
-    if (status.isFullyGranted) {
-      _automationPermissionFlowActive = false;
-      _promptedAutomationPermissions.clear();
-      return;
-    }
-
-    String? nextPermission;
-    if (!status.hasDndPermission) {
-      if (!_promptedAutomationPermissions.contains('dnd')) {
-        nextPermission = 'dnd';
-      }
-    } else if (!status.hasExactAlarmPermission &&
-        !_promptedAutomationPermissions.contains('exactAlarm')) {
-      nextPermission = 'exactAlarm';
-    }
-    if (nextPermission == null) {
-      _automationPermissionFlowActive = false;
-      return;
-    }
-
-    _promptedAutomationPermissions.add(nextPermission);
-    try {
-      if (nextPermission == 'dnd') {
-        await NativeAutomationService.openDndSettings();
-      } else {
-        await NativeAutomationService.openExactAlarmSettings();
-      }
-    } catch (error, stackTrace) {
-      talker.warning('打开课堂勿扰权限设置失败', error, stackTrace);
-      _automationPermissionFlowActive = false;
-      if (mounted) {
-        showAppSnackBar(
-          context,
-          '无法打开权限设置，请到系统设置中手动开启',
-          severity: ToastSeverity.warning,
-        );
-      }
-    }
+    if (selected == null || selected == current) return;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setWidgetThemePreference(selected);
   }
 
   Future<void> _openOpacitySheet({
@@ -853,7 +817,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '重置个性化设置',
-      message: '将恢复课表文字、边框、透明度、网格和背景图的默认设置。',
+      message: '将恢复课表、小组件的文字、透明度、网格和背景图默认设置。',
       confirmLabel: '重置',
     );
     if (!confirmed || !mounted) return;
@@ -898,6 +862,232 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage>
       talker.warning('清理旧课表背景图原图失败', error, stackTrace);
     }
   }
+}
+
+class _TimetableStylePreview extends StatelessWidget {
+  final AppSettings settings;
+
+  const _TimetableStylePreview({required this.settings});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final cardColor = theme.colors.primary.withValues(
+      alpha: settings.timetableComponentOpacity,
+    );
+    final borderColor = theme.colors.foreground.withValues(
+      alpha: settings.timetableCourseBorderOpacity,
+    );
+    final backgroundPath = settings.timetableBackgroundPath;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        height: 168,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (backgroundPath != null && backgroundPath.isNotEmpty)
+              Image.file(
+                File(backgroundPath),
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    ColoredBox(color: theme.colors.background),
+              )
+            else
+              ColoredBox(color: theme.colors.background),
+            ColoredBox(color: theme.colors.background.withValues(alpha: 0.18)),
+            Padding(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '课表预览',
+                    style: theme.typography.caption.copyWith(
+                      color: theme.colors.mutedForeground,
+                      fontSize: settings.timetableDateTextSize,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 34,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              for (final text in const ['1', '2', '3'])
+                                Text(
+                                  text,
+                                  style: theme.typography.caption.copyWith(
+                                    fontSize: settings.timetableTimeTextSize,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _PreviewCourseBlock(
+                                  title: '高等数学',
+                                  subtitle: '08:00  教学楼',
+                                  color: cardColor,
+                                  borderColor: borderColor,
+                                  borderWidth:
+                                      settings.timetableCourseBorderWidth,
+                                  textSize: settings.timetableCourseTextSize,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: _PreviewCourseBlock(
+                                  title: '英语',
+                                  subtitle: '10:05  A201',
+                                  color: theme.colors.secondary.withValues(
+                                    alpha: settings.timetableComponentOpacity,
+                                  ),
+                                  borderColor: borderColor,
+                                  borderWidth:
+                                      settings.timetableCourseBorderWidth,
+                                  textSize: settings.timetableCourseTextSize,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WidgetStylePreview extends StatelessWidget {
+  final AppSettings settings;
+
+  const _WidgetStylePreview({required this.settings});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final details = [
+      if (!settings.widgetHideLocation) '教学楼 A201',
+      if (!settings.widgetHideTeacher) '张老师',
+    ].join(' · ');
+    final textScale = settings.widgetFontScale;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        height: 112,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: theme.colors.background,
+          border: Border.all(color: theme.colors.border),
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: theme.colors.primary.withValues(
+              alpha: settings.widgetBackgroundAlpha,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (!settings.widgetHideDate)
+                  Text(
+                    '今天  第 3 周',
+                    style: theme.typography.caption.copyWith(
+                      color: theme.colors.mutedForeground,
+                      fontSize: 11 * textScale,
+                    ),
+                  ),
+                Text(
+                  '高等数学',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.typography.bodySmall.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14 * textScale,
+                  ),
+                ),
+                if (details.isNotEmpty)
+                  Text(
+                    details,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.caption.copyWith(
+                      fontSize: 11 * textScale,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewCourseBlock extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final Color color;
+  final Color borderColor;
+  final double borderWidth;
+  final double textSize;
+
+  const _PreviewCourseBlock({
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.borderColor,
+    required this.borderWidth,
+    required this.textSize,
+  });
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: color,
+      border: Border.all(color: borderColor, width: borderWidth),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.theme.typography.bodySmall.copyWith(
+              fontSize: textSize,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Text(
+            subtitle,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.theme.typography.caption,
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _TimetableAdjustment {

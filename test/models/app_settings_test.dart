@@ -78,6 +78,15 @@ void main() {
       expect(settings.themePreference, AppThemePreference.system);
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
+      expect(settings.courseReminderEnabled, isFalse);
+      expect(settings.courseReminderMinutes, 15);
+      expect(settings.wearableNotificationCompatibility, isFalse);
+      expect(settings.widgetThemePreference, WidgetThemePreference.system);
+      expect(settings.widgetFontScale, 1.0);
+      expect(settings.widgetBackgroundAlpha, 1.0);
+      expect(settings.widgetHideTeacher, isFalse);
+      expect(settings.widgetHideLocation, isFalse);
+      expect(settings.widgetHideDate, isFalse);
       expect(settings.timetableBackgroundPath, isNull);
       expect(settings.timetableComponentOpacity, 0.6);
       expect(settings.timetableGridOpacity, 0.7);
@@ -96,6 +105,15 @@ void main() {
       final updated = settings.copyWith(
         themePreference: AppThemePreference.dark,
         themeColor: AppThemeColor.blue,
+        courseReminderEnabled: true,
+        courseReminderMinutes: 30,
+        wearableNotificationCompatibility: true,
+        widgetThemePreference: WidgetThemePreference.dark,
+        widgetFontScale: 1.4,
+        widgetBackgroundAlpha: 0.65,
+        widgetHideTeacher: true,
+        widgetHideLocation: true,
+        widgetHideDate: true,
         timetableBackgroundPath: '/tmp/background.jpg',
         timetableComponentOpacity: 0.7,
         timetableGridOpacity: 0.45,
@@ -114,6 +132,15 @@ void main() {
       expect(updated.themePreference, AppThemePreference.dark);
       expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.classAutomationMode, ClassAutomationMode.off);
+      expect(updated.courseReminderEnabled, isTrue);
+      expect(updated.courseReminderMinutes, 30);
+      expect(updated.wearableNotificationCompatibility, isTrue);
+      expect(updated.widgetThemePreference, WidgetThemePreference.dark);
+      expect(updated.widgetFontScale, 1.4);
+      expect(updated.widgetBackgroundAlpha, 0.65);
+      expect(updated.widgetHideTeacher, isTrue);
+      expect(updated.widgetHideLocation, isTrue);
+      expect(updated.widgetHideDate, isTrue);
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
       expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.timetableGridOpacity, 0.45);

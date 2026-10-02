@@ -70,6 +70,7 @@ class WidgetService {
         'startTime': startSlot.start,
         'endTime': endSlot.end,
         'weeks': course.weeks,
+        'teacher': course.teacher,
         'place': course.place,
         'campus': course.campus,
         'color': course.color.toARGB32(),

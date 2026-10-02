@@ -29,6 +29,7 @@ internal data class ScheduleSource(
                     courses.add(
                         ScheduleSourceCourse(
                             title = courseObject.optString("title", ""),
+                            teacher = courseObject.optString("teacher", ""),
                             weekday = courseObject.optInt("weekday", 0),
                             weeks = weeks,
                             place = courseObject.optString("place", ""),
@@ -59,6 +60,7 @@ internal data class ScheduleSource(
 
 internal data class ScheduleSourceCourse(
     val title: String,
+    val teacher: String,
     val weekday: Int,
     val weeks: List<Int>,
     val place: String,
@@ -74,6 +76,7 @@ internal data class ScheduleSourceCourse(
 internal data class WidgetCourse(
     val id: String,
     val title: String,
+    val teacher: String,
     val place: String,
     val campus: String,
     val startTime: String,
@@ -90,6 +93,7 @@ internal data class WidgetSnapshot(
     val totalWeeks: Int,
     val windowStartDate: String?,
     val windowDays: Int,
+    val sourceFingerprint: String?,
     val courses: List<WidgetCourse>,
 ) {
     fun toJson(): String {
@@ -99,6 +103,7 @@ internal data class WidgetSnapshot(
         root.put("totalWeeks", totalWeeks)
         root.put("windowStartDate", windowStartDate ?: "")
         root.put("windowDays", windowDays)
+        root.put("sourceFingerprint", sourceFingerprint ?: "")
 
         val courseArray = JSONArray()
         courses.forEach { course ->
@@ -106,6 +111,7 @@ internal data class WidgetSnapshot(
                 JSONObject().apply {
                     put("id", course.id)
                     put("title", course.title)
+                    put("teacher", course.teacher)
                     put("place", course.place)
                     put("campus", course.campus)
                     put("startTime", course.startTime)
@@ -129,6 +135,7 @@ internal data class WidgetSnapshot(
                 totalWeeks = 0,
                 windowStartDate = null,
                 windowDays = 0,
+                sourceFingerprint = null,
                 courses = emptyList(),
             )
         }
@@ -145,6 +152,7 @@ internal data class WidgetSnapshot(
                         WidgetCourse(
                             id = obj.optString("id", ""),
                             title = obj.optString("title", ""),
+                            teacher = obj.optString("teacher", ""),
                             place = obj.optString("place", ""),
                             campus = obj.optString("campus", ""),
                             startTime = obj.optString("startTime", ""),
@@ -163,6 +171,7 @@ internal data class WidgetSnapshot(
                     totalWeeks = root.optInt("totalWeeks", 0),
                     windowStartDate = root.optString("windowStartDate", "").ifBlank { null },
                     windowDays = root.optInt("windowDays", 0),
+                    sourceFingerprint = root.optString("sourceFingerprint", "").ifBlank { null },
                     courses = courses,
                 )
             } catch (_: Exception) {

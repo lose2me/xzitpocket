@@ -79,7 +79,7 @@ class WeekHeader extends StatelessWidget {
           AppIconButton(
             icon: FLucideIcons.settings,
             onPress: onSettings,
-            tooltip: '课表设置',
+            tooltip: '个性化设置',
           ),
         ],
       ),

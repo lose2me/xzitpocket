@@ -6,23 +6,30 @@ import java.util.Calendar
 
 internal object WidgetDataSynchronizer {
     private const val SYNC_DAYS = 8
+    private val syncLock = Any()
 
     fun syncNow(context: Context) {
-        val snapshot = buildSnapshot(context)
-        WidgetPrefsRepository.saveSnapshot(context, snapshot)
-        ClassAutomationScheduler.enqueueWork(context)
-        WidgetUpdateHelper.updateAllWidgets(context)
+        synchronized(syncLock) {
+            val snapshot = buildSnapshot(context)
+            WidgetPrefsRepository.saveSnapshot(context, snapshot)
+            ClassAutomationScheduler.enqueueWork(context)
+            CourseReminderScheduler.enqueueWork(context)
+            WidgetUpdateHelper.updateAllWidgets(context)
+        }
     }
 
     fun refreshSnapshotIfNeeded(context: Context): Boolean {
-        val source = WidgetPrefsRepository.readScheduleSource(context)
-        val currentSnapshot = WidgetPrefsRepository.readSnapshot(context)
-        if (snapshotMatches(source, currentSnapshot)) {
-            return false
-        }
+        synchronized(syncLock) {
+            val source = WidgetPrefsRepository.readScheduleSource(context)
+            val currentSnapshot = WidgetPrefsRepository.readSnapshot(context)
+            if (snapshotMatches(context, source, currentSnapshot)) {
+                return false
+            }
 
-        WidgetPrefsRepository.saveSnapshot(context, buildSnapshot(context, source))
-        return true
+            WidgetPrefsRepository.saveSnapshot(context, buildSnapshot(context, source))
+            CourseReminderScheduler.enqueueWork(context)
+            return true
+        }
     }
 
     private fun buildSnapshot(
@@ -64,6 +71,7 @@ internal object WidgetDataSynchronizer {
                         WidgetCourse(
                             id = "${dateString}-${course.sortOrder}-${index}",
                             title = course.title,
+                            teacher = course.teacher,
                             place = course.place,
                             campus = course.campus,
                             startTime = course.startTime,
@@ -86,11 +94,13 @@ internal object WidgetDataSynchronizer {
             totalWeeks = source.totalWeeks,
             windowStartDate = WidgetTimeUtils.formatIsoDate(syncStart),
             windowDays = SYNC_DAYS,
+            sourceFingerprint = WidgetPrefsRepository.readScheduleFingerprint(context),
             courses = courses.sortedWith(compareBy({ it.date }, { it.sortOrder }, { it.title })),
         )
     }
 
     private fun snapshotMatches(
+        context: Context,
         source: ScheduleSource?,
         snapshot: WidgetSnapshot,
     ): Boolean {
@@ -106,7 +116,10 @@ internal object WidgetDataSynchronizer {
             snapshot.semesterStart == semesterStart &&
             snapshot.totalWeeks == source.totalWeeks &&
             snapshot.windowStartDate == expectedStartDate &&
-            snapshot.windowDays == SYNC_DAYS
+            snapshot.windowDays == SYNC_DAYS &&
+            snapshot.sourceFingerprint == WidgetPrefsRepository.readScheduleFingerprint(
+                context,
+            )
     }
 
     private fun calculateSyncStart(startCalendar: Calendar): Calendar {

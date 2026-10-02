@@ -141,6 +141,15 @@ void main() {
 
     test('roundtrips timetable appearance settings', () async {
       await storage.setThemeColor('blue');
+      await storage.setCourseReminderEnabled(true);
+      await storage.setCourseReminderMinutes(30);
+      await storage.setWearableNotificationCompatibility(true);
+      await storage.setWidgetThemePreference('dark');
+      await storage.setWidgetFontScale(1.4);
+      await storage.setWidgetBackgroundAlpha(0.65);
+      await storage.setWidgetHideTeacher(true);
+      await storage.setWidgetHideLocation(true);
+      await storage.setWidgetHideDate(true);
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
       await storage.setTimetableComponentOpacity(0.72);
       await storage.setTimetableGridOpacity(0.42);
@@ -153,6 +162,15 @@ void main() {
       await storage.setShowTodayGridLines(false);
 
       expect(storage.getThemeColor(), 'blue');
+      expect(storage.getCourseReminderEnabled(), isTrue);
+      expect(storage.getCourseReminderMinutes(), 30);
+      expect(storage.getWearableNotificationCompatibility(), isTrue);
+      expect(storage.getWidgetThemePreference(), 'dark');
+      expect(storage.getWidgetFontScale(), 1.4);
+      expect(storage.getWidgetBackgroundAlpha(), 0.65);
+      expect(storage.getWidgetHideTeacher(), isTrue);
+      expect(storage.getWidgetHideLocation(), isTrue);
+      expect(storage.getWidgetHideDate(), isTrue);
       expect(storage.getTimetableBackgroundPath(), '/tmp/background.jpg');
       expect(storage.getTimetableComponentOpacity(), 0.72);
       expect(storage.getTimetableGridOpacity(), 0.42);
@@ -183,6 +201,14 @@ void main() {
 
       await storage.setTimetableComponentOpacity(-1);
       expect(storage.getTimetableComponentOpacity(), 0);
+    });
+
+    test('clamps widget style settings', () async {
+      await storage.setWidgetFontScale(5);
+      await storage.setWidgetBackgroundAlpha(-1);
+
+      expect(storage.getWidgetFontScale(), 2.0);
+      expect(storage.getWidgetBackgroundAlpha(), 0.0);
     });
 
     test(
@@ -242,6 +268,13 @@ void main() {
       await storage.setTimetableCourseBorderOpacity(0.2);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(true);
+      await storage.setWidgetThemePreference('dark');
+      await storage.setWidgetFontScale(1.5);
+      await storage.setWidgetBackgroundAlpha(0.4);
+      await storage.setWidgetHideTeacher(true);
+      await storage.setWidgetHideLocation(true);
+      await storage.setWidgetHideDate(true);
+      await storage.setCourseReminderEnabled(true);
 
       await storage.resetTimetableAppearance();
 
@@ -255,6 +288,13 @@ void main() {
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
       expect(storage.getShowTimetableGridLines(), isTrue);
       expect(storage.getShowTodayGridLines(), isFalse);
+      expect(storage.getWidgetThemePreference(), isNull);
+      expect(storage.getWidgetFontScale(), 1.0);
+      expect(storage.getWidgetBackgroundAlpha(), 1.0);
+      expect(storage.getWidgetHideTeacher(), isFalse);
+      expect(storage.getWidgetHideLocation(), isFalse);
+      expect(storage.getWidgetHideDate(), isFalse);
+      expect(storage.getCourseReminderEnabled(), isTrue);
     });
   });
 }

@@ -14,6 +14,7 @@ import live.xuda.xzitpocket.automation.ClassAutomationScheduler
 
 internal object WidgetUpdateHelper {
     private const val TAG = "WidgetUpdateHelper"
+    private val updateLock = Any()
 
     private data class Binding(
         val providerClass: Class<out AppWidgetProvider>,
@@ -29,36 +30,40 @@ internal object WidgetUpdateHelper {
     )
 
     fun updateAllWidgets(context: Context) {
-        try {
-            if (WidgetDataSynchronizer.refreshSnapshotIfNeeded(context)) {
-                ClassAutomationScheduler.enqueueWork(context)
-            }
-
-            val storedSnapshot = WidgetPrefsRepository.readSnapshot(context)
-            val renderSnapshot = RenderSnapshot(
-                hasSchedule = storedSnapshot.hasSchedule,
-                currentWeek = WidgetTimeUtils.calculateCurrentWeek(
-                    storedSnapshot.semesterStart,
-                    storedSnapshot.totalWeeks,
-                ),
-                isUpcoming = WidgetTimeUtils.isBeforeSemesterStart(
-                    storedSnapshot.semesterStart,
-                ),
-                courses = storedSnapshot.courses,
-            )
-
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            bindings.forEach { binding ->
-                val ids = appWidgetManager.getAppWidgetIds(ComponentName(context, binding.providerClass))
-                if (ids.isEmpty()) return@forEach
-
-                val remoteViews = binding.renderer(context, renderSnapshot)
-                ids.forEach { id ->
-                    appWidgetManager.updateAppWidget(id, remoteViews)
+        synchronized(updateLock) {
+            try {
+                if (WidgetDataSynchronizer.refreshSnapshotIfNeeded(context)) {
+                    ClassAutomationScheduler.enqueueWork(context)
                 }
+
+                val storedSnapshot = WidgetPrefsRepository.readSnapshot(context)
+                val renderSnapshot = RenderSnapshot(
+                    hasSchedule = storedSnapshot.hasSchedule,
+                    currentWeek = WidgetTimeUtils.calculateCurrentWeek(
+                        storedSnapshot.semesterStart,
+                        storedSnapshot.totalWeeks,
+                    ),
+                    isUpcoming = WidgetTimeUtils.isBeforeSemesterStart(
+                        storedSnapshot.semesterStart,
+                    ),
+                    courses = storedSnapshot.courses,
+                )
+
+                val appWidgetManager = AppWidgetManager.getInstance(context)
+                bindings.forEach { binding ->
+                    val ids = appWidgetManager.getAppWidgetIds(
+                        ComponentName(context, binding.providerClass),
+                    )
+                    if (ids.isEmpty()) return@forEach
+
+                    val remoteViews = binding.renderer(context, renderSnapshot)
+                    ids.forEach { id ->
+                        appWidgetManager.updateAppWidget(id, remoteViews)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to update widgets", e)
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to update widgets", e)
         }
     }
 

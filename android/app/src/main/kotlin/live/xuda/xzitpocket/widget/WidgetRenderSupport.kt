@@ -9,6 +9,92 @@ import live.xuda.xzitpocket.R
 
 internal object WidgetRenderSupport {
     private const val PLACEHOLDER_TEXT = " "
+    private const val FLUTTER_PREFS = "FlutterSharedPreferences"
+
+    internal data class WidgetStyle(
+        val fontScale: Float,
+        val backgroundAlpha: Float,
+        val hideTeacher: Boolean,
+        val hideLocation: Boolean,
+        val hideDate: Boolean,
+    )
+
+    fun readStyle(context: Context): WidgetStyle {
+        val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
+        return WidgetStyle(
+            fontScale = readFloat(prefs, "flutter.widget_font_scale", 1f)
+                .coerceIn(0.5f, 2f),
+            backgroundAlpha = readFloat(prefs, "flutter.widget_background_alpha", 1f)
+                .coerceIn(0f, 1f),
+            hideTeacher = prefs.getBoolean("flutter.widget_hide_teacher", false),
+            hideLocation = prefs.getBoolean("flutter.widget_hide_location", false),
+            hideDate = prefs.getBoolean("flutter.widget_hide_date", false),
+        )
+    }
+
+    private fun readFloat(
+        prefs: android.content.SharedPreferences,
+        key: String,
+        defaultValue: Float,
+    ): Float {
+        return when (val value = prefs.all[key]) {
+            is Number -> value.toFloat()
+            is String -> value.toFloatOrNull() ?: defaultValue
+            else -> defaultValue
+        }
+    }
+
+    fun applyRootStyle(
+        context: Context,
+        views: RemoteViews,
+        rootId: Int,
+    ): WidgetStyle {
+        val style = readStyle(context)
+        // RemoteViews cannot change a shape drawable's alpha directly. Applying
+        // alpha to the root preserves the rounded drawable on all launchers.
+        views.setFloat(rootId, "setAlpha", style.backgroundAlpha)
+        return style
+    }
+
+    fun applyTextScale(
+        views: RemoteViews,
+        style: WidgetStyle,
+        vararg specs: TextSpec,
+    ) {
+        specs.forEach { spec ->
+            views.setTextViewTextSize(
+                spec.viewId,
+                android.util.TypedValue.COMPLEX_UNIT_SP,
+                spec.baseSizeSp * style.fontScale,
+            )
+        }
+    }
+
+    data class TextSpec(val viewId: Int, val baseSizeSp: Float)
+
+    fun applyDateVisibility(
+        views: RemoteViews,
+        style: WidgetStyle,
+        vararg dateIds: Int,
+    ) {
+        dateIds.forEach { id ->
+            views.setViewVisibility(id, if (style.hideDate) View.GONE else View.VISIBLE)
+        }
+    }
+
+    fun courseDetails(course: WidgetCourse, style: WidgetStyle): String {
+        val details = mutableListOf<String>()
+        if (!style.hideLocation) {
+            val location = listOf(course.campus, course.place)
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+            if (location.isNotBlank()) details += location
+        }
+        if (!style.hideTeacher && course.teacher.isNotBlank()) {
+            details += course.teacher
+        }
+        return details.joinToString(" · ")
+    }
 
     fun setTextColor(
         context: Context,
@@ -225,6 +311,7 @@ internal object WidgetRenderSupport {
         @LayoutRes itemLayoutRes: Int = R.layout.widget_course_item,
     ): RemoteViews {
         val item = RemoteViews(context.packageName, itemLayoutRes)
+        val style = applyCourseItemStyle(context, item, itemLayoutRes)
         setBackgroundResource(
             item,
             R.id.course_item_root,
@@ -248,9 +335,7 @@ internal object WidgetRenderSupport {
             "${course.startTime.take(5)}-${course.endTime.take(5)}",
         )
 
-        val extra = listOf(course.campus, course.place)
-            .filter { it.isNotBlank() }
-            .joinToString(" ")
+        val extra = courseDetails(course, style)
         if (showExtra && extra.isNotBlank()) {
             item.setViewVisibility(R.id.tv_course_extra, View.VISIBLE)
             item.setTextViewText(R.id.tv_course_extra, extra)
@@ -266,6 +351,7 @@ internal object WidgetRenderSupport {
         @LayoutRes itemLayoutRes: Int = R.layout.widget_course_item,
     ): RemoteViews {
         val item = RemoteViews(context.packageName, itemLayoutRes)
+        applyCourseItemStyle(context, item, itemLayoutRes)
         setBackgroundResource(
             item,
             R.id.course_item_root,
@@ -285,6 +371,27 @@ internal object WidgetRenderSupport {
             item.setViewVisibility(R.id.tv_course_extra, View.GONE)
         }
         return item
+    }
+
+    private fun applyCourseItemStyle(
+        context: Context,
+        item: RemoteViews,
+        @LayoutRes itemLayoutRes: Int,
+    ): WidgetStyle {
+        val style = readStyle(context)
+        val sizes = if (itemLayoutRes == R.layout.widget_course_item_compact) {
+            listOf(13f, 10f, 10f)
+        } else {
+            listOf(14f, 12f, 11f)
+        }
+        applyTextScale(
+            item,
+            style,
+            TextSpec(R.id.tv_course_title, sizes[0]),
+            TextSpec(R.id.tv_course_meta, sizes[1]),
+            TextSpec(R.id.tv_course_extra, sizes[2]),
+        )
+        return style
     }
 
     fun fillVerticalContainer(

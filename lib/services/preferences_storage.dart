@@ -46,6 +46,62 @@ class PreferencesStorage {
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
 
+  bool getCourseReminderEnabled() =>
+      _prefs.getBool('course_reminder_enabled') ?? false;
+
+  Future<void> setCourseReminderEnabled(bool value) =>
+      _prefs.setBool('course_reminder_enabled', value);
+
+  int getCourseReminderMinutes() =>
+      (_prefs.getInt('course_reminder_minutes') ?? 15).clamp(1, 60);
+
+  Future<void> setCourseReminderMinutes(int value) =>
+      _prefs.setInt('course_reminder_minutes', value.clamp(1, 60));
+
+  bool getWearableNotificationCompatibility() =>
+      _prefs.getBool('wearable_notification_compatibility') ?? false;
+
+  Future<void> setWearableNotificationCompatibility(bool value) =>
+      _prefs.setBool('wearable_notification_compatibility', value);
+
+  String? getWidgetThemePreference() =>
+      _prefs.getString('widget_theme_preference');
+
+  Future<void> setWidgetThemePreference(String value) =>
+      _prefs.setString('widget_theme_preference', value);
+
+  double getWidgetFontScale() =>
+      (_prefs.getDouble('widget_font_scale') ?? 1.0).clamp(0.5, 2.0).toDouble();
+
+  Future<void> setWidgetFontScale(double value) =>
+      _prefs.setDouble('widget_font_scale', value.clamp(0.5, 2.0).toDouble());
+
+  double getWidgetBackgroundAlpha() => (_prefs
+          .getDouble('widget_background_alpha') ??
+      1.0).clamp(0.0, 1.0).toDouble();
+
+  Future<void> setWidgetBackgroundAlpha(double value) => _prefs.setDouble(
+    'widget_background_alpha',
+    value.clamp(0.0, 1.0).toDouble(),
+  );
+
+  bool getWidgetHideTeacher() =>
+      _prefs.getBool('widget_hide_teacher') ?? false;
+
+  Future<void> setWidgetHideTeacher(bool value) =>
+      _prefs.setBool('widget_hide_teacher', value);
+
+  bool getWidgetHideLocation() =>
+      _prefs.getBool('widget_hide_location') ?? false;
+
+  Future<void> setWidgetHideLocation(bool value) =>
+      _prefs.setBool('widget_hide_location', value);
+
+  bool getWidgetHideDate() => _prefs.getBool('widget_hide_date') ?? false;
+
+  Future<void> setWidgetHideDate(bool value) =>
+      _prefs.setBool('widget_hide_date', value);
+
   String? getTimetableBackgroundPath() =>
       _prefs.getString('timetable_background_path');
 
@@ -158,6 +214,12 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_border_opacity'),
       _prefs.remove('show_timetable_grid_lines'),
       _prefs.remove('show_today_grid_lines'),
+      _prefs.remove('widget_theme_preference'),
+      _prefs.remove('widget_font_scale'),
+      _prefs.remove('widget_background_alpha'),
+      _prefs.remove('widget_hide_teacher'),
+      _prefs.remove('widget_hide_location'),
+      _prefs.remove('widget_hide_date'),
     ]);
   }
 

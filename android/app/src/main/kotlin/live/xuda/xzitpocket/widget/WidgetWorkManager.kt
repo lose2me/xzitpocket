@@ -18,6 +18,9 @@ internal object WorkManagerHelper {
         val hasWidgets = WidgetUpdateHelper.hasAnyWidgetInstances(context)
         val automationEnabled =
             ClassAutomationPrefs.getMode(context) != ClassAutomationMode.OFF
+        val reminderEnabled = context
+            .getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+            .getBoolean("flutter.course_reminder_enabled", false)
 
         if (hasWidgets) {
             scheduleUiUpdateWork(context)
@@ -25,7 +28,7 @@ internal object WorkManagerHelper {
             cancelUniqueWork(context, UI_UPDATE_WORK_NAME)
         }
 
-        if (hasWidgets || automationEnabled) {
+        if (hasWidgets || automationEnabled || reminderEnabled) {
             scheduleDataSyncWork(context)
         } else {
             cancelUniqueWork(context, DATA_SYNC_WORK_NAME)

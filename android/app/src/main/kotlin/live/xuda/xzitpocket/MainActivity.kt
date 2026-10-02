@@ -1,6 +1,7 @@
 package live.xuda.xzitpocket
 
 import android.content.Intent
+import android.Manifest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +13,7 @@ import io.flutter.plugin.common.MethodChannel
 import live.xuda.xzitpocket.automation.ClassAutomationController
 import live.xuda.xzitpocket.widget.WidgetDataSynchronizer
 import live.xuda.xzitpocket.widget.WidgetUpdateHelper
+import live.xuda.xzitpocket.widget.CourseReminderScheduler
 import java.io.File
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -64,6 +66,36 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "refreshClassAutomation" -> runBackgroundTask(result) {
                     ClassAutomationController.refreshNow(applicationContext)
+                }
+
+                "refreshCourseReminders" -> runBackgroundTask(result) {
+                    CourseReminderScheduler.refreshNow(applicationContext)
+                }
+
+                "requestNotificationPermission" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                        checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
+                            android.content.pm.PackageManager.PERMISSION_GRANTED
+                    ) {
+                        requestPermissions(
+                            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                            9001,
+                        )
+                    }
+                    result.success(null)
+                }
+
+                "getCourseReminderPermissions" -> {
+                    result.success(
+                        mapOf(
+                            "notificationsGranted" to
+                                (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                                        android.content.pm.PackageManager.PERMISSION_GRANTED),
+                            "exactAlarmGranted" to
+                                ClassAutomationController.hasExactAlarmPermission(applicationContext),
+                        ),
+                    )
                 }
 
                 "getAutomationPermissions" -> {

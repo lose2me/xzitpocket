@@ -67,7 +67,8 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.work:work-runtime-ktx:2.11.2")
+    implementation("androidx.core:core-ktx:1.19.1")
+    implementation("androidx.work:work-runtime-ktx:2.12.0")
 }
 
 flutter {
