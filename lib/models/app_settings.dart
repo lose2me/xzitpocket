@@ -69,6 +69,21 @@ enum WidgetThemePreference {
   }
 }
 
+enum TimetableBorderType {
+  none,
+  solid,
+  dashed;
+
+  String get storageValue => name;
+
+  static TimetableBorderType fromStorage(String? value) {
+    return TimetableBorderType.values.firstWhere(
+      (item) => item.storageValue == value,
+      orElse: () => TimetableBorderType.solid,
+    );
+  }
+}
+
 enum ClassAutomationMode {
   off,
   dnd,
@@ -120,6 +135,25 @@ class AppSettings {
   final bool widgetHideTeacher;
   final bool widgetHideLocation;
   final bool widgetHideDate;
+  final double timetableSectionHeight;
+  final double timetableTimeColumnWidth;
+  final double timetableDayHeaderHeight;
+  final double timetableCourseCornerRadius;
+  final double timetableCourseInnerPadding;
+  final double timetableCourseOuterPadding;
+  final double timetableCourseAlpha;
+  final double timetableCourseFontScale;
+  final bool timetableHideSectionTime;
+  final bool timetableHideDateUnderDay;
+  final bool timetableShowStartTime;
+  final bool timetableHideLocation;
+  final bool timetableHideTeacher;
+  final bool timetableRemoveLocationAt;
+  final bool timetableTextAlignCenterHorizontal;
+  final bool timetableTextAlignCenterVertical;
+  final TimetableBorderType timetableBorderType;
+  final Color? timetablePageTextColor;
+  final Color? timetableCourseTextColor;
   final String? timetableBackgroundPath;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
@@ -146,6 +180,25 @@ class AppSettings {
     this.widgetHideTeacher = false,
     this.widgetHideLocation = false,
     this.widgetHideDate = false,
+    this.timetableSectionHeight = 70.0,
+    this.timetableTimeColumnWidth = 40.0,
+    this.timetableDayHeaderHeight = 45.0,
+    this.timetableCourseCornerRadius = 4.0,
+    this.timetableCourseInnerPadding = 4.0,
+    this.timetableCourseOuterPadding = 1.0,
+    this.timetableCourseAlpha = 1.0,
+    this.timetableCourseFontScale = 1.0,
+    this.timetableHideSectionTime = false,
+    this.timetableHideDateUnderDay = false,
+    this.timetableShowStartTime = false,
+    this.timetableHideLocation = false,
+    this.timetableHideTeacher = false,
+    this.timetableRemoveLocationAt = false,
+    this.timetableTextAlignCenterHorizontal = false,
+    this.timetableTextAlignCenterVertical = false,
+    this.timetableBorderType = TimetableBorderType.solid,
+    this.timetablePageTextColor,
+    this.timetableCourseTextColor,
     this.timetableBackgroundPath,
     this.timetableComponentOpacity = 0.6,
     this.timetableGridOpacity = 0.7,
@@ -175,6 +228,25 @@ class AppSettings {
     bool? widgetHideTeacher,
     bool? widgetHideLocation,
     bool? widgetHideDate,
+    double? timetableSectionHeight,
+    double? timetableTimeColumnWidth,
+    double? timetableDayHeaderHeight,
+    double? timetableCourseCornerRadius,
+    double? timetableCourseInnerPadding,
+    double? timetableCourseOuterPadding,
+    double? timetableCourseAlpha,
+    double? timetableCourseFontScale,
+    bool? timetableHideSectionTime,
+    bool? timetableHideDateUnderDay,
+    bool? timetableShowStartTime,
+    bool? timetableHideLocation,
+    bool? timetableHideTeacher,
+    bool? timetableRemoveLocationAt,
+    bool? timetableTextAlignCenterHorizontal,
+    bool? timetableTextAlignCenterVertical,
+    TimetableBorderType? timetableBorderType,
+    Object? timetablePageTextColor = _unset,
+    Object? timetableCourseTextColor = _unset,
     Object? timetableBackgroundPath = _unset,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
@@ -207,6 +279,45 @@ class AppSettings {
       widgetHideTeacher: widgetHideTeacher ?? this.widgetHideTeacher,
       widgetHideLocation: widgetHideLocation ?? this.widgetHideLocation,
       widgetHideDate: widgetHideDate ?? this.widgetHideDate,
+      timetableSectionHeight:
+          timetableSectionHeight ?? this.timetableSectionHeight,
+      timetableTimeColumnWidth:
+          timetableTimeColumnWidth ?? this.timetableTimeColumnWidth,
+      timetableDayHeaderHeight:
+          timetableDayHeaderHeight ?? this.timetableDayHeaderHeight,
+      timetableCourseCornerRadius:
+          timetableCourseCornerRadius ?? this.timetableCourseCornerRadius,
+      timetableCourseInnerPadding:
+          timetableCourseInnerPadding ?? this.timetableCourseInnerPadding,
+      timetableCourseOuterPadding:
+          timetableCourseOuterPadding ?? this.timetableCourseOuterPadding,
+      timetableCourseAlpha: timetableCourseAlpha ?? this.timetableCourseAlpha,
+      timetableCourseFontScale:
+          timetableCourseFontScale ?? this.timetableCourseFontScale,
+      timetableHideSectionTime:
+          timetableHideSectionTime ?? this.timetableHideSectionTime,
+      timetableHideDateUnderDay:
+          timetableHideDateUnderDay ?? this.timetableHideDateUnderDay,
+      timetableShowStartTime:
+          timetableShowStartTime ?? this.timetableShowStartTime,
+      timetableHideLocation:
+          timetableHideLocation ?? this.timetableHideLocation,
+      timetableHideTeacher: timetableHideTeacher ?? this.timetableHideTeacher,
+      timetableRemoveLocationAt:
+          timetableRemoveLocationAt ?? this.timetableRemoveLocationAt,
+      timetableTextAlignCenterHorizontal:
+          timetableTextAlignCenterHorizontal ??
+          this.timetableTextAlignCenterHorizontal,
+      timetableTextAlignCenterVertical:
+          timetableTextAlignCenterVertical ??
+          this.timetableTextAlignCenterVertical,
+      timetableBorderType: timetableBorderType ?? this.timetableBorderType,
+      timetablePageTextColor: identical(timetablePageTextColor, _unset)
+          ? this.timetablePageTextColor
+          : timetablePageTextColor as Color?,
+      timetableCourseTextColor: identical(timetableCourseTextColor, _unset)
+          ? this.timetableCourseTextColor
+          : timetableCourseTextColor as Color?,
       timetableBackgroundPath: identical(timetableBackgroundPath, _unset)
           ? this.timetableBackgroundPath
           : timetableBackgroundPath as String?,

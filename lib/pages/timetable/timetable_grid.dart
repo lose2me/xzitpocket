@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -84,6 +85,24 @@ class TimetableGrid extends StatefulWidget {
   final bool showHeaderDivider;
   final bool showTodayGridLines;
   final bool showGridLines;
+  final double sectionHeight;
+  final double timeColumnWidth;
+  final double dayHeaderHeight;
+  final double courseCornerRadius;
+  final double courseInnerPadding;
+  final double courseOuterPadding;
+  final double courseFontScale;
+  final bool hideSectionTime;
+  final bool hideDateUnderDay;
+  final bool showStartTime;
+  final bool hideLocation;
+  final bool hideTeacher;
+  final bool removeLocationAt;
+  final bool textAlignCenterHorizontal;
+  final bool textAlignCenterVertical;
+  final String borderType;
+  final Color? pageTextColor;
+  final Color? courseTextColor;
 
   const TimetableGrid({
     super.key,
@@ -121,6 +140,24 @@ class TimetableGrid extends StatefulWidget {
     this.showHeaderDivider = true,
     this.showTodayGridLines = false,
     this.showGridLines = true,
+    this.sectionHeight = 70.0,
+    this.timeColumnWidth = 40.0,
+    this.dayHeaderHeight = 45.0,
+    this.courseCornerRadius = 4.0,
+    this.courseInnerPadding = 4.0,
+    this.courseOuterPadding = 1.0,
+    this.courseFontScale = 1.0,
+    this.hideSectionTime = false,
+    this.hideDateUnderDay = false,
+    this.showStartTime = false,
+    this.hideLocation = false,
+    this.hideTeacher = false,
+    this.removeLocationAt = false,
+    this.textAlignCenterHorizontal = false,
+    this.textAlignCenterVertical = false,
+    this.borderType = 'solid',
+    this.pageTextColor,
+    this.courseTextColor,
   });
 
   @override
@@ -280,14 +317,16 @@ class _TimetableGridState extends State<TimetableGrid> {
             Row(
               children: [
                 SizedBox(
-                  width: 40,
+                  width: widget.timeColumnWidth,
                   child: Center(
                     child: Text(
                       '${dates[0].month}月',
                       style: theme.typography.caption.copyWith(
                         fontSize: widget.dateTextSize,
                         fontWeight: FontWeight.w600,
-                        color: theme.colors.mutedForeground,
+                        color:
+                            widget.pageTextColor ??
+                            theme.colors.mutedForeground,
                       ),
                     ),
                   ),
@@ -334,7 +373,23 @@ class _TimetableGridState extends State<TimetableGrid> {
                 sessionToRow[visibleSessions[i]] = i;
               }
 
-              final cellHeight = constraints.maxHeight / widget.visibleSlots;
+              final cellHeight = widget.sectionHeight > 0
+                  ? widget.sectionHeight
+                  : constraints.maxHeight / widget.visibleSlots;
+              // The fold marker belongs to the last row that is actually
+              // visible in the viewport. A fixed session number becomes
+              // wrong as soon as the user changes the cell height or the
+              // device has a different usable height.
+              final viewportSlots =
+                  constraints.maxHeight.isFinite && cellHeight > 0
+                  ? (constraints.maxHeight / cellHeight).floor().clamp(
+                      1,
+                      effectiveSlotCount,
+                    )
+                  : widget.visibleSlots.clamp(1, effectiveSlotCount);
+              final visibleSlots = math
+                  .min(widget.visibleSlots, viewportSlots)
+                  .toInt();
               final totalHeight = cellHeight * effectiveSlotCount;
 
               return SingleChildScrollView(
@@ -345,9 +400,12 @@ class _TimetableGridState extends State<TimetableGrid> {
                     children: [
                       TimeColumn(
                         cellHeight: cellHeight,
+                        width: widget.timeColumnWidth,
                         slotCount: widget.slotCount,
                         hiddenSlots: widget.hiddenSlots,
                         textSize: widget.timeTextSize,
+                        hideSectionTime: widget.hideSectionTime,
+                        textColor: widget.pageTextColor,
                       ),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
@@ -454,22 +512,44 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               : nonCurrentCourseBorderOpacity,
                                           borderColor: widget.borderColor,
                                           borderWidth: widget.borderWidth,
-                                          textSize: widget.courseTextSize,
+                                          textSize:
+                                              widget.courseTextSize *
+                                              widget.courseFontScale,
+                                          textColor: widget.courseTextColor,
+                                          cornerRadius:
+                                              widget.courseCornerRadius,
+                                          innerPadding:
+                                              widget.courseInnerPadding,
+                                          outerPadding:
+                                              widget.courseOuterPadding,
+                                          showStartTime: widget.showStartTime,
+                                          hideLocation: widget.hideLocation,
+                                          hideTeacher: widget.hideTeacher,
+                                          removeLocationAt:
+                                              widget.removeLocationAt,
+                                          centerHorizontal:
+                                              widget.textAlignCenterHorizontal,
+                                          centerVertical:
+                                              widget.textAlignCenterVertical,
+                                          borderType: widget.borderType,
                                         ),
                                       ),
                                     );
                                   }),
                                   if (_showBelowFoldIndicator &&
-                                      sessionToRow.containsKey(11) &&
+                                      visibleSessions.isNotEmpty &&
                                       _hasLaterCourse(
                                         currentByWeekday[weekday],
-                                      ) &&
-                                      !_hasSession(
-                                        currentByWeekday[weekday],
-                                        11,
+                                        visibleSessions,
+                                        visibleSlots,
                                       ))
                                     Positioned(
-                                      top: sessionToRow[11]! * cellHeight,
+                                      top:
+                                          (visibleSlots - 1).clamp(
+                                            0,
+                                            visibleSessions.length - 1,
+                                          ) *
+                                          cellHeight,
                                       left: 0,
                                       right: 0,
                                       height: cellHeight,
@@ -602,7 +682,7 @@ class _TimetableGridState extends State<TimetableGrid> {
           ? () => _handleHeaderTap(weekday)
           : () => widget.onPendingDayActionCancel?.call(weekday),
       child: SizedBox(
-        height: 40,
+        height: widget.dayHeaderHeight,
         width: double.infinity,
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -626,6 +706,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                         date: date,
                         weekdayLabel: weekdayLabel,
                         isToday: isToday,
+                        hideDate: widget.hideDateUnderDay,
                       )
                     : _buildPendingDayAction(
                         theme,
@@ -710,27 +791,29 @@ class _TimetableGridState extends State<TimetableGrid> {
     required DateTime date,
     required String weekdayLabel,
     required bool isToday,
+    required bool hideDate,
   }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 4),
     child: Column(
       children: [
-        Text(
-          '${date.day}',
-          style: theme.typography.caption.copyWith(
-            fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-            color: isToday
-                ? theme.colors.primary
-                : theme.colors.mutedForeground,
-            fontSize: widget.dateTextSize,
+        if (!hideDate)
+          Text(
+            '${date.day}',
+            style: theme.typography.caption.copyWith(
+              fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
+              color: isToday
+                  ? theme.colors.primary
+                  : widget.pageTextColor ?? theme.colors.mutedForeground,
+              fontSize: widget.dateTextSize,
+            ),
           ),
-        ),
         Text(
           weekdayLabel,
           style: theme.typography.caption.copyWith(
             fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
             color: isToday
                 ? theme.colors.primary
-                : theme.colors.mutedForeground,
+                : widget.pageTextColor ?? theme.colors.mutedForeground,
             fontSize: widget.dateTextSize,
           ),
         ),
@@ -833,12 +916,20 @@ class _TimetableGridState extends State<TimetableGrid> {
     );
   }
 
-  bool _hasLaterCourse(List<_IndexedCourse>? entries) =>
+  bool _hasLaterCourse(
+    List<_IndexedCourse>? entries,
+    List<int> visibleSessions,
+    int visibleSlots,
+  ) =>
       entries?.any(
-        (entry) => entry.course.sessions.any((session) => session >= 12),
+        (entry) => entry.course.sessions.any((session) {
+          final row = visibleSessions.indexOf(session);
+          return row >= visibleSlots;
+        }),
       ) ??
       false;
 
+  // ignore: unused_element
   bool _hasSession(List<_IndexedCourse>? entries, int session) =>
       entries?.any((entry) => entry.course.sessions.contains(session)) ?? false;
 

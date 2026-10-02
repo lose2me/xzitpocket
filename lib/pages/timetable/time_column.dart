@@ -9,6 +9,9 @@ class TimeColumn extends StatelessWidget {
   final int slotCount;
   final Set<int> hiddenSlots;
   final double textSize;
+  final double width;
+  final bool hideSectionTime;
+  final Color? textColor;
 
   const TimeColumn({
     super.key,
@@ -16,13 +19,16 @@ class TimeColumn extends StatelessWidget {
     this.slotCount = 14,
     this.hiddenSlots = const {},
     this.textSize = 11.0,
+    this.width = 40.0,
+    this.hideSectionTime = false,
+    this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
     return SizedBox(
-      width: 40,
+      width: width,
       child: Column(
         children: List.generate(slotCount, (i) {
           if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
@@ -41,25 +47,27 @@ class TimeColumn extends StatelessWidget {
                       fontSize: textSize,
                       height: 4 / 3,
                       fontWeight: FontWeight.w600,
-                      color: theme.colors.mutedForeground,
+                      color: textColor ?? theme.colors.mutedForeground,
                     ),
                   ),
-                  Text(
-                    slot.start,
-                    style: theme.typography.caption.copyWith(
-                      fontSize: textSize,
-                      height: 14 / 11,
-                      color: theme.colors.mutedForeground,
+                  if (!hideSectionTime) ...[
+                    Text(
+                      slot.start,
+                      style: theme.typography.caption.copyWith(
+                        fontSize: textSize,
+                        height: 14 / 11,
+                        color: textColor ?? theme.colors.mutedForeground,
+                      ),
                     ),
-                  ),
-                  Text(
-                    slot.end,
-                    style: theme.typography.caption.copyWith(
-                      fontSize: textSize,
-                      height: 14 / 11,
-                      color: theme.colors.mutedForeground,
+                    Text(
+                      slot.end,
+                      style: theme.typography.caption.copyWith(
+                        fontSize: textSize,
+                        height: 14 / 11,
+                        color: textColor ?? theme.colors.mutedForeground,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),

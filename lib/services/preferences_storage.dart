@@ -76,17 +76,17 @@ class PreferencesStorage {
   Future<void> setWidgetFontScale(double value) =>
       _prefs.setDouble('widget_font_scale', value.clamp(0.5, 2.0).toDouble());
 
-  double getWidgetBackgroundAlpha() => (_prefs
-          .getDouble('widget_background_alpha') ??
-      1.0).clamp(0.0, 1.0).toDouble();
+  double getWidgetBackgroundAlpha() =>
+      (_prefs.getDouble('widget_background_alpha') ?? 1.0)
+          .clamp(0.0, 1.0)
+          .toDouble();
 
   Future<void> setWidgetBackgroundAlpha(double value) => _prefs.setDouble(
     'widget_background_alpha',
     value.clamp(0.0, 1.0).toDouble(),
   );
 
-  bool getWidgetHideTeacher() =>
-      _prefs.getBool('widget_hide_teacher') ?? false;
+  bool getWidgetHideTeacher() => _prefs.getBool('widget_hide_teacher') ?? false;
 
   Future<void> setWidgetHideTeacher(bool value) =>
       _prefs.setBool('widget_hide_teacher', value);
@@ -101,6 +101,144 @@ class PreferencesStorage {
 
   Future<void> setWidgetHideDate(bool value) =>
       _prefs.setBool('widget_hide_date', value);
+
+  double getTimetableSectionHeight() =>
+      (_prefs.getDouble('timetable_section_height') ?? 70.0)
+          .clamp(40.0, 140.0)
+          .toDouble();
+
+  Future<void> setTimetableSectionHeight(double value) => _prefs.setDouble(
+    'timetable_section_height',
+    value.clamp(40.0, 140.0).toDouble(),
+  );
+
+  double getTimetableTimeColumnWidth() =>
+      (_prefs.getDouble('timetable_time_column_width') ?? 40.0)
+          .clamp(20.0, 80.0)
+          .toDouble();
+
+  Future<void> setTimetableTimeColumnWidth(double value) => _prefs.setDouble(
+    'timetable_time_column_width',
+    value.clamp(20.0, 80.0).toDouble(),
+  );
+
+  double getTimetableDayHeaderHeight() =>
+      (_prefs.getDouble('timetable_day_header_height') ?? 45.0)
+          .clamp(30.0, 80.0)
+          .toDouble();
+
+  Future<void> setTimetableDayHeaderHeight(double value) => _prefs.setDouble(
+    'timetable_day_header_height',
+    value.clamp(30.0, 80.0).toDouble(),
+  );
+
+  double getTimetableCourseCornerRadius() =>
+      (_prefs.getDouble('timetable_course_corner_radius') ?? 4.0)
+          .clamp(0.0, 24.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseCornerRadius(double value) => _prefs.setDouble(
+    'timetable_course_corner_radius',
+    value.clamp(0.0, 24.0).toDouble(),
+  );
+
+  double getTimetableCourseInnerPadding() =>
+      (_prefs.getDouble('timetable_course_inner_padding') ?? 4.0)
+          .clamp(0.0, 12.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseInnerPadding(double value) => _prefs.setDouble(
+    'timetable_course_inner_padding',
+    value.clamp(0.0, 12.0).toDouble(),
+  );
+
+  double getTimetableCourseOuterPadding() =>
+      (_prefs.getDouble('timetable_course_outer_padding') ?? 1.0)
+          .clamp(0.0, 8.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseOuterPadding(double value) => _prefs.setDouble(
+    'timetable_course_outer_padding',
+    value.clamp(0.0, 8.0).toDouble(),
+  );
+
+  double getTimetableCourseAlpha() =>
+      (_prefs.getDouble('timetable_course_alpha') ?? 1.0)
+          .clamp(0.1, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseAlpha(double value) => _prefs.setDouble(
+    'timetable_course_alpha',
+    value.clamp(0.1, 1.0).toDouble(),
+  );
+
+  double getTimetableCourseFontScale() =>
+      (_prefs.getDouble('timetable_course_font_scale') ?? 1.0)
+          .clamp(0.5, 2.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseFontScale(double value) => _prefs.setDouble(
+    'timetable_course_font_scale',
+    value.clamp(0.5, 2.0).toDouble(),
+  );
+
+  bool getTimetableHideSectionTime() =>
+      _prefs.getBool('timetable_hide_section_time') ?? false;
+  Future<void> setTimetableHideSectionTime(bool value) =>
+      _prefs.setBool('timetable_hide_section_time', value);
+  bool getTimetableHideDateUnderDay() =>
+      _prefs.getBool('timetable_hide_date_under_day') ?? false;
+  Future<void> setTimetableHideDateUnderDay(bool value) =>
+      _prefs.setBool('timetable_hide_date_under_day', value);
+  bool getTimetableShowStartTime() =>
+      _prefs.getBool('timetable_show_start_time') ?? false;
+  Future<void> setTimetableShowStartTime(bool value) =>
+      _prefs.setBool('timetable_show_start_time', value);
+  bool getTimetableHideLocation() =>
+      _prefs.getBool('timetable_hide_location') ?? false;
+  Future<void> setTimetableHideLocation(bool value) =>
+      _prefs.setBool('timetable_hide_location', value);
+  bool getTimetableHideTeacher() =>
+      _prefs.getBool('timetable_hide_teacher') ?? false;
+  Future<void> setTimetableHideTeacher(bool value) =>
+      _prefs.setBool('timetable_hide_teacher', value);
+  bool getTimetableRemoveLocationAt() =>
+      _prefs.getBool('timetable_remove_location_at') ?? false;
+  Future<void> setTimetableRemoveLocationAt(bool value) =>
+      _prefs.setBool('timetable_remove_location_at', value);
+  bool getTimetableTextAlignCenterHorizontal() =>
+      _prefs.getBool('timetable_text_align_center_horizontal') ?? false;
+  Future<void> setTimetableTextAlignCenterHorizontal(bool value) =>
+      _prefs.setBool('timetable_text_align_center_horizontal', value);
+  bool getTimetableTextAlignCenterVertical() =>
+      _prefs.getBool('timetable_text_align_center_vertical') ?? false;
+  Future<void> setTimetableTextAlignCenterVertical(bool value) =>
+      _prefs.setBool('timetable_text_align_center_vertical', value);
+  String? getTimetableBorderType() => _prefs.getString('timetable_border_type');
+  Future<void> setTimetableBorderType(String value) =>
+      _prefs.setString('timetable_border_type', value);
+
+  int? getTimetablePageTextColor() =>
+      _prefs.getInt('timetable_page_text_color');
+
+  Future<void> setTimetablePageTextColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_page_text_color');
+    } else {
+      await _prefs.setInt('timetable_page_text_color', value);
+    }
+  }
+
+  int? getTimetableCourseTextColor() =>
+      _prefs.getInt('timetable_course_text_color');
+
+  Future<void> setTimetableCourseTextColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_course_text_color');
+    } else {
+      await _prefs.setInt('timetable_course_text_color', value);
+    }
+  }
 
   String? getTimetableBackgroundPath() =>
       _prefs.getString('timetable_background_path');
@@ -220,6 +358,25 @@ class PreferencesStorage {
       _prefs.remove('widget_hide_teacher'),
       _prefs.remove('widget_hide_location'),
       _prefs.remove('widget_hide_date'),
+      _prefs.remove('timetable_section_height'),
+      _prefs.remove('timetable_time_column_width'),
+      _prefs.remove('timetable_day_header_height'),
+      _prefs.remove('timetable_course_corner_radius'),
+      _prefs.remove('timetable_course_inner_padding'),
+      _prefs.remove('timetable_course_outer_padding'),
+      _prefs.remove('timetable_course_alpha'),
+      _prefs.remove('timetable_course_font_scale'),
+      _prefs.remove('timetable_hide_section_time'),
+      _prefs.remove('timetable_hide_date_under_day'),
+      _prefs.remove('timetable_show_start_time'),
+      _prefs.remove('timetable_hide_location'),
+      _prefs.remove('timetable_hide_teacher'),
+      _prefs.remove('timetable_remove_location_at'),
+      _prefs.remove('timetable_text_align_center_horizontal'),
+      _prefs.remove('timetable_text_align_center_vertical'),
+      _prefs.remove('timetable_border_type'),
+      _prefs.remove('timetable_page_text_color'),
+      _prefs.remove('timetable_course_text_color'),
     ]);
   }
 

@@ -26,6 +26,7 @@ abstract final class AppRouteNames {
   static const timetableSettings = '/timetable/settings';
   static const appearanceSettings = '/profile/appearance-settings';
   static const courseReminderSettings = '/profile/course-reminder-settings';
+  static const courseRulesSettings = '/profile/course-rules-settings';
 }
 
 Route<T> appRoute<T>({

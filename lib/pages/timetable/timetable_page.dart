@@ -22,7 +22,6 @@ import '../../widgets/week_header.dart';
 import '../../ui/app_components.dart';
 import 'course_form_page.dart';
 import 'timetable_grid.dart';
-import 'timetable_settings_page.dart';
 
 class TimetablePage extends ConsumerStatefulWidget {
   const TimetablePage({super.key});
@@ -615,8 +614,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final courseBorderColor = context.theme.colors.foreground;
-    final courseOpacity = settings.timetableComponentOpacity;
-    final courseBorderOpacity = settings.timetableCourseBorderOpacity;
+    final courseOpacity = settings.timetableCourseAlpha;
     final hasBackground =
         settings.timetableBackgroundPath != null &&
         settings.timetableBackgroundPath!.isNotEmpty;
@@ -649,12 +647,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     onSync: _isSyncing ? null : _onSync,
                     syncing: _isSyncing,
                     onJumpToCurrentWeek: jumpToCurrentWeek,
-                    onSettings: () => Navigator.of(context).push(
-                      appRoute(
-                        name: AppRouteNames.timetableSettings,
-                        builder: (_) => const TimetableSettingsPage(),
-                      ),
-                    ),
                   ),
                 ),
                 Expanded(
@@ -704,10 +696,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       _conflictCountdownController,
                                   dayActionAnimation: _dayActionPulseController,
                                   borderColor: courseBorderColor,
-                                  borderWidth:
-                                      settings.timetableCourseBorderWidth,
+                                  borderWidth: 0.5,
                                   courseOpacity: courseOpacity,
-                                  courseBorderOpacity: courseBorderOpacity,
+                                  courseBorderOpacity: 1.0,
                                   courseTextSize:
                                       settings.timetableCourseTextSize,
                                   timeTextSize: settings.timetableTimeTextSize,
@@ -718,6 +709,40 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.showTimetableGridLines,
                                   showTodayGridLines:
                                       settings.showTodayGridLines,
+                                  sectionHeight:
+                                      settings.timetableSectionHeight,
+                                  timeColumnWidth:
+                                      settings.timetableTimeColumnWidth,
+                                  dayHeaderHeight:
+                                      settings.timetableDayHeaderHeight,
+                                  courseCornerRadius:
+                                      settings.timetableCourseCornerRadius,
+                                  courseInnerPadding:
+                                      settings.timetableCourseInnerPadding,
+                                  courseOuterPadding:
+                                      settings.timetableCourseOuterPadding,
+                                  courseFontScale:
+                                      settings.timetableCourseFontScale,
+                                  hideSectionTime:
+                                      settings.timetableHideSectionTime,
+                                  hideDateUnderDay:
+                                      settings.timetableHideDateUnderDay,
+                                  showStartTime:
+                                      settings.timetableShowStartTime,
+                                  hideLocation: settings.timetableHideLocation,
+                                  hideTeacher: settings.timetableHideTeacher,
+                                  removeLocationAt:
+                                      settings.timetableRemoveLocationAt,
+                                  textAlignCenterHorizontal: settings
+                                      .timetableTextAlignCenterHorizontal,
+                                  textAlignCenterVertical:
+                                      settings.timetableTextAlignCenterVertical,
+                                  borderType:
+                                      settings.timetableBorderType.storageValue,
+                                  pageTextColor:
+                                      settings.timetablePageTextColor,
+                                  courseTextColor:
+                                      settings.timetableCourseTextColor,
                                   onCourseTap: (course, sourceIndex) {
                                     final notifier = ref.read(
                                       scheduleProvider.notifier,

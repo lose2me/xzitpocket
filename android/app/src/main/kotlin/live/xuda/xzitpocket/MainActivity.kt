@@ -86,6 +86,8 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "getCourseReminderPermissions" -> {
+                    val powerManager =
+                        getSystemService(android.os.PowerManager::class.java)
                     result.success(
                         mapOf(
                             "notificationsGranted" to
@@ -94,8 +96,23 @@ class MainActivity : FlutterActivity() {
                                         android.content.pm.PackageManager.PERMISSION_GRANTED),
                             "exactAlarmGranted" to
                                 ClassAutomationController.hasExactAlarmPermission(applicationContext),
+                            "dndGranted" to
+                                ClassAutomationController.hasDndPermission(applicationContext),
+                            "batteryOptimizationIgnored" to
+                                (Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                                    powerManager?.isIgnoringBatteryOptimizations(packageName) == true),
                         ),
                     )
+                }
+
+                "openBackgroundAndAutostartSettings" -> {
+                    openApplicationSettings()
+                    result.success(null)
+                }
+
+                "openBatteryOptimizationSettings" -> {
+                    openBatteryOptimizationSettings()
+                    result.success(null)
                 }
 
                 "getAutomationPermissions" -> {
@@ -193,6 +210,31 @@ class MainActivity : FlutterActivity() {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             },
         )
+    }
+
+    private fun openApplicationSettings() {
+        startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            },
+        )
+    }
+
+    private fun openBatteryOptimizationSettings() {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+        } else {
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.parse("package:$packageName")
+            }
+        }
+        try {
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            openApplicationSettings()
+        }
     }
 
     private fun runBackgroundTask(

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_settings.dart';
@@ -41,6 +42,33 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideTeacher: _storage.getWidgetHideTeacher(),
       widgetHideLocation: _storage.getWidgetHideLocation(),
       widgetHideDate: _storage.getWidgetHideDate(),
+      timetableSectionHeight: _storage.getTimetableSectionHeight(),
+      timetableTimeColumnWidth: _storage.getTimetableTimeColumnWidth(),
+      timetableDayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
+      timetableCourseCornerRadius: _storage.getTimetableCourseCornerRadius(),
+      timetableCourseInnerPadding: _storage.getTimetableCourseInnerPadding(),
+      timetableCourseOuterPadding: _storage.getTimetableCourseOuterPadding(),
+      timetableCourseAlpha: _storage.getTimetableCourseAlpha(),
+      timetableCourseFontScale: _storage.getTimetableCourseFontScale(),
+      timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
+      timetableHideDateUnderDay: _storage.getTimetableHideDateUnderDay(),
+      timetableShowStartTime: _storage.getTimetableShowStartTime(),
+      timetableHideLocation: _storage.getTimetableHideLocation(),
+      timetableHideTeacher: _storage.getTimetableHideTeacher(),
+      timetableRemoveLocationAt: _storage.getTimetableRemoveLocationAt(),
+      timetableTextAlignCenterHorizontal: _storage
+          .getTimetableTextAlignCenterHorizontal(),
+      timetableTextAlignCenterVertical: _storage
+          .getTimetableTextAlignCenterVertical(),
+      timetableBorderType: TimetableBorderType.fromStorage(
+        _storage.getTimetableBorderType(),
+      ),
+      timetablePageTextColor: _storage.getTimetablePageTextColor() == null
+          ? null
+          : Color(_storage.getTimetablePageTextColor()!),
+      timetableCourseTextColor: _storage.getTimetableCourseTextColor() == null
+          ? null
+          : Color(_storage.getTimetableCourseTextColor()!),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
       timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
@@ -144,6 +172,109 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _refreshWidgetSettings();
   }
 
+  Future<void> setTimetableSectionHeight(double value) async {
+    final normalized = value.clamp(40.0, 140.0).toDouble();
+    await _storage.setTimetableSectionHeight(normalized);
+    state = state.copyWith(timetableSectionHeight: normalized);
+  }
+
+  Future<void> setTimetableTimeColumnWidth(double value) async {
+    final normalized = value.clamp(20.0, 80.0).toDouble();
+    await _storage.setTimetableTimeColumnWidth(normalized);
+    state = state.copyWith(timetableTimeColumnWidth: normalized);
+  }
+
+  Future<void> setTimetableDayHeaderHeight(double value) async {
+    final normalized = value.clamp(30.0, 80.0).toDouble();
+    await _storage.setTimetableDayHeaderHeight(normalized);
+    state = state.copyWith(timetableDayHeaderHeight: normalized);
+  }
+
+  Future<void> setTimetableCourseCornerRadius(double value) async {
+    final normalized = value.clamp(0.0, 24.0).toDouble();
+    await _storage.setTimetableCourseCornerRadius(normalized);
+    state = state.copyWith(timetableCourseCornerRadius: normalized);
+  }
+
+  Future<void> setTimetableCourseInnerPadding(double value) async {
+    final normalized = value.clamp(0.0, 12.0).toDouble();
+    await _storage.setTimetableCourseInnerPadding(normalized);
+    state = state.copyWith(timetableCourseInnerPadding: normalized);
+  }
+
+  Future<void> setTimetableCourseOuterPadding(double value) async {
+    final normalized = value.clamp(0.0, 8.0).toDouble();
+    await _storage.setTimetableCourseOuterPadding(normalized);
+    state = state.copyWith(timetableCourseOuterPadding: normalized);
+  }
+
+  Future<void> setTimetableCourseAlpha(double value) async {
+    final normalized = value.clamp(0.1, 1.0).toDouble();
+    await _storage.setTimetableCourseAlpha(normalized);
+    state = state.copyWith(timetableCourseAlpha: normalized);
+  }
+
+  Future<void> setTimetableCourseFontScale(double value) async {
+    final normalized = value.clamp(0.5, 2.0).toDouble();
+    await _storage.setTimetableCourseFontScale(normalized);
+    state = state.copyWith(timetableCourseFontScale: normalized);
+  }
+
+  Future<void> setTimetableHideSectionTime(bool value) async {
+    await _storage.setTimetableHideSectionTime(value);
+    state = state.copyWith(timetableHideSectionTime: value);
+  }
+
+  Future<void> setTimetableHideDateUnderDay(bool value) async {
+    await _storage.setTimetableHideDateUnderDay(value);
+    state = state.copyWith(timetableHideDateUnderDay: value);
+  }
+
+  Future<void> setTimetableShowStartTime(bool value) async {
+    await _storage.setTimetableShowStartTime(value);
+    state = state.copyWith(timetableShowStartTime: value);
+  }
+
+  Future<void> setTimetableHideLocation(bool value) async {
+    await _storage.setTimetableHideLocation(value);
+    state = state.copyWith(timetableHideLocation: value);
+  }
+
+  Future<void> setTimetableHideTeacher(bool value) async {
+    await _storage.setTimetableHideTeacher(value);
+    state = state.copyWith(timetableHideTeacher: value);
+  }
+
+  Future<void> setTimetableRemoveLocationAt(bool value) async {
+    await _storage.setTimetableRemoveLocationAt(value);
+    state = state.copyWith(timetableRemoveLocationAt: value);
+  }
+
+  Future<void> setTimetableTextAlignCenterHorizontal(bool value) async {
+    await _storage.setTimetableTextAlignCenterHorizontal(value);
+    state = state.copyWith(timetableTextAlignCenterHorizontal: value);
+  }
+
+  Future<void> setTimetableTextAlignCenterVertical(bool value) async {
+    await _storage.setTimetableTextAlignCenterVertical(value);
+    state = state.copyWith(timetableTextAlignCenterVertical: value);
+  }
+
+  Future<void> setTimetableBorderType(TimetableBorderType value) async {
+    await _storage.setTimetableBorderType(value.storageValue);
+    state = state.copyWith(timetableBorderType: value);
+  }
+
+  Future<void> setTimetablePageTextColor(Color? value) async {
+    await _storage.setTimetablePageTextColor(value?.toARGB32());
+    state = state.copyWith(timetablePageTextColor: value);
+  }
+
+  Future<void> setTimetableCourseTextColor(Color? value) async {
+    await _storage.setTimetableCourseTextColor(value?.toARGB32());
+    state = state.copyWith(timetableCourseTextColor: value);
+  }
+
   Future<void> _refreshWidgetSettings() async {
     try {
       await WidgetService.refreshWidget();
@@ -219,6 +350,27 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideTeacher: defaults.widgetHideTeacher,
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
+      timetableSectionHeight: defaults.timetableSectionHeight,
+      timetableTimeColumnWidth: defaults.timetableTimeColumnWidth,
+      timetableDayHeaderHeight: defaults.timetableDayHeaderHeight,
+      timetableCourseCornerRadius: defaults.timetableCourseCornerRadius,
+      timetableCourseInnerPadding: defaults.timetableCourseInnerPadding,
+      timetableCourseOuterPadding: defaults.timetableCourseOuterPadding,
+      timetableCourseAlpha: defaults.timetableCourseAlpha,
+      timetableCourseFontScale: defaults.timetableCourseFontScale,
+      timetableHideSectionTime: defaults.timetableHideSectionTime,
+      timetableHideDateUnderDay: defaults.timetableHideDateUnderDay,
+      timetableShowStartTime: defaults.timetableShowStartTime,
+      timetableHideLocation: defaults.timetableHideLocation,
+      timetableHideTeacher: defaults.timetableHideTeacher,
+      timetableRemoveLocationAt: defaults.timetableRemoveLocationAt,
+      timetableTextAlignCenterHorizontal:
+          defaults.timetableTextAlignCenterHorizontal,
+      timetableTextAlignCenterVertical:
+          defaults.timetableTextAlignCenterVertical,
+      timetableBorderType: defaults.timetableBorderType,
+      timetablePageTextColor: null,
+      timetableCourseTextColor: null,
     );
     await _refreshWidgetSettings();
   }

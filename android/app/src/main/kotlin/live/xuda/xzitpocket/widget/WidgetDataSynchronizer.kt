@@ -13,7 +13,9 @@ internal object WidgetDataSynchronizer {
             val snapshot = buildSnapshot(context)
             WidgetPrefsRepository.saveSnapshot(context, snapshot)
             ClassAutomationScheduler.enqueueWork(context)
-            CourseReminderScheduler.enqueueWork(context)
+            // Rebuild RTC alarms in the same sync pass. A queued WorkManager
+            // job can be delayed long enough to miss a short reminder window.
+            CourseReminderScheduler.refreshNow(context)
             WidgetUpdateHelper.updateAllWidgets(context)
         }
     }
@@ -27,7 +29,6 @@ internal object WidgetDataSynchronizer {
             }
 
             WidgetPrefsRepository.saveSnapshot(context, buildSnapshot(context, source))
-            CourseReminderScheduler.enqueueWork(context)
             return true
         }
     }

@@ -35,6 +35,9 @@ internal object CourseReminderScheduler {
     }
 
     internal fun refreshNow(context: Context) {
+        // A clock/date change can move the eight-day snapshot window. Refresh
+        // the derived snapshot before calculating alarm trigger times.
+        WidgetDataSynchronizer.refreshSnapshotIfNeeded(context)
         WorkManagerHelper.reconcilePeriodicWork(context)
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         cancelAlarms(context, alarmManager)
@@ -159,6 +162,9 @@ internal class CourseReminderReceiver : BroadcastReceiver() {
             "FlutterSharedPreferences",
             Context.MODE_PRIVATE,
         )
+        // An alarm can race with the settings write/cancel operation. Recheck
+        // the switch at delivery time so disabling reminders is authoritative.
+        if (!prefs.getBoolean("flutter.course_reminder_enabled", false)) return
         val compatibility = prefs.getBoolean(
             "flutter.wearable_notification_compatibility",
             false,

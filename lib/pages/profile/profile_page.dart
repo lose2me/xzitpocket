@@ -26,6 +26,7 @@ import '../home_page.dart';
 import 'profile_components.dart';
 import 'appearance_settings_page.dart';
 import 'course_reminder_settings_page.dart';
+import 'course_rules_settings_page.dart';
 import '../timetable/timetable_settings_page.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -225,6 +226,16 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 ),
               ),
               ProfileSettingsTile(
+                icon: FLucideIcons.history,
+                title: '课程规则',
+                onTap: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.courseRulesSettings,
+                    builder: (_) => const CourseRulesSettingsPage(),
+                  ),
+                ),
+              ),
+              ProfileSettingsTile(
                 icon: FLucideIcons.bell,
                 title: '课程提醒',
                 onTap: () => Navigator.of(context).push(
@@ -236,7 +247,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
               ),
               ProfileSettingsTile(
                 icon: FLucideIcons.sunMoon,
-                title: '主题设置',
+                title: '功能启用',
                 onTap: () => Navigator.of(context).push(
                   appRoute(
                     name: AppRouteNames.appearanceSettings,

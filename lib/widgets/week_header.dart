@@ -9,7 +9,6 @@ class WeekHeader extends StatelessWidget {
   final SemesterCalendar calendar;
   final int selectedWeek;
   final VoidCallback? onSync;
-  final VoidCallback? onSettings;
   final VoidCallback? onJumpToCurrentWeek;
   final int? currentWeek;
   final bool syncing;
@@ -19,7 +18,6 @@ class WeekHeader extends StatelessWidget {
     required this.calendar,
     required this.selectedWeek,
     this.onSync,
-    this.onSettings,
     this.onJumpToCurrentWeek,
     this.currentWeek,
     this.syncing = false,
@@ -75,11 +73,6 @@ class WeekHeader extends StatelessWidget {
             onPress: syncing ? null : onSync,
             tooltip: '同步课表',
             loading: syncing,
-          ),
-          AppIconButton(
-            icon: FLucideIcons.settings,
-            onPress: onSettings,
-            tooltip: '个性化设置',
           ),
         ],
       ),

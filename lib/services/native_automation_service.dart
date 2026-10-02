@@ -28,10 +28,14 @@ class AutomationPermissionStatus {
 class CourseReminderPermissionStatus {
   final bool notificationsGranted;
   final bool exactAlarmGranted;
+  final bool dndGranted;
+  final bool batteryOptimizationIgnored;
 
   const CourseReminderPermissionStatus({
     required this.notificationsGranted,
     required this.exactAlarmGranted,
+    required this.dndGranted,
+    required this.batteryOptimizationIgnored,
   });
 
   bool get isFullyGranted => notificationsGranted && exactAlarmGranted;
@@ -40,12 +44,17 @@ class CourseReminderPermissionStatus {
     return CourseReminderPermissionStatus(
       notificationsGranted: map['notificationsGranted'] as bool? ?? true,
       exactAlarmGranted: map['exactAlarmGranted'] as bool? ?? true,
+      dndGranted: map['dndGranted'] as bool? ?? true,
+      batteryOptimizationIgnored:
+          map['batteryOptimizationIgnored'] as bool? ?? true,
     );
   }
 
   static const fallback = CourseReminderPermissionStatus(
     notificationsGranted: true,
     exactAlarmGranted: true,
+    dndGranted: true,
+    batteryOptimizationIgnored: true,
   );
 }
 
@@ -76,6 +85,24 @@ class NativeAutomationService {
     if (!_isAndroid) return;
     try {
       await _channel.invokeMethod<void>('requestNotificationPermission');
+    } on MissingPluginException {
+      // Ignore on unsupported platforms.
+    }
+  }
+
+  static Future<void> openBackgroundAndAutostartSettings() async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('openBackgroundAndAutostartSettings');
+    } on MissingPluginException {
+      // Ignore on unsupported platforms.
+    }
+  }
+
+  static Future<void> openBatteryOptimizationSettings() async {
+    if (!_isAndroid) return;
+    try {
+      await _channel.invokeMethod<void>('openBatteryOptimizationSettings');
     } on MissingPluginException {
       // Ignore on unsupported platforms.
     }

@@ -114,6 +114,65 @@ class _CourseReminderSettingsPageState
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
+          const ProfileSectionLabel(title: '后台与权限'),
+          ProfileSettingsGroup(
+            children: [
+              ProfileSettingsTile(
+                icon: FLucideIcons.bell,
+                title: '通知权限',
+                value: _permissionStatus == null
+                    ? '检查中'
+                    : _permissionLabel(_permissionStatus!.notificationsGranted),
+                onTap: () async {
+                  await NativeAutomationService.requestNotificationPermission();
+                  await _loadPermissionStatus();
+                },
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.alarmClock,
+                title: '精确闹钟权限',
+                value: _permissionStatus == null
+                    ? '检查中'
+                    : _permissionLabel(_permissionStatus!.exactAlarmGranted),
+                onTap: () async {
+                  await NativeAutomationService.openExactAlarmSettings();
+                  await _loadPermissionStatus();
+                },
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.bellOff,
+                title: '勿扰模式权限',
+                value: _permissionStatus == null
+                    ? '检查中'
+                    : _permissionLabel(_permissionStatus!.dndGranted),
+                onTap: () async {
+                  await NativeAutomationService.openDndSettings();
+                  await _loadPermissionStatus();
+                },
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.smartphone,
+                title: '后台运行和自启',
+                value: '打开系统设置',
+                onTap:
+                    NativeAutomationService.openBackgroundAndAutostartSettings,
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.battery,
+                title: '忽略电池优化',
+                value: _permissionStatus == null
+                    ? '检查中'
+                    : _permissionStatus!.batteryOptimizationIgnored
+                    ? '已忽略'
+                    : '未忽略',
+                onTap: () async {
+                  await NativeAutomationService.openBatteryOptimizationSettings();
+                  await _loadPermissionStatus();
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '课堂勿扰'),
           ProfileSettingsGroup(
             children: [
@@ -129,6 +188,8 @@ class _CourseReminderSettingsPageState
       ),
     );
   }
+
+  String _permissionLabel(bool granted) => granted ? '已授权' : '未授权';
 
   String _automationLabel(ClassAutomationMode mode) => switch (mode) {
     ClassAutomationMode.off => '关闭',

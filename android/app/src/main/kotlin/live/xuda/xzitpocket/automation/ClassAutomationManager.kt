@@ -17,6 +17,7 @@ import live.xuda.xzitpocket.widget.WidgetDataSynchronizer
 import live.xuda.xzitpocket.widget.WidgetPrefsRepository
 import live.xuda.xzitpocket.widget.WidgetUpdateHelper
 import live.xuda.xzitpocket.widget.WorkManagerHelper
+import live.xuda.xzitpocket.widget.CourseReminderScheduler
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -134,6 +135,7 @@ internal object ClassAutomationController {
         WorkManagerHelper.reconcilePeriodicWork(context)
         if (WidgetDataSynchronizer.refreshSnapshotIfNeeded(context)) {
             WidgetUpdateHelper.updateAllWidgets(context)
+            CourseReminderScheduler.refreshNow(context)
         }
 
         val mode = ClassAutomationPrefs.getMode(context)

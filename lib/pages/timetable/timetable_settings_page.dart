@@ -21,6 +21,7 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import '../profile/profile_components.dart';
+import 'timetable_grid.dart';
 import 'timetable_providers.dart';
 
 int _tenthsDivisions(double min, double max) => ((max - min) * 10).round();
@@ -41,321 +42,386 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
 
 class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   final _imagePicker = ImagePicker();
-  bool _adjustmentDetailsExpanded = false;
-  bool _cloudRulesExpanded = false;
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
-    final showNonCurrentWeekCourses = ref.watch(
-      showNonCurrentWeekCoursesProvider,
-    );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
-    final coursesAsync = ref.watch(scheduleProvider);
-    final hasOriginalBaseline = ref
-        .read(scheduleProvider.notifier)
-        .originalCourses
-        .isNotEmpty;
-    final adjustments = _buildAdjustmentRules(coursesAsync.value);
-    final hasLocalRules = hasOriginalBaseline && adjustments.isNotEmpty;
-    final hasCloudRules = _cloudAdjustments.isNotEmpty;
-
     return AppPage(
       title: '个性化设置',
-      child: AppPageListView(
-        maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.lg,
-        bottomPadding: AppSpacing.xxl,
+      child: Column(
         children: [
-          _TimetableStylePreview(settings: settings),
-          const SizedBox(height: AppSpacing.md),
-          _WidgetStylePreview(settings: settings),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '小组件样式'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.sunMoon,
-                title: '小组件主题',
-                value: _widgetThemeLabel(settings.widgetThemePreference),
-                onTap: () => _openWidgetThemeSheet(
-                  settings.widgetThemePreference,
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.type,
-                title: '小组件字体缩放',
-                value: '${settings.widgetFontScale.toStringAsFixed(1)}x',
-                onTap: () => _openNumberSheet(
-                  title: '小组件字体缩放',
-                  currentValue: settings.widgetFontScale,
-                  min: 0.5,
-                  max: 2.0,
-                  divisions: _tenthsDivisions(0.5, 2.0),
-                  suffix: 'x',
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setWidgetFontScale(value),
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.layers,
-                title: '小组件背景透明度',
-                value: '${(settings.widgetBackgroundAlpha * 100).round()}%',
-                onTap: () => _openOpacitySheet(
-                  title: '小组件背景透明度',
-                  currentValue: settings.widgetBackgroundAlpha,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setWidgetBackgroundAlpha(value),
-                ),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.calendarDays,
-                title: '隐藏小组件日期',
-                value: settings.widgetHideDate,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setWidgetHideDate(value),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.mapPinOff,
-                title: '隐藏小组件地点',
-                value: settings.widgetHideLocation,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setWidgetHideLocation(value),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.userRoundX,
-                title: '隐藏小组件教师',
-                value: settings.widgetHideTeacher,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setWidgetHideTeacher(value),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '课程规则'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsExpandableTile(
-                icon: FLucideIcons.history,
-                title: '本地课程规则',
-                value: !hasOriginalBaseline
-                    ? '暂无基线'
-                    : adjustments.isEmpty
-                    ? '无变动'
-                    : '${adjustments.length} 条规则',
-                expanded: hasLocalRules && _adjustmentDetailsExpanded,
-                expandable: hasLocalRules,
-                onTap: () => setState(
-                  () =>
-                      _adjustmentDetailsExpanded = !_adjustmentDetailsExpanded,
-                ),
-                child: _buildAdjustmentDetails(
-                  adjustments,
-                  hasOriginalBaseline: hasOriginalBaseline,
-                ),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.cloud,
-                title: '启用云端课程规则',
-                value: settings.useCloudTimetableAdjustments,
-                onChange: _setCloudAdjustmentsEnabled,
-              ),
-              ProfileSettingsExpandableTile(
-                icon: FLucideIcons.cloud,
-                title: '云端课程规则',
-                value: '${_cloudAdjustments.length} 条规则',
-                expanded: hasCloudRules && _cloudRulesExpanded,
-                expandable: hasCloudRules,
-                onTap: () =>
-                    setState(() => _cloudRulesExpanded = !_cloudRulesExpanded),
-                child: _buildCloudRuleDetails(),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '显示'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.eye,
-                title: '显示非本周课程',
-                value: showNonCurrentWeekCourses,
-                onChange: (value) => ref
-                    .read(showNonCurrentWeekCoursesProvider.notifier)
-                    .set(value),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.calendarDays,
-                title: '显示周末列',
-                value: showWeekendColumns,
-                onChange: (value) =>
-                    ref.read(showWeekendColumnsProvider.notifier).set(value),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.grid2x2,
-                title: '显示网格辅助线',
-                value: settings.showTimetableGridLines,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setShowTimetableGridLines(value),
-              ),
-              ProfileSettingsCheckboxTile(
-                icon: FLucideIcons.calendarCheck,
-                title: '显示当天边界线',
-                value: settings.showTodayGridLines,
-                onChange: (value) => ref
-                    .read(appSettingsProvider.notifier)
-                    .setShowTodayGridLines(value),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '透明度'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.layers,
-                title: '课表组件透明度',
-                value:
-                    '${((1 - settings.timetableComponentOpacity) * 100).round()}%',
-                onTap: () => _openOpacitySheet(
-                  title: '课表组件透明度',
-                  currentValue: 1 - settings.timetableComponentOpacity,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableComponentOpacity(1 - value),
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.grid2x2,
-                title: '课表组件边框透明度',
-                value:
-                    '${((1 - settings.timetableCourseBorderOpacity) * 100).round()}%',
-                onTap: () => _openOpacitySheet(
-                  title: '课表组件边框透明度',
-                  currentValue: 1 - settings.timetableCourseBorderOpacity,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableCourseBorderOpacity(1 - value),
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.grid2x2,
-                title: '网格透明度',
-                value:
-                    '${((1 - settings.timetableGridOpacity) * 100).round()}%',
-                onTap: () => _openOpacitySheet(
-                  title: '网格透明度',
-                  currentValue: 1 - settings.timetableGridOpacity,
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableGridOpacity(1 - value),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '文字与边框'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.fileText,
-                title: '课表组件文字大小',
-                value:
-                    '${settings.timetableCourseTextSize.toStringAsFixed(1)} px',
-                onTap: () => _openNumberSheet(
-                  title: '课表组件文字大小',
-                  currentValue: settings.timetableCourseTextSize,
-                  min: 8,
-                  max: 18,
-                  divisions: _tenthsDivisions(8, 18),
-                  suffix: ' px',
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableCourseTextSize(value),
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.clock3,
-                title: '左侧时间列文字大小',
-                value:
-                    '${settings.timetableTimeTextSize.toStringAsFixed(1)} px',
-                onTap: () => _openNumberSheet(
-                  title: '左侧时间列文字大小',
-                  currentValue: settings.timetableTimeTextSize,
-                  min: 8,
-                  max: 18,
-                  divisions: _tenthsDivisions(8, 18),
-                  suffix: ' px',
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableTimeTextSize(value),
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.calendarDays,
-                title: '上方日期列文字大小',
-                value:
-                    '${settings.timetableDateTextSize.toStringAsFixed(1)} px',
-                onTap: () => _openNumberSheet(
-                  title: '上方日期列文字大小',
-                  currentValue: settings.timetableDateTextSize,
-                  min: 8,
-                  max: 18,
-                  divisions: _tenthsDivisions(8, 18),
-                  suffix: ' px',
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableDateTextSize(value),
-                ),
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.grid2x2,
-                title: '课表组件边框粗细',
-                value:
-                    '${settings.timetableCourseBorderWidth.toStringAsFixed(1)} px',
-                onTap: () => _openNumberSheet(
-                  title: '课表组件边框粗细',
-                  currentValue: settings.timetableCourseBorderWidth,
-                  min: 0,
-                  max: 3,
-                  divisions: _tenthsDivisions(0, 3),
-                  suffix: ' px',
-                  onSave: (value) => ref
-                      .read(appSettingsProvider.notifier)
-                      .setTimetableCourseBorderWidth(value),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '背景图'),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsTile(
-                icon: FLucideIcons.image,
-                title: '课表背景图',
-                value: settings.timetableBackgroundPath == null ? '未设置' : '已设置',
-                onTap: _pickBackground,
-                onLongPress: settings.timetableBackgroundPath == null
-                    ? null
-                    : _clearBackground,
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xxl),
           SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FButton(
-              variant: FButtonVariant.outline,
-              onPress: _resetAppearance,
-              prefix: const Icon(FLucideIcons.refreshCw),
-              child: const Text('重置个性化设置'),
+            height: 340,
+            child: _TimetableGridPreview(
+              settings: settings,
+              showWeekendColumns: showWeekendColumns,
+            ),
+          ),
+          Expanded(
+            child: AppPageListView(
+              maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.md,
+              bottomPadding: AppSpacing.xxl,
+              children: [
+                const ProfileSectionLabel(title: '软件主题'),
+                ProfileSettingsGroup(
+                  children: [
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.sunMoon,
+                      title: '主题模式',
+                      value: _themeTitle(settings.themePreference),
+                      onTap: () => _openThemeSheet(settings.themePreference),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.palette,
+                      title: '软件主题色',
+                      value: settings.themeColor.label,
+                      onTap: () => _openThemeColorSheet(settings.themeColor),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const ProfileSectionLabel(title: '课表网格'),
+                ProfileSettingsGroup(
+                  children: [
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.rows3,
+                      title: '课节高度',
+                      value:
+                          '${settings.timetableSectionHeight.toStringAsFixed(0)} px',
+                      onTap: () => _openNumberSheet(
+                        title: '课节高度',
+                        currentValue: settings.timetableSectionHeight,
+                        min: 40,
+                        max: 140,
+                        divisions: 100,
+                        suffix: ' px',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableSectionHeight(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.columns3,
+                      title: '时间列宽度',
+                      value:
+                          '${settings.timetableTimeColumnWidth.toStringAsFixed(0)} px',
+                      onTap: () => _openNumberSheet(
+                        title: '时间列宽度',
+                        currentValue: settings.timetableTimeColumnWidth,
+                        min: 20,
+                        max: 80,
+                        divisions: 60,
+                        suffix: ' px',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableTimeColumnWidth(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.panelTop,
+                      title: '日期栏高度',
+                      value:
+                          '${settings.timetableDayHeaderHeight.toStringAsFixed(0)} px',
+                      onTap: () => _openNumberSheet(
+                        title: '日期栏高度',
+                        currentValue: settings.timetableDayHeaderHeight,
+                        min: 30,
+                        max: 80,
+                        divisions: 50,
+                        suffix: ' px',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableDayHeaderHeight(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.type,
+                      title: '课程字体缩放',
+                      value:
+                          '${settings.timetableCourseFontScale.toStringAsFixed(1)}x',
+                      onTap: () => _openNumberSheet(
+                        title: '课程字体缩放',
+                        currentValue: settings.timetableCourseFontScale,
+                        min: 0.5,
+                        max: 2,
+                        divisions: 15,
+                        suffix: 'x',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseFontScale(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.cornerDownRight,
+                      title: '课程块圆角',
+                      value:
+                          '${settings.timetableCourseCornerRadius.toStringAsFixed(0)} px',
+                      onTap: () => _openNumberSheet(
+                        title: '课程块圆角',
+                        currentValue: settings.timetableCourseCornerRadius,
+                        min: 0,
+                        max: 24,
+                        divisions: 24,
+                        suffix: ' px',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseCornerRadius(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.arrowDownUp,
+                      title: '课程块内边距',
+                      value:
+                          '${settings.timetableCourseInnerPadding.toStringAsFixed(0)} px',
+                      onTap: () => _openNumberSheet(
+                        title: '课程块内边距',
+                        currentValue: settings.timetableCourseInnerPadding,
+                        min: 0,
+                        max: 12,
+                        divisions: 12,
+                        suffix: ' px',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseInnerPadding(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.move,
+                      title: '课程块外边距',
+                      value:
+                          '${settings.timetableCourseOuterPadding.toStringAsFixed(0)} px',
+                      onTap: () => _openNumberSheet(
+                        title: '课程块外边距',
+                        currentValue: settings.timetableCourseOuterPadding,
+                        min: 0,
+                        max: 8,
+                        divisions: 8,
+                        suffix: ' px',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseOuterPadding(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.layers,
+                      title: '课程块透明度',
+                      value:
+                          '${(settings.timetableCourseAlpha * 100).round()}%',
+                      onTap: () => _openOpacitySheet(
+                        title: '课程块透明度',
+                        currentValue: settings.timetableCourseAlpha,
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseAlpha(value),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const ProfileSectionLabel(title: '课程显示'),
+                ProfileSettingsGroup(
+                  children: [
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.clock3,
+                      title: '隐藏时间细节',
+                      value: settings.timetableHideSectionTime,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideSectionTime(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.calendarDays,
+                      title: '隐藏日期',
+                      value: settings.timetableHideDateUnderDay,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideDateUnderDay(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.clock,
+                      title: '显示上课时间',
+                      value: settings.timetableShowStartTime,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableShowStartTime(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.mapPinOff,
+                      title: '隐藏地点',
+                      value: settings.timetableHideLocation,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideLocation(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.userRoundX,
+                      title: '隐藏教师',
+                      value: settings.timetableHideTeacher,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideTeacher(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.atSign,
+                      title: '移除地点前的 @',
+                      value: settings.timetableRemoveLocationAt,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableRemoveLocationAt(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.alignCenterHorizontal,
+                      title: '课程文字水平居中',
+                      value: settings.timetableTextAlignCenterHorizontal,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTextAlignCenterHorizontal(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.alignCenterVertical,
+                      title: '课程文字垂直居中',
+                      value: settings.timetableTextAlignCenterVertical,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTextAlignCenterVertical(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.grid2x2,
+                      title: '隐藏网格线',
+                      value: !settings.showTimetableGridLines,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setShowTimetableGridLines(!value),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.type,
+                      title: '页面文字颜色',
+                      value: _colorLabel(settings.timetablePageTextColor),
+                      onTap: () => _openStyleColorSheet(
+                        title: '页面文字颜色',
+                        current: settings.timetablePageTextColor,
+                        onSave: ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetablePageTextColor,
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.type,
+                      title: '课程块文字颜色',
+                      value: _colorLabel(settings.timetableCourseTextColor),
+                      onTap: () => _openStyleColorSheet(
+                        title: '课程块文字颜色',
+                        current: settings.timetableCourseTextColor,
+                        onSave: ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseTextColor,
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.squareDashed,
+                      title: '课程块边框',
+                      value: _borderTypeLabel(settings.timetableBorderType),
+                      onTap: () =>
+                          _openBorderTypeSheet(settings.timetableBorderType),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const ProfileSectionLabel(title: '小组件样式'),
+                ProfileSettingsGroup(
+                  children: [
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.sunMoon,
+                      title: '小组件主题',
+                      value: _widgetThemeLabel(settings.widgetThemePreference),
+                      onTap: () =>
+                          _openWidgetThemeSheet(settings.widgetThemePreference),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.type,
+                      title: '小组件字体缩放',
+                      value: '${settings.widgetFontScale.toStringAsFixed(1)}x',
+                      onTap: () => _openNumberSheet(
+                        title: '小组件字体缩放',
+                        currentValue: settings.widgetFontScale,
+                        min: 0.5,
+                        max: 2.0,
+                        divisions: _tenthsDivisions(0.5, 2.0),
+                        suffix: 'x',
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setWidgetFontScale(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.layers,
+                      title: '小组件背景透明度',
+                      value:
+                          '${(settings.widgetBackgroundAlpha * 100).round()}%',
+                      onTap: () => _openOpacitySheet(
+                        title: '小组件背景透明度',
+                        currentValue: settings.widgetBackgroundAlpha,
+                        onSave: (value) => ref
+                            .read(appSettingsProvider.notifier)
+                            .setWidgetBackgroundAlpha(value),
+                      ),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.calendarDays,
+                      title: '隐藏小组件日期',
+                      value: settings.widgetHideDate,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setWidgetHideDate(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.mapPinOff,
+                      title: '隐藏小组件地点',
+                      value: settings.widgetHideLocation,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setWidgetHideLocation(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.userRoundX,
+                      title: '隐藏小组件教师',
+                      value: settings.widgetHideTeacher,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setWidgetHideTeacher(value),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                const ProfileSectionLabel(title: '背景图'),
+                ProfileSettingsGroup(
+                  children: [
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.image,
+                      title: '课表背景图',
+                      value: settings.timetableBackgroundPath == null
+                          ? '未设置'
+                          : '已设置',
+                      onTap: _pickBackground,
+                      onLongPress: settings.timetableBackgroundPath == null
+                          ? null
+                          : _clearBackground,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: FButton(
+                    variant: FButtonVariant.outline,
+                    onPress: _resetAppearance,
+                    prefix: const Icon(FLucideIcons.refreshCw),
+                    child: const Text('重置个性化设置'),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -363,6 +429,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     );
   }
 
+  // Kept for compatibility with older callers while rules live on their own page.
+  // ignore: unused_element
   List<_TimetableAdjustment> _buildAdjustmentRules(List<Course>? courses) {
     final current = courses ?? const <Course>[];
     final original = ref.read(scheduleProvider.notifier).originalCourses;
@@ -450,6 +518,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       .where((day) => day.adjustment != null && day.adjustment!.isNotEmpty)
       .toList();
 
+  // ignore: unused_element
   Future<void> _setCloudAdjustmentsEnabled(bool enabled) async {
     await ref
         .read(appSettingsProvider.notifier)
@@ -459,6 +528,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     }
   }
 
+  // ignore: unused_element
   Widget _buildCloudRuleDetails() {
     if (_cloudAdjustments.isEmpty) return const SizedBox.shrink();
     final rows = <_TimetableAdjustment>[];
@@ -516,6 +586,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       ].join('\u001f'),
   ]..sort();
 
+  // ignore: unused_element
   Widget _buildAdjustmentDetails(
     List<_TimetableAdjustment> adjustments, {
     required bool hasOriginalBaseline,
@@ -591,17 +662,178 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   String _visualDateLabel(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  String _widgetThemeLabel(WidgetThemePreference preference) => switch (
-    preference
-  ) {
-    WidgetThemePreference.system => '跟随系统',
-    WidgetThemePreference.light => '浅色',
-    WidgetThemePreference.dark => '深色',
+  String _widgetThemeLabel(WidgetThemePreference preference) =>
+      switch (preference) {
+        WidgetThemePreference.system => '跟随系统',
+        WidgetThemePreference.light => '浅色',
+        WidgetThemePreference.dark => '深色',
+      };
+
+  String _themeTitle(AppThemePreference preference) => switch (preference) {
+    AppThemePreference.system => '跟随系统',
+    AppThemePreference.light => '浅色模式',
+    AppThemePreference.dark => '深色模式',
   };
 
-  Future<void> _openWidgetThemeSheet(
-    WidgetThemePreference current,
-  ) async {
+  String _borderTypeLabel(TimetableBorderType type) => switch (type) {
+    TimetableBorderType.none => '无边框',
+    TimetableBorderType.solid => '实线',
+    TimetableBorderType.dashed => '虚线',
+  };
+
+  String _colorLabel(Color? color) {
+    if (color == null) return '跟随主题';
+    return '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+  }
+
+  Future<void> _openStyleColorSheet({
+    required String title,
+    required Color? current,
+    required Future<void> Function(Color? value) onSave,
+  }) async {
+    final resetToken = Object();
+    const palette = [
+      Color(0xFF172033),
+      Color(0xFF475569),
+      Color(0xFF64748B),
+      Color(0xFF2563EB),
+      Color(0xFF047857),
+      Color(0xFFBE123C),
+      Color(0xFFC2410C),
+      Color(0xFF7C3AED),
+      Color(0xFFF8FAFC),
+    ];
+    final selected = await showAppSheet<Object?>(
+      context: context,
+      builder: (context) => Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, textAlign: TextAlign.center),
+            const SizedBox(height: AppSpacing.lg),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: AppSpacing.md,
+              runSpacing: AppSpacing.md,
+              children: [
+                for (final color in palette)
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(color),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: current == color
+                              ? context.theme.colors.primary
+                              : context.theme.colors.border,
+                          width: current == color ? 3 : 1,
+                        ),
+                      ),
+                      child: const SizedBox(width: 38, height: 38),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(resetToken),
+              child: const Text('跟随主题'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selected == resetToken) {
+      await onSave(null);
+    } else if (selected is Color && selected != current) {
+      await onSave(selected);
+    }
+  }
+
+  Future<void> _openBorderTypeSheet(TimetableBorderType current) async {
+    final selected = await showAppSheet<TimetableBorderType>(
+      context: context,
+      builder: (context) => AppOptionSheet<TimetableBorderType>(
+        title: '课程块边框',
+        value: current,
+        options: [
+          for (final type in TimetableBorderType.values)
+            AppOption(
+              value: type,
+              title: _borderTypeLabel(type),
+              icon: type == current
+                  ? FLucideIcons.circleCheck
+                  : FLucideIcons.square,
+            ),
+        ],
+      ),
+    );
+    if (selected == null || selected == current) return;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setTimetableBorderType(selected);
+  }
+
+  Future<void> _openThemeSheet(AppThemePreference current) async {
+    final selected = await showAppSheet<AppThemePreference>(
+      context: context,
+      builder: (context) => AppOptionSheet<AppThemePreference>(
+        title: '主题模式',
+        value: current,
+        options: const [
+          AppOption(
+            value: AppThemePreference.system,
+            title: '跟随系统',
+            icon: FLucideIcons.settings,
+          ),
+          AppOption(
+            value: AppThemePreference.light,
+            title: '浅色模式',
+            icon: FLucideIcons.sun,
+          ),
+          AppOption(
+            value: AppThemePreference.dark,
+            title: '深色模式',
+            icon: FLucideIcons.moon,
+          ),
+        ],
+      ),
+    );
+    if (selected == null || selected == current) return;
+    await ref.read(appSettingsProvider.notifier).setThemePreference(selected);
+  }
+
+  Future<void> _openThemeColorSheet(AppThemeColor current) async {
+    final selected = await showAppSheet<AppThemeColor>(
+      context: context,
+      builder: (context) => AppOptionSheet<AppThemeColor>(
+        title: '软件主题色',
+        value: current,
+        options: [
+          for (final color in AppThemeColor.values)
+            AppOption(
+              value: color,
+              title: color.label,
+              icon: color == current
+                  ? FLucideIcons.circleCheck
+                  : FLucideIcons.circle,
+            ),
+        ],
+      ),
+    );
+    if (selected == null || selected == current) return;
+    await ref.read(appSettingsProvider.notifier).setThemeColor(selected);
+  }
+
+  Future<void> _openWidgetThemeSheet(WidgetThemePreference current) async {
     final selected = await showAppSheet<WidgetThemePreference>(
       context: context,
       builder: (context) => AppOptionSheet<WidgetThemePreference>(
@@ -864,230 +1096,240 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   }
 }
 
-class _TimetableStylePreview extends StatelessWidget {
+class _TimetableGridPreview extends StatelessWidget {
   final AppSettings settings;
+  final bool showWeekendColumns;
 
-  const _TimetableStylePreview({required this.settings});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.theme;
-    final cardColor = theme.colors.primary.withValues(
-      alpha: settings.timetableComponentOpacity,
-    );
-    final borderColor = theme.colors.foreground.withValues(
-      alpha: settings.timetableCourseBorderOpacity,
-    );
-    final backgroundPath = settings.timetableBackgroundPath;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: SizedBox(
-        height: 168,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (backgroundPath != null && backgroundPath.isNotEmpty)
-              Image.file(
-                File(backgroundPath),
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) =>
-                    ColoredBox(color: theme.colors.background),
-              )
-            else
-              ColoredBox(color: theme.colors.background),
-            ColoredBox(color: theme.colors.background.withValues(alpha: 0.18)),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '课表预览',
-                    style: theme.typography.caption.copyWith(
-                      color: theme.colors.mutedForeground,
-                      fontSize: settings.timetableDateTextSize,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 34,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              for (final text in const ['1', '2', '3'])
-                                Text(
-                                  text,
-                                  style: theme.typography.caption.copyWith(
-                                    fontSize: settings.timetableTimeTextSize,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _PreviewCourseBlock(
-                                  title: '高等数学',
-                                  subtitle: '08:00  教学楼',
-                                  color: cardColor,
-                                  borderColor: borderColor,
-                                  borderWidth:
-                                      settings.timetableCourseBorderWidth,
-                                  textSize: settings.timetableCourseTextSize,
-                                ),
-                              ),
-                              const SizedBox(width: AppSpacing.xs),
-                              Expanded(
-                                child: _PreviewCourseBlock(
-                                  title: '英语',
-                                  subtitle: '10:05  A201',
-                                  color: theme.colors.secondary.withValues(
-                                    alpha: settings.timetableComponentOpacity,
-                                  ),
-                                  borderColor: borderColor,
-                                  borderWidth:
-                                      settings.timetableCourseBorderWidth,
-                                  textSize: settings.timetableCourseTextSize,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _WidgetStylePreview extends StatelessWidget {
-  final AppSettings settings;
-
-  const _WidgetStylePreview({required this.settings});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.theme;
-    final details = [
-      if (!settings.widgetHideLocation) '教学楼 A201',
-      if (!settings.widgetHideTeacher) '张老师',
-    ].join(' · ');
-    final textScale = settings.widgetFontScale;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        height: 112,
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: theme.colors.background,
-          border: Border.all(color: theme.colors.border),
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colors.primary.withValues(
-              alpha: settings.widgetBackgroundAlpha,
-            ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (!settings.widgetHideDate)
-                  Text(
-                    '今天  第 3 周',
-                    style: theme.typography.caption.copyWith(
-                      color: theme.colors.mutedForeground,
-                      fontSize: 11 * textScale,
-                    ),
-                  ),
-                Text(
-                  '高等数学',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.typography.bodySmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14 * textScale,
-                  ),
-                ),
-                if (details.isNotEmpty)
-                  Text(
-                    details,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.caption.copyWith(
-                      fontSize: 11 * textScale,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PreviewCourseBlock extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final Color color;
-  final Color borderColor;
-  final double borderWidth;
-  final double textSize;
-
-  const _PreviewCourseBlock({
-    required this.title,
-    required this.subtitle,
-    required this.color,
-    required this.borderColor,
-    required this.borderWidth,
-    required this.textSize,
+  const _TimetableGridPreview({
+    required this.settings,
+    required this.showWeekendColumns,
   });
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: color,
-      border: Border.all(color: borderColor, width: borderWidth),
-      borderRadius: BorderRadius.circular(4),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.xs),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    // A fixed, representative week keeps the preview deterministic while
+    // using the same real course names, teachers and locations as the school
+    // schedule. It is intentionally independent from the signed-in user's
+    // data so opening settings never performs a network request.
+    final previewCourses = [
+      Course(
+        title: '概率统计',
+        teacher: '胡江',
+        weekday: 1,
+        sessions: [1, 2],
+        weeks: List.generate(14, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬业F308',
+        colorIndex: 0,
+      ),
+      Course(
+        title: '大学物理B(Ⅱ)',
+        teacher: '陈凯',
+        weekday: 1,
+        sessions: [3, 4],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬本C401',
+        colorIndex: 1,
+      ),
+      Course(
+        title: '大学英语A（Ⅲ）— 英汉互译',
+        teacher: '郝倩',
+        weekday: 1,
+        sessions: [7, 8],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬信405',
+        colorIndex: 2,
+      ),
+      Course(
+        title: '数学分析（Ⅲ）',
+        teacher: '李佳',
+        weekday: 2,
+        sessions: [1, 2],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬本C401',
+        colorIndex: 3,
+      ),
+      Course(
+        title: '离散数学',
+        teacher: '张克军',
+        weekday: 2,
+        sessions: [3, 4],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬本C503',
+        colorIndex: 4,
+      ),
+      Course(
+        title: '体育(Ⅲ)太极拳',
+        teacher: '高成强',
+        weekday: 2,
+        sessions: [7, 8],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '中心校区二期操场东侧跑道或二期北门东侧梧桐树下',
+        colorIndex: 5,
+      ),
+      Course(
+        title: '中国近现代史纲要',
+        teacher: '王娟',
+        weekday: 2,
+        sessions: [9, 10],
+        weeks: [13, 14, 15, 16],
+        campus: '中心校区',
+        place: '敬业F310',
+        colorIndex: 6,
+      ),
+      Course(
+        title: 'Java程序设计',
+        teacher: '梁传威',
+        weekday: 3,
+        sessions: [1, 2],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬知楼502',
+        colorIndex: 7,
+      ),
+      Course(
+        title: 'Java程序设计实验',
+        teacher: '梁传威',
+        weekday: 3,
+        sessions: [3, 4],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬知楼502',
+        colorIndex: 8,
+      ),
+      Course(
+        title: '区块链技术与应用',
+        teacher: '马静宇',
+        weekday: 3,
+        sessions: [12, 13],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '东校区',
+        place: '求真307',
+        colorIndex: 9,
+      ),
+      Course(
+        title: '数学分析（Ⅲ）',
+        teacher: '李佳',
+        weekday: 4,
+        sessions: [1, 2],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬本C401',
+        colorIndex: 3,
+      ),
+      Course(
+        title: '概率统计',
+        teacher: '胡江',
+        weekday: 4,
+        sessions: [3, 4],
+        weeks: List.generate(14, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬业F310',
+        colorIndex: 0,
+      ),
+      Course(
+        title: '大学物理实验B',
+        teacher: '郭星导',
+        weekday: 4,
+        sessions: [7, 8],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '大学物理实验室4',
+        colorIndex: 10,
+      ),
+      Course(
+        title: '离散数学',
+        teacher: '张克军',
+        weekday: 5,
+        sessions: [1, 2],
+        weeks: [9, 10, 11, 12, 13, 14, 15, 16],
+        campus: '中心校区',
+        place: '敬业F310',
+        colorIndex: 4,
+      ),
+      Course(
+        title: '中国近现代史纲要',
+        teacher: '王娟',
+        weekday: 5,
+        sessions: [3, 4],
+        weeks: List.generate(16, (i) => i + 1),
+        campus: '中心校区',
+        place: '敬业F310',
+        colorIndex: 6,
+      ),
+      Course(
+        title: 'Java程序设计',
+        teacher: '梁传威',
+        weekday: 5,
+        sessions: [7, 8],
+        weeks: [9, 10, 11, 12, 13, 14, 15, 16],
+        campus: '中心校区',
+        place: '敬知楼511',
+        colorIndex: 7,
+      ),
+    ];
+    final backgroundPath = settings.timetableBackgroundPath;
+    return ClipRect(
+      child: Stack(
+        fit: StackFit.expand,
         children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.theme.typography.bodySmall.copyWith(
-              fontSize: textSize,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          Text(
-            subtitle,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.theme.typography.caption,
+          if (backgroundPath != null && backgroundPath.isNotEmpty)
+            Image.file(
+              File(backgroundPath),
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) =>
+                  ColoredBox(color: theme.colors.background),
+            )
+          else
+            ColoredBox(color: theme.colors.background),
+          TimetableGrid(
+            courses: previewCourses,
+            week: 1,
+            showWeekendColumns: showWeekendColumns,
+            calendar: semesterCalendar,
+            slotCount: 14,
+            visibleSlots: 4,
+            borderColor: theme.colors.foreground,
+            borderWidth: 0.5,
+            courseOpacity: settings.timetableCourseAlpha,
+            courseBorderOpacity: 1.0,
+            courseTextSize: settings.timetableCourseTextSize,
+            timeTextSize: settings.timetableTimeTextSize,
+            dateTextSize: settings.timetableDateTextSize,
+            gridOpacity: settings.timetableGridOpacity,
+            showHeaderDivider: backgroundPath == null || backgroundPath.isEmpty,
+            showTodayGridLines: settings.showTodayGridLines,
+            showGridLines: settings.showTimetableGridLines,
+            sectionHeight: settings.timetableSectionHeight,
+            timeColumnWidth: settings.timetableTimeColumnWidth,
+            dayHeaderHeight: settings.timetableDayHeaderHeight,
+            courseCornerRadius: settings.timetableCourseCornerRadius,
+            courseInnerPadding: settings.timetableCourseInnerPadding,
+            courseOuterPadding: settings.timetableCourseOuterPadding,
+            courseFontScale: settings.timetableCourseFontScale,
+            hideSectionTime: settings.timetableHideSectionTime,
+            hideDateUnderDay: settings.timetableHideDateUnderDay,
+            showStartTime: settings.timetableShowStartTime,
+            hideLocation: settings.timetableHideLocation,
+            hideTeacher: settings.timetableHideTeacher,
+            removeLocationAt: settings.timetableRemoveLocationAt,
+            textAlignCenterHorizontal:
+                settings.timetableTextAlignCenterHorizontal,
+            textAlignCenterVertical: settings.timetableTextAlignCenterVertical,
+            borderType: settings.timetableBorderType.storageValue,
+            pageTextColor: settings.timetablePageTextColor,
+            courseTextColor: settings.timetableCourseTextColor,
           ),
         ],
       ),
-    ),
-  );
+    );
+  }
 }
 
 class _TimetableAdjustment {
