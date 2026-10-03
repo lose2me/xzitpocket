@@ -16,6 +16,7 @@ internal object WidgetRenderSupport {
     internal data class WidgetStyle(
         val fontScale: Float,
         val backgroundAlpha: Float,
+        val textOpacity: Float,
         val hideTeacher: Boolean,
         val hideLocation: Boolean,
         val hideDate: Boolean,
@@ -27,6 +28,8 @@ internal object WidgetRenderSupport {
             fontScale = readFloat(prefs, "flutter.widget_font_scale", 1f)
                 .coerceIn(0.5f, 2f),
             backgroundAlpha = readFloat(prefs, "flutter.widget_background_alpha", 1f)
+                .coerceIn(0f, 1f),
+            textOpacity = readFloat(prefs, "flutter.widget_text_opacity", 1f)
                 .coerceIn(0f, 1f),
             hideTeacher = prefs.getBoolean("flutter.widget_hide_teacher", false),
             hideLocation = prefs.getBoolean("flutter.widget_hide_location", false),
@@ -71,6 +74,7 @@ internal object WidgetRenderSupport {
                 android.util.TypedValue.COMPLEX_UNIT_SP,
                 spec.baseSizeSp * style.fontScale,
             )
+            views.setFloat(spec.viewId, "setAlpha", style.textOpacity)
         }
     }
 

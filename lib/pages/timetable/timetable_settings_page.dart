@@ -162,7 +162,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.paintBucket,
                       title: '全局页面背景色',
-                      value: settings.pageBackgroundColor?.resolve(brightness),
+                      value:
+                          settings.customPageBackgroundColor ??
+                          settings.pageBackgroundColor?.resolve(brightness),
                       colors: [
                         for (final color in AppPageBackgroundColor.values)
                           color.resolve(brightness),
@@ -181,6 +183,20 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .setPageBackgroundColor(selected),
                         );
                       },
+                      lastCustomColor: settings.lastCustomPageBackgroundColor,
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.lastCustomPageBackgroundColor ??
+                              settings.customPageBackgroundColor ??
+                              settings.pageBackgroundColor?.resolve(
+                                brightness,
+                              ) ??
+                              context.theme.colors.background,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomPageBackgroundColor,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -261,12 +277,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableGridLineWidth,
                       min: 0.5,
                       max: 3,
-                      divisions: 5,
+                      divisions: 25,
                       suffix: ' px',
                       displayDecimals: 1,
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableGridLineWidth(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '网格线不透明度',
+                      value: settings.timetableGridOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableGridOpacity(value),
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.calendarDays,
@@ -305,12 +335,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableTodayLineWidth,
                       min: 0.5,
                       max: 4,
-                      divisions: 7,
+                      divisions: 35,
                       suffix: ' px',
                       displayDecimals: 1,
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableTodayLineWidth(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '今日课程边线不透明度',
+                      value: settings.timetableTodayLineOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTodayLineOpacity(value),
                     ),
                   ],
                 ),
@@ -330,6 +374,20 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseFontScale(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '课程字体不透明度',
+                      value: settings.timetableCourseTextOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableCourseTextOpacity(value),
                     ),
                     ProfileSettingsSliderTile(
                       icon: FLucideIcons.cornerDownRight,
@@ -436,12 +494,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableCourseBorderWidth,
                       min: 0.5,
                       max: 3,
-                      divisions: 5,
+                      divisions: 25,
                       suffix: ' px',
                       displayDecimals: 1,
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseBorderWidth(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '课程块边框不透明度',
+                      value: settings.timetableCourseBorderOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableCourseBorderOpacity(value),
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
@@ -567,6 +639,20 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                         ),
                       ),
                     ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '页面文字不透明度',
+                      value: settings.timetablePageTextOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetablePageTextOpacity(value),
+                    ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.sunMedium,
                       title: '全局使用浅色背景图',
@@ -644,6 +730,20 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setWidgetFontScale(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '小组件文字不透明度',
+                      value: settings.widgetTextOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setWidgetTextOpacity(value),
                     ),
                     ProfileSettingsSliderTile(
                       icon: FLucideIcons.layers,
@@ -1292,6 +1392,7 @@ class _TimetableGridPreview extends StatelessWidget {
             showTodayGridLines: settings.showTodayGridLines,
             todayLineColor: settings.timetableTodayLineColor,
             todayLineWidth: settings.timetableTodayLineWidth,
+            todayLineOpacity: settings.timetableTodayLineOpacity,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
             suppressDayDrop: true,
@@ -1314,7 +1415,9 @@ class _TimetableGridPreview extends StatelessWidget {
             textAlignCenterVertical: settings.timetableTextAlignCenterVertical,
             borderType: settings.timetableBorderType.storageValue,
             pageTextColor: settings.timetablePageTextColor,
+            pageTextOpacity: settings.timetablePageTextOpacity,
             courseTextColor: settings.timetableCourseTextColor,
+            courseTextOpacity: settings.timetableCourseTextOpacity,
           ),
         ],
       ),

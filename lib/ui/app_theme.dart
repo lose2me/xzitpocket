@@ -12,6 +12,7 @@ abstract final class AppTheme {
     AppThemeColor themeColor, {
     Color? customColor,
     AppPageBackgroundColor? pageBackgroundColor,
+    Color? customPageBackgroundColor,
   }) {
     final primary = customColor == null
         ? themeColor.lightColor
@@ -20,18 +21,24 @@ abstract final class AppTheme {
             brightness: Brightness.light,
           ).primary;
     final background =
-        pageBackgroundColor?.lightColor ?? const Color(0xFFF1F5F9);
-    final card = pageBackgroundColor == null
+        customPageBackgroundColor ??
+        pageBackgroundColor?.lightColor ??
+        const Color(0xFFF8FAFC);
+    final card =
+        pageBackgroundColor == null && customPageBackgroundColor == null
         ? const Color(0xFFFFFFFF)
-        : Color.lerp(background, Colors.white, 0.88)!;
-    final muted = pageBackgroundColor == null
-        ? const Color(0xFFE9EFF5)
+        : Color.lerp(background, Colors.white, 0.58)!;
+    final muted =
+        pageBackgroundColor == null && customPageBackgroundColor == null
+        ? const Color(0xFFF1F5F9)
         : Color.lerp(background, primary, 0.06)!;
-    final border = pageBackgroundColor == null
-        ? const Color(0xFFD9E2EC)
-        : Color.lerp(background, const Color(0xFF0F172A), 0.20)!;
-    final controlBorder = pageBackgroundColor == null
-        ? const Color(0xFF8797AA)
+    final border =
+        pageBackgroundColor == null && customPageBackgroundColor == null
+        ? const Color(0xFFE2E8F0)
+        : Color.lerp(background, const Color(0xFF0F172A), 0.14)!;
+    final controlBorder =
+        pageBackgroundColor == null && customPageBackgroundColor == null
+        ? const Color(0xFF94A3B8)
         : Color.lerp(background, const Color(0xFF0F172A), 0.32)!;
     return _build(
       debugLabel: 'XZIT Pocket Light',
@@ -75,6 +82,7 @@ abstract final class AppTheme {
     AppThemeColor themeColor, {
     Color? customColor,
     AppPageBackgroundColor? pageBackgroundColor,
+    Color? customPageBackgroundColor,
   }) {
     final primary = customColor == null
         ? themeColor.darkColor
@@ -82,18 +90,26 @@ abstract final class AppTheme {
             seedColor: customColor,
             brightness: Brightness.dark,
           ).primary;
-    final background =
-        pageBackgroundColor?.darkColor ?? const Color(0xFF0B1120);
-    final card = pageBackgroundColor == null
+    final background = customPageBackgroundColor == null
+        ? pageBackgroundColor?.darkColor ?? const Color(0xFF0B1120)
+        : ColorScheme.fromSeed(
+            seedColor: customPageBackgroundColor,
+            brightness: Brightness.dark,
+          ).surface;
+    final card =
+        pageBackgroundColor == null && customPageBackgroundColor == null
         ? const Color(0xFF111827)
         : Color.lerp(background, Colors.white, 0.08)!;
-    final muted = pageBackgroundColor == null
+    final muted =
+        pageBackgroundColor == null && customPageBackgroundColor == null
         ? const Color(0xFF1E293B)
         : Color.lerp(background, Colors.white, 0.12)!;
-    final border = pageBackgroundColor == null
+    final border =
+        pageBackgroundColor == null && customPageBackgroundColor == null
         ? const Color(0xFF334155)
         : Color.lerp(background, Colors.white, 0.22)!;
-    final controlBorder = pageBackgroundColor == null
+    final controlBorder =
+        pageBackgroundColor == null && customPageBackgroundColor == null
         ? const Color(0xFF64748B)
         : Color.lerp(background, Colors.white, 0.36)!;
     return _build(

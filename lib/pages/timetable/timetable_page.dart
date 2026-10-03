@@ -722,6 +722,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.timetableTodayLineColor,
                                   todayLineWidth:
                                       settings.timetableTodayLineWidth,
+                                  todayLineOpacity:
+                                      settings.timetableTodayLineOpacity,
                                   sectionHeight:
                                       settings.timetableSectionHeight,
                                   timeColumnWidth:
@@ -756,8 +758,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.timetableBorderType.storageValue,
                                   pageTextColor:
                                       settings.timetablePageTextColor,
+                                  pageTextOpacity:
+                                      settings.timetablePageTextOpacity,
                                   courseTextColor:
                                       settings.timetableCourseTextColor,
+                                  courseTextOpacity:
+                                      settings.timetableCourseTextOpacity,
                                   onCourseTap: (course, sourceIndex) {
                                     final notifier = ref.read(
                                       scheduleProvider.notifier,

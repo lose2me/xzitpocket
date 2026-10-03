@@ -20,6 +20,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   AppSettings build() {
     _storage = ref.watch(preferencesStorageProvider);
     final customThemeColor = _storage.getCustomThemeColor();
+    final customPageBackgroundColor = _storage.getCustomPageBackgroundColor();
     final courseTextColor = _storage.getTimetableCourseTextColor();
     final pageTextColor = _storage.getTimetablePageTextColor();
     if (_storage.getLastCustomThemeColor() == null &&
@@ -51,6 +52,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           (_storage.getLastCustomThemeColor() ?? customThemeColor) == null
           ? null
           : Color(_storage.getLastCustomThemeColor() ?? customThemeColor!),
+      customPageBackgroundColor: customPageBackgroundColor == null
+          ? null
+          : Color(customPageBackgroundColor),
+      lastCustomPageBackgroundColor:
+          (_storage.getLastCustomPageBackgroundColor() ??
+                  customPageBackgroundColor) ==
+              null
+          ? null
+          : Color(
+              _storage.getLastCustomPageBackgroundColor() ??
+                  customPageBackgroundColor!,
+            ),
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
@@ -63,6 +76,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       ),
       widgetFontScale: _storage.getWidgetFontScale(),
       widgetBackgroundAlpha: _storage.getWidgetBackgroundAlpha(),
+      widgetTextOpacity: _storage.getWidgetTextOpacity(),
       widgetHideTeacher: _storage.getWidgetHideTeacher(),
       widgetHideLocation: _storage.getWidgetHideLocation(),
       widgetHideDate: _storage.getWidgetHideDate(),
@@ -98,6 +112,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           : Color(
               _storage.getTimetableLastCustomPageTextColor() ?? pageTextColor!,
             ),
+      timetablePageTextOpacity: _storage.getTimetablePageTextOpacity(),
       timetableCourseTextColor: courseTextColor == null
           ? null
           : Color(courseTextColor),
@@ -136,6 +151,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           : Color(_storage.getTimetableLastCustomGridLineColor()!),
       timetableGridLineWidth: _storage.getTimetableGridLineWidth(),
       timetableCourseTextSize: _storage.getTimetableCourseTextSize(),
+      timetableCourseTextOpacity: _storage.getTimetableCourseTextOpacity(),
       timetableTimeTextSize: _storage.getTimetableTimeTextSize(),
       timetableDateTextSize: _storage.getTimetableDateTextSize(),
       timetableCourseBorderWidth: _storage.getTimetableCourseBorderWidth(),
@@ -150,6 +166,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           ? null
           : Color(_storage.getTimetableLastCustomTodayLineColor()!),
       timetableTodayLineWidth: _storage.getTimetableTodayLineWidth(),
+      timetableTodayLineOpacity: _storage.getTimetableTodayLineOpacity(),
       useCloudTimetableAdjustments: _storage.getUseCloudTimetableAdjustments(),
       hiddenServiceFeatures: {
         for (final value in _storage.getHiddenServiceFeatures())
@@ -161,8 +178,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setThemePreference(AppThemePreference preference) async {
-    await _storage.setThemePreference(preference.storageValue);
     state = state.copyWith(themePreference: preference);
+    await _storage.setThemePreference(preference.storageValue);
     try {
       await WidgetService.refreshWidget();
     } on WidgetSyncException {
@@ -171,9 +188,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setThemeColor(AppThemeColor color) async {
+    state = state.copyWith(themeColor: color, customThemeColor: null);
     await _storage.setThemeColor(color.storageValue);
     await _storage.setCustomThemeColor(null);
-    state = state.copyWith(themeColor: color, customThemeColor: null);
     try {
       await WidgetService.refreshWidget();
     } on WidgetSyncException {
@@ -182,12 +199,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setCustomThemeColor(Color color) async {
-    await _storage.setCustomThemeColor(color.toARGB32());
-    await _storage.setLastCustomThemeColor(color.toARGB32());
     state = state.copyWith(
       customThemeColor: color,
       lastCustomThemeColor: color,
     );
+    await _storage.setCustomThemeColor(color.toARGB32());
+    await _storage.setLastCustomThemeColor(color.toARGB32());
     try {
       await WidgetService.refreshWidget();
     } on WidgetSyncException {
@@ -196,234 +213,250 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setClassAutomationMode(ClassAutomationMode mode) async {
-    await _storage.setClassAutomationMode(mode.storageValue);
     state = state.copyWith(classAutomationMode: mode);
+    await _storage.setClassAutomationMode(mode.storageValue);
     await NativeAutomationService.refreshClassAutomation();
   }
 
   Future<void> setCourseReminderEnabled(bool value) async {
-    await _storage.setCourseReminderEnabled(value);
     state = state.copyWith(courseReminderEnabled: value);
+    await _storage.setCourseReminderEnabled(value);
     await NativeAutomationService.refreshCourseReminders();
   }
 
   Future<void> setCourseReminderMinutes(int value) async {
     final normalized = value.clamp(1, 60);
-    await _storage.setCourseReminderMinutes(normalized);
     state = state.copyWith(courseReminderMinutes: normalized);
+    await _storage.setCourseReminderMinutes(normalized);
     await NativeAutomationService.refreshCourseReminders();
   }
 
   Future<void> setWearableNotificationCompatibility(bool value) async {
-    await _storage.setWearableNotificationCompatibility(value);
     state = state.copyWith(wearableNotificationCompatibility: value);
+    await _storage.setWearableNotificationCompatibility(value);
     await NativeAutomationService.refreshCourseReminders();
   }
 
   Future<void> setWidgetThemePreference(WidgetThemePreference value) async {
-    await _storage.setWidgetThemePreference(value.storageValue);
     state = state.copyWith(widgetThemePreference: value);
+    await _storage.setWidgetThemePreference(value.storageValue);
     await _refreshWidgetSettings();
   }
 
   Future<void> setWidgetFontScale(double value) async {
     final normalized = value.clamp(0.5, 2.0).toDouble();
-    await _storage.setWidgetFontScale(normalized);
     state = state.copyWith(widgetFontScale: normalized);
+    await _storage.setWidgetFontScale(normalized);
     await _refreshWidgetSettings();
   }
 
   Future<void> setWidgetBackgroundAlpha(double value) async {
     final normalized = value.clamp(0.0, 1.0).toDouble();
-    await _storage.setWidgetBackgroundAlpha(normalized);
     state = state.copyWith(widgetBackgroundAlpha: normalized);
+    await _storage.setWidgetBackgroundAlpha(normalized);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetTextOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    state = state.copyWith(widgetTextOpacity: normalized);
+    await _storage.setWidgetTextOpacity(normalized);
     await _refreshWidgetSettings();
   }
 
   Future<void> setWidgetHideTeacher(bool value) async {
-    await _storage.setWidgetHideTeacher(value);
     state = state.copyWith(widgetHideTeacher: value);
+    await _storage.setWidgetHideTeacher(value);
     await _refreshWidgetSettings();
   }
 
   Future<void> setWidgetHideLocation(bool value) async {
-    await _storage.setWidgetHideLocation(value);
     state = state.copyWith(widgetHideLocation: value);
+    await _storage.setWidgetHideLocation(value);
     await _refreshWidgetSettings();
   }
 
   Future<void> setWidgetHideDate(bool value) async {
-    await _storage.setWidgetHideDate(value);
     state = state.copyWith(widgetHideDate: value);
+    await _storage.setWidgetHideDate(value);
     await _refreshWidgetSettings();
   }
 
   Future<void> setTimetableSectionHeight(double value) async {
     final normalized = value.clamp(40.0, 140.0).toDouble();
-    await _storage.setTimetableSectionHeight(normalized);
     state = state.copyWith(timetableSectionHeight: normalized);
+    await _storage.setTimetableSectionHeight(normalized);
   }
 
   Future<void> setTimetableTimeColumnWidth(double value) async {
     final normalized = value.clamp(20.0, 80.0).toDouble();
-    await _storage.setTimetableTimeColumnWidth(normalized);
     state = state.copyWith(timetableTimeColumnWidth: normalized);
+    await _storage.setTimetableTimeColumnWidth(normalized);
   }
 
   Future<void> setTimetableDayHeaderHeight(double value) async {
     final normalized = value.clamp(30.0, 80.0).toDouble();
-    await _storage.setTimetableDayHeaderHeight(normalized);
     state = state.copyWith(timetableDayHeaderHeight: normalized);
+    await _storage.setTimetableDayHeaderHeight(normalized);
   }
 
   Future<void> setTimetableCourseCornerRadius(double value) async {
     final normalized = value.clamp(0.0, 24.0).toDouble();
-    await _storage.setTimetableCourseCornerRadius(normalized);
     state = state.copyWith(timetableCourseCornerRadius: normalized);
+    await _storage.setTimetableCourseCornerRadius(normalized);
   }
 
   Future<void> setTimetableCourseInnerPadding(double value) async {
     final normalized = value.clamp(0.0, 12.0).toDouble();
-    await _storage.setTimetableCourseInnerPadding(normalized);
     state = state.copyWith(timetableCourseInnerPadding: normalized);
+    await _storage.setTimetableCourseInnerPadding(normalized);
   }
 
   Future<void> setTimetableCourseOuterPadding(double value) async {
     final normalized = value.clamp(0.0, 8.0).toDouble();
-    await _storage.setTimetableCourseOuterPadding(normalized);
     state = state.copyWith(timetableCourseOuterPadding: normalized);
+    await _storage.setTimetableCourseOuterPadding(normalized);
   }
 
   Future<void> setTimetableCourseAlpha(double value) async {
     final normalized = value.clamp(0.1, 1.0).toDouble();
-    await _storage.setTimetableCourseAlpha(normalized);
     state = state.copyWith(timetableCourseAlpha: normalized);
+    await _storage.setTimetableCourseAlpha(normalized);
   }
 
   Future<void> setTimetableCourseFontScale(double value) async {
     final normalized = value.clamp(0.5, 2.0).toDouble();
-    await _storage.setTimetableCourseFontScale(normalized);
     state = state.copyWith(timetableCourseFontScale: normalized);
+    await _storage.setTimetableCourseFontScale(normalized);
   }
 
   Future<void> setTimetableHideSectionTime(bool value) async {
-    await _storage.setTimetableHideSectionTime(value);
     state = state.copyWith(timetableHideSectionTime: value);
+    await _storage.setTimetableHideSectionTime(value);
   }
 
   Future<void> setTimetableHideDateUnderDay(bool value) async {
-    await _storage.setTimetableHideDateUnderDay(value);
     state = state.copyWith(timetableHideDateUnderDay: value);
+    await _storage.setTimetableHideDateUnderDay(value);
   }
 
   Future<void> setTimetableShowStartTime(bool value) async {
-    await _storage.setTimetableShowStartTime(value);
     state = state.copyWith(timetableShowStartTime: value);
+    await _storage.setTimetableShowStartTime(value);
   }
 
   Future<void> setTimetableHideLocation(bool value) async {
-    await _storage.setTimetableHideLocation(value);
     state = state.copyWith(timetableHideLocation: value);
+    await _storage.setTimetableHideLocation(value);
   }
 
   Future<void> setTimetableHideTeacher(bool value) async {
-    await _storage.setTimetableHideTeacher(value);
     state = state.copyWith(timetableHideTeacher: value);
+    await _storage.setTimetableHideTeacher(value);
   }
 
   Future<void> setTimetableHideTeacherBrackets(bool value) async {
-    await _storage.setTimetableHideTeacherBrackets(value);
     state = state.copyWith(timetableHideTeacherBrackets: value);
+    await _storage.setTimetableHideTeacherBrackets(value);
   }
 
   Future<void> setTimetableRemoveLocationAt(bool value) async {
-    await _storage.setTimetableRemoveLocationAt(value);
     state = state.copyWith(timetableRemoveLocationAt: value);
+    await _storage.setTimetableRemoveLocationAt(value);
   }
 
   Future<void> setTimetableTextAlignCenterHorizontal(bool value) async {
-    await _storage.setTimetableTextAlignCenterHorizontal(value);
     state = state.copyWith(timetableTextAlignCenterHorizontal: value);
+    await _storage.setTimetableTextAlignCenterHorizontal(value);
   }
 
   Future<void> setTimetableTextAlignCenterVertical(bool value) async {
-    await _storage.setTimetableTextAlignCenterVertical(value);
     state = state.copyWith(timetableTextAlignCenterVertical: value);
+    await _storage.setTimetableTextAlignCenterVertical(value);
   }
 
   Future<void> setTimetableBorderType(TimetableBorderType value) async {
-    await _storage.setTimetableBorderType(value.storageValue);
     state = state.copyWith(timetableBorderType: value);
+    await _storage.setTimetableBorderType(value.storageValue);
   }
 
   Future<void> setTimetablePageTextColor(Color? value) async {
-    await _storage.setTimetablePageTextColor(value?.toARGB32());
     state = state.copyWith(timetablePageTextColor: value);
+    await _storage.setTimetablePageTextColor(value?.toARGB32());
   }
 
   Future<void> setCustomTimetablePageTextColor(Color value) async {
-    await _storage.setTimetablePageTextColor(value.toARGB32());
-    await _storage.setTimetableLastCustomPageTextColor(value.toARGB32());
     state = state.copyWith(
       timetablePageTextColor: value,
       timetableLastCustomPageTextColor: value,
     );
+    await _storage.setTimetablePageTextColor(value.toARGB32());
+    await _storage.setTimetableLastCustomPageTextColor(value.toARGB32());
   }
 
   Future<void> setTimetableCourseTextColor(Color? value) async {
-    await _storage.setTimetableCourseTextColor(value?.toARGB32());
     state = state.copyWith(timetableCourseTextColor: value);
+    await _storage.setTimetableCourseTextColor(value?.toARGB32());
   }
 
   Future<void> setCustomTimetableCourseTextColor(Color value) async {
-    await _storage.setTimetableCourseTextColor(value.toARGB32());
-    await _storage.setTimetableLastCustomCourseTextColor(value.toARGB32());
     state = state.copyWith(
       timetableCourseTextColor: value,
       timetableLastCustomCourseTextColor: value,
     );
+    await _storage.setTimetableCourseTextColor(value.toARGB32());
+    await _storage.setTimetableLastCustomCourseTextColor(value.toARGB32());
   }
 
   Future<void> setTimetableCourseBorderColor(Color? value) async {
-    await _storage.setTimetableCourseBorderColor(value?.toARGB32());
     state = state.copyWith(timetableCourseBorderColor: value);
+    await _storage.setTimetableCourseBorderColor(value?.toARGB32());
   }
 
   Future<void> setCustomTimetableCourseBorderColor(Color value) async {
-    await _storage.setTimetableCourseBorderColor(value.toARGB32());
-    await _storage.setTimetableLastCustomCourseBorderColor(value.toARGB32());
     state = state.copyWith(
       timetableCourseBorderColor: value,
       timetableLastCustomCourseBorderColor: value,
     );
+    await _storage.setTimetableCourseBorderColor(value.toARGB32());
+    await _storage.setTimetableLastCustomCourseBorderColor(value.toARGB32());
+  }
+
+  Future<void> setCustomPageBackgroundColor(Color value) async {
+    state = state.copyWith(
+      customPageBackgroundColor: value,
+      lastCustomPageBackgroundColor: value,
+    );
+    await _storage.setCustomPageBackgroundColor(value.toARGB32());
+    await _storage.setLastCustomPageBackgroundColor(value.toARGB32());
   }
 
   Future<void> setTimetableGridLineColor(Color? value) async {
-    await _storage.setTimetableGridLineColor(value?.toARGB32());
     state = state.copyWith(timetableGridLineColor: value);
+    await _storage.setTimetableGridLineColor(value?.toARGB32());
   }
 
   Future<void> setCustomTimetableGridLineColor(Color value) async {
-    await _storage.setTimetableGridLineColor(value.toARGB32());
-    await _storage.setTimetableLastCustomGridLineColor(value.toARGB32());
     state = state.copyWith(
       timetableGridLineColor: value,
       timetableLastCustomGridLineColor: value,
     );
+    await _storage.setTimetableGridLineColor(value.toARGB32());
+    await _storage.setTimetableLastCustomGridLineColor(value.toARGB32());
   }
 
   Future<void> setTimetableTodayLineColor(Color? value) async {
-    await _storage.setTimetableTodayLineColor(value?.toARGB32());
     state = state.copyWith(timetableTodayLineColor: value);
+    await _storage.setTimetableTodayLineColor(value?.toARGB32());
   }
 
   Future<void> setCustomTimetableTodayLineColor(Color value) async {
-    await _storage.setTimetableTodayLineColor(value.toARGB32());
-    await _storage.setTimetableLastCustomTodayLineColor(value.toARGB32());
     state = state.copyWith(
       timetableTodayLineColor: value,
       timetableLastCustomTodayLineColor: value,
     );
+    await _storage.setTimetableTodayLineColor(value.toARGB32());
+    await _storage.setTimetableLastCustomTodayLineColor(value.toARGB32());
   }
 
   Future<void> _refreshWidgetSettings() async {
@@ -450,32 +483,54 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setPageBackgroundColor(AppPageBackgroundColor? value) async {
+    state = state.copyWith(
+      pageBackgroundColor: value,
+      customPageBackgroundColor: null,
+    );
     await _storage.setPageBackgroundColor(value?.storageValue);
-    state = state.copyWith(pageBackgroundColor: value);
+    await _storage.setCustomPageBackgroundColor(null);
   }
 
   Future<void> setTimetableComponentOpacity(double value) async {
     final normalized = value.clamp(0.0, 1.0).toDouble();
-    await _storage.setTimetableComponentOpacity(normalized);
     state = state.copyWith(timetableComponentOpacity: normalized);
+    await _storage.setTimetableComponentOpacity(normalized);
   }
 
   Future<void> setTimetableGridOpacity(double value) async {
     final normalized = value.clamp(0.0, 1.0).toDouble();
-    await _storage.setTimetableGridOpacity(normalized);
     state = state.copyWith(timetableGridOpacity: normalized);
+    await _storage.setTimetableGridOpacity(normalized);
+  }
+
+  Future<void> setTimetablePageTextOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    state = state.copyWith(timetablePageTextOpacity: normalized);
+    await _storage.setTimetablePageTextOpacity(normalized);
+  }
+
+  Future<void> setTimetableCourseTextOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    state = state.copyWith(timetableCourseTextOpacity: normalized);
+    await _storage.setTimetableCourseTextOpacity(normalized);
   }
 
   Future<void> setTimetableGridLineWidth(double value) async {
     final normalized = _normalizeTimetableDimension(value, 0.5, 3.0);
-    await _storage.setTimetableGridLineWidth(normalized);
     state = state.copyWith(timetableGridLineWidth: normalized);
+    await _storage.setTimetableGridLineWidth(normalized);
   }
 
   Future<void> setTimetableTodayLineWidth(double value) async {
     final normalized = _normalizeTimetableDimension(value, 0.5, 4.0);
-    await _storage.setTimetableTodayLineWidth(normalized);
     state = state.copyWith(timetableTodayLineWidth: normalized);
+    await _storage.setTimetableTodayLineWidth(normalized);
+  }
+
+  Future<void> setTimetableTodayLineOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    state = state.copyWith(timetableTodayLineOpacity: normalized);
+    await _storage.setTimetableTodayLineOpacity(normalized);
   }
 
   Future<void> setTimetableCourseTextSize(double value) async {
@@ -497,15 +552,15 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setTimetableCourseBorderWidth(double value) async {
-    final normalized = _normalizeTimetableDimension(value, 0.0, 3.0);
-    await _storage.setTimetableCourseBorderWidth(normalized);
+    final normalized = _normalizeTimetableDimension(value, 0.5, 3.0);
     state = state.copyWith(timetableCourseBorderWidth: normalized);
+    await _storage.setTimetableCourseBorderWidth(normalized);
   }
 
   Future<void> setTimetableCourseBorderOpacity(double value) async {
     final normalized = value.clamp(0.0, 1.0).toDouble();
-    await _storage.setTimetableCourseBorderOpacity(normalized);
     state = state.copyWith(timetableCourseBorderOpacity: normalized);
+    await _storage.setTimetableCourseBorderOpacity(normalized);
   }
 
   Future<void> resetTimetableAppearance() async {
@@ -517,12 +572,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableUseLightBackgroundInDarkMode:
           defaults.timetableUseLightBackgroundInDarkMode,
       pageBackgroundColor: null,
+      customPageBackgroundColor: null,
+      lastCustomPageBackgroundColor: null,
       timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
+      timetablePageTextOpacity: defaults.timetablePageTextOpacity,
       timetableGridLineColor: null,
       timetableLastCustomGridLineColor: null,
       timetableGridLineWidth: defaults.timetableGridLineWidth,
       timetableCourseTextSize: defaults.timetableCourseTextSize,
+      timetableCourseTextOpacity: defaults.timetableCourseTextOpacity,
       timetableTimeTextSize: defaults.timetableTimeTextSize,
       timetableDateTextSize: defaults.timetableDateTextSize,
       timetableCourseBorderWidth: defaults.timetableCourseBorderWidth,
@@ -532,9 +591,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTodayLineColor: null,
       timetableLastCustomTodayLineColor: null,
       timetableTodayLineWidth: defaults.timetableTodayLineWidth,
+      timetableTodayLineOpacity: defaults.timetableTodayLineOpacity,
       widgetThemePreference: defaults.widgetThemePreference,
       widgetFontScale: defaults.widgetFontScale,
       widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,
+      widgetTextOpacity: defaults.widgetTextOpacity,
       widgetHideTeacher: defaults.widgetHideTeacher,
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
@@ -569,13 +630,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setShowTimetableGridLines(bool value) async {
-    await _storage.setShowTimetableGridLines(value);
     state = state.copyWith(showTimetableGridLines: value);
+    await _storage.setShowTimetableGridLines(value);
   }
 
   Future<void> setShowTodayGridLines(bool value) async {
-    await _storage.setShowTodayGridLines(value);
     state = state.copyWith(showTodayGridLines: value);
+    await _storage.setShowTodayGridLines(value);
   }
 
   Future<void> setUseCloudTimetableAdjustments(bool value) async {

@@ -12,6 +12,7 @@ class CourseCard extends StatelessWidget {
   final double courseOpacity;
   final double courseBorderOpacity;
   final double textSize;
+  final double textOpacity;
   final Color borderColor;
   final double borderWidth;
   final double cornerRadius;
@@ -35,6 +36,7 @@ class CourseCard extends StatelessWidget {
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
     this.textSize = 12.0,
+    this.textOpacity = 1.0,
     required this.borderColor,
     this.borderWidth = 0.5,
     this.cornerRadius = 6,
@@ -62,9 +64,11 @@ class CourseCard extends StatelessWidget {
     final resolvedTextColor =
         textColor ??
         (useDarkText ? const Color(0xFF172033) : const Color(0xFFF8FAFC));
+    final effectiveTextColor = resolvedTextColor.withValues(alpha: textOpacity);
     final secondaryTextColor = textColor == null
         ? (useDarkText ? const Color(0xFF475569) : const Color(0xFFCBD5E1))
-        : resolvedTextColor.withValues(alpha: 0.72);
+              .withValues(alpha: textOpacity)
+        : resolvedTextColor.withValues(alpha: 0.72 * textOpacity);
     final effectiveBorderColor = borderColor.withAlpha(
       (255 * courseBorderOpacity).round(),
     );
@@ -92,7 +96,7 @@ class CourseCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: textSize,
                       fontWeight: FontWeight.w600,
-                      color: resolvedTextColor,
+                      color: effectiveTextColor,
                       height: 4 / 3,
                       letterSpacing: 0,
                     ),

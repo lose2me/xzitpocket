@@ -104,6 +104,14 @@ class PreferencesStorage {
     value.clamp(0.0, 1.0).toDouble(),
   );
 
+  double getWidgetTextOpacity() =>
+      (_prefs.getDouble('widget_text_opacity') ?? 1.0)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setWidgetTextOpacity(double value) =>
+      _prefs.setDouble('widget_text_opacity', value.clamp(0.0, 1.0).toDouble());
+
   bool getWidgetHideTeacher() => _prefs.getBool('widget_hide_teacher') ?? false;
 
   Future<void> setWidgetHideTeacher(bool value) =>
@@ -305,6 +313,27 @@ class PreferencesStorage {
     }
   }
 
+  int? getCustomPageBackgroundColor() =>
+      _prefs.getInt('custom_page_background_color');
+  int? getLastCustomPageBackgroundColor() =>
+      _prefs.getInt('last_custom_page_background_color');
+
+  Future<void> setCustomPageBackgroundColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('custom_page_background_color');
+    } else {
+      await _prefs.setInt('custom_page_background_color', value);
+    }
+  }
+
+  Future<void> setLastCustomPageBackgroundColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('last_custom_page_background_color');
+    } else {
+      await _prefs.setInt('last_custom_page_background_color', value);
+    }
+  }
+
   int? getTimetableGridLineColor() =>
       _prefs.getInt('timetable_grid_line_color');
   int? getTimetableLastCustomGridLineColor() =>
@@ -415,6 +444,16 @@ class PreferencesStorage {
     value.clamp(0.0, 1.0).toDouble(),
   );
 
+  double getTimetablePageTextOpacity() =>
+      (_prefs.getDouble('timetable_page_text_opacity') ?? 1.0)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetablePageTextOpacity(double value) => _prefs.setDouble(
+    'timetable_page_text_opacity',
+    value.clamp(0.0, 1.0).toDouble(),
+  );
+
   double getTimetableGridLineWidth() => _clampTimetableDimension(
     _prefs.getDouble('timetable_grid_line_width') ?? 0.5,
     min: 0.5,
@@ -437,6 +476,16 @@ class PreferencesStorage {
     _clampTimetableDimension(value, min: 0.5, max: 4.0),
   );
 
+  double getTimetableTodayLineOpacity() =>
+      (_prefs.getDouble('timetable_today_line_opacity') ?? 0.5)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableTodayLineOpacity(double value) => _prefs.setDouble(
+    'timetable_today_line_opacity',
+    value.clamp(0.0, 1.0).toDouble(),
+  );
+
   double getTimetableCourseTextSize() => _clampTimetableDimension(
     _prefs.getDouble('timetable_course_text_size') ?? 12.0,
     min: 8.0,
@@ -446,6 +495,16 @@ class PreferencesStorage {
   Future<void> setTimetableCourseTextSize(double value) => _prefs.setDouble(
     'timetable_course_text_size',
     _clampTimetableDimension(value, min: 8.0, max: 18.0),
+  );
+
+  double getTimetableCourseTextOpacity() =>
+      (_prefs.getDouble('timetable_course_text_opacity') ?? 1.0)
+          .clamp(0.0, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableCourseTextOpacity(double value) => _prefs.setDouble(
+    'timetable_course_text_opacity',
+    value.clamp(0.0, 1.0).toDouble(),
   );
 
   double getTimetableTimeTextSize() => _clampTimetableDimension(
@@ -500,6 +559,8 @@ class PreferencesStorage {
       _prefs.remove('timetable_use_light_background_in_dark_mode'),
       _prefs.remove('page_background_color'),
       _prefs.remove('timetable_solid_background'),
+      _prefs.remove('custom_page_background_color'),
+      _prefs.remove('last_custom_page_background_color'),
       // Remove settings from versions that supported separate source images,
       // non-fullscreen backgrounds, and background opacity.
       _prefs.remove('timetable_background_original_path'),
@@ -507,13 +568,16 @@ class PreferencesStorage {
       _prefs.remove('timetable_background_opacity'),
       _prefs.remove('timetable_component_opacity'),
       _prefs.remove('timetable_grid_opacity'),
+      _prefs.remove('timetable_page_text_opacity'),
       _prefs.remove('timetable_grid_line_color'),
       _prefs.remove('timetable_last_custom_grid_line_color'),
       _prefs.remove('timetable_grid_line_width'),
       _prefs.remove('timetable_today_line_color'),
       _prefs.remove('timetable_last_custom_today_line_color'),
       _prefs.remove('timetable_today_line_width'),
+      _prefs.remove('timetable_today_line_opacity'),
       _prefs.remove('timetable_course_text_size'),
+      _prefs.remove('timetable_course_text_opacity'),
       _prefs.remove('timetable_time_text_size'),
       _prefs.remove('timetable_date_text_size'),
       _prefs.remove('timetable_course_border_width'),
@@ -523,6 +587,7 @@ class PreferencesStorage {
       _prefs.remove('widget_theme_preference'),
       _prefs.remove('widget_font_scale'),
       _prefs.remove('widget_background_alpha'),
+      _prefs.remove('widget_text_opacity'),
       _prefs.remove('widget_hide_teacher'),
       _prefs.remove('widget_hide_location'),
       _prefs.remove('widget_hide_date'),

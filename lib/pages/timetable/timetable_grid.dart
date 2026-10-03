@@ -90,6 +90,7 @@ class TimetableGrid extends StatefulWidget {
   final bool showTodayGridLines;
   final Color? todayLineColor;
   final double todayLineWidth;
+  final double todayLineOpacity;
   final bool showGridLines;
   final bool showBelowFoldIndicator;
   final double sectionHeight;
@@ -110,7 +111,9 @@ class TimetableGrid extends StatefulWidget {
   final bool textAlignCenterVertical;
   final String borderType;
   final Color? pageTextColor;
+  final double pageTextOpacity;
   final Color? courseTextColor;
+  final double courseTextOpacity;
 
   const TimetableGrid({
     super.key,
@@ -153,6 +156,7 @@ class TimetableGrid extends StatefulWidget {
     this.showTodayGridLines = false,
     this.todayLineColor,
     this.todayLineWidth = 1.0,
+    this.todayLineOpacity = 0.5,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
     this.sectionHeight = 70.0,
@@ -173,7 +177,9 @@ class TimetableGrid extends StatefulWidget {
     this.textAlignCenterVertical = false,
     this.borderType = 'solid',
     this.pageTextColor,
+    this.pageTextOpacity = 1.0,
     this.courseTextColor,
+    this.courseTextOpacity = 1.0,
   });
 
   @override
@@ -321,7 +327,7 @@ class _TimetableGridState extends State<TimetableGrid> {
     final gridLineColor = (widget.gridLineColor ?? theme.colors.border)
         .withValues(alpha: widget.gridOpacity);
     final todayLineColor = (widget.todayLineColor ?? theme.colors.primary)
-        .withValues(alpha: widget.gridOpacity);
+        .withValues(alpha: widget.todayLineOpacity);
 
     // Cheap pre-compute: only the variant selection happens here (from the
     // cached day slots), never the grouping/backtracking.
@@ -429,6 +435,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                         textSize: widget.timeTextSize,
                         hideSectionTime: widget.hideSectionTime,
                         textColor: widget.pageTextColor,
+                        textOpacity: widget.pageTextOpacity,
                       ),
                       ...List.generate(dayCount, (dayIndex) {
                         final weekday = dayIndex + 1;
@@ -533,6 +540,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               widget.courseTextSize *
                                               widget.courseFontScale,
                                           textColor: widget.courseTextColor,
+                                          textOpacity: widget.courseTextOpacity,
                                           cornerRadius:
                                               widget.courseCornerRadius,
                                           innerPadding:
@@ -821,9 +829,12 @@ class _TimetableGridState extends State<TimetableGrid> {
             '${date.day}',
             style: theme.typography.caption.copyWith(
               fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-              color: isToday
-                  ? theme.colors.primary
-                  : widget.pageTextColor ?? theme.colors.mutedForeground,
+              color:
+                  (isToday
+                          ? theme.colors.primary
+                          : widget.pageTextColor ??
+                                theme.colors.mutedForeground)
+                      .withValues(alpha: widget.pageTextOpacity),
               fontSize: widget.dateTextSize,
             ),
           ),
@@ -831,9 +842,11 @@ class _TimetableGridState extends State<TimetableGrid> {
           weekdayLabel,
           style: theme.typography.caption.copyWith(
             fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-            color: isToday
-                ? theme.colors.primary
-                : widget.pageTextColor ?? theme.colors.mutedForeground,
+            color:
+                (isToday
+                        ? theme.colors.primary
+                        : widget.pageTextColor ?? theme.colors.mutedForeground)
+                    .withValues(alpha: widget.pageTextOpacity),
             fontSize: widget.dateTextSize,
           ),
         ),

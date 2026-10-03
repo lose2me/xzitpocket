@@ -115,11 +115,13 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       settings.themeColor,
       customColor: settings.customThemeColor,
       pageBackgroundColor: settings.pageBackgroundColor,
+      customPageBackgroundColor: settings.customPageBackgroundColor,
     );
     final darkTheme = AppTheme.darkFor(
       settings.themeColor,
       customColor: settings.customThemeColor,
       pageBackgroundColor: settings.pageBackgroundColor,
+      customPageBackgroundColor: settings.customPageBackgroundColor,
     );
 
     return MaterialApp(

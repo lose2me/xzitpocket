@@ -12,6 +12,7 @@ class TimeColumn extends StatelessWidget {
   final double width;
   final bool hideSectionTime;
   final Color? textColor;
+  final double textOpacity;
 
   const TimeColumn({
     super.key,
@@ -22,6 +23,7 @@ class TimeColumn extends StatelessWidget {
     this.width = 40.0,
     this.hideSectionTime = false,
     this.textColor,
+    this.textOpacity = 1.0,
   });
 
   @override
@@ -47,7 +49,8 @@ class TimeColumn extends StatelessWidget {
                       fontSize: textSize,
                       height: 4 / 3,
                       fontWeight: FontWeight.w600,
-                      color: textColor ?? theme.colors.mutedForeground,
+                      color: (textColor ?? theme.colors.mutedForeground)
+                          .withValues(alpha: textOpacity),
                     ),
                   ),
                   if (!hideSectionTime) ...[
@@ -56,7 +59,8 @@ class TimeColumn extends StatelessWidget {
                       style: theme.typography.caption.copyWith(
                         fontSize: textSize,
                         height: 14 / 11,
-                        color: textColor ?? theme.colors.mutedForeground,
+                        color: (textColor ?? theme.colors.mutedForeground)
+                            .withValues(alpha: textOpacity),
                       ),
                     ),
                     Text(
@@ -64,7 +68,8 @@ class TimeColumn extends StatelessWidget {
                       style: theme.typography.caption.copyWith(
                         fontSize: textSize,
                         height: 14 / 11,
-                        color: textColor ?? theme.colors.mutedForeground,
+                        color: (textColor ?? theme.colors.mutedForeground)
+                            .withValues(alpha: textOpacity),
                       ),
                     ),
                   ],

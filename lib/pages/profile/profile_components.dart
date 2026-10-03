@@ -424,7 +424,7 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
             Expanded(child: Text(title)),
             Text(
               value == null
-                  ? '跟随主题'
+                  ? '跟随明暗'
                   : '#${value!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
             ),
           ],
