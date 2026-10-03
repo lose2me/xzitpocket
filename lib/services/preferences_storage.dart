@@ -598,14 +598,47 @@ class PreferencesStorage {
       );
 
   Future<void> resetTimetableAppearance() async {
+    bool isActiveCustomColor(int? color, int? lastCustomColor) =>
+        color != null && color == lastCustomColor;
+
+    final keepWidgetBackgroundColor = isActiveCustomColor(
+      getWidgetBackgroundColor(),
+      getLastCustomWidgetBackgroundColor(),
+    );
+    final keepWidgetTextColor = isActiveCustomColor(
+      getWidgetTextColor(),
+      getLastCustomWidgetTextColor(),
+    );
+    final keepGridLineColor = isActiveCustomColor(
+      getTimetableGridLineColor(),
+      getTimetableLastCustomGridLineColor(),
+    );
+    final keepTodayLineColor = isActiveCustomColor(
+      getTimetableTodayLineColor(),
+      getTimetableLastCustomTodayLineColor(),
+    );
+    final keepPageTextColor = isActiveCustomColor(
+      getTimetablePageTextColor(),
+      getTimetableLastCustomPageTextColor(),
+    );
+    final keepCourseTextColor = isActiveCustomColor(
+      getTimetableCourseTextColor(),
+      getTimetableLastCustomCourseTextColor(),
+    );
+    final keepCourseBorderColor = isActiveCustomColor(
+      getTimetableCourseBorderColor(),
+      getTimetableLastCustomCourseBorderColor(),
+    );
+
     await Future.wait([
+      _prefs.remove('theme_preference'),
+      _prefs.remove('theme_color'),
+      _prefs.remove('custom_theme_color'),
       _prefs.remove('timetable_background_path'),
       _prefs.remove('timetable_dark_background_path'),
       _prefs.remove('timetable_use_light_background_in_dark_mode'),
       _prefs.remove('page_background_color'),
       _prefs.remove('timetable_solid_background'),
-      _prefs.remove('custom_page_background_color'),
-      _prefs.remove('last_custom_page_background_color'),
       _prefs.remove('toast_opacity'),
       // Remove settings from versions that supported separate source images,
       // non-fullscreen backgrounds, and background opacity.
@@ -615,11 +648,9 @@ class PreferencesStorage {
       _prefs.remove('timetable_component_opacity'),
       _prefs.remove('timetable_grid_opacity'),
       _prefs.remove('timetable_page_text_opacity'),
-      _prefs.remove('timetable_grid_line_color'),
-      _prefs.remove('timetable_last_custom_grid_line_color'),
+      if (!keepGridLineColor) _prefs.remove('timetable_grid_line_color'),
       _prefs.remove('timetable_grid_line_width'),
-      _prefs.remove('timetable_today_line_color'),
-      _prefs.remove('timetable_last_custom_today_line_color'),
+      if (!keepTodayLineColor) _prefs.remove('timetable_today_line_color'),
       _prefs.remove('timetable_today_line_width'),
       _prefs.remove('timetable_today_line_opacity'),
       _prefs.remove('timetable_course_text_size'),
@@ -634,10 +665,8 @@ class PreferencesStorage {
       _prefs.remove('widget_font_scale'),
       _prefs.remove('widget_background_alpha'),
       _prefs.remove('widget_text_opacity'),
-      _prefs.remove('widget_background_color'),
-      _prefs.remove('last_custom_widget_background_color'),
-      _prefs.remove('widget_text_color'),
-      _prefs.remove('last_custom_widget_text_color'),
+      if (!keepWidgetBackgroundColor) _prefs.remove('widget_background_color'),
+      if (!keepWidgetTextColor) _prefs.remove('widget_text_color'),
       _prefs.remove('widget_hide_teacher'),
       _prefs.remove('widget_hide_location'),
       _prefs.remove('widget_hide_date'),
@@ -659,12 +688,10 @@ class PreferencesStorage {
       _prefs.remove('timetable_text_align_center_horizontal'),
       _prefs.remove('timetable_text_align_center_vertical'),
       _prefs.remove('timetable_border_type'),
-      _prefs.remove('timetable_page_text_color'),
-      _prefs.remove('timetable_last_custom_page_text_color'),
-      _prefs.remove('timetable_course_text_color'),
-      _prefs.remove('timetable_last_custom_course_text_color'),
-      _prefs.remove('timetable_course_border_color'),
-      _prefs.remove('timetable_last_custom_course_border_color'),
+      if (!keepPageTextColor) _prefs.remove('timetable_page_text_color'),
+      if (!keepCourseTextColor) _prefs.remove('timetable_course_text_color'),
+      if (!keepCourseBorderColor)
+        _prefs.remove('timetable_course_border_color'),
     ]);
   }
 

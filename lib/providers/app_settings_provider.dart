@@ -616,22 +616,28 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> resetTimetableAppearance() async {
+    Color? activeCustomColor(Color? color, Color? lastCustomColor) =>
+        color != null && color == lastCustomColor ? color : null;
+
     await _storage.resetTimetableAppearance();
     const defaults = AppSettings();
     state = state.copyWith(
+      themePreference: defaults.themePreference,
+      themeColor: defaults.themeColor,
+      customThemeColor: null,
       timetableBackgroundPath: null,
       timetableDarkBackgroundPath: null,
       timetableUseLightBackgroundInDarkMode:
           defaults.timetableUseLightBackgroundInDarkMode,
       pageBackgroundColor: null,
-      customPageBackgroundColor: null,
-      lastCustomPageBackgroundColor: null,
       toastOpacity: defaults.toastOpacity,
       timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
       timetablePageTextOpacity: defaults.timetablePageTextOpacity,
-      timetableGridLineColor: null,
-      timetableLastCustomGridLineColor: null,
+      timetableGridLineColor: activeCustomColor(
+        state.timetableGridLineColor,
+        state.timetableLastCustomGridLineColor,
+      ),
       timetableGridLineWidth: defaults.timetableGridLineWidth,
       timetableCourseTextSize: defaults.timetableCourseTextSize,
       timetableCourseTextOpacity: defaults.timetableCourseTextOpacity,
@@ -641,18 +647,24 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseBorderOpacity: defaults.timetableCourseBorderOpacity,
       showTimetableGridLines: defaults.showTimetableGridLines,
       showTodayGridLines: defaults.showTodayGridLines,
-      timetableTodayLineColor: null,
-      timetableLastCustomTodayLineColor: null,
+      timetableTodayLineColor: activeCustomColor(
+        state.timetableTodayLineColor,
+        state.timetableLastCustomTodayLineColor,
+      ),
       timetableTodayLineWidth: defaults.timetableTodayLineWidth,
       timetableTodayLineOpacity: defaults.timetableTodayLineOpacity,
       widgetThemePreference: defaults.widgetThemePreference,
       widgetFontScale: defaults.widgetFontScale,
       widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,
       widgetTextOpacity: defaults.widgetTextOpacity,
-      widgetBackgroundColor: null,
-      lastCustomWidgetBackgroundColor: null,
-      widgetTextColor: null,
-      lastCustomWidgetTextColor: null,
+      widgetBackgroundColor: activeCustomColor(
+        state.widgetBackgroundColor,
+        state.lastCustomWidgetBackgroundColor,
+      ),
+      widgetTextColor: activeCustomColor(
+        state.widgetTextColor,
+        state.lastCustomWidgetTextColor,
+      ),
       widgetHideTeacher: defaults.widgetHideTeacher,
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
@@ -676,12 +688,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTextAlignCenterVertical:
           defaults.timetableTextAlignCenterVertical,
       timetableBorderType: defaults.timetableBorderType,
-      timetablePageTextColor: null,
-      timetableLastCustomPageTextColor: null,
-      timetableCourseTextColor: null,
-      timetableLastCustomCourseTextColor: null,
-      timetableCourseBorderColor: null,
-      timetableLastCustomCourseBorderColor: null,
+      timetablePageTextColor: activeCustomColor(
+        state.timetablePageTextColor,
+        state.timetableLastCustomPageTextColor,
+      ),
+      timetableCourseTextColor: activeCustomColor(
+        state.timetableCourseTextColor,
+        state.timetableLastCustomCourseTextColor,
+      ),
+      timetableCourseBorderColor: activeCustomColor(
+        state.timetableCourseBorderColor,
+        state.timetableLastCustomCourseBorderColor,
+      ),
     );
     await _refreshWidgetSettings();
   }

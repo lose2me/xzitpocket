@@ -146,17 +146,13 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         final theme = Theme.of(context).brightness == Brightness.dark
             ? darkTheme
             : lightTheme;
-        return _DiagonalThemeTransition(
+        return _SmoothThemeTransition(
           transitionKey:
-              '${Theme.of(context).brightness.name}:${theme.colors.background.toARGB32()}',
-          previousColor: theme.colors.background,
-          child: FTheme(
-            data: theme,
-            child: IconTheme(
-              data: IconThemeData(size: 20, color: theme.colors.foreground),
-              child: FToaster(child: FTooltipGroup(child: child!)),
-            ),
-          ),
+              '${Theme.of(context).brightness.name}:'
+              '${theme.colors.background.toARGB32()}:'
+              '${theme.colors.primary.toARGB32()}',
+          theme: theme,
+          child: child!,
         );
       },
       home: HomePage(key: HomePage.globalKey),
@@ -164,47 +160,52 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   }
 }
 
-class _DiagonalThemeTransition extends StatefulWidget {
+class _SmoothThemeTransition extends StatefulWidget {
   final Object transitionKey;
-  final Color previousColor;
+  final FThemeData theme;
   final Widget child;
 
-  const _DiagonalThemeTransition({
+  const _SmoothThemeTransition({
     required this.transitionKey,
-    required this.previousColor,
+    required this.theme,
     required this.child,
   });
 
   @override
-  State<_DiagonalThemeTransition> createState() =>
-      _DiagonalThemeTransitionState();
+  State<_SmoothThemeTransition> createState() => _SmoothThemeTransitionState();
 }
 
-class _DiagonalThemeTransitionState extends State<_DiagonalThemeTransition>
+class _SmoothThemeTransitionState extends State<_SmoothThemeTransition>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final Animation<double> _animation;
   late Object _transitionKey;
-  late Color _currentColor;
-  Color? _oldColor;
+  late FThemeData _beginTheme;
+  late FThemeData _endTheme;
 
   @override
   void initState() {
     super.initState();
     _transitionKey = widget.transitionKey;
-    _currentColor = widget.previousColor;
+    _beginTheme = widget.theme;
+    _endTheme = widget.theme;
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 360),
+      duration: const Duration(milliseconds: 600),
       value: 1,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubicEmphasized,
     );
   }
 
   @override
-  void didUpdateWidget(covariant _DiagonalThemeTransition oldWidget) {
+  void didUpdateWidget(covariant _SmoothThemeTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (_transitionKey == widget.transitionKey) return;
-    _oldColor = _currentColor;
-    _currentColor = widget.previousColor;
+    _beginTheme = FThemeData.lerp(_beginTheme, _endTheme, _animation.value);
+    _endTheme = widget.theme;
     _transitionKey = widget.transitionKey;
     _controller.forward(from: 0);
   }
@@ -216,61 +217,79 @@ class _DiagonalThemeTransitionState extends State<_DiagonalThemeTransition>
   }
 
   @override
-  Widget build(BuildContext context) => Stack(
-    fit: StackFit.expand,
-    children: [
-      widget.child,
-      if (_oldColor != null)
-        IgnorePointer(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, _) {
-              if (_controller.isCompleted) return const SizedBox.shrink();
-              return ClipPath(
-                clipper: _DiagonalThemeClipper(_controller.value),
-                child: ColoredBox(color: _oldColor!.withValues(alpha: 0.82)),
-              );
-            },
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _controller,
+    child: FToaster(child: FTooltipGroup(child: widget.child)),
+    builder: (context, child) {
+      final progress = _animation.value;
+      final theme = FThemeData.lerp(_beginTheme, _endTheme, progress);
+      return FBasicTheme(
+        data: theme,
+        child: Theme(
+          data: theme.toApproximateMaterialTheme(),
+          child: IconTheme(
+            data: IconThemeData(size: 20, color: theme.colors.foreground),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ColoredBox(color: theme.colors.background, child: child),
+                if (!_controller.isCompleted)
+                  IgnorePointer(
+                    child: CustomPaint(
+                      painter: _ThemeSweepPainter(
+                        progress: progress,
+                        color: Color.lerp(
+                          _endTheme.colors.background,
+                          _endTheme.colors.primary,
+                          0.14,
+                        )!,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
-    ],
+      );
+    },
   );
 }
 
-class _DiagonalThemeClipper extends CustomClipper<Path> {
+class _ThemeSweepPainter extends CustomPainter {
   final double progress;
+  final Color color;
 
-  const _DiagonalThemeClipper(this.progress);
+  const _ThemeSweepPainter({required this.progress, required this.color});
 
   @override
-  Path getClip(Size size) {
-    if (size.isEmpty || progress >= 1) return Path();
-    final cutoff = progress * 2 - 1;
-    final points = <Offset>[
-      Offset.zero,
-      Offset(size.width, 0),
-      Offset(size.width, size.height),
-      Offset(0, size.height),
-    ];
-    double score(Offset point) =>
-        point.dx / size.width - point.dy / size.height - cutoff;
-    final clipped = <Offset>[];
-    for (var index = 0; index < points.length; index++) {
-      final current = points[index];
-      final next = points[(index + 1) % points.length];
-      final currentScore = score(current);
-      final nextScore = score(next);
-      if (currentScore >= 0) clipped.add(current);
-      if ((currentScore >= 0) != (nextScore >= 0)) {
-        final fraction = currentScore / (currentScore - nextScore);
-        clipped.add(Offset.lerp(current, next, fraction)!);
-      }
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || progress <= 0 || progress >= 1) return;
+    const samples = 16;
+    final center = -0.25 + progress * 1.5;
+    final motionFade = 4 * progress * (1 - progress);
+    final colors = <Color>[];
+    final stops = <double>[];
+    for (var index = 0; index <= samples; index++) {
+      final position = index / samples;
+      final distance = (position - center).abs();
+      final strength = (1 - distance / 0.28).clamp(0.0, 1.0);
+      colors.add(
+        color.withValues(alpha: 0.07 * strength * strength * motionFade),
+      );
+      stops.add(position);
     }
-    if (clipped.isEmpty) return Path();
-    return Path()..addPolygon(clipped, true);
+    final bounds = Offset.zero & size;
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.bottomLeft,
+        end: Alignment.topRight,
+        colors: colors,
+        stops: stops,
+      ).createShader(bounds);
+    canvas.drawRect(bounds, paint);
   }
 
   @override
-  bool shouldReclip(covariant _DiagonalThemeClipper oldClipper) =>
-      oldClipper.progress != progress;
+  bool shouldRepaint(covariant _ThemeSweepPainter oldDelegate) =>
+      oldDelegate.progress != progress || oldDelegate.color != color;
 }

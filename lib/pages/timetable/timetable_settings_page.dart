@@ -36,6 +36,10 @@ final _styleColors = [
   for (final color in AppThemeColor.values) color.lightColor,
 ];
 
+final _widgetBackgroundColors = [
+  for (final color in AppPageBackgroundColor.values) color.lightColor,
+];
+
 class TimetableSettingsPage extends ConsumerStatefulWidget {
   const TimetableSettingsPage({super.key});
 
@@ -737,7 +741,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       icon: FLucideIcons.paintBucket,
                       title: '小组件背景色',
                       value: settings.widgetBackgroundColor,
-                      colors: _styleColors,
+                      colors: _widgetBackgroundColors,
                       lastCustomColor: settings.lastCustomWidgetBackgroundColor,
                       onChanged: (color) => unawaited(
                         ref
