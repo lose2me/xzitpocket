@@ -52,6 +52,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           (_storage.getLastCustomThemeColor() ?? customThemeColor) == null
           ? null
           : Color(_storage.getLastCustomThemeColor() ?? customThemeColor!),
+      floatingNavigationBar: _storage.getFloatingNavigationBar(),
       customPageBackgroundColor: customPageBackgroundColor == null
           ? null
           : Color(customPageBackgroundColor),
@@ -224,6 +225,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     } on WidgetSyncException {
       // Ignore widget refresh failures so theme changes still apply in-app.
     }
+  }
+
+  Future<void> setFloatingNavigationBar(bool value) async {
+    state = state.copyWith(floatingNavigationBar: value);
+    await _storage.setFloatingNavigationBar(value);
   }
 
   Future<void> setClassAutomationMode(ClassAutomationMode mode) async {
@@ -625,6 +631,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       themePreference: defaults.themePreference,
       themeColor: defaults.themeColor,
       customThemeColor: null,
+      floatingNavigationBar: defaults.floatingNavigationBar,
       timetableBackgroundPath: null,
       timetableDarkBackgroundPath: null,
       timetableUseLightBackgroundInDarkMode:

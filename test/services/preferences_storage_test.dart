@@ -154,6 +154,7 @@ void main() {
       await storage.setThemeColor('blue');
       await storage.setCustomThemeColor(0xFF123456);
       await storage.setLastCustomThemeColor(0xFF654321);
+      await storage.setFloatingNavigationBar(true);
       await storage.setCourseReminderEnabled(true);
       await storage.setCourseReminderMinutes(30);
       await storage.setWearableNotificationCompatibility(true);
@@ -200,6 +201,7 @@ void main() {
       expect(storage.getThemeColor(), 'blue');
       expect(storage.getCustomThemeColor(), 0xFF123456);
       expect(storage.getLastCustomThemeColor(), 0xFF654321);
+      expect(storage.getFloatingNavigationBar(), isTrue);
       expect(storage.getCourseReminderEnabled(), isTrue);
       expect(storage.getCourseReminderMinutes(), 30);
       expect(storage.getWearableNotificationCompatibility(), isTrue);
@@ -336,6 +338,7 @@ void main() {
       await storage.setThemeColor('blue');
       await storage.setCustomThemeColor(0xFF203040);
       await storage.setLastCustomThemeColor(0xFF203040);
+      await storage.setFloatingNavigationBar(true);
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
       await storage.setTimetableDarkBackgroundPath('/tmp/background-dark.jpg');
       await storage.setTimetableUseLightBackgroundInDarkMode(true);
@@ -385,6 +388,7 @@ void main() {
       expect(storage.getThemeColor(), isNull);
       expect(storage.getCustomThemeColor(), isNull);
       expect(storage.getLastCustomThemeColor(), 0xFF203040);
+      expect(storage.getFloatingNavigationBar(), isFalse);
       expect(storage.getTimetableBackgroundPath(), isNull);
       expect(storage.getTimetableDarkBackgroundPath(), isNull);
       expect(storage.getTimetableUseLightBackgroundInDarkMode(), isFalse);

@@ -60,6 +60,12 @@ class PreferencesStorage {
     }
   }
 
+  bool getFloatingNavigationBar() =>
+      _prefs.getBool('floating_navigation_bar') ?? false;
+
+  Future<void> setFloatingNavigationBar(bool value) =>
+      _prefs.setBool('floating_navigation_bar', value);
+
   String? getClassAutomationMode() => _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
@@ -634,6 +640,7 @@ class PreferencesStorage {
       _prefs.remove('theme_preference'),
       _prefs.remove('theme_color'),
       _prefs.remove('custom_theme_color'),
+      _prefs.remove('floating_navigation_bar'),
       _prefs.remove('timetable_background_path'),
       _prefs.remove('timetable_dark_background_path'),
       _prefs.remove('timetable_use_light_background_in_dark_mode'),

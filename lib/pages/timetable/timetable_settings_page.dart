@@ -202,6 +202,16 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                         ),
                       ),
                     ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.panelBottom,
+                      title: '悬浮导航栏',
+                      value: settings.floatingNavigationBar,
+                      onChange: (value) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setFloatingNavigationBar(value),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),

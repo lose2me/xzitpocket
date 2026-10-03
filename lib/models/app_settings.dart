@@ -157,6 +157,7 @@ class AppSettings {
   final Color? lastCustomThemeColor;
   final Color? customPageBackgroundColor;
   final Color? lastCustomPageBackgroundColor;
+  final bool floatingNavigationBar;
   final double toastOpacity;
   final ClassAutomationMode classAutomationMode;
   final bool courseReminderEnabled;
@@ -229,6 +230,7 @@ class AppSettings {
     this.lastCustomThemeColor,
     this.customPageBackgroundColor,
     this.lastCustomPageBackgroundColor,
+    this.floatingNavigationBar = false,
     this.toastOpacity = 1.0,
     this.classAutomationMode = ClassAutomationMode.off,
     this.courseReminderEnabled = false,
@@ -304,6 +306,7 @@ class AppSettings {
     Object? lastCustomThemeColor = _unset,
     Object? customPageBackgroundColor = _unset,
     Object? lastCustomPageBackgroundColor = _unset,
+    bool? floatingNavigationBar,
     double? toastOpacity,
     ClassAutomationMode? classAutomationMode,
     bool? courseReminderEnabled,
@@ -385,6 +388,8 @@ class AppSettings {
           identical(lastCustomPageBackgroundColor, _unset)
           ? this.lastCustomPageBackgroundColor
           : lastCustomPageBackgroundColor as Color?,
+      floatingNavigationBar:
+          floatingNavigationBar ?? this.floatingNavigationBar,
       toastOpacity: toastOpacity ?? this.toastOpacity,
       classAutomationMode: classAutomationMode ?? this.classAutomationMode,
       courseReminderEnabled:

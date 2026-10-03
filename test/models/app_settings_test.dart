@@ -83,6 +83,7 @@ void main() {
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.customThemeColor, isNull);
       expect(settings.lastCustomThemeColor, isNull);
+      expect(settings.floatingNavigationBar, isFalse);
       expect(settings.toastOpacity, 1.0);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.courseReminderEnabled, isFalse);
@@ -130,6 +131,7 @@ void main() {
         themeColor: AppThemeColor.blue,
         customThemeColor: const Color(0xFF123456),
         lastCustomThemeColor: const Color(0xFF654321),
+        floatingNavigationBar: true,
         toastOpacity: 0.8,
         courseReminderEnabled: true,
         courseReminderMinutes: 30,
@@ -181,6 +183,7 @@ void main() {
       expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.customThemeColor, const Color(0xFF123456));
       expect(updated.lastCustomThemeColor, const Color(0xFF654321));
+      expect(updated.floatingNavigationBar, isTrue);
       expect(updated.toastOpacity, 0.8);
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.courseReminderEnabled, isTrue);

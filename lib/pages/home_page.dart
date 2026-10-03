@@ -94,6 +94,7 @@ class HomePageState extends ConsumerState<HomePage> {
     final showGlobalBackground = hasBackgroundAsset && _currentIndex == 0;
     final backgroundVisibleBehindNavigation =
         showGlobalBackground && _currentIndex == 0;
+    final floatingNavigationBar = settings.floatingNavigationBar;
     if (hasBackgroundAsset) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_backgroundPageController.hasClients) {
@@ -104,6 +105,87 @@ class HomePageState extends ConsumerState<HomePage> {
         }
       });
     }
+    final navigationBar = FBottomNavigationBar(
+      style: floatingNavigationBar
+          ? FBottomNavigationBarStyleDelta.delta(
+              decoration: DecorationDelta.value(
+                BoxDecoration(
+                  color: context.theme.colors.card.withValues(
+                    alpha: backgroundVisibleBehindNavigation ? 0.9 : 1,
+                  ),
+                  border: Border.all(color: context.theme.colors.border),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: context.theme.colors.foreground.withValues(
+                        alpha: 0.12,
+                      ),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+              ),
+              backgroundFilter: null,
+              slideableItems: FVariantsValueDelta.delta([
+                FVariantValueDeltaOperation.all(false),
+              ]),
+            )
+          : backgroundVisibleBehindNavigation
+          ? FBottomNavigationBarStyleDelta.delta(
+              decoration: DecorationDelta.boxDelta(
+                color: const Color(0x00000000),
+                border: const Border.fromBorderSide(BorderSide.none),
+              ),
+              backgroundFilter: null,
+              slideableItems: FVariantsValueDelta.delta([
+                FVariantValueDeltaOperation.all(false),
+              ]),
+            )
+          : FBottomNavigationBarStyleDelta.delta(
+              slideableItems: FVariantsValueDelta.delta([
+                FVariantValueDeltaOperation.all(false),
+              ]),
+            ),
+      index: selectedNavigationIndex,
+      onChange: (i) {
+        final targetTab = visibleTabs[i];
+        if (_currentIndex == 2 && targetTab != 2) {
+          ProfilePage.globalKey.currentState?.finishRoomIdEditing();
+        }
+        if (_currentIndex == targetTab) return;
+        setState(() => _currentIndex = targetTab);
+        if (_pageController.hasClients) {
+          _pageController.jumpToPage(targetTab);
+        }
+        if (_backgroundPageController.hasClients) {
+          _backgroundPageController.jumpToPage(targetTab);
+        }
+        if (targetTab == 1) {
+          // The page is lazy-built, so its state may not exist until the
+          // jump has been laid out.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            final refresh = ToolsPage.globalKey.currentState?.refreshData();
+            if (refresh != null) unawaited(refresh);
+          });
+        }
+      },
+      children: [
+        FBottomNavigationBarItem(
+          icon: Icon(FLucideIcons.calendarDays),
+          label: Text('课表'),
+        ),
+        if (showServices)
+          const FBottomNavigationBarItem(
+            icon: Icon(FLucideIcons.layoutGrid),
+            label: Text('服务'),
+          ),
+        FBottomNavigationBarItem(
+          icon: Icon(FLucideIcons.userRound),
+          label: Text('我的'),
+        ),
+      ],
+    );
     final shell = FScaffold(
       scaffoldStyle: showGlobalBackground
           ? const FScaffoldStyleDelta.delta(
@@ -111,64 +193,20 @@ class HomePageState extends ConsumerState<HomePage> {
               sidebarBackgroundColor: Color(0x00000000),
               footerDecoration: DecorationDelta.value(BoxDecoration()),
             )
+          : floatingNavigationBar
+          ? const FScaffoldStyleDelta.delta(
+              footerDecoration: DecorationDelta.value(BoxDecoration()),
+            )
           : const FScaffoldStyleDelta.context(),
       resizeToAvoidBottomInset: false,
       childPad: false,
-      footer: FBottomNavigationBar(
-        style: backgroundVisibleBehindNavigation
-            ? FBottomNavigationBarStyleDelta.delta(
-                decoration: DecorationDelta.boxDelta(
-                  color: const Color(0x00000000),
-                  border: const Border.fromBorderSide(BorderSide.none),
-                ),
-                backgroundFilter: null,
-                slideableItems: FVariantsValueDelta.delta([
-                  FVariantValueDeltaOperation.all(false),
-                ]),
-              )
-            : FBottomNavigationBarStyleDelta.delta(
-                slideableItems: FVariantsValueDelta.delta([
-                  FVariantValueDeltaOperation.all(false),
-                ]),
-              ),
-        index: selectedNavigationIndex,
-        onChange: (i) {
-          final targetTab = visibleTabs[i];
-          if (_currentIndex == 2 && targetTab != 2) {
-            ProfilePage.globalKey.currentState?.finishRoomIdEditing();
-          }
-          if (_currentIndex == targetTab) return;
-          setState(() => _currentIndex = targetTab);
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(targetTab);
-          }
-          if (_backgroundPageController.hasClients) {
-            _backgroundPageController.jumpToPage(targetTab);
-          }
-          if (targetTab == 1) {
-            // The page is lazy-built, so its state may not exist until the
-            // jump has been laid out.
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              final refresh = ToolsPage.globalKey.currentState?.refreshData();
-              if (refresh != null) unawaited(refresh);
-            });
-          }
-        },
-        children: [
-          FBottomNavigationBarItem(
-            icon: Icon(FLucideIcons.calendarDays),
-            label: Text('课表'),
-          ),
-          if (showServices)
-            const FBottomNavigationBarItem(
-              icon: Icon(FLucideIcons.layoutGrid),
-              label: Text('服务'),
-            ),
-          FBottomNavigationBarItem(
-            icon: Icon(FLucideIcons.userRound),
-            label: Text('我的'),
-          ),
-        ],
+      footer: AnimatedPadding(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutCubic,
+        padding: floatingNavigationBar
+            ? const EdgeInsets.fromLTRB(12, 8, 12, 8)
+            : EdgeInsets.zero,
+        child: navigationBar,
       ),
       child: MediaQuery.removePadding(
         // 外层 FScaffold 的 footer 已包含底部手势条区域，
