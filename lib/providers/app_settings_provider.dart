@@ -64,6 +64,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
               _storage.getLastCustomPageBackgroundColor() ??
                   customPageBackgroundColor!,
             ),
+      toastOpacity: _storage.getToastOpacity(),
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
@@ -77,6 +78,19 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetFontScale: _storage.getWidgetFontScale(),
       widgetBackgroundAlpha: _storage.getWidgetBackgroundAlpha(),
       widgetTextOpacity: _storage.getWidgetTextOpacity(),
+      widgetBackgroundColor: _storage.getWidgetBackgroundColor() == null
+          ? null
+          : Color(_storage.getWidgetBackgroundColor()!),
+      lastCustomWidgetBackgroundColor:
+          _storage.getLastCustomWidgetBackgroundColor() == null
+          ? null
+          : Color(_storage.getLastCustomWidgetBackgroundColor()!),
+      widgetTextColor: _storage.getWidgetTextColor() == null
+          ? null
+          : Color(_storage.getWidgetTextColor()!),
+      lastCustomWidgetTextColor: _storage.getLastCustomWidgetTextColor() == null
+          ? null
+          : Color(_storage.getLastCustomWidgetTextColor()!),
       widgetHideTeacher: _storage.getWidgetHideTeacher(),
       widgetHideLocation: _storage.getWidgetHideLocation(),
       widgetHideDate: _storage.getWidgetHideDate(),
@@ -264,6 +278,38 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _refreshWidgetSettings();
   }
 
+  Future<void> setWidgetBackgroundColor(Color? value) async {
+    state = state.copyWith(widgetBackgroundColor: value);
+    await _storage.setWidgetBackgroundColor(value?.toARGB32());
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setCustomWidgetBackgroundColor(Color value) async {
+    state = state.copyWith(
+      widgetBackgroundColor: value,
+      lastCustomWidgetBackgroundColor: value,
+    );
+    await _storage.setWidgetBackgroundColor(value.toARGB32());
+    await _storage.setLastCustomWidgetBackgroundColor(value.toARGB32());
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetTextColor(Color? value) async {
+    state = state.copyWith(widgetTextColor: value);
+    await _storage.setWidgetTextColor(value?.toARGB32());
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setCustomWidgetTextColor(Color value) async {
+    state = state.copyWith(
+      widgetTextColor: value,
+      lastCustomWidgetTextColor: value,
+    );
+    await _storage.setWidgetTextColor(value.toARGB32());
+    await _storage.setLastCustomWidgetTextColor(value.toARGB32());
+    await _refreshWidgetSettings();
+  }
+
   Future<void> setWidgetHideTeacher(bool value) async {
     state = state.copyWith(widgetHideTeacher: value);
     await _storage.setWidgetHideTeacher(value);
@@ -431,6 +477,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setLastCustomPageBackgroundColor(value.toARGB32());
   }
 
+  Future<void> setToastOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    state = state.copyWith(toastOpacity: normalized);
+    await _storage.setToastOpacity(normalized);
+  }
+
   Future<void> setTimetableGridLineColor(Color? value) async {
     state = state.copyWith(timetableGridLineColor: value);
     await _storage.setTimetableGridLineColor(value?.toARGB32());
@@ -574,6 +626,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       pageBackgroundColor: null,
       customPageBackgroundColor: null,
       lastCustomPageBackgroundColor: null,
+      toastOpacity: defaults.toastOpacity,
       timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
       timetablePageTextOpacity: defaults.timetablePageTextOpacity,
@@ -596,6 +649,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetFontScale: defaults.widgetFontScale,
       widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,
       widgetTextOpacity: defaults.widgetTextOpacity,
+      widgetBackgroundColor: null,
+      lastCustomWidgetBackgroundColor: null,
+      widgetTextColor: null,
+      lastCustomWidgetTextColor: null,
       widgetHideTeacher: defaults.widgetHideTeacher,
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,

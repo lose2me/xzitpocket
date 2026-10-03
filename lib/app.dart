@@ -17,6 +17,7 @@ import 'services/control_service.dart';
 import 'services/talker.dart';
 import 'services/widget_service.dart';
 import 'ui/app_theme.dart';
+import 'utils/snackbar_helper.dart';
 
 class App extends ConsumerStatefulWidget {
   final CourseStorage courseStorage;
@@ -29,6 +30,7 @@ class App extends ConsumerStatefulWidget {
 
 class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   Timer? _heartbeatTimer;
+  double? _toastOpacity;
 
   @override
   void initState() {
@@ -111,6 +113,12 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
+    if (_toastOpacity != settings.toastOpacity) {
+      _toastOpacity = settings.toastOpacity;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setAppToastOpacity(settings.toastOpacity);
+      });
+    }
     final lightTheme = AppTheme.lightFor(
       settings.themeColor,
       customColor: settings.customThemeColor,
@@ -132,20 +140,137 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       theme: lightTheme.toApproximateMaterialTheme(),
       darkTheme: darkTheme.toApproximateMaterialTheme(),
       themeMode: settings.themePreference.themeMode,
+      themeAnimationDuration: Duration.zero,
       navigatorObservers: [TalkerRouteObserver(talker)],
       builder: (context, child) {
         final theme = Theme.of(context).brightness == Brightness.dark
             ? darkTheme
             : lightTheme;
-        return FTheme(
-          data: theme,
-          child: IconTheme(
-            data: IconThemeData(size: 20, color: theme.colors.foreground),
-            child: FToaster(child: FTooltipGroup(child: child!)),
+        return _DiagonalThemeTransition(
+          transitionKey:
+              '${Theme.of(context).brightness.name}:${theme.colors.background.toARGB32()}',
+          previousColor: theme.colors.background,
+          child: FTheme(
+            data: theme,
+            child: IconTheme(
+              data: IconThemeData(size: 20, color: theme.colors.foreground),
+              child: FToaster(child: FTooltipGroup(child: child!)),
+            ),
           ),
         );
       },
       home: HomePage(key: HomePage.globalKey),
     );
   }
+}
+
+class _DiagonalThemeTransition extends StatefulWidget {
+  final Object transitionKey;
+  final Color previousColor;
+  final Widget child;
+
+  const _DiagonalThemeTransition({
+    required this.transitionKey,
+    required this.previousColor,
+    required this.child,
+  });
+
+  @override
+  State<_DiagonalThemeTransition> createState() =>
+      _DiagonalThemeTransitionState();
+}
+
+class _DiagonalThemeTransitionState extends State<_DiagonalThemeTransition>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Object _transitionKey;
+  late Color _currentColor;
+  Color? _oldColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _transitionKey = widget.transitionKey;
+    _currentColor = widget.previousColor;
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 360),
+      value: 1,
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _DiagonalThemeTransition oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_transitionKey == widget.transitionKey) return;
+    _oldColor = _currentColor;
+    _currentColor = widget.previousColor;
+    _transitionKey = widget.transitionKey;
+    _controller.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    fit: StackFit.expand,
+    children: [
+      widget.child,
+      if (_oldColor != null)
+        IgnorePointer(
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, _) {
+              if (_controller.isCompleted) return const SizedBox.shrink();
+              return ClipPath(
+                clipper: _DiagonalThemeClipper(_controller.value),
+                child: ColoredBox(color: _oldColor!.withValues(alpha: 0.82)),
+              );
+            },
+          ),
+        ),
+    ],
+  );
+}
+
+class _DiagonalThemeClipper extends CustomClipper<Path> {
+  final double progress;
+
+  const _DiagonalThemeClipper(this.progress);
+
+  @override
+  Path getClip(Size size) {
+    if (size.isEmpty || progress >= 1) return Path();
+    final cutoff = progress * 2 - 1;
+    final points = <Offset>[
+      Offset.zero,
+      Offset(size.width, 0),
+      Offset(size.width, size.height),
+      Offset(0, size.height),
+    ];
+    double score(Offset point) =>
+        point.dx / size.width - point.dy / size.height - cutoff;
+    final clipped = <Offset>[];
+    for (var index = 0; index < points.length; index++) {
+      final current = points[index];
+      final next = points[(index + 1) % points.length];
+      final currentScore = score(current);
+      final nextScore = score(next);
+      if (currentScore >= 0) clipped.add(current);
+      if ((currentScore >= 0) != (nextScore >= 0)) {
+        final fraction = currentScore / (currentScore - nextScore);
+        clipped.add(Offset.lerp(current, next, fraction)!);
+      }
+    }
+    if (clipped.isEmpty) return Path();
+    return Path()..addPolygon(clipped, true);
+  }
+
+  @override
+  bool shouldReclip(covariant _DiagonalThemeClipper oldClipper) =>
+      oldClipper.progress != progress;
 }

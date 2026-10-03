@@ -104,7 +104,7 @@ class CourseCard extends StatelessWidget {
                   const SizedBox(height: 2),
                   if (showStartTime)
                     Text(
-                      '${course.startSession} ${_startTime(course.startSession)}',
+                      _startTime(course.startSession),
                       style: TextStyle(
                         fontSize: textSize * 11 / 12,
                         color: secondaryTextColor,
@@ -195,12 +195,15 @@ class CourseCard extends StatelessWidget {
     return Container(margin: EdgeInsets.all(outerPadding), child: decorated);
   }
 
-  String _startTime(int session) => kTimeSlots
-      .firstWhere(
-        (slot) => slot.index == session,
-        orElse: () => kTimeSlots.first,
-      )
-      .start;
+  String _startTime(int session) {
+    final start = kTimeSlots
+        .firstWhere(
+          (slot) => slot.index == session,
+          orElse: () => kTimeSlots.first,
+        )
+        .start;
+    return start.startsWith('0') ? start.substring(1) : start;
+  }
 }
 
 class _CourseBorderPainter extends CustomPainter {

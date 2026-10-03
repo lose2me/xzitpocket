@@ -472,7 +472,8 @@ class _TimetableGridState extends State<TimetableGrid> {
                               },
                               child: Stack(
                                 children: [
-                                  if (widget.showGridLines)
+                                  if (widget.showGridLines ||
+                                      (isToday && widget.showTodayGridLines))
                                     Column(
                                       children: List.generate(
                                         effectiveSlotCount,
@@ -481,14 +482,39 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             height: cellHeight,
                                             decoration: BoxDecoration(
                                               border: Border(
-                                                bottom: BorderSide(
-                                                  color: gridLineColor,
-                                                  width: widget.gridLineWidth,
-                                                ),
-                                                right: BorderSide(
-                                                  color: gridLineColor,
-                                                  width: widget.gridLineWidth,
-                                                ),
+                                                left:
+                                                    isToday &&
+                                                        widget
+                                                            .showTodayGridLines
+                                                    ? BorderSide(
+                                                        color: todayLineColor,
+                                                        width: widget
+                                                            .todayLineWidth,
+                                                      )
+                                                    : BorderSide.none,
+                                                bottom: widget.showGridLines
+                                                    ? BorderSide(
+                                                        color: gridLineColor,
+                                                        width: widget
+                                                            .gridLineWidth,
+                                                      )
+                                                    : BorderSide.none,
+                                                right:
+                                                    isToday &&
+                                                        widget
+                                                            .showTodayGridLines
+                                                    ? BorderSide(
+                                                        color: todayLineColor,
+                                                        width: widget
+                                                            .todayLineWidth,
+                                                      )
+                                                    : widget.showGridLines
+                                                    ? BorderSide(
+                                                        color: gridLineColor,
+                                                        width: widget
+                                                            .gridLineWidth,
+                                                      )
+                                                    : BorderSide.none,
                                               ),
                                             ),
                                           );
@@ -588,33 +614,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             size: 18,
                                             color: theme.colors.primary,
                                           ),
-                                        ),
-                                      ),
-                                    ),
-                                  if (isToday && widget.showTodayGridLines)
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: Stack(
-                                          children: [
-                                            Positioned(
-                                              left: 0,
-                                              top: 0,
-                                              bottom: 0,
-                                              width: widget.todayLineWidth,
-                                              child: ColoredBox(
-                                                color: todayLineColor,
-                                              ),
-                                            ),
-                                            Positioned(
-                                              right: 0,
-                                              top: 0,
-                                              bottom: 0,
-                                              width: widget.todayLineWidth,
-                                              child: ColoredBox(
-                                                color: todayLineColor,
-                                              ),
-                                            ),
-                                          ],
                                         ),
                                       ),
                                     ),

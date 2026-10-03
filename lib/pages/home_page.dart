@@ -109,6 +109,7 @@ class HomePageState extends ConsumerState<HomePage> {
           ? const FScaffoldStyleDelta.delta(
               backgroundColor: Color(0x00000000),
               sidebarBackgroundColor: Color(0x00000000),
+              footerDecoration: DecorationDelta.value(BoxDecoration()),
             )
           : const FScaffoldStyleDelta.context(),
       resizeToAvoidBottomInset: false,

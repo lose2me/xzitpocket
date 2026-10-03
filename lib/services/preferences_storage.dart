@@ -112,6 +112,45 @@ class PreferencesStorage {
   Future<void> setWidgetTextOpacity(double value) =>
       _prefs.setDouble('widget_text_opacity', value.clamp(0.0, 1.0).toDouble());
 
+  int? getWidgetBackgroundColor() => _prefs.getInt('widget_background_color');
+  int? getLastCustomWidgetBackgroundColor() =>
+      _prefs.getInt('last_custom_widget_background_color');
+  int? getWidgetTextColor() => _prefs.getInt('widget_text_color');
+  int? getLastCustomWidgetTextColor() =>
+      _prefs.getInt('last_custom_widget_text_color');
+
+  Future<void> setWidgetBackgroundColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('widget_background_color');
+    } else {
+      await _prefs.setInt('widget_background_color', value);
+    }
+  }
+
+  Future<void> setLastCustomWidgetBackgroundColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('last_custom_widget_background_color');
+    } else {
+      await _prefs.setInt('last_custom_widget_background_color', value);
+    }
+  }
+
+  Future<void> setWidgetTextColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('widget_text_color');
+    } else {
+      await _prefs.setInt('widget_text_color', value);
+    }
+  }
+
+  Future<void> setLastCustomWidgetTextColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('last_custom_widget_text_color');
+    } else {
+      await _prefs.setInt('last_custom_widget_text_color', value);
+    }
+  }
+
   bool getWidgetHideTeacher() => _prefs.getBool('widget_hide_teacher') ?? false;
 
   Future<void> setWidgetHideTeacher(bool value) =>
@@ -333,6 +372,12 @@ class PreferencesStorage {
       await _prefs.setInt('last_custom_page_background_color', value);
     }
   }
+
+  double getToastOpacity() =>
+      (_prefs.getDouble('toast_opacity') ?? 1.0).clamp(0.0, 1.0).toDouble();
+
+  Future<void> setToastOpacity(double value) =>
+      _prefs.setDouble('toast_opacity', value.clamp(0.0, 1.0).toDouble());
 
   int? getTimetableGridLineColor() =>
       _prefs.getInt('timetable_grid_line_color');
@@ -561,6 +606,7 @@ class PreferencesStorage {
       _prefs.remove('timetable_solid_background'),
       _prefs.remove('custom_page_background_color'),
       _prefs.remove('last_custom_page_background_color'),
+      _prefs.remove('toast_opacity'),
       // Remove settings from versions that supported separate source images,
       // non-fullscreen backgrounds, and background opacity.
       _prefs.remove('timetable_background_original_path'),
@@ -588,6 +634,10 @@ class PreferencesStorage {
       _prefs.remove('widget_font_scale'),
       _prefs.remove('widget_background_alpha'),
       _prefs.remove('widget_text_opacity'),
+      _prefs.remove('widget_background_color'),
+      _prefs.remove('last_custom_widget_background_color'),
+      _prefs.remove('widget_text_color'),
+      _prefs.remove('last_custom_widget_text_color'),
       _prefs.remove('widget_hide_teacher'),
       _prefs.remove('widget_hide_location'),
       _prefs.remove('widget_hide_date'),

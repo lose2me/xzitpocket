@@ -653,6 +653,20 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetablePageTextOpacity(value),
                     ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: 'Toast 不透明度',
+                      value: settings.toastOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setToastOpacity(value),
+                    ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.sunMedium,
                       title: '全局使用浅色背景图',
@@ -717,6 +731,50 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                         ref
                             .read(appSettingsProvider.notifier)
                             .setWidgetThemePreference(value),
+                      ),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.paintBucket,
+                      title: '小组件背景色',
+                      value: settings.widgetBackgroundColor,
+                      colors: _styleColors,
+                      lastCustomColor: settings.lastCustomWidgetBackgroundColor,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setWidgetBackgroundColor(color),
+                      ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.lastCustomWidgetBackgroundColor ??
+                              settings.widgetBackgroundColor ??
+                              context.theme.colors.background,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomWidgetBackgroundColor,
+                        ),
+                      ),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.type,
+                      title: '小组件文字颜色',
+                      value: settings.widgetTextColor,
+                      colors: _styleColors,
+                      lastCustomColor: settings.lastCustomWidgetTextColor,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setWidgetTextColor(color),
+                      ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.lastCustomWidgetTextColor ??
+                              settings.widgetTextColor ??
+                              context.theme.colors.foreground,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomWidgetTextColor,
+                        ),
                       ),
                     ),
                     ProfileSettingsSliderTile(

@@ -25,6 +25,11 @@ final List<_ToastData> _queue = [];
 OverlayEntry? _hostEntry;
 OverlayState? _rootOverlay;
 final ValueNotifier<int> _revision = ValueNotifier(0);
+final ValueNotifier<double> _appToastOpacity = ValueNotifier(1.0);
+
+void setAppToastOpacity(double value) {
+  _appToastOpacity.value = value.clamp(0.0, 1.0).toDouble();
+}
 
 class _ToastData {
   final String message;
@@ -233,11 +238,12 @@ class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
     final palette = _palette(context.theme, widget.data.severity);
     final surface = _buildSurface(palette);
     return AnimatedBuilder(
-      animation: Listenable.merge([_enter, _exit]),
+      animation: Listenable.merge([_enter, _exit, _appToastOpacity]),
       builder: (context, _) {
         final entering = 1 - _enter.value;
         final exiting = _exit.value;
-        final opacity = (_enter.value * (1 - exiting)).clamp(0.0, 1.0);
+        final opacity = (_enter.value * (1 - exiting) * _appToastOpacity.value)
+            .clamp(0.0, 1.0);
         // Enter from the lower-left; leave toward the upper-right.
         final offset = Offset(
           -14 * entering + 14 * exiting,

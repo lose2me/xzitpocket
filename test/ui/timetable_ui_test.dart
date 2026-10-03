@@ -84,6 +84,38 @@ void main() {
     expect(find.text('张老师'), findsOneWidget);
   });
 
+  testWidgets('course start time omits the session number and leading zero', (
+    tester,
+  ) async {
+    final course = Course(
+      title: '早课',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 140,
+          height: 120,
+          child: CourseCard(
+            course: course,
+            borderColor: Colors.black,
+            showStartTime: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('8:00'), findsOneWidget);
+    expect(find.text('1 08:00'), findsNothing);
+  });
+
   testWidgets('course border modes preserve the same content width', (
     tester,
   ) async {

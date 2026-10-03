@@ -160,6 +160,11 @@ void main() {
       await storage.setWidgetThemePreference('dark');
       await storage.setWidgetFontScale(1.4);
       await storage.setWidgetBackgroundAlpha(0.65);
+      await storage.setWidgetBackgroundColor(0xFFABCDEF);
+      await storage.setLastCustomWidgetBackgroundColor(0xFFABCDEF);
+      await storage.setWidgetTextColor(0xFF123456);
+      await storage.setLastCustomWidgetTextColor(0xFF123456);
+      await storage.setWidgetTextOpacity(0.75);
       await storage.setWidgetHideTeacher(true);
       await storage.setWidgetHideLocation(true);
       await storage.setWidgetHideDate(true);
@@ -175,6 +180,7 @@ void main() {
       await storage.setTimetableDarkBackgroundPath('/tmp/background-dark.jpg');
       await storage.setTimetableUseLightBackgroundInDarkMode(true);
       await storage.setPageBackgroundColor('teal');
+      await storage.setToastOpacity(0.8);
       await storage.setTimetableComponentOpacity(0.72);
       await storage.setTimetableGridOpacity(0.42);
       await storage.setTimetableGridLineColor(0xFF454545);
@@ -200,6 +206,11 @@ void main() {
       expect(storage.getWidgetThemePreference(), 'dark');
       expect(storage.getWidgetFontScale(), 1.4);
       expect(storage.getWidgetBackgroundAlpha(), 0.65);
+      expect(storage.getWidgetBackgroundColor(), 0xFFABCDEF);
+      expect(storage.getLastCustomWidgetBackgroundColor(), 0xFFABCDEF);
+      expect(storage.getWidgetTextColor(), 0xFF123456);
+      expect(storage.getLastCustomWidgetTextColor(), 0xFF123456);
+      expect(storage.getWidgetTextOpacity(), 0.75);
       expect(storage.getWidgetHideTeacher(), isTrue);
       expect(storage.getWidgetHideLocation(), isTrue);
       expect(storage.getWidgetHideDate(), isTrue);
@@ -218,6 +229,7 @@ void main() {
       );
       expect(storage.getTimetableUseLightBackgroundInDarkMode(), isTrue);
       expect(storage.getPageBackgroundColor(), 'teal');
+      expect(storage.getToastOpacity(), 0.8);
       expect(storage.getTimetableComponentOpacity(), 0.72);
       expect(storage.getTimetableGridOpacity(), 0.42);
       expect(storage.getTimetableGridLineColor(), 0xFF454545);
@@ -348,6 +360,10 @@ void main() {
       await storage.setWidgetThemePreference('dark');
       await storage.setWidgetFontScale(1.5);
       await storage.setWidgetBackgroundAlpha(0.4);
+      await storage.setWidgetBackgroundColor(0xFFABCDEF);
+      await storage.setWidgetTextColor(0xFF123456);
+      await storage.setToastOpacity(0.8);
+      await storage.setWidgetTextOpacity(0.75);
       await storage.setWidgetHideTeacher(true);
       await storage.setWidgetHideLocation(true);
       await storage.setWidgetHideDate(true);
@@ -385,6 +401,12 @@ void main() {
       expect(storage.getWidgetThemePreference(), isNull);
       expect(storage.getWidgetFontScale(), 1.0);
       expect(storage.getWidgetBackgroundAlpha(), 1.0);
+      expect(storage.getWidgetBackgroundColor(), isNull);
+      expect(storage.getWidgetTextColor(), isNull);
+      expect(storage.getLastCustomWidgetBackgroundColor(), isNull);
+      expect(storage.getLastCustomWidgetTextColor(), isNull);
+      expect(storage.getWidgetTextOpacity(), 1.0);
+      expect(storage.getToastOpacity(), 1.0);
       expect(storage.getWidgetHideTeacher(), isFalse);
       expect(storage.getWidgetHideLocation(), isFalse);
       expect(storage.getWidgetHideDate(), isFalse);

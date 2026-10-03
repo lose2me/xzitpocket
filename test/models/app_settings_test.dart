@@ -83,6 +83,7 @@ void main() {
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.customThemeColor, isNull);
       expect(settings.lastCustomThemeColor, isNull);
+      expect(settings.toastOpacity, 1.0);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.courseReminderEnabled, isFalse);
       expect(settings.courseReminderMinutes, 15);
@@ -90,6 +91,9 @@ void main() {
       expect(settings.widgetThemePreference, WidgetThemePreference.system);
       expect(settings.widgetFontScale, 1.0);
       expect(settings.widgetBackgroundAlpha, 1.0);
+      expect(settings.widgetBackgroundColor, isNull);
+      expect(settings.widgetTextColor, isNull);
+      expect(settings.widgetTextOpacity, 1.0);
       expect(settings.widgetHideTeacher, isFalse);
       expect(settings.widgetHideLocation, isFalse);
       expect(settings.widgetHideDate, isFalse);
@@ -126,12 +130,18 @@ void main() {
         themeColor: AppThemeColor.blue,
         customThemeColor: const Color(0xFF123456),
         lastCustomThemeColor: const Color(0xFF654321),
+        toastOpacity: 0.8,
         courseReminderEnabled: true,
         courseReminderMinutes: 30,
         wearableNotificationCompatibility: true,
         widgetThemePreference: WidgetThemePreference.dark,
         widgetFontScale: 1.4,
         widgetBackgroundAlpha: 0.65,
+        widgetBackgroundColor: const Color(0xFFABCDEF),
+        lastCustomWidgetBackgroundColor: const Color(0xFFABCDEF),
+        widgetTextColor: const Color(0xFF123456),
+        lastCustomWidgetTextColor: const Color(0xFF123456),
+        widgetTextOpacity: 0.75,
         widgetHideTeacher: true,
         widgetHideLocation: true,
         widgetHideDate: true,
@@ -171,6 +181,7 @@ void main() {
       expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.customThemeColor, const Color(0xFF123456));
       expect(updated.lastCustomThemeColor, const Color(0xFF654321));
+      expect(updated.toastOpacity, 0.8);
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.courseReminderEnabled, isTrue);
       expect(updated.courseReminderMinutes, 30);
@@ -178,6 +189,9 @@ void main() {
       expect(updated.widgetThemePreference, WidgetThemePreference.dark);
       expect(updated.widgetFontScale, 1.4);
       expect(updated.widgetBackgroundAlpha, 0.65);
+      expect(updated.widgetBackgroundColor, const Color(0xFFABCDEF));
+      expect(updated.widgetTextColor, const Color(0xFF123456));
+      expect(updated.widgetTextOpacity, 0.75);
       expect(updated.widgetHideTeacher, isTrue);
       expect(updated.widgetHideLocation, isTrue);
       expect(updated.widgetHideDate, isTrue);

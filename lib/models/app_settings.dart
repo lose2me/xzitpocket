@@ -157,6 +157,7 @@ class AppSettings {
   final Color? lastCustomThemeColor;
   final Color? customPageBackgroundColor;
   final Color? lastCustomPageBackgroundColor;
+  final double toastOpacity;
   final ClassAutomationMode classAutomationMode;
   final bool courseReminderEnabled;
   final int courseReminderMinutes;
@@ -165,6 +166,10 @@ class AppSettings {
   final double widgetFontScale;
   final double widgetBackgroundAlpha;
   final double widgetTextOpacity;
+  final Color? widgetBackgroundColor;
+  final Color? lastCustomWidgetBackgroundColor;
+  final Color? widgetTextColor;
+  final Color? lastCustomWidgetTextColor;
   final bool widgetHideTeacher;
   final bool widgetHideLocation;
   final bool widgetHideDate;
@@ -224,6 +229,7 @@ class AppSettings {
     this.lastCustomThemeColor,
     this.customPageBackgroundColor,
     this.lastCustomPageBackgroundColor,
+    this.toastOpacity = 1.0,
     this.classAutomationMode = ClassAutomationMode.off,
     this.courseReminderEnabled = false,
     this.courseReminderMinutes = 15,
@@ -232,6 +238,10 @@ class AppSettings {
     this.widgetFontScale = 1.0,
     this.widgetBackgroundAlpha = 1.0,
     this.widgetTextOpacity = 1.0,
+    this.widgetBackgroundColor,
+    this.lastCustomWidgetBackgroundColor,
+    this.widgetTextColor,
+    this.lastCustomWidgetTextColor,
     this.widgetHideTeacher = false,
     this.widgetHideLocation = false,
     this.widgetHideDate = false,
@@ -294,6 +304,7 @@ class AppSettings {
     Object? lastCustomThemeColor = _unset,
     Object? customPageBackgroundColor = _unset,
     Object? lastCustomPageBackgroundColor = _unset,
+    double? toastOpacity,
     ClassAutomationMode? classAutomationMode,
     bool? courseReminderEnabled,
     int? courseReminderMinutes,
@@ -302,6 +313,10 @@ class AppSettings {
     double? widgetFontScale,
     double? widgetBackgroundAlpha,
     double? widgetTextOpacity,
+    Object? widgetBackgroundColor = _unset,
+    Object? lastCustomWidgetBackgroundColor = _unset,
+    Object? widgetTextColor = _unset,
+    Object? lastCustomWidgetTextColor = _unset,
     bool? widgetHideTeacher,
     bool? widgetHideLocation,
     bool? widgetHideDate,
@@ -370,6 +385,7 @@ class AppSettings {
           identical(lastCustomPageBackgroundColor, _unset)
           ? this.lastCustomPageBackgroundColor
           : lastCustomPageBackgroundColor as Color?,
+      toastOpacity: toastOpacity ?? this.toastOpacity,
       classAutomationMode: classAutomationMode ?? this.classAutomationMode,
       courseReminderEnabled:
           courseReminderEnabled ?? this.courseReminderEnabled,
@@ -384,6 +400,19 @@ class AppSettings {
       widgetBackgroundAlpha:
           widgetBackgroundAlpha ?? this.widgetBackgroundAlpha,
       widgetTextOpacity: widgetTextOpacity ?? this.widgetTextOpacity,
+      widgetBackgroundColor: identical(widgetBackgroundColor, _unset)
+          ? this.widgetBackgroundColor
+          : widgetBackgroundColor as Color?,
+      lastCustomWidgetBackgroundColor:
+          identical(lastCustomWidgetBackgroundColor, _unset)
+          ? this.lastCustomWidgetBackgroundColor
+          : lastCustomWidgetBackgroundColor as Color?,
+      widgetTextColor: identical(widgetTextColor, _unset)
+          ? this.widgetTextColor
+          : widgetTextColor as Color?,
+      lastCustomWidgetTextColor: identical(lastCustomWidgetTextColor, _unset)
+          ? this.lastCustomWidgetTextColor
+          : lastCustomWidgetTextColor as Color?,
       widgetHideTeacher: widgetHideTeacher ?? this.widgetHideTeacher,
       widgetHideLocation: widgetHideLocation ?? this.widgetHideLocation,
       widgetHideDate: widgetHideDate ?? this.widgetHideDate,

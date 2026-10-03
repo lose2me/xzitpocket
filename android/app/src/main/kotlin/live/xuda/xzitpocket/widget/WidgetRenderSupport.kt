@@ -1,6 +1,8 @@
 package live.xuda.xzitpocket.widget
 
 import android.content.Context
+import android.content.res.ColorStateList
+import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.ColorRes
@@ -17,6 +19,8 @@ internal object WidgetRenderSupport {
         val fontScale: Float,
         val backgroundAlpha: Float,
         val textOpacity: Float,
+        val backgroundColor: Int?,
+        val textColor: Int?,
         val hideTeacher: Boolean,
         val hideLocation: Boolean,
         val hideDate: Boolean,
@@ -31,11 +35,18 @@ internal object WidgetRenderSupport {
                 .coerceIn(0f, 1f),
             textOpacity = readFloat(prefs, "flutter.widget_text_opacity", 1f)
                 .coerceIn(0f, 1f),
+            backgroundColor = readColor(prefs, "flutter.widget_background_color"),
+            textColor = readColor(prefs, "flutter.widget_text_color"),
             hideTeacher = prefs.getBoolean("flutter.widget_hide_teacher", false),
             hideLocation = prefs.getBoolean("flutter.widget_hide_location", false),
             hideDate = prefs.getBoolean("flutter.widget_hide_date", false),
         )
     }
+
+    private fun readColor(
+        prefs: android.content.SharedPreferences,
+        key: String,
+    ): Int? = (prefs.all[key] as? Number)?.toLong()?.toInt()
 
     private fun readFloat(
         prefs: android.content.SharedPreferences,
@@ -60,6 +71,17 @@ internal object WidgetRenderSupport {
             WidgetThemeSupport.backgroundDrawableRes(context),
         )
         views.setFloat(R.id.widget_background, "setAlpha", style.backgroundAlpha)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setColorStateList(
+                R.id.widget_background,
+                "setBackgroundTintList",
+                style.backgroundColor?.let(ColorStateList::valueOf),
+            )
+        } else {
+            style.backgroundColor?.let { color ->
+                views.setInt(R.id.widget_background, "setBackgroundColor", color)
+            }
+        }
         return style
     }
 
@@ -110,7 +132,9 @@ internal object WidgetRenderSupport {
         viewId: Int,
         @ColorRes colorResId: Int,
     ) {
-        views.setInt(viewId, "setTextColor", WidgetThemeSupport.color(context, colorResId))
+        val color = readStyle(context).textColor
+            ?: WidgetThemeSupport.color(context, colorResId)
+        views.setInt(viewId, "setTextColor", color)
     }
 
     fun setHeaderDateText(
