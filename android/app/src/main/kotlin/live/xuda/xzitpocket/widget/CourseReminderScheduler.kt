@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.work.ExistingWorkPolicy
@@ -22,6 +23,7 @@ import java.util.Calendar
 import java.util.Locale
 
 internal object CourseReminderScheduler {
+    private const val TAG = "CourseReminderScheduler"
     private const val WORK_NAME = "xzit_course_reminder_sync"
     private const val REQUEST_BASE = 51000
     private const val REQUEST_COUNT = 100
@@ -46,13 +48,27 @@ internal object CourseReminderScheduler {
             "FlutterSharedPreferences",
             Context.MODE_PRIVATE,
         )
-        if (!prefs.getBoolean("flutter.course_reminder_enabled", false)) return
-
-        val minutes = prefs.getInt("flutter.course_reminder_minutes", 15).coerceIn(1, 60)
+        val remindersEnabled = prefs.getBoolean("flutter.course_reminder_enabled", false)
+        val minutes = (prefs.all["flutter.course_reminder_minutes"] as? Number)
+            ?.toInt()
+            ?.coerceIn(1, 60)
+            ?: 15
         val snapshot = WidgetPrefsRepository.readSnapshot(context)
+        val exactAlarmsAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            alarmManager.canScheduleExactAlarms()
+        Log.i(
+            TAG,
+            "refresh enabled=$remindersEnabled minutes=$minutes " +
+                "snapshotHasSchedule=${snapshot.hasSchedule} courses=${snapshot.courses.size} " +
+                "exactAllowed=$exactAlarmsAllowed",
+        )
+        if (!remindersEnabled) return
+
         val now = System.currentTimeMillis()
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
         var slot = 0
+        var invalidTimes = 0
+        var elapsedCourses = 0
         snapshot.courses
             .asSequence()
             .sortedWith(compareBy({ it.date }, { it.startTime }, { it.title }))
@@ -60,9 +76,16 @@ internal object CourseReminderScheduler {
                 if (slot >= REQUEST_COUNT) return@forEach
                 val start = runCatching {
                     dateFormat.parse("${course.date} ${course.startTime}")?.time
-                }.getOrNull() ?: return@forEach
+                }.getOrNull()
+                if (start == null) {
+                    invalidTimes++
+                    return@forEach
+                }
                 var triggerAt = start - minutes * 60_000L
-                if (start <= now) return@forEach
+                if (start <= now) {
+                    elapsedCourses++
+                    return@forEach
+                }
                 // If the app is enabled after the configured lead time, still
                 // remind once while the class has not started. This also makes
                 // changing the system clock to shortly before class testable.
@@ -82,8 +105,6 @@ internal object CourseReminderScheduler {
                     intent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
-                val exactAlarmsAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-                    alarmManager.canScheduleExactAlarms()
                 if (exactAlarmsAllowed) {
                     alarmManager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
@@ -100,6 +121,10 @@ internal object CourseReminderScheduler {
                     )
                 }
             }
+        Log.i(
+            TAG,
+            "scheduled=$slot invalidTimes=$invalidTimes alreadyStarted=$elapsedCourses",
+        )
     }
 
     private fun cancelAlarms(context: Context, alarmManager: AlarmManager) {
@@ -138,11 +163,16 @@ internal const val EXTRA_TITLE = "course_title"
 internal const val EXTRA_PLACE = "course_place"
 internal const val EXTRA_TEACHER = "course_teacher"
 private const val CHANNEL_ID = "course_reminders"
+private const val REMINDER_RECEIVER_TAG = "CourseReminderReceiver"
 
 internal class CourseReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val notificationManager =
             context.getSystemService(NotificationManager::class.java) ?: return
+        Log.i(
+            REMINDER_RECEIVER_TAG,
+            "received action=${intent?.action} hasCourseId=${intent?.hasExtra(EXTRA_COURSE_ID)}",
+        )
         if (intent?.action == ACTION_DISMISS) {
             notificationManager.cancel(intent.getIntExtra(EXTRA_REQUEST_CODE, 0))
             return
@@ -153,7 +183,10 @@ internal class CourseReminderReceiver : BroadcastReceiver() {
                 context,
                 android.Manifest.permission.POST_NOTIFICATIONS,
             ) != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) {
+            Log.w(REMINDER_RECEIVER_TAG, "skip: POST_NOTIFICATIONS is denied")
+            return
+        }
 
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -168,7 +201,10 @@ internal class CourseReminderReceiver : BroadcastReceiver() {
         )
         // An alarm can race with the settings write/cancel operation. Recheck
         // the switch at delivery time so disabling reminders is authoritative.
-        if (!prefs.getBoolean("flutter.course_reminder_enabled", false)) return
+        if (!prefs.getBoolean("flutter.course_reminder_enabled", false)) {
+            Log.i(REMINDER_RECEIVER_TAG, "skip: course reminders are disabled")
+            return
+        }
         val compatibility = prefs.getBoolean(
             "flutter.wearable_notification_compatibility",
             false,
@@ -189,7 +225,7 @@ internal class CourseReminderReceiver : BroadcastReceiver() {
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle(title)
             .setContentText(if (place.isBlank()) "课程即将开始" else place)
-            .setCategory(NotificationCompat.CATEGORY_EVENT)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setShowWhen(true)
             .setOngoing(!compatibility)
@@ -206,6 +242,11 @@ internal class CourseReminderReceiver : BroadcastReceiver() {
                 ),
             )
         notificationManager.notify(requestCode, builder.build())
+        Log.i(
+            REMINDER_RECEIVER_TAG,
+            "posted id=$requestCode channelImportance=${notificationManager.getNotificationChannel(CHANNEL_ID)?.importance} " +
+                "interruptionFilter=${notificationManager.currentInterruptionFilter}",
+        )
         CourseReminderScheduler.enqueueWork(context)
     }
 

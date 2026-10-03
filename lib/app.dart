@@ -111,8 +111,14 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
-    final lightTheme = AppTheme.lightFor(settings.themeColor);
-    final darkTheme = AppTheme.darkFor(settings.themeColor);
+    final lightTheme = AppTheme.lightFor(
+      settings.themeColor,
+      customColor: settings.customThemeColor,
+    );
+    final darkTheme = AppTheme.darkFor(
+      settings.themeColor,
+      customColor: settings.customThemeColor,
+    );
 
     return MaterialApp(
       title: '掌上徐工',

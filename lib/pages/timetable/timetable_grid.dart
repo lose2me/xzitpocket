@@ -55,6 +55,7 @@ class TimetableGrid extends StatefulWidget {
   final int rotationTick;
   final bool showNonCurrentWeekCourses;
   final bool showWeekendColumns;
+  final DateTime? currentDate;
 
   final SemesterCalendar calendar;
   final int slotCount;
@@ -98,6 +99,7 @@ class TimetableGrid extends StatefulWidget {
   final bool showStartTime;
   final bool hideLocation;
   final bool hideTeacher;
+  final bool hideTeacherBrackets;
   final bool removeLocationAt;
   final bool textAlignCenterHorizontal;
   final bool textAlignCenterVertical;
@@ -112,6 +114,7 @@ class TimetableGrid extends StatefulWidget {
     this.rotationTick = 0,
     this.showNonCurrentWeekCourses = false,
     this.showWeekendColumns = true,
+    this.currentDate,
     required this.calendar,
     this.slotCount = 14,
     this.visibleSlots = 9,
@@ -153,7 +156,8 @@ class TimetableGrid extends StatefulWidget {
     this.hideDateUnderDay = false,
     this.showStartTime = false,
     this.hideLocation = false,
-    this.hideTeacher = false,
+    this.hideTeacher = true,
+    this.hideTeacherBrackets = true,
     this.removeLocationAt = false,
     this.textAlignCenterHorizontal = false,
     this.textAlignCenterVertical = false,
@@ -290,7 +294,7 @@ class _TimetableGridState extends State<TimetableGrid> {
       otherByWeekday.putIfAbsent(entry.course.weekday, () => []).add(entry);
     }
     final dates = widget.calendar.weekDates(week);
-    final today = DateTime.now();
+    final today = widget.currentDate ?? DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final courseOpacity = widget.courseOpacity;
     final courseBorderOpacity = widget.courseBorderOpacity;
@@ -305,6 +309,9 @@ class _TimetableGridState extends State<TimetableGrid> {
     final effectiveTimeColumnWidth = widget.hideDateUnderDay
         ? math.min(widget.timeColumnWidth, 28.0)
         : widget.timeColumnWidth;
+    final effectiveDayHeaderHeight = widget.hideDateUnderDay
+        ? math.min(widget.dayHeaderHeight, 30.0)
+        : widget.dayHeaderHeight;
 
     // Cheap pre-compute: only the variant selection happens here (from the
     // cached day slots), never the grouping/backtracking.
@@ -350,6 +357,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                       weekdayLabel: weekdays[i],
                       isToday: isToday,
                       canDrag: currentByWeekday[i + 1]?.isNotEmpty == true,
+                      height: effectiveDayHeaderHeight,
                     ),
                   );
                 }),
@@ -530,6 +538,8 @@ class _TimetableGridState extends State<TimetableGrid> {
                                           showStartTime: widget.showStartTime,
                                           hideLocation: widget.hideLocation,
                                           hideTeacher: widget.hideTeacher,
+                                          hideTeacherBrackets:
+                                              widget.hideTeacherBrackets,
                                           removeLocationAt:
                                               widget.removeLocationAt,
                                           centerHorizontal:
@@ -660,6 +670,7 @@ class _TimetableGridState extends State<TimetableGrid> {
     required String weekdayLabel,
     required bool isToday,
     required bool canDrag,
+    required double height,
   }) {
     final theme = context.theme;
     final highlighted = !widget.suppressDayDrop && _dragHoverWeekday == weekday;
@@ -682,13 +693,15 @@ class _TimetableGridState extends State<TimetableGrid> {
         : null;
     final actionColor = _actionColor(theme, actionType);
     final header = GestureDetector(
-      onTap: widget.pendingDayAction != null && pending == null
+      onTap: widget.suppressDayDrop
+          ? null
+          : widget.pendingDayAction != null && pending == null
           ? null
           : pending == null
           ? () => _handleHeaderTap(weekday)
           : () => widget.onPendingDayActionCancel?.call(weekday),
       child: SizedBox(
-        height: widget.dayHeaderHeight,
+        height: height,
         width: double.infinity,
         child: DecoratedBox(
           decoration: BoxDecoration(
@@ -788,7 +801,9 @@ class _TimetableGridState extends State<TimetableGrid> {
       onAcceptWithDetails: (details) =>
           _acceptColumnDrop(weekday, details.data),
       builder: (context, candidateData, rejectedData) =>
-          canDrag && widget.pendingDayAction == null ? dragChild : header,
+          canDrag && !widget.suppressDayDrop && widget.pendingDayAction == null
+          ? dragChild
+          : header,
     );
   }
 
@@ -798,9 +813,10 @@ class _TimetableGridState extends State<TimetableGrid> {
     required String weekdayLabel,
     required bool isToday,
     required bool hideDate,
-  }) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+  }) => Center(
     child: Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (!hideDate)
           Text(

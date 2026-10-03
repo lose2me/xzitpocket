@@ -8,8 +8,13 @@ abstract final class AppTheme {
   static final light = lightFor(AppThemeColor.rose);
   static final dark = darkFor(AppThemeColor.rose);
 
-  static FThemeData lightFor(AppThemeColor themeColor) {
-    final primary = themeColor.lightColor;
+  static FThemeData lightFor(AppThemeColor themeColor, {Color? customColor}) {
+    final primary = customColor == null
+        ? themeColor.lightColor
+        : ColorScheme.fromSeed(
+            seedColor: customColor,
+            brightness: Brightness.light,
+          ).primary;
     return _build(
       debugLabel: 'XZIT Pocket Light',
       colors: FColors.neutralLight.copyWith(
@@ -48,8 +53,13 @@ abstract final class AppTheme {
     );
   }
 
-  static FThemeData darkFor(AppThemeColor themeColor) {
-    final primary = themeColor.darkColor;
+  static FThemeData darkFor(AppThemeColor themeColor, {Color? customColor}) {
+    final primary = customColor == null
+        ? themeColor.darkColor
+        : ColorScheme.fromSeed(
+            seedColor: customColor,
+            brightness: Brightness.dark,
+          ).primary;
     const card = Color(0xFF111827);
     return _build(
       debugLabel: 'XZIT Pocket Dark',

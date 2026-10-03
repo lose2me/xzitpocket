@@ -35,6 +35,10 @@ void main() {
   });
 
   group('AppThemeColor', () {
+    test('offers six Material tonal presets', () {
+      expect(AppThemeColor.values, hasLength(6));
+    });
+
     test('fromStorage returns correct values', () {
       for (final color in AppThemeColor.values) {
         expect(AppThemeColor.fromStorage(color.storageValue), color);
@@ -77,6 +81,7 @@ void main() {
       const settings = AppSettings();
       expect(settings.themePreference, AppThemePreference.system);
       expect(settings.themeColor, AppThemeColor.rose);
+      expect(settings.customThemeColor, isNull);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.courseReminderEnabled, isFalse);
       expect(settings.courseReminderMinutes, 15);
@@ -87,7 +92,11 @@ void main() {
       expect(settings.widgetHideTeacher, isFalse);
       expect(settings.widgetHideLocation, isFalse);
       expect(settings.widgetHideDate, isFalse);
+      expect(settings.timetableHideTeacher, isTrue);
+      expect(settings.timetableHideTeacherBrackets, isTrue);
       expect(settings.timetableBackgroundPath, isNull);
+      expect(settings.timetableDarkBackgroundPath, isNull);
+      expect(settings.timetableUseLightBackgroundInDarkMode, isFalse);
       expect(settings.timetableComponentOpacity, 0.6);
       expect(settings.timetableGridOpacity, 0.7);
       expect(settings.timetableCourseTextSize, 12.0);
@@ -105,6 +114,7 @@ void main() {
       final updated = settings.copyWith(
         themePreference: AppThemePreference.dark,
         themeColor: AppThemeColor.blue,
+        customThemeColor: const Color(0xFF123456),
         courseReminderEnabled: true,
         courseReminderMinutes: 30,
         wearableNotificationCompatibility: true,
@@ -114,7 +124,11 @@ void main() {
         widgetHideTeacher: true,
         widgetHideLocation: true,
         widgetHideDate: true,
+        timetableHideTeacher: false,
+        timetableHideTeacherBrackets: false,
         timetableBackgroundPath: '/tmp/background.jpg',
+        timetableDarkBackgroundPath: '/tmp/background-dark.jpg',
+        timetableUseLightBackgroundInDarkMode: true,
         timetableComponentOpacity: 0.7,
         timetableGridOpacity: 0.45,
         timetableCourseTextSize: 14,
@@ -131,6 +145,7 @@ void main() {
       );
       expect(updated.themePreference, AppThemePreference.dark);
       expect(updated.themeColor, AppThemeColor.blue);
+      expect(updated.customThemeColor, const Color(0xFF123456));
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.courseReminderEnabled, isTrue);
       expect(updated.courseReminderMinutes, 30);
@@ -141,7 +156,11 @@ void main() {
       expect(updated.widgetHideTeacher, isTrue);
       expect(updated.widgetHideLocation, isTrue);
       expect(updated.widgetHideDate, isTrue);
+      expect(updated.timetableHideTeacher, isFalse);
+      expect(updated.timetableHideTeacherBrackets, isFalse);
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
+      expect(updated.timetableDarkBackgroundPath, '/tmp/background-dark.jpg');
+      expect(updated.timetableUseLightBackgroundInDarkMode, isTrue);
       expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.timetableGridOpacity, 0.45);
       expect(updated.timetableCourseTextSize, 14);
@@ -174,10 +193,39 @@ void main() {
     });
 
     test('copyWith can clear the background path', () {
-      const settings = AppSettings(timetableBackgroundPath: '/tmp/bg.jpg');
-      final updated = settings.copyWith(timetableBackgroundPath: null);
+      const settings = AppSettings(
+        customThemeColor: Color(0xFF123456),
+        timetableBackgroundPath: '/tmp/bg.jpg',
+        timetableDarkBackgroundPath: '/tmp/dark.jpg',
+      );
+      final updated = settings.copyWith(
+        customThemeColor: null,
+        timetableBackgroundPath: null,
+        timetableDarkBackgroundPath: null,
+      );
 
+      expect(updated.customThemeColor, isNull);
       expect(updated.timetableBackgroundPath, isNull);
+      expect(updated.timetableDarkBackgroundPath, isNull);
+    });
+
+    test('resolves separate light and dark timetable backgrounds', () {
+      const settings = AppSettings(
+        timetableBackgroundPath: '/tmp/light.jpg',
+        timetableDarkBackgroundPath: '/tmp/dark.jpg',
+      );
+
+      expect(
+        settings.timetableBackgroundFor(Brightness.light),
+        '/tmp/light.jpg',
+      );
+      expect(settings.timetableBackgroundFor(Brightness.dark), '/tmp/dark.jpg');
+      expect(
+        settings
+            .copyWith(timetableUseLightBackgroundInDarkMode: true)
+            .timetableBackgroundFor(Brightness.dark),
+        '/tmp/light.jpg',
+      );
     });
   });
 }

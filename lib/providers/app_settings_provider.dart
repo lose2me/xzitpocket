@@ -27,6 +27,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         _storage.getThemePreference(),
       ),
       themeColor: AppThemeColor.fromStorage(_storage.getThemeColor()),
+      customThemeColor: _storage.getCustomThemeColor() == null
+          ? null
+          : Color(_storage.getCustomThemeColor()!),
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
@@ -55,6 +58,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableShowStartTime: _storage.getTimetableShowStartTime(),
       timetableHideLocation: _storage.getTimetableHideLocation(),
       timetableHideTeacher: _storage.getTimetableHideTeacher(),
+      timetableHideTeacherBrackets: _storage.getTimetableHideTeacherBrackets(),
       timetableRemoveLocationAt: _storage.getTimetableRemoveLocationAt(),
       timetableTextAlignCenterHorizontal: _storage
           .getTimetableTextAlignCenterHorizontal(),
@@ -70,6 +74,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           ? null
           : Color(_storage.getTimetableCourseTextColor()!),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
+      timetableDarkBackgroundPath: _storage.getTimetableDarkBackgroundPath(),
+      timetableUseLightBackgroundInDarkMode: _storage
+          .getTimetableUseLightBackgroundInDarkMode(),
       timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
       timetableCourseTextSize: _storage.getTimetableCourseTextSize(),
@@ -101,7 +108,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   Future<void> setThemeColor(AppThemeColor color) async {
     await _storage.setThemeColor(color.storageValue);
-    state = state.copyWith(themeColor: color);
+    await _storage.setCustomThemeColor(null);
+    state = state.copyWith(themeColor: color, customThemeColor: null);
+    try {
+      await WidgetService.refreshWidget();
+    } on WidgetSyncException {
+      // Ignore widget refresh failures so theme changes still apply in-app.
+    }
+  }
+
+  Future<void> setCustomThemeColor(Color color) async {
+    await _storage.setCustomThemeColor(color.toARGB32());
+    state = state.copyWith(customThemeColor: color);
     try {
       await WidgetService.refreshWidget();
     } on WidgetSyncException {
@@ -245,6 +263,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(timetableHideTeacher: value);
   }
 
+  Future<void> setTimetableHideTeacherBrackets(bool value) async {
+    await _storage.setTimetableHideTeacherBrackets(value);
+    state = state.copyWith(timetableHideTeacherBrackets: value);
+  }
+
   Future<void> setTimetableRemoveLocationAt(bool value) async {
     await _storage.setTimetableRemoveLocationAt(value);
     state = state.copyWith(timetableRemoveLocationAt: value);
@@ -286,6 +309,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setTimetableBackgroundPath(String? path) async {
     await _storage.setTimetableBackgroundPath(path);
     state = state.copyWith(timetableBackgroundPath: path);
+  }
+
+  Future<void> setTimetableDarkBackgroundPath(String? path) async {
+    await _storage.setTimetableDarkBackgroundPath(path);
+    state = state.copyWith(timetableDarkBackgroundPath: path);
+  }
+
+  Future<void> setTimetableUseLightBackgroundInDarkMode(bool value) async {
+    await _storage.setTimetableUseLightBackgroundInDarkMode(value);
+    state = state.copyWith(timetableUseLightBackgroundInDarkMode: value);
   }
 
   Future<void> setTimetableComponentOpacity(double value) async {
@@ -335,6 +368,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     const defaults = AppSettings();
     state = state.copyWith(
       timetableBackgroundPath: null,
+      timetableDarkBackgroundPath: null,
+      timetableUseLightBackgroundInDarkMode:
+          defaults.timetableUseLightBackgroundInDarkMode,
       timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
       timetableCourseTextSize: defaults.timetableCourseTextSize,
@@ -363,6 +399,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableShowStartTime: defaults.timetableShowStartTime,
       timetableHideLocation: defaults.timetableHideLocation,
       timetableHideTeacher: defaults.timetableHideTeacher,
+      timetableHideTeacherBrackets: defaults.timetableHideTeacherBrackets,
       timetableRemoveLocationAt: defaults.timetableRemoveLocationAt,
       timetableTextAlignCenterHorizontal:
           defaults.timetableTextAlignCenterHorizontal,

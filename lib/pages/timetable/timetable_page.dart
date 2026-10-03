@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
@@ -54,7 +54,7 @@ class _PendingDayAction {
 }
 
 class TimetablePageState extends ConsumerState<TimetablePage>
-    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
   late final PageController _pageController;
@@ -615,9 +615,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final courseBorderColor = context.theme.colors.foreground;
     final courseOpacity = settings.timetableCourseAlpha;
-    final hasBackground =
-        settings.timetableBackgroundPath != null &&
-        settings.timetableBackgroundPath!.isNotEmpty;
+    final backgroundPath = settings.timetableBackgroundFor(
+      Theme.of(context).brightness,
+    );
+    final hasBackground = backgroundPath != null && backgroundPath.isNotEmpty;
 
     return ListenableBuilder(
       listenable: semesterCalendar,
@@ -731,6 +732,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.timetableShowStartTime,
                                   hideLocation: settings.timetableHideLocation,
                                   hideTeacher: settings.timetableHideTeacher,
+                                  hideTeacherBrackets:
+                                      settings.timetableHideTeacherBrackets,
                                   removeLocationAt:
                                       settings.timetableRemoveLocationAt,
                                   textAlignCenterHorizontal: settings

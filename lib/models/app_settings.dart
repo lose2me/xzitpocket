@@ -24,12 +24,12 @@ enum AppThemePreference {
 }
 
 enum AppThemeColor {
-  blue(Color(0xFF2563EB), Color(0xFF60A5FA), '海蓝'),
-  rose(Color(0xFFBE123C), Color(0xFFFB7185), '玫红'),
-  green(Color(0xFF047857), Color(0xFF34D399), '翠绿'),
-  orange(Color(0xFFC2410C), Color(0xFFFB923C), '暖橙'),
-  purple(Color(0xFF7C3AED), Color(0xFFA78BFA), '罗兰紫'),
-  teal(Color(0xFF0F766E), Color(0xFF2DD4BF), '青碧');
+  blue(Color(0xFF415F91), Color(0xFFAAC7FF), '海蓝'),
+  rose(Color(0xFF904A4A), Color(0xFFFFB3B3), '玫红'),
+  green(Color(0xFF3F682E), Color(0xFFA4D88A), '翠绿'),
+  orange(Color(0xFF8B5000), Color(0xFFFFB86D), '暖橙'),
+  purple(Color(0xFF735085), Color(0xFFE0B6F2), '罗兰紫'),
+  teal(Color(0xFF006A6A), Color(0xFF4FD8D8), '青碧');
 
   final Color lightColor;
   final Color darkColor;
@@ -125,6 +125,7 @@ enum AppServiceFeature {
 class AppSettings {
   final AppThemePreference themePreference;
   final AppThemeColor themeColor;
+  final Color? customThemeColor;
   final ClassAutomationMode classAutomationMode;
   final bool courseReminderEnabled;
   final int courseReminderMinutes;
@@ -148,6 +149,7 @@ class AppSettings {
   final bool timetableShowStartTime;
   final bool timetableHideLocation;
   final bool timetableHideTeacher;
+  final bool timetableHideTeacherBrackets;
   final bool timetableRemoveLocationAt;
   final bool timetableTextAlignCenterHorizontal;
   final bool timetableTextAlignCenterVertical;
@@ -155,6 +157,8 @@ class AppSettings {
   final Color? timetablePageTextColor;
   final Color? timetableCourseTextColor;
   final String? timetableBackgroundPath;
+  final String? timetableDarkBackgroundPath;
+  final bool timetableUseLightBackgroundInDarkMode;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
   final double timetableCourseTextSize;
@@ -170,6 +174,7 @@ class AppSettings {
   const AppSettings({
     this.themePreference = AppThemePreference.system,
     this.themeColor = AppThemeColor.rose,
+    this.customThemeColor,
     this.classAutomationMode = ClassAutomationMode.off,
     this.courseReminderEnabled = false,
     this.courseReminderMinutes = 15,
@@ -192,7 +197,8 @@ class AppSettings {
     this.timetableHideDateUnderDay = false,
     this.timetableShowStartTime = false,
     this.timetableHideLocation = false,
-    this.timetableHideTeacher = false,
+    this.timetableHideTeacher = true,
+    this.timetableHideTeacherBrackets = true,
     this.timetableRemoveLocationAt = false,
     this.timetableTextAlignCenterHorizontal = false,
     this.timetableTextAlignCenterVertical = false,
@@ -200,6 +206,8 @@ class AppSettings {
     this.timetablePageTextColor,
     this.timetableCourseTextColor,
     this.timetableBackgroundPath,
+    this.timetableDarkBackgroundPath,
+    this.timetableUseLightBackgroundInDarkMode = false,
     this.timetableComponentOpacity = 0.6,
     this.timetableGridOpacity = 0.7,
     this.timetableCourseTextSize = 12.0,
@@ -218,6 +226,7 @@ class AppSettings {
   AppSettings copyWith({
     AppThemePreference? themePreference,
     AppThemeColor? themeColor,
+    Object? customThemeColor = _unset,
     ClassAutomationMode? classAutomationMode,
     bool? courseReminderEnabled,
     int? courseReminderMinutes,
@@ -241,6 +250,7 @@ class AppSettings {
     bool? timetableShowStartTime,
     bool? timetableHideLocation,
     bool? timetableHideTeacher,
+    bool? timetableHideTeacherBrackets,
     bool? timetableRemoveLocationAt,
     bool? timetableTextAlignCenterHorizontal,
     bool? timetableTextAlignCenterVertical,
@@ -248,6 +258,8 @@ class AppSettings {
     Object? timetablePageTextColor = _unset,
     Object? timetableCourseTextColor = _unset,
     Object? timetableBackgroundPath = _unset,
+    Object? timetableDarkBackgroundPath = _unset,
+    bool? timetableUseLightBackgroundInDarkMode,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
     double? timetableCourseTextSize,
@@ -263,6 +275,9 @@ class AppSettings {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
       themeColor: themeColor ?? this.themeColor,
+      customThemeColor: identical(customThemeColor, _unset)
+          ? this.customThemeColor
+          : customThemeColor as Color?,
       classAutomationMode: classAutomationMode ?? this.classAutomationMode,
       courseReminderEnabled:
           courseReminderEnabled ?? this.courseReminderEnabled,
@@ -303,6 +318,8 @@ class AppSettings {
       timetableHideLocation:
           timetableHideLocation ?? this.timetableHideLocation,
       timetableHideTeacher: timetableHideTeacher ?? this.timetableHideTeacher,
+      timetableHideTeacherBrackets:
+          timetableHideTeacherBrackets ?? this.timetableHideTeacherBrackets,
       timetableRemoveLocationAt:
           timetableRemoveLocationAt ?? this.timetableRemoveLocationAt,
       timetableTextAlignCenterHorizontal:
@@ -321,6 +338,13 @@ class AppSettings {
       timetableBackgroundPath: identical(timetableBackgroundPath, _unset)
           ? this.timetableBackgroundPath
           : timetableBackgroundPath as String?,
+      timetableDarkBackgroundPath:
+          identical(timetableDarkBackgroundPath, _unset)
+          ? this.timetableDarkBackgroundPath
+          : timetableDarkBackgroundPath as String?,
+      timetableUseLightBackgroundInDarkMode:
+          timetableUseLightBackgroundInDarkMode ??
+          this.timetableUseLightBackgroundInDarkMode,
       timetableComponentOpacity:
           timetableComponentOpacity ?? this.timetableComponentOpacity,
       timetableGridOpacity: timetableGridOpacity ?? this.timetableGridOpacity,
@@ -342,5 +366,13 @@ class AppSettings {
       hiddenServiceFeatures:
           hiddenServiceFeatures ?? this.hiddenServiceFeatures,
     );
+  }
+
+  String? timetableBackgroundFor(Brightness brightness) {
+    if (brightness == Brightness.dark &&
+        !timetableUseLightBackgroundInDarkMode) {
+      return timetableDarkBackgroundPath;
+    }
+    return timetableBackgroundPath;
   }
 }

@@ -21,6 +21,7 @@ class CourseCard extends StatelessWidget {
   final bool showStartTime;
   final bool hideLocation;
   final bool hideTeacher;
+  final bool hideTeacherBrackets;
   final bool removeLocationAt;
   final bool centerHorizontal;
   final bool centerVertical;
@@ -43,6 +44,7 @@ class CourseCard extends StatelessWidget {
     this.showStartTime = false,
     this.hideLocation = false,
     this.hideTeacher = true,
+    this.hideTeacherBrackets = true,
     this.removeLocationAt = false,
     this.centerHorizontal = false,
     this.centerVertical = false,
@@ -135,7 +137,9 @@ class CourseCard extends StatelessWidget {
                     ),
                   if (!hideTeacher && course.teacher.isNotEmpty)
                     Text(
-                      course.teacher,
+                      hideTeacherBrackets
+                          ? course.teacher
+                          : '【${course.teacher}】',
                       style: TextStyle(
                         fontSize: textSize * 11 / 12,
                         color: secondaryTextColor,

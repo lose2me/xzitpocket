@@ -148,24 +148,17 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           ProfileSettingsGroup(
             children: [
               ProfileSettingsTile(
-                icon: FLucideIcons.badge,
-                title: '学号',
-                value: config.studentId ?? '',
-              ),
-              ProfileSettingsTile(
-                icon: FLucideIcons.userRound,
-                title: '姓名',
-                value: config.studentName ?? '',
-              ),
-              ProfileSettingsTile(
                 icon: FLucideIcons.building2,
                 title: '学院',
                 value: config.collegeName ?? '',
               ),
               ProfileSettingsTile(
-                icon: FLucideIcons.users,
-                title: '班级',
-                value: config.className ?? '',
+                icon: FLucideIcons.userRound,
+                title: '用户',
+                value: [config.className, config.studentName]
+                    .whereType<String>()
+                    .where((value) => value.isNotEmpty)
+                    .join(' '),
               ),
             ],
           ),
@@ -173,7 +166,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           const ProfileSectionLabel(title: '补充信息'),
           ProfileSettingsGroup(
             children: [
-              ProfileSettingsControlTile(
+              ProfileSettingsInlineControlTile(
                 icon: FLucideIcons.building2,
                 title: '宿舍号',
                 onTap: _roomIdFocusNode.requestFocus,
@@ -226,22 +219,22 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 ),
               ),
               ProfileSettingsTile(
-                icon: FLucideIcons.history,
-                title: '课程规则',
-                onTap: () => Navigator.of(context).push(
-                  appRoute(
-                    name: AppRouteNames.courseRulesSettings,
-                    builder: (_) => const CourseRulesSettingsPage(),
-                  ),
-                ),
-              ),
-              ProfileSettingsTile(
                 icon: FLucideIcons.bell,
                 title: '课程提醒',
                 onTap: () => Navigator.of(context).push(
                   appRoute(
                     name: AppRouteNames.courseReminderSettings,
                     builder: (_) => const CourseReminderSettingsPage(),
+                  ),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.history,
+                title: '课程规则',
+                onTap: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.courseRulesSettings,
+                    builder: (_) => const CourseRulesSettingsPage(),
                   ),
                 ),
               ),

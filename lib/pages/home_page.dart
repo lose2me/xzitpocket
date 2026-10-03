@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
@@ -86,7 +86,9 @@ class HomePageState extends ConsumerState<HomePage> {
     final selectedNavigationIndex = visibleTabs.contains(_currentIndex)
         ? visibleTabs.indexOf(_currentIndex)
         : 0;
-    final timetableBackgroundPath = settings.timetableBackgroundPath;
+    final timetableBackgroundPath = settings.timetableBackgroundFor(
+      Theme.of(context).brightness,
+    );
     final hasBackgroundAsset =
         timetableBackgroundPath != null && timetableBackgroundPath.isNotEmpty;
     final showGlobalBackground = hasBackgroundAsset && _currentIndex == 0;

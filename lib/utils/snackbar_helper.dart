@@ -92,7 +92,7 @@ class _ToastHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewPadding = MediaQuery.viewPaddingOf(context);
-    const horizontalMargin = 16.0;
+    const horizontalMargin = 24.0;
     // Keep the global toast above the app navigation bar and the system
     // gesture area. The same baseline is used on every route.
     const navigationClearance = 72.0;

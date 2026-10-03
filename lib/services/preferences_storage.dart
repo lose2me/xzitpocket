@@ -42,6 +42,15 @@ class PreferencesStorage {
   Future<void> setThemeColor(String value) =>
       _prefs.setString('theme_color', value);
 
+  int? getCustomThemeColor() => _prefs.getInt('custom_theme_color');
+  Future<void> setCustomThemeColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('custom_theme_color');
+    } else {
+      await _prefs.setInt('custom_theme_color', value);
+    }
+  }
+
   String? getClassAutomationMode() => _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
@@ -199,9 +208,13 @@ class PreferencesStorage {
   Future<void> setTimetableHideLocation(bool value) =>
       _prefs.setBool('timetable_hide_location', value);
   bool getTimetableHideTeacher() =>
-      _prefs.getBool('timetable_hide_teacher') ?? false;
+      _prefs.getBool('timetable_hide_teacher') ?? true;
   Future<void> setTimetableHideTeacher(bool value) =>
       _prefs.setBool('timetable_hide_teacher', value);
+  bool getTimetableHideTeacherBrackets() =>
+      _prefs.getBool('timetable_hide_teacher_brackets') ?? true;
+  Future<void> setTimetableHideTeacherBrackets(bool value) =>
+      _prefs.setBool('timetable_hide_teacher_brackets', value);
   bool getTimetableRemoveLocationAt() =>
       _prefs.getBool('timetable_remove_location_at') ?? false;
   Future<void> setTimetableRemoveLocationAt(bool value) =>
@@ -250,6 +263,23 @@ class PreferencesStorage {
       await _prefs.setString('timetable_background_path', path);
     }
   }
+
+  String? getTimetableDarkBackgroundPath() =>
+      _prefs.getString('timetable_dark_background_path');
+
+  Future<void> setTimetableDarkBackgroundPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _prefs.remove('timetable_dark_background_path');
+    } else {
+      await _prefs.setString('timetable_dark_background_path', path);
+    }
+  }
+
+  bool getTimetableUseLightBackgroundInDarkMode() =>
+      _prefs.getBool('timetable_use_light_background_in_dark_mode') ?? false;
+
+  Future<void> setTimetableUseLightBackgroundInDarkMode(bool value) =>
+      _prefs.setBool('timetable_use_light_background_in_dark_mode', value);
 
   Future<void> clearLegacyTimetableBackgroundSettings() async {
     await Future.wait([
@@ -338,6 +368,8 @@ class PreferencesStorage {
   Future<void> resetTimetableAppearance() async {
     await Future.wait([
       _prefs.remove('timetable_background_path'),
+      _prefs.remove('timetable_dark_background_path'),
+      _prefs.remove('timetable_use_light_background_in_dark_mode'),
       // Remove settings from versions that supported separate source images,
       // non-fullscreen backgrounds, and background opacity.
       _prefs.remove('timetable_background_original_path'),
@@ -371,6 +403,7 @@ class PreferencesStorage {
       _prefs.remove('timetable_show_start_time'),
       _prefs.remove('timetable_hide_location'),
       _prefs.remove('timetable_hide_teacher'),
+      _prefs.remove('timetable_hide_teacher_brackets'),
       _prefs.remove('timetable_remove_location_at'),
       _prefs.remove('timetable_text_align_center_horizontal'),
       _prefs.remove('timetable_text_align_center_vertical'),

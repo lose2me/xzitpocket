@@ -109,11 +109,8 @@ class _CourseReminderSettingsPageState
             _PermissionStatusNotice(status: _permissionStatus!),
           ],
           const SizedBox(height: AppSpacing.md),
-          Text(
+          const ProfileSettingsHint(
             '提醒通过系统通知发送。开启穿戴设备兼容模式后，提醒会使用可自动收起的普通通知，更容易被手表或手环同步。',
-            style: context.theme.typography.caption.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
           ),
           const SizedBox(height: AppSpacing.xl),
           const ProfileSectionLabel(title: '后台与权限'),
@@ -181,32 +178,23 @@ class _CourseReminderSettingsPageState
               ProfileSettingsControlTile(
                 icon: FLucideIcons.bellOff,
                 title: '课堂勿扰',
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _automationButton(
-                        mode: ClassAutomationMode.off,
-                        label: '关闭',
-                        current: settings.classAutomationMode,
-                      ),
+                child: ProfileSettingsOptionButtons<ClassAutomationMode>(
+                  value: settings.classAutomationMode,
+                  options: const [
+                    ProfileSettingsOption(
+                      value: ClassAutomationMode.off,
+                      label: '关闭',
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: _automationButton(
-                        mode: ClassAutomationMode.dnd,
-                        label: '上课恢复',
-                        current: settings.classAutomationMode,
-                      ),
+                    ProfileSettingsOption(
+                      value: ClassAutomationMode.dnd,
+                      label: '上课恢复',
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: _automationButton(
-                        mode: ClassAutomationMode.dndKeep,
-                        label: '保持勿扰',
-                        current: settings.classAutomationMode,
-                      ),
+                    ProfileSettingsOption(
+                      value: ClassAutomationMode.dndKeep,
+                      label: '保持勿扰',
                     ),
                   ],
+                  onChanged: (mode) => unawaited(_setAutomationMode(mode)),
                 ),
               ),
             ],
@@ -217,16 +205,6 @@ class _CourseReminderSettingsPageState
   }
 
   String _permissionLabel(bool granted) => granted ? '已授权' : '未授权';
-
-  Widget _automationButton({
-    required ClassAutomationMode mode,
-    required String label,
-    required ClassAutomationMode current,
-  }) => FButton(
-    variant: current == mode ? FButtonVariant.primary : FButtonVariant.outline,
-    onPress: () => unawaited(_setAutomationMode(mode)),
-    child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-  );
 
   Future<void> _setAutomationMode(ClassAutomationMode selected) async {
     final currentMode = ref.read(appSettingsProvider).classAutomationMode;

@@ -45,6 +45,44 @@ void main() {
     expect(titleRect.center.dy, closeTo(cardRect.center.dy, 5));
   });
 
+  testWidgets('course teacher brackets follow the appearance setting', (
+    tester,
+  ) async {
+    final course = Course(
+      title: '高等数学',
+      teacher: '张老师',
+      weekday: 1,
+      sessions: const [1, 2],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+
+    Future<void> pumpCard({required bool hideBrackets}) => tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 140,
+          height: 120,
+          child: CourseCard(
+            course: course,
+            borderColor: Colors.black,
+            hideTeacher: false,
+            hideTeacherBrackets: hideBrackets,
+          ),
+        ),
+      ),
+    );
+
+    await pumpCard(hideBrackets: false);
+    expect(find.text('【张老师】'), findsOneWidget);
+    expect(find.text('张老师'), findsNothing);
+
+    await pumpCard(hideBrackets: true);
+    expect(find.text('【张老师】'), findsNothing);
+    expect(find.text('张老师'), findsOneWidget);
+  });
+
   testWidgets('timetable date divider has no surrounding vertical gap', (
     tester,
   ) async {
@@ -67,6 +105,61 @@ void main() {
     final divider = tester.widget<FDivider>(find.byType(FDivider));
     final style = divider.style(AppTheme.light.dividerStyles.horizontal);
     expect(style.padding, EdgeInsets.zero);
+  });
+
+  testWidgets('preview mode disables long-press day dragging', (tester) async {
+    final course = Course(
+      title: '预览课程',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1, 2],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 390,
+          height: 260,
+          child: TimetableGrid(
+            courses: [course],
+            week: 1,
+            calendar: semesterCalendar,
+            borderColor: AppTheme.light.colors.border,
+            suppressDayDrop: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(LongPressDraggable<TimetableDayDragData>), findsNothing);
+  });
+
+  testWidgets('current date override highlights the selected preview day', (
+    tester,
+  ) async {
+    final friday = semesterCalendar.weekDates(1)[4];
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 390,
+          height: 260,
+          child: TimetableGrid(
+            courses: const [],
+            week: 1,
+            calendar: semesterCalendar,
+            currentDate: friday,
+            borderColor: AppTheme.light.colors.border,
+          ),
+        ),
+      ),
+    );
+
+    final fridayLabel = tester.widget<Text>(find.text('五'));
+    expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
   });
 
   testWidgets('app sheets render an opaque full-width surface', (tester) async {

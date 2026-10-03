@@ -32,16 +32,8 @@ double _backgroundAspectRatio(Size size) {
   return width / height;
 }
 
-const _styleColors = <Color>[
-  Color(0xFF172033),
-  Color(0xFF475569),
-  Color(0xFF64748B),
-  Color(0xFF2563EB),
-  Color(0xFF047857),
-  Color(0xFFBE123C),
-  Color(0xFFC2410C),
-  Color(0xFF7C3AED),
-  Color(0xFFF8FAFC),
+final _styleColors = [
+  for (final color in AppThemeColor.values) color.lightColor,
 ];
 
 class TimetableSettingsPage extends ConsumerStatefulWidget {
@@ -60,28 +52,41 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     return AppPage(
       title: '个性化设置',
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.rotateCcw,
+          onPress: _resetAppearance,
+          tooltip: '重置个性化设置',
+        ),
+      ],
       child: Column(
         children: [
           DecoratedBox(
             decoration: BoxDecoration(
               color: context.theme.colors.background,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(22),
+              border: Border.all(
+                color: context.theme.colors.foreground.withValues(alpha: 0.28),
+                width: 1.5,
               ),
-              border: Border(
-                bottom: BorderSide(
-                  color: context.theme.colors.border,
-                  width: 1.5,
+              boxShadow: [
+                BoxShadow(
+                  color: context.theme.colors.foreground.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, -3),
                 ),
-              ),
+                BoxShadow(
+                  color: context.theme.colors.foreground.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(22),
-              ),
+            child: ClipRect(
               child: SizedBox(
                 height:
-                    settings.timetableDayHeaderHeight +
+                    (settings.timetableHideDateUnderDay
+                        ? math.min(settings.timetableDayHeaderHeight, 30.0)
+                        : settings.timetableDayHeaderHeight) +
                     settings.timetableSectionHeight * 2 +
                     2,
                 child: _TimetableGridPreview(
@@ -97,33 +102,40 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
               topPadding: AppSpacing.md,
               bottomPadding: AppSpacing.xxl,
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: FButton(
-                    variant: FButtonVariant.outline,
-                    onPress: _resetAppearance,
-                    prefix: const Icon(FLucideIcons.refreshCw),
-                    child: const Text('重置个性化设置'),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xl),
                 const ProfileSectionLabel(title: '软件主题'),
                 ProfileSettingsGroup(
                   children: [
-                    ProfileSettingsTile(
+                    ProfileSettingsOptionsTile<AppThemePreference>(
                       icon: FLucideIcons.sunMoon,
                       title: '主题模式',
-                      value: _themeTitle(settings.themePreference),
-                      onTap: () => _openThemeSheet(settings.themePreference),
+                      value: settings.themePreference,
+                      options: const [
+                        ProfileSettingsOption(
+                          value: AppThemePreference.system,
+                          label: '跟随系统',
+                        ),
+                        ProfileSettingsOption(
+                          value: AppThemePreference.light,
+                          label: '浅色',
+                        ),
+                        ProfileSettingsOption(
+                          value: AppThemePreference.dark,
+                          label: '深色',
+                        ),
+                      ],
+                      onChanged: (value) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setThemePreference(value),
+                      ),
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.palette,
                       title: '软件主题色',
-                      value: settings.themeColor.color,
-                      colors: [
-                        for (final item in AppThemeColor.values) item.color,
-                      ],
+                      value:
+                          settings.customThemeColor ??
+                          settings.themeColor.color,
+                      colors: _styleColors,
                       allowReset: false,
                       onChanged: (color) {
                         if (color == null) return;
@@ -136,6 +148,15 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .setThemeColor(selected),
                         );
                       },
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.customThemeColor ??
+                              settings.themeColor.color,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomThemeColor,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -264,6 +285,15 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                             .read(appSettingsProvider.notifier)
                             .setTimetableCourseTextColor(color),
                       ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.timetableCourseTextColor ??
+                              context.theme.colors.foreground,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableCourseTextColor,
+                        ),
+                      ),
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.clock,
@@ -288,6 +318,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       onChange: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableHideTeacher(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.brackets,
+                      title: '隐藏教师两侧的【】',
+                      value: settings.timetableHideTeacherBrackets,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableHideTeacherBrackets(value),
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.atSign,
@@ -353,19 +391,49 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                             .read(appSettingsProvider.notifier)
                             .setTimetablePageTextColor(color),
                       ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.timetablePageTextColor ??
+                              context.theme.colors.foreground,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetablePageTextColor,
+                        ),
+                      ),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.sunMedium,
+                      title: '统一使用浅色背景',
+                      value: settings.timetableUseLightBackgroundInDarkMode,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableUseLightBackgroundInDarkMode(value),
                     ),
                     ProfileSettingsTile(
-                      icon: FLucideIcons.image,
-                      title: '课表背景图',
+                      icon: FLucideIcons.sun,
+                      title: '浅色背景图',
                       value: settings.timetableBackgroundPath == null
                           ? '点击选择'
                           : '已设置（长按删除）',
                       onTap: settings.timetableBackgroundPath == null
-                          ? _pickBackground
+                          ? () => _pickBackground(dark: false)
                           : null,
                       onLongPress: settings.timetableBackgroundPath == null
                           ? null
-                          : _clearBackground,
+                          : () => _clearBackground(dark: false),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.moon,
+                      title: '暗色背景图',
+                      value: settings.timetableDarkBackgroundPath == null
+                          ? '点击选择'
+                          : '已设置（长按删除）',
+                      onTap: settings.timetableDarkBackgroundPath == null
+                          ? () => _pickBackground(dark: true)
+                          : null,
+                      onLongPress: settings.timetableDarkBackgroundPath == null
+                          ? null
+                          : () => _clearBackground(dark: true),
                     ),
                   ],
                 ),
@@ -373,12 +441,29 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 const ProfileSectionLabel(title: '小组件样式'),
                 ProfileSettingsGroup(
                   children: [
-                    ProfileSettingsTile(
+                    ProfileSettingsOptionsTile<WidgetThemePreference>(
                       icon: FLucideIcons.sunMoon,
                       title: '小组件主题',
-                      value: _widgetThemeLabel(settings.widgetThemePreference),
-                      onTap: () =>
-                          _openWidgetThemeSheet(settings.widgetThemePreference),
+                      value: settings.widgetThemePreference,
+                      options: const [
+                        ProfileSettingsOption(
+                          value: WidgetThemePreference.system,
+                          label: '跟随系统',
+                        ),
+                        ProfileSettingsOption(
+                          value: WidgetThemePreference.light,
+                          label: '浅色',
+                        ),
+                        ProfileSettingsOption(
+                          value: WidgetThemePreference.dark,
+                          label: '深色',
+                        ),
+                      ],
+                      onChanged: (value) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setWidgetThemePreference(value),
+                      ),
                     ),
                     ProfileSettingsSliderTile(
                       icon: FLucideIcons.type,
@@ -673,19 +758,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   String _visualDateLabel(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  String _widgetThemeLabel(WidgetThemePreference preference) =>
-      switch (preference) {
-        WidgetThemePreference.system => '跟随系统',
-        WidgetThemePreference.light => '浅色',
-        WidgetThemePreference.dark => '深色',
-      };
-
-  String _themeTitle(AppThemePreference preference) => switch (preference) {
-    AppThemePreference.system => '跟随系统',
-    AppThemePreference.light => '浅色模式',
-    AppThemePreference.dark => '深色模式',
-  };
-
   String _borderTypeLabel(TimetableBorderType type) => switch (type) {
     TimetableBorderType.none => '无边框',
     TimetableBorderType.solid => '实线',
@@ -716,60 +788,18 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         .setTimetableBorderType(selected);
   }
 
-  Future<void> _openThemeSheet(AppThemePreference current) async {
-    final selected = await showAppSheet<AppThemePreference>(
+  Future<void> _selectCustomColor(
+    Color initialColor,
+    Future<void> Function(Color) onSelected,
+  ) async {
+    final selected = await showProfileColorPicker(
       context: context,
-      builder: (context) => AppOptionSheet<AppThemePreference>(
-        title: '主题模式',
-        value: current,
-        options: const [
-          AppOption(
-            value: AppThemePreference.system,
-            title: '跟随系统',
-            icon: FLucideIcons.settings,
-          ),
-          AppOption(
-            value: AppThemePreference.light,
-            title: '浅色模式',
-            icon: FLucideIcons.sun,
-          ),
-          AppOption(
-            value: AppThemePreference.dark,
-            title: '深色模式',
-            icon: FLucideIcons.moon,
-          ),
-        ],
-      ),
+      initialColor: initialColor,
     );
-    if (selected == null || selected == current) return;
-    await ref.read(appSettingsProvider.notifier).setThemePreference(selected);
+    if (selected != null) await onSelected(selected);
   }
 
-  Future<void> _openWidgetThemeSheet(WidgetThemePreference current) async {
-    final selected = await showAppSheet<WidgetThemePreference>(
-      context: context,
-      builder: (context) => AppOptionSheet<WidgetThemePreference>(
-        title: '小组件主题',
-        value: current,
-        options: [
-          for (final item in WidgetThemePreference.values)
-            AppOption(
-              value: item,
-              title: _widgetThemeLabel(item),
-              icon: item == current
-                  ? FLucideIcons.circleCheck
-                  : FLucideIcons.circle,
-            ),
-        ],
-      ),
-    );
-    if (selected == null || selected == current) return;
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setWidgetThemePreference(selected);
-  }
-
-  Future<void> _pickBackground() async {
+  Future<void> _pickBackground({required bool dark}) async {
     final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
     if (picked == null || !mounted) return;
     try {
@@ -782,14 +812,20 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final targetPath = p.join(
         directory.path,
-        'timetable_background_$timestamp.jpg',
+        'timetable_background_${dark ? 'dark' : 'light'}_$timestamp.jpg',
       );
       final cropBytes = await _encodeJpgInIsolate(crop, quality: 90);
       await File(targetPath).writeAsBytes(cropBytes);
-      final oldPath = ref.read(appSettingsProvider).timetableBackgroundPath;
-      await ref
-          .read(appSettingsProvider.notifier)
-          .setTimetableBackgroundPath(targetPath);
+      final settings = ref.read(appSettingsProvider);
+      final oldPath = dark
+          ? settings.timetableDarkBackgroundPath
+          : settings.timetableBackgroundPath;
+      final notifier = ref.read(appSettingsProvider.notifier);
+      if (dark) {
+        await notifier.setTimetableDarkBackgroundPath(targetPath);
+      } else {
+        await notifier.setTimetableBackgroundPath(targetPath);
+      }
       if (oldPath != null && oldPath != targetPath) {
         final oldFile = File(oldPath);
         if (await oldFile.exists()) await oldFile.delete();
@@ -818,11 +854,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     ),
   );
 
-  Future<void> _clearBackground() async {
-    final path = ref.read(appSettingsProvider).timetableBackgroundPath;
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setTimetableBackgroundPath(null);
+  Future<void> _clearBackground({required bool dark}) async {
+    final settings = ref.read(appSettingsProvider);
+    final path = dark
+        ? settings.timetableDarkBackgroundPath
+        : settings.timetableBackgroundPath;
+    final notifier = ref.read(appSettingsProvider.notifier);
+    if (dark) {
+      await notifier.setTimetableDarkBackgroundPath(null);
+    } else {
+      await notifier.setTimetableBackgroundPath(null);
+    }
     if (path != null && path.isNotEmpty) {
       final file = File(path);
       if (await file.exists()) {
@@ -842,11 +884,13 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   Future<void> _resetAppearance() async {
     if (!mounted) return;
 
-    final backgroundPath = ref
-        .read(appSettingsProvider)
-        .timetableBackgroundPath;
+    final settings = ref.read(appSettingsProvider);
+    final backgroundPaths = {
+      settings.timetableBackgroundPath,
+      settings.timetableDarkBackgroundPath,
+    }.whereType<String>().where((path) => path.isNotEmpty);
     await ref.read(appSettingsProvider.notifier).resetTimetableAppearance();
-    if (backgroundPath != null && backgroundPath.isNotEmpty) {
+    for (final backgroundPath in backgroundPaths) {
       final file = File(backgroundPath);
       if (await file.exists()) {
         try {
@@ -1062,7 +1106,18 @@ class _TimetableGridPreview extends StatelessWidget {
         colorIndex: 7,
       ),
     ];
-    final backgroundPath = settings.timetableBackgroundPath;
+    final backgroundPath = settings.timetableBackgroundFor(
+      Theme.of(context).brightness,
+    );
+    final currentWeek = semesterCalendar
+        .weekOf(DateTime.now())
+        .clamp(1, math.max(1, semesterCalendar.totalWeeks))
+        .toInt();
+    final previewDates = semesterCalendar.weekDates(currentWeek);
+    final previewDayIndex = DateTime.now().weekday
+        .clamp(1, showWeekendColumns ? 7 : 5)
+        .toInt();
+    final previewCurrentDate = previewDates[previewDayIndex - 1];
     return ClipRect(
       child: Stack(
         fit: StackFit.expand,
@@ -1078,8 +1133,9 @@ class _TimetableGridPreview extends StatelessWidget {
             ColoredBox(color: theme.colors.background),
           TimetableGrid(
             courses: previewCourses,
-            week: 1,
+            week: currentWeek,
             showWeekendColumns: showWeekendColumns,
+            currentDate: previewCurrentDate,
             calendar: semesterCalendar,
             slotCount: 14,
             visibleSlots: 2,
@@ -1095,6 +1151,7 @@ class _TimetableGridPreview extends StatelessWidget {
             showTodayGridLines: settings.showTodayGridLines,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
+            suppressDayDrop: true,
             sectionHeight: settings.timetableSectionHeight,
             timeColumnWidth: settings.timetableTimeColumnWidth,
             dayHeaderHeight: settings.timetableDayHeaderHeight,
@@ -1107,6 +1164,7 @@ class _TimetableGridPreview extends StatelessWidget {
             showStartTime: settings.timetableShowStartTime,
             hideLocation: settings.timetableHideLocation,
             hideTeacher: settings.timetableHideTeacher,
+            hideTeacherBrackets: settings.timetableHideTeacherBrackets,
             removeLocationAt: settings.timetableRemoveLocationAt,
             textAlignCenterHorizontal:
                 settings.timetableTextAlignCenterHorizontal,

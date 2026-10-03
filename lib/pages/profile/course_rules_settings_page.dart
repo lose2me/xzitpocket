@@ -81,12 +81,7 @@ class _CourseRulesSettingsPageState
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          Text(
-            '课程规则会直接作用于课表数据，小组件和课堂提醒会随课表同步更新。',
-            style: context.theme.typography.caption.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
-          ),
+          const ProfileSettingsHint('课程规则会直接作用于课表数据，小组件和课堂提醒会随课表同步更新。'),
         ],
       ),
     );
