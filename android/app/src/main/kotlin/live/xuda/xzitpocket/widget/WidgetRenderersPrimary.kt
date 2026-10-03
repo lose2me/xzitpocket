@@ -212,7 +212,7 @@ internal object ModerateWidgetRenderer {
             views,
             style,
             WidgetRenderSupport.TextSpec(R.id.tv_week, 12f),
-            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 14f),
+            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 12f),
             WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
             WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
         )

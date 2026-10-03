@@ -157,7 +157,6 @@ class AppSettings {
   final Color? lastCustomThemeColor;
   final Color? customPageBackgroundColor;
   final Color? lastCustomPageBackgroundColor;
-  final bool floatingNavigationBar;
   final double toastOpacity;
   final ClassAutomationMode classAutomationMode;
   final bool courseReminderEnabled;
@@ -169,6 +168,9 @@ class AppSettings {
   final double widgetTextOpacity;
   final Color? widgetBackgroundColor;
   final Color? lastCustomWidgetBackgroundColor;
+  final String? widgetBackgroundPath;
+  final String? widgetDarkBackgroundPath;
+  final bool widgetUseLightBackgroundInDarkMode;
   final Color? widgetTextColor;
   final Color? lastCustomWidgetTextColor;
   final bool widgetHideTeacher;
@@ -230,7 +232,6 @@ class AppSettings {
     this.lastCustomThemeColor,
     this.customPageBackgroundColor,
     this.lastCustomPageBackgroundColor,
-    this.floatingNavigationBar = false,
     this.toastOpacity = 1.0,
     this.classAutomationMode = ClassAutomationMode.off,
     this.courseReminderEnabled = false,
@@ -242,6 +243,9 @@ class AppSettings {
     this.widgetTextOpacity = 1.0,
     this.widgetBackgroundColor,
     this.lastCustomWidgetBackgroundColor,
+    this.widgetBackgroundPath,
+    this.widgetDarkBackgroundPath,
+    this.widgetUseLightBackgroundInDarkMode = false,
     this.widgetTextColor,
     this.lastCustomWidgetTextColor,
     this.widgetHideTeacher = false,
@@ -306,7 +310,6 @@ class AppSettings {
     Object? lastCustomThemeColor = _unset,
     Object? customPageBackgroundColor = _unset,
     Object? lastCustomPageBackgroundColor = _unset,
-    bool? floatingNavigationBar,
     double? toastOpacity,
     ClassAutomationMode? classAutomationMode,
     bool? courseReminderEnabled,
@@ -318,6 +321,9 @@ class AppSettings {
     double? widgetTextOpacity,
     Object? widgetBackgroundColor = _unset,
     Object? lastCustomWidgetBackgroundColor = _unset,
+    Object? widgetBackgroundPath = _unset,
+    Object? widgetDarkBackgroundPath = _unset,
+    bool? widgetUseLightBackgroundInDarkMode,
     Object? widgetTextColor = _unset,
     Object? lastCustomWidgetTextColor = _unset,
     bool? widgetHideTeacher,
@@ -388,8 +394,6 @@ class AppSettings {
           identical(lastCustomPageBackgroundColor, _unset)
           ? this.lastCustomPageBackgroundColor
           : lastCustomPageBackgroundColor as Color?,
-      floatingNavigationBar:
-          floatingNavigationBar ?? this.floatingNavigationBar,
       toastOpacity: toastOpacity ?? this.toastOpacity,
       classAutomationMode: classAutomationMode ?? this.classAutomationMode,
       courseReminderEnabled:
@@ -412,6 +416,15 @@ class AppSettings {
           identical(lastCustomWidgetBackgroundColor, _unset)
           ? this.lastCustomWidgetBackgroundColor
           : lastCustomWidgetBackgroundColor as Color?,
+      widgetBackgroundPath: identical(widgetBackgroundPath, _unset)
+          ? this.widgetBackgroundPath
+          : widgetBackgroundPath as String?,
+      widgetDarkBackgroundPath: identical(widgetDarkBackgroundPath, _unset)
+          ? this.widgetDarkBackgroundPath
+          : widgetDarkBackgroundPath as String?,
+      widgetUseLightBackgroundInDarkMode:
+          widgetUseLightBackgroundInDarkMode ??
+          this.widgetUseLightBackgroundInDarkMode,
       widgetTextColor: identical(widgetTextColor, _unset)
           ? this.widgetTextColor
           : widgetTextColor as Color?,
@@ -543,6 +556,13 @@ class AppSettings {
       return timetableDarkBackgroundPath;
     }
     return timetableBackgroundPath;
+  }
+
+  String? widgetBackgroundFor(Brightness brightness) {
+    if (brightness == Brightness.dark && !widgetUseLightBackgroundInDarkMode) {
+      return widgetDarkBackgroundPath;
+    }
+    return widgetBackgroundPath;
   }
 
   Color? pageBackgroundFor(Brightness brightness) =>

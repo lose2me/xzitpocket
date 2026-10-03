@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -200,16 +201,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setCustomPageBackgroundColor,
                         ),
-                      ),
-                    ),
-                    ProfileSettingsCheckboxTile(
-                      icon: FLucideIcons.panelBottom,
-                      title: '悬浮导航栏',
-                      value: settings.floatingNavigationBar,
-                      onChange: (value) => unawaited(
-                        ref
-                            .read(appSettingsProvider.notifier)
-                            .setFloatingNavigationBar(value),
                       ),
                     ),
                   ],
@@ -696,7 +687,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       title: '浅色背景图',
                       value: settings.timetableBackgroundPath == null
                           ? '点击选择'
-                          : '已设置（长按删除）',
+                          : '长按删除',
                       onTap: settings.timetableBackgroundPath == null
                           ? () => _pickBackground(dark: false)
                           : null,
@@ -709,7 +700,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       title: '暗色背景图',
                       value: settings.timetableDarkBackgroundPath == null
                           ? '点击选择'
-                          : '已设置（长按删除）',
+                          : '长按删除',
                       onTap: settings.timetableDarkBackgroundPath == null
                           ? () => _pickBackground(dark: true)
                           : null,
@@ -768,6 +759,43 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .setCustomWidgetBackgroundColor,
                         ),
                       ),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.sunMedium,
+                      title: '全局使用浅色背景图',
+                      value: settings.widgetUseLightBackgroundInDarkMode,
+                      onChange: (value) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setWidgetUseLightBackgroundInDarkMode(value),
+                      ),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.sun,
+                      title: '浅色背景图',
+                      value: settings.widgetBackgroundPath == null
+                          ? '点击选择'
+                          : '长按删除',
+                      onTap: settings.widgetBackgroundPath == null
+                          ? () => _pickBackground(dark: false, forWidget: true)
+                          : null,
+                      onLongPress: settings.widgetBackgroundPath == null
+                          ? null
+                          : () =>
+                                _clearBackground(dark: false, forWidget: true),
+                    ),
+                    ProfileSettingsTile(
+                      icon: FLucideIcons.moon,
+                      title: '暗色背景图',
+                      value: settings.widgetDarkBackgroundPath == null
+                          ? '点击选择'
+                          : '长按删除',
+                      onTap: settings.widgetDarkBackgroundPath == null
+                          ? () => _pickBackground(dark: true, forWidget: true)
+                          : null,
+                      onLongPress: settings.widgetDarkBackgroundPath == null
+                          ? null
+                          : () => _clearBackground(dark: true, forWidget: true),
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
@@ -1109,29 +1137,49 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     if (selected != null) await onSelected(selected);
   }
 
-  Future<void> _pickBackground({required bool dark}) async {
-    final picked = await _imagePicker.pickImage(source: ImageSource.gallery);
+  Future<void> _pickBackground({
+    required bool dark,
+    bool forWidget = false,
+  }) async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 2400,
+      maxHeight: 2400,
+      imageQuality: 95,
+    );
     if (picked == null || !mounted) return;
     try {
-      final aspectRatio = _backgroundAspectRatio(MediaQuery.sizeOf(context));
+      final aspectRatio = forWidget
+          ? 2.0
+          : _backgroundAspectRatio(MediaQuery.sizeOf(context));
       final sourceBytes = await picked.readAsBytes();
       if (!mounted) return;
-      final crop = await _selectBackgroundCrop(sourceBytes, aspectRatio);
-      if (crop == null || !mounted) return;
+      final cropBytes = await _selectBackgroundCrop(sourceBytes, aspectRatio);
+      if (cropBytes == null || !mounted) return;
       final directory = await getApplicationDocumentsDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final targetPath = p.join(
         directory.path,
-        'timetable_background_${dark ? 'dark' : 'light'}_$timestamp.jpg',
+        '${forWidget ? 'widget' : 'timetable'}_background_'
+        '${dark ? 'dark' : 'light'}_$timestamp.jpg',
       );
-      final cropBytes = await _encodeJpgInIsolate(crop, quality: 90);
       await File(targetPath).writeAsBytes(cropBytes);
       final settings = ref.read(appSettingsProvider);
-      final oldPath = dark
+      final oldPath = forWidget
+          ? dark
+                ? settings.widgetDarkBackgroundPath
+                : settings.widgetBackgroundPath
+          : dark
           ? settings.timetableDarkBackgroundPath
           : settings.timetableBackgroundPath;
       final notifier = ref.read(appSettingsProvider.notifier);
-      if (dark) {
+      if (forWidget) {
+        if (dark) {
+          await notifier.setWidgetDarkBackgroundPath(targetPath);
+        } else {
+          await notifier.setWidgetBackgroundPath(targetPath);
+        }
+      } else if (dark) {
         await notifier.setTimetableDarkBackgroundPath(targetPath);
       } else {
         await notifier.setTimetableBackgroundPath(targetPath);
@@ -1145,17 +1193,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         showAppSnackBar(context, '背景图已更新', severity: ToastSeverity.success);
       }
     } catch (error, stackTrace) {
-      talker.error('保存课表背景图失败', error, stackTrace);
+      talker.error('保存${forWidget ? '小组件' : '课表'}背景图失败', error, stackTrace);
       if (mounted) {
         showAppSnackBar(context, '背景图保存失败', severity: ToastSeverity.error);
       }
     }
   }
 
-  Future<img.Image?> _selectBackgroundCrop(
+  Future<Uint8List?> _selectBackgroundCrop(
     Uint8List sourceBytes,
     double aspectRatio,
-  ) => Navigator.of(context).push<img.Image>(
+  ) => Navigator.of(context).push<Uint8List>(
     MaterialPageRoute(
       builder: (_) => _BackgroundCropPage(
         sourceBytes: sourceBytes,
@@ -1164,13 +1212,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     ),
   );
 
-  Future<void> _clearBackground({required bool dark}) async {
+  Future<void> _clearBackground({
+    required bool dark,
+    bool forWidget = false,
+  }) async {
     final settings = ref.read(appSettingsProvider);
-    final path = dark
+    final path = forWidget
+        ? dark
+              ? settings.widgetDarkBackgroundPath
+              : settings.widgetBackgroundPath
+        : dark
         ? settings.timetableDarkBackgroundPath
         : settings.timetableBackgroundPath;
     final notifier = ref.read(appSettingsProvider.notifier);
-    if (dark) {
+    if (forWidget) {
+      if (dark) {
+        await notifier.setWidgetDarkBackgroundPath(null);
+      } else {
+        await notifier.setWidgetBackgroundPath(null);
+      }
+    } else if (dark) {
       await notifier.setTimetableDarkBackgroundPath(null);
     } else {
       await notifier.setTimetableBackgroundPath(null);
@@ -1181,7 +1242,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         try {
           await file.delete();
         } catch (error, stackTrace) {
-          talker.warning('删除课表背景图文件失败', error, stackTrace);
+          talker.warning('删除背景图文件失败', error, stackTrace);
         }
       }
     }
@@ -1198,6 +1259,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     final backgroundPaths = {
       settings.timetableBackgroundPath,
       settings.timetableDarkBackgroundPath,
+      settings.widgetBackgroundPath,
+      settings.widgetDarkBackgroundPath,
     }.whereType<String>().where((path) => path.isNotEmpty);
     await ref.read(appSettingsProvider.notifier).resetTimetableAppearance();
     for (final backgroundPath in backgroundPaths) {
@@ -1206,7 +1269,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         try {
           await file.delete();
         } catch (error, stackTrace) {
-          talker.warning('删除课表背景图文件失败', error, stackTrace);
+          talker.warning('删除背景图文件失败', error, stackTrace);
         }
       }
     }
@@ -1521,28 +1584,27 @@ class _TimetableDaySnapshot {
   });
 }
 
-Future<Uint8List> _prepareCropSource(Uint8List bytes) async {
-  return Isolate.run(() {
-    final decoded = img.decodeImage(bytes);
-    if (decoded == null) return Uint8List(0);
-    var oriented = img.bakeOrientation(decoded);
-    const maxDimension = 2400;
-    if (oriented.width > maxDimension || oriented.height > maxDimension) {
-      oriented = img.copyResize(
-        oriented,
-        width: oriented.width >= oriented.height ? maxDimension : null,
-        height: oriented.height > oriented.width ? maxDimension : null,
-        interpolation: img.Interpolation.average,
-      );
-    }
-    return Uint8List.fromList(img.encodeJpg(oriented, quality: 92));
-  });
-}
-
-Future<Uint8List> _encodeJpgInIsolate(img.Image image, {required int quality}) {
-  return Isolate.run(
-    () => Uint8List.fromList(img.encodeJpg(image, quality: quality)),
-  );
+Future<ui.Image> _decodeCropPreview(Uint8List bytes) async {
+  final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
+  ui.ImageDescriptor? descriptor;
+  ui.Codec? codec;
+  try {
+    descriptor = await ui.ImageDescriptor.encoded(buffer);
+    const maxDimension = 1800.0;
+    final scale = math.min(
+      1.0,
+      maxDimension / math.max(descriptor.width, descriptor.height),
+    );
+    codec = await descriptor.instantiateCodec(
+      targetWidth: (descriptor.width * scale).round().clamp(1, 1800),
+      targetHeight: (descriptor.height * scale).round().clamp(1, 1800),
+    );
+    return (await codec.getNextFrame()).image;
+  } finally {
+    codec?.dispose();
+    descriptor?.dispose();
+    buffer.dispose();
+  }
 }
 
 class _BackgroundCropPage extends StatefulWidget {
@@ -1559,9 +1621,9 @@ class _BackgroundCropPage extends StatefulWidget {
 }
 
 class _BackgroundCropPageState extends State<_BackgroundCropPage> {
-  img.Image? _source;
-  Uint8List? _previewBytes;
+  ui.Image? _source;
   Object? _loadError;
+  bool _isCropping = false;
   Rect? _selectionRect;
   Rect? _gestureStartSelection;
   _BackgroundCropMetrics? _lastMetrics;
@@ -1574,18 +1636,26 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
 
   Future<void> _loadSource() async {
     try {
-      final bytes = await _prepareCropSource(widget.sourceBytes);
-      if (bytes.isEmpty) throw const FormatException('无法读取图片');
-      final source = img.decodeImage(bytes);
-      if (source == null) throw const FormatException('无法读取图片');
-      if (!mounted) return;
+      // Decode with Flutter's native codec and cap the working image. The
+      // old path decoded and JPEG-reencoded the full photo in pure Dart before
+      // the crop page could render anything.
+      final source = await _decodeCropPreview(widget.sourceBytes);
+      if (!mounted) {
+        source.dispose();
+        return;
+      }
       setState(() {
         _source = source;
-        _previewBytes = bytes;
       });
     } catch (error) {
       if (mounted) setState(() => _loadError = error);
     }
+  }
+
+  @override
+  void dispose() {
+    _source?.dispose();
+    super.dispose();
   }
 
   _BackgroundCropMetrics _metrics(Size canvasSize) {
@@ -1646,7 +1716,7 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
     return Rect.fromCenter(center: center, width: width, height: height);
   }
 
-  img.Image _crop(_BackgroundCropMetrics metrics) {
+  Future<Uint8List> _crop(_BackgroundCropMetrics metrics) async {
     final source = _source!;
     final cropRect = _selectionRect ?? metrics.defaultCropRect;
     final x = ((cropRect.left - metrics.imageRect.left) / metrics.sourceScale)
@@ -1665,7 +1735,57 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
         .round()
         .clamp(1, source.height - y)
         .toInt();
-    return img.copyCrop(source, x: x, y: y, width: width, height: height);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawImageRect(
+      source,
+      Rect.fromLTWH(
+        x.toDouble(),
+        y.toDouble(),
+        width.toDouble(),
+        height.toDouble(),
+      ),
+      Rect.fromLTWH(0, 0, width.toDouble(), height.toDouble()),
+      Paint()..filterQuality = FilterQuality.high,
+    );
+    final picture = recorder.endRecording();
+    final croppedImage = await picture.toImage(width, height);
+    picture.dispose();
+    final byteData = await croppedImage.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    );
+    croppedImage.dispose();
+    if (byteData == null) throw const FormatException('无法读取图片像素');
+    final rgba = TransferableTypedData.fromList([
+      byteData.buffer.asUint8List(
+        byteData.offsetInBytes,
+        byteData.lengthInBytes,
+      ),
+    ]);
+    return Isolate.run(() {
+      final pixels = rgba.materialize();
+      final decoded = img.Image.fromBytes(
+        width: width,
+        height: height,
+        bytes: pixels,
+        numChannels: 4,
+      );
+      return Uint8List.fromList(img.encodeJpg(decoded, quality: 90));
+    });
+  }
+
+  Future<void> _confirmCrop(_BackgroundCropMetrics metrics) async {
+    if (_isCropping || _source == null) return;
+    setState(() => _isCropping = true);
+    try {
+      final bytes = await _crop(metrics);
+      if (mounted) Navigator.pop(context, bytes);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isCropping = false);
+        showAppSnackBar(context, '图片裁剪失败', severity: ToastSeverity.error);
+      }
+    }
   }
 
   @override
@@ -1687,8 +1807,7 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final source = _source;
-                    final previewBytes = _previewBytes;
-                    if (source == null || previewBytes == null) {
+                    if (source == null) {
                       return Center(
                         child: _loadError == null
                             ? const CircularProgressIndicator()
@@ -1738,8 +1857,8 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
                           ColoredBox(color: theme.colors.muted),
                           Positioned.fromRect(
                             rect: metrics.imageRect,
-                            child: Image.memory(
-                              previewBytes,
+                            child: RawImage(
+                              image: source,
                               fit: BoxFit.fill,
                               filterQuality: FilterQuality.high,
                             ),
@@ -1766,13 +1885,21 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   FButton(
-                    onPress: () {
-                      final metrics = _lastMetrics;
-                      if (metrics != null && _source != null) {
-                        Navigator.pop(context, _crop(metrics));
-                      }
-                    },
-                    child: const Text('使用此位置'),
+                    onPress: _isCropping
+                        ? null
+                        : () {
+                            final metrics = _lastMetrics;
+                            if (metrics != null && _source != null) {
+                              unawaited(_confirmCrop(metrics));
+                            }
+                          },
+                    child: _isCropping
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('使用此位置'),
                   ),
                 ],
               ),

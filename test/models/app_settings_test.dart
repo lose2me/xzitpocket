@@ -83,7 +83,6 @@ void main() {
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.customThemeColor, isNull);
       expect(settings.lastCustomThemeColor, isNull);
-      expect(settings.floatingNavigationBar, isFalse);
       expect(settings.toastOpacity, 1.0);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.courseReminderEnabled, isFalse);
@@ -93,6 +92,9 @@ void main() {
       expect(settings.widgetFontScale, 1.0);
       expect(settings.widgetBackgroundAlpha, 1.0);
       expect(settings.widgetBackgroundColor, isNull);
+      expect(settings.widgetBackgroundPath, isNull);
+      expect(settings.widgetDarkBackgroundPath, isNull);
+      expect(settings.widgetUseLightBackgroundInDarkMode, isFalse);
       expect(settings.widgetTextColor, isNull);
       expect(settings.widgetTextOpacity, 1.0);
       expect(settings.widgetHideTeacher, isFalse);
@@ -131,7 +133,6 @@ void main() {
         themeColor: AppThemeColor.blue,
         customThemeColor: const Color(0xFF123456),
         lastCustomThemeColor: const Color(0xFF654321),
-        floatingNavigationBar: true,
         toastOpacity: 0.8,
         courseReminderEnabled: true,
         courseReminderMinutes: 30,
@@ -141,6 +142,9 @@ void main() {
         widgetBackgroundAlpha: 0.65,
         widgetBackgroundColor: const Color(0xFFABCDEF),
         lastCustomWidgetBackgroundColor: const Color(0xFFABCDEF),
+        widgetBackgroundPath: '/tmp/widget-light.jpg',
+        widgetDarkBackgroundPath: '/tmp/widget-dark.jpg',
+        widgetUseLightBackgroundInDarkMode: true,
         widgetTextColor: const Color(0xFF123456),
         lastCustomWidgetTextColor: const Color(0xFF123456),
         widgetTextOpacity: 0.75,
@@ -183,7 +187,6 @@ void main() {
       expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.customThemeColor, const Color(0xFF123456));
       expect(updated.lastCustomThemeColor, const Color(0xFF654321));
-      expect(updated.floatingNavigationBar, isTrue);
       expect(updated.toastOpacity, 0.8);
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.courseReminderEnabled, isTrue);
@@ -193,6 +196,9 @@ void main() {
       expect(updated.widgetFontScale, 1.4);
       expect(updated.widgetBackgroundAlpha, 0.65);
       expect(updated.widgetBackgroundColor, const Color(0xFFABCDEF));
+      expect(updated.widgetBackgroundPath, '/tmp/widget-light.jpg');
+      expect(updated.widgetDarkBackgroundPath, '/tmp/widget-dark.jpg');
+      expect(updated.widgetUseLightBackgroundInDarkMode, isTrue);
       expect(updated.widgetTextColor, const Color(0xFF123456));
       expect(updated.widgetTextOpacity, 0.75);
       expect(updated.widgetHideTeacher, isTrue);
@@ -292,6 +298,28 @@ void main() {
             .copyWith(timetableUseLightBackgroundInDarkMode: true)
             .timetableBackgroundFor(Brightness.dark),
         '/tmp/light.jpg',
+      );
+    });
+
+    test('resolves separate light and dark widget backgrounds', () {
+      const settings = AppSettings(
+        widgetBackgroundPath: '/tmp/widget-light.jpg',
+        widgetDarkBackgroundPath: '/tmp/widget-dark.jpg',
+      );
+
+      expect(
+        settings.widgetBackgroundFor(Brightness.light),
+        '/tmp/widget-light.jpg',
+      );
+      expect(
+        settings.widgetBackgroundFor(Brightness.dark),
+        '/tmp/widget-dark.jpg',
+      );
+      expect(
+        settings
+            .copyWith(widgetUseLightBackgroundInDarkMode: true)
+            .widgetBackgroundFor(Brightness.dark),
+        '/tmp/widget-light.jpg',
       );
     });
 

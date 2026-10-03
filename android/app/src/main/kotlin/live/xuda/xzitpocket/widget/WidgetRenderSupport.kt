@@ -2,12 +2,15 @@ package live.xuda.xzitpocket.widget
 
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.os.Build
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.ColorRes
 import androidx.annotation.LayoutRes
 import live.xuda.xzitpocket.R
+import java.io.File
 
 internal object WidgetRenderSupport {
     private const val PLACEHOLDER_TEXT = " "
@@ -20,6 +23,7 @@ internal object WidgetRenderSupport {
         val backgroundAlpha: Float,
         val textOpacity: Float,
         val backgroundColor: Int?,
+        val backgroundImagePath: String?,
         val textColor: Int?,
         val hideTeacher: Boolean,
         val hideLocation: Boolean,
@@ -28,6 +32,18 @@ internal object WidgetRenderSupport {
 
     fun readStyle(context: Context): WidgetStyle {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
+        val useLightBackground = prefs.getBoolean(
+            "flutter.widget_use_light_background_in_dark_mode",
+            false,
+        )
+        val backgroundImagePath = if (
+            WidgetThemeSupport.resolveThemeMode(context) == WidgetThemeMode.DARK &&
+            !useLightBackground
+        ) {
+            prefs.getString("flutter.widget_dark_background_path", null)
+        } else {
+            prefs.getString("flutter.widget_background_path", null)
+        }
         return WidgetStyle(
             fontScale = readFloat(prefs, "flutter.widget_font_scale", 1f)
                 .coerceIn(0.5f, 2f),
@@ -36,6 +52,7 @@ internal object WidgetRenderSupport {
             textOpacity = readFloat(prefs, "flutter.widget_text_opacity", 1f)
                 .coerceIn(0f, 1f),
             backgroundColor = readColor(prefs, "flutter.widget_background_color"),
+            backgroundImagePath = backgroundImagePath,
             textColor = readColor(prefs, "flutter.widget_text_color"),
             hideTeacher = prefs.getBoolean("flutter.widget_hide_teacher", false),
             hideLocation = prefs.getBoolean("flutter.widget_hide_location", false),
@@ -70,6 +87,10 @@ internal object WidgetRenderSupport {
             R.id.widget_background,
             WidgetThemeSupport.backgroundDrawableRes(context),
         )
+        views.setImageViewResource(R.id.widget_background, android.R.color.transparent)
+        WidgetBackgroundImageCache.load(style.backgroundImagePath)?.let { bitmap ->
+            views.setImageViewBitmap(R.id.widget_background, bitmap)
+        }
         views.setFloat(R.id.widget_background, "setAlpha", style.backgroundAlpha)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             views.setColorStateList(
@@ -522,5 +543,61 @@ internal object WidgetRenderSupport {
             R.id.widget_background,
             WidgetThemeSupport.backgroundDrawableRes(context),
         )
+    }
+}
+
+private object WidgetBackgroundImageCache {
+    private const val MAX_DIMENSION = 1024
+    private var cachedPath: String? = null
+    private var cachedBitmap: Bitmap? = null
+
+    @Synchronized
+    fun load(path: String?): Bitmap? {
+        if (path.isNullOrBlank()) {
+            cachedPath = null
+            cachedBitmap = null
+            return null
+        }
+        if (path == cachedPath) return cachedBitmap
+        val file = File(path)
+        if (!file.isFile) {
+            cachedPath = path
+            cachedBitmap = null
+            return null
+        }
+
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+
+        var sampleSize = 1
+        while (
+            bounds.outWidth / (sampleSize * 2) >= MAX_DIMENSION ||
+            bounds.outHeight / (sampleSize * 2) >= MAX_DIMENSION
+        ) {
+            sampleSize *= 2
+        }
+        val decoded = BitmapFactory.decodeFile(
+            path,
+            BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+            },
+        ) ?: return null
+        val largestDimension = maxOf(decoded.width, decoded.height)
+        val bitmap = if (largestDimension > MAX_DIMENSION) {
+            val scale = MAX_DIMENSION.toFloat() / largestDimension
+            Bitmap.createScaledBitmap(
+                decoded,
+                (decoded.width * scale).toInt().coerceAtLeast(1),
+                (decoded.height * scale).toInt().coerceAtLeast(1),
+                true,
+            ).also { decoded.recycle() }
+        } else {
+            decoded
+        }
+        cachedPath = path
+        cachedBitmap = bitmap
+        return bitmap
     }
 }

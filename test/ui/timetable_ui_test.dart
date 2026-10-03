@@ -234,6 +234,48 @@ void main() {
     expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
   });
 
+  testWidgets('today side lines replace grid lines on shared boundaries', (
+    tester,
+  ) async {
+    final tuesday = semesterCalendar.weekDates(1)[1];
+    const gridColor = Color(0xFF112233);
+    const todayColor = Color(0xFF445566);
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 390,
+          height: 260,
+          child: TimetableGrid(
+            courses: const [],
+            week: 1,
+            calendar: semesterCalendar,
+            currentDate: tuesday,
+            borderColor: AppTheme.light.colors.border,
+            gridLineColor: gridColor,
+            gridOpacity: 1,
+            gridLineWidth: 1,
+            showTodayGridLines: true,
+            todayLineColor: todayColor,
+            todayLineOpacity: 1,
+            todayLineWidth: 2,
+          ),
+        ),
+      ),
+    );
+
+    Border borderFor(int dayIndex) {
+      final cell = tester.widget<Container>(
+        find.byKey(ValueKey('timetable-grid-cell-$dayIndex-0')),
+      );
+      return (cell.decoration! as BoxDecoration).border! as Border;
+    }
+
+    expect(borderFor(0).right, BorderSide.none);
+    expect(borderFor(1).left, const BorderSide(color: todayColor, width: 2));
+    expect(borderFor(1).right, const BorderSide(color: todayColor, width: 2));
+    expect(borderFor(2).right, const BorderSide(color: gridColor, width: 1));
+  });
+
   testWidgets('hiding dates preserves the configured day header height', (
     tester,
   ) async {

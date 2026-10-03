@@ -60,12 +60,6 @@ class PreferencesStorage {
     }
   }
 
-  bool getFloatingNavigationBar() =>
-      _prefs.getBool('floating_navigation_bar') ?? false;
-
-  Future<void> setFloatingNavigationBar(bool value) =>
-      _prefs.setBool('floating_navigation_bar', value);
-
   String? getClassAutomationMode() => _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
@@ -140,6 +134,34 @@ class PreferencesStorage {
       await _prefs.setInt('last_custom_widget_background_color', value);
     }
   }
+
+  String? getWidgetBackgroundPath() =>
+      _prefs.getString('widget_background_path');
+
+  Future<void> setWidgetBackgroundPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _prefs.remove('widget_background_path');
+    } else {
+      await _prefs.setString('widget_background_path', path);
+    }
+  }
+
+  String? getWidgetDarkBackgroundPath() =>
+      _prefs.getString('widget_dark_background_path');
+
+  Future<void> setWidgetDarkBackgroundPath(String? path) async {
+    if (path == null || path.isEmpty) {
+      await _prefs.remove('widget_dark_background_path');
+    } else {
+      await _prefs.setString('widget_dark_background_path', path);
+    }
+  }
+
+  bool getWidgetUseLightBackgroundInDarkMode() =>
+      _prefs.getBool('widget_use_light_background_in_dark_mode') ?? false;
+
+  Future<void> setWidgetUseLightBackgroundInDarkMode(bool value) =>
+      _prefs.setBool('widget_use_light_background_in_dark_mode', value);
 
   Future<void> setWidgetTextColor(int? value) async {
     if (value == null) {
@@ -640,7 +662,6 @@ class PreferencesStorage {
       _prefs.remove('theme_preference'),
       _prefs.remove('theme_color'),
       _prefs.remove('custom_theme_color'),
-      _prefs.remove('floating_navigation_bar'),
       _prefs.remove('timetable_background_path'),
       _prefs.remove('timetable_dark_background_path'),
       _prefs.remove('timetable_use_light_background_in_dark_mode'),
@@ -673,6 +694,9 @@ class PreferencesStorage {
       _prefs.remove('widget_background_alpha'),
       _prefs.remove('widget_text_opacity'),
       if (!keepWidgetBackgroundColor) _prefs.remove('widget_background_color'),
+      _prefs.remove('widget_background_path'),
+      _prefs.remove('widget_dark_background_path'),
+      _prefs.remove('widget_use_light_background_in_dark_mode'),
       if (!keepWidgetTextColor) _prefs.remove('widget_text_color'),
       _prefs.remove('widget_hide_teacher'),
       _prefs.remove('widget_hide_location'),

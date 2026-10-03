@@ -52,7 +52,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           (_storage.getLastCustomThemeColor() ?? customThemeColor) == null
           ? null
           : Color(_storage.getLastCustomThemeColor() ?? customThemeColor!),
-      floatingNavigationBar: _storage.getFloatingNavigationBar(),
       customPageBackgroundColor: customPageBackgroundColor == null
           ? null
           : Color(customPageBackgroundColor),
@@ -86,6 +85,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           _storage.getLastCustomWidgetBackgroundColor() == null
           ? null
           : Color(_storage.getLastCustomWidgetBackgroundColor()!),
+      widgetBackgroundPath: _storage.getWidgetBackgroundPath(),
+      widgetDarkBackgroundPath: _storage.getWidgetDarkBackgroundPath(),
+      widgetUseLightBackgroundInDarkMode: _storage
+          .getWidgetUseLightBackgroundInDarkMode(),
       widgetTextColor: _storage.getWidgetTextColor() == null
           ? null
           : Color(_storage.getWidgetTextColor()!),
@@ -227,11 +230,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     }
   }
 
-  Future<void> setFloatingNavigationBar(bool value) async {
-    state = state.copyWith(floatingNavigationBar: value);
-    await _storage.setFloatingNavigationBar(value);
-  }
-
   Future<void> setClassAutomationMode(ClassAutomationMode mode) async {
     state = state.copyWith(classAutomationMode: mode);
     await _storage.setClassAutomationMode(mode.storageValue);
@@ -297,6 +295,24 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
     await _storage.setWidgetBackgroundColor(value.toARGB32());
     await _storage.setLastCustomWidgetBackgroundColor(value.toARGB32());
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetBackgroundPath(String? path) async {
+    state = state.copyWith(widgetBackgroundPath: path);
+    await _storage.setWidgetBackgroundPath(path);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetDarkBackgroundPath(String? path) async {
+    state = state.copyWith(widgetDarkBackgroundPath: path);
+    await _storage.setWidgetDarkBackgroundPath(path);
+    await _refreshWidgetSettings();
+  }
+
+  Future<void> setWidgetUseLightBackgroundInDarkMode(bool value) async {
+    state = state.copyWith(widgetUseLightBackgroundInDarkMode: value);
+    await _storage.setWidgetUseLightBackgroundInDarkMode(value);
     await _refreshWidgetSettings();
   }
 
@@ -631,7 +647,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       themePreference: defaults.themePreference,
       themeColor: defaults.themeColor,
       customThemeColor: null,
-      floatingNavigationBar: defaults.floatingNavigationBar,
       timetableBackgroundPath: null,
       timetableDarkBackgroundPath: null,
       timetableUseLightBackgroundInDarkMode:
@@ -668,6 +683,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         state.widgetBackgroundColor,
         state.lastCustomWidgetBackgroundColor,
       ),
+      widgetBackgroundPath: null,
+      widgetDarkBackgroundPath: null,
+      widgetUseLightBackgroundInDarkMode:
+          defaults.widgetUseLightBackgroundInDarkMode,
       widgetTextColor: activeCustomColor(
         state.widgetTextColor,
         state.lastCustomWidgetTextColor,

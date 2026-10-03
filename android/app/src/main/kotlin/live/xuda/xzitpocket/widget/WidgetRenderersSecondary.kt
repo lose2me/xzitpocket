@@ -11,6 +11,8 @@ internal object DoubleDaysWidgetRenderer {
         WidgetRenderSupport.applyTextScale(
             views,
             style,
+            WidgetRenderSupport.TextSpec(R.id.tv_week, 12f),
+            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 12f),
             WidgetRenderSupport.TextSpec(R.id.tv_today_title, 12f),
             WidgetRenderSupport.TextSpec(R.id.tv_tomorrow_title, 12f),
             WidgetRenderSupport.TextSpec(R.id.tv_empty_today, 11f),
@@ -21,6 +23,7 @@ internal object DoubleDaysWidgetRenderer {
         WidgetRenderSupport.applyDateVisibility(
             views,
             style,
+            R.id.tv_header_title,
             R.id.tv_today_title,
             R.id.tv_tomorrow_title,
         )
@@ -29,7 +32,15 @@ internal object DoubleDaysWidgetRenderer {
             context,
             views,
         )
-        views.setViewVisibility(R.id.tv_week, View.GONE)
+        views.setViewVisibility(R.id.tv_week, View.VISIBLE)
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
+        views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
+        WidgetRenderSupport.setHeaderDateText(
+            context,
+            views,
+            R.id.tv_header_title,
+            WidgetTimeUtils.todayDisplayDate(),
+        )
         views.setViewVisibility(R.id.tv_today_footer, View.GONE)
         views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
         views.setInt(
@@ -146,7 +157,7 @@ internal object LargeWidgetRenderer {
             views,
             style,
             WidgetRenderSupport.TextSpec(R.id.tv_week, 12f),
-            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 14f),
+            WidgetRenderSupport.TextSpec(R.id.tv_header_title, 12f),
             WidgetRenderSupport.TextSpec(R.id.tv_status_title, 15f),
             WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
         )

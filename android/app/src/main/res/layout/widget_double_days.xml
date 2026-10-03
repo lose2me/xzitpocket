@@ -9,6 +9,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@drawable/widget_background"
+        android:clipToOutline="true"
+        android:scaleType="centerCrop"
         android:importantForAccessibility="no" />
 
     <LinearLayout
@@ -18,14 +20,28 @@
         android:orientation="vertical"
         android:padding="12dp">
 
-        <TextView
-            android:id="@+id/tv_week"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:maxLines="1"
-            android:textColor="@color/widget_sub_color"
-            android:textSize="11sp" />
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <TextView
+                android:id="@+id/tv_week"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:maxLines="1"
+                android:textColor="@color/widget_sub_color"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_header_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:maxLines="1"
+                android:textColor="@color/widget_sub_color"
+                android:textSize="12sp" />
+        </RelativeLayout>
 
         <RelativeLayout
             android:layout_width="match_parent"

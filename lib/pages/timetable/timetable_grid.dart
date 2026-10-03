@@ -444,6 +444,14 @@ class _TimetableGridState extends State<TimetableGrid> {
                             date.year == today.year &&
                             date.month == today.month &&
                             date.day == today.day;
+                        final nextDate = dayIndex + 1 < dayCount
+                            ? dates[dayIndex + 1]
+                            : null;
+                        final nextDayIsToday =
+                            nextDate != null &&
+                            nextDate.year == today.year &&
+                            nextDate.month == today.month &&
+                            nextDate.day == today.day;
                         final allDayCourses = <_IndexedCourse>[
                           ...(currentByWeekday[weekday] ??
                               const <_IndexedCourse>[]),
@@ -479,6 +487,9 @@ class _TimetableGridState extends State<TimetableGrid> {
                                         effectiveSlotCount,
                                         (i) {
                                           return Container(
+                                            key: ValueKey(
+                                              'timetable-grid-cell-$dayIndex-$i',
+                                            ),
                                             height: cellHeight,
                                             decoration: BoxDecoration(
                                               border: Border(
@@ -508,7 +519,8 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                         width: widget
                                                             .todayLineWidth,
                                                       )
-                                                    : widget.showGridLines
+                                                    : widget.showGridLines &&
+                                                          !nextDayIsToday
                                                     ? BorderSide(
                                                         color: gridLineColor,
                                                         width: widget

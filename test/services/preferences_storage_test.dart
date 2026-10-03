@@ -154,7 +154,6 @@ void main() {
       await storage.setThemeColor('blue');
       await storage.setCustomThemeColor(0xFF123456);
       await storage.setLastCustomThemeColor(0xFF654321);
-      await storage.setFloatingNavigationBar(true);
       await storage.setCourseReminderEnabled(true);
       await storage.setCourseReminderMinutes(30);
       await storage.setWearableNotificationCompatibility(true);
@@ -163,6 +162,9 @@ void main() {
       await storage.setWidgetBackgroundAlpha(0.65);
       await storage.setWidgetBackgroundColor(0xFFABCDEF);
       await storage.setLastCustomWidgetBackgroundColor(0xFFABCDEF);
+      await storage.setWidgetBackgroundPath('/tmp/widget-light.jpg');
+      await storage.setWidgetDarkBackgroundPath('/tmp/widget-dark.jpg');
+      await storage.setWidgetUseLightBackgroundInDarkMode(true);
       await storage.setWidgetTextColor(0xFF123456);
       await storage.setLastCustomWidgetTextColor(0xFF123456);
       await storage.setWidgetTextOpacity(0.75);
@@ -201,7 +203,6 @@ void main() {
       expect(storage.getThemeColor(), 'blue');
       expect(storage.getCustomThemeColor(), 0xFF123456);
       expect(storage.getLastCustomThemeColor(), 0xFF654321);
-      expect(storage.getFloatingNavigationBar(), isTrue);
       expect(storage.getCourseReminderEnabled(), isTrue);
       expect(storage.getCourseReminderMinutes(), 30);
       expect(storage.getWearableNotificationCompatibility(), isTrue);
@@ -210,6 +211,9 @@ void main() {
       expect(storage.getWidgetBackgroundAlpha(), 0.65);
       expect(storage.getWidgetBackgroundColor(), 0xFFABCDEF);
       expect(storage.getLastCustomWidgetBackgroundColor(), 0xFFABCDEF);
+      expect(storage.getWidgetBackgroundPath(), '/tmp/widget-light.jpg');
+      expect(storage.getWidgetDarkBackgroundPath(), '/tmp/widget-dark.jpg');
+      expect(storage.getWidgetUseLightBackgroundInDarkMode(), isTrue);
       expect(storage.getWidgetTextColor(), 0xFF123456);
       expect(storage.getLastCustomWidgetTextColor(), 0xFF123456);
       expect(storage.getWidgetTextOpacity(), 0.75);
@@ -338,7 +342,6 @@ void main() {
       await storage.setThemeColor('blue');
       await storage.setCustomThemeColor(0xFF203040);
       await storage.setLastCustomThemeColor(0xFF203040);
-      await storage.setFloatingNavigationBar(true);
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
       await storage.setTimetableDarkBackgroundPath('/tmp/background-dark.jpg');
       await storage.setTimetableUseLightBackgroundInDarkMode(true);
@@ -371,6 +374,9 @@ void main() {
       await storage.setWidgetBackgroundAlpha(0.4);
       await storage.setWidgetBackgroundColor(0xFFABCDEF);
       await storage.setLastCustomWidgetBackgroundColor(0xFFABCDEF);
+      await storage.setWidgetBackgroundPath('/tmp/widget-light.jpg');
+      await storage.setWidgetDarkBackgroundPath('/tmp/widget-dark.jpg');
+      await storage.setWidgetUseLightBackgroundInDarkMode(true);
       await storage.setWidgetTextColor(0xFF123456);
       await storage.setLastCustomWidgetTextColor(0xFF654321);
       await storage.setToastOpacity(0.8);
@@ -388,7 +394,6 @@ void main() {
       expect(storage.getThemeColor(), isNull);
       expect(storage.getCustomThemeColor(), isNull);
       expect(storage.getLastCustomThemeColor(), 0xFF203040);
-      expect(storage.getFloatingNavigationBar(), isFalse);
       expect(storage.getTimetableBackgroundPath(), isNull);
       expect(storage.getTimetableDarkBackgroundPath(), isNull);
       expect(storage.getTimetableUseLightBackgroundInDarkMode(), isFalse);
@@ -420,6 +425,9 @@ void main() {
       expect(storage.getWidgetFontScale(), 1.0);
       expect(storage.getWidgetBackgroundAlpha(), 1.0);
       expect(storage.getWidgetBackgroundColor(), 0xFFABCDEF);
+      expect(storage.getWidgetBackgroundPath(), isNull);
+      expect(storage.getWidgetDarkBackgroundPath(), isNull);
+      expect(storage.getWidgetUseLightBackgroundInDarkMode(), isFalse);
       expect(storage.getWidgetTextColor(), isNull);
       expect(storage.getLastCustomWidgetBackgroundColor(), 0xFFABCDEF);
       expect(storage.getLastCustomWidgetTextColor(), 0xFF654321);
