@@ -8,91 +8,126 @@ abstract final class AppTheme {
   static final light = lightFor(AppThemeColor.rose);
   static final dark = darkFor(AppThemeColor.rose);
 
-  static FThemeData lightFor(AppThemeColor themeColor, {Color? customColor}) {
+  static FThemeData lightFor(
+    AppThemeColor themeColor, {
+    Color? customColor,
+    AppPageBackgroundColor? pageBackgroundColor,
+  }) {
     final primary = customColor == null
         ? themeColor.lightColor
         : ColorScheme.fromSeed(
             seedColor: customColor,
             brightness: Brightness.light,
           ).primary;
+    final background =
+        pageBackgroundColor?.lightColor ?? const Color(0xFFF1F5F9);
+    final card = pageBackgroundColor == null
+        ? const Color(0xFFFFFFFF)
+        : Color.lerp(background, Colors.white, 0.88)!;
+    final muted = pageBackgroundColor == null
+        ? const Color(0xFFE9EFF5)
+        : Color.lerp(background, primary, 0.06)!;
+    final border = pageBackgroundColor == null
+        ? const Color(0xFFD9E2EC)
+        : Color.lerp(background, const Color(0xFF0F172A), 0.20)!;
+    final controlBorder = pageBackgroundColor == null
+        ? const Color(0xFF8797AA)
+        : Color.lerp(background, const Color(0xFF0F172A), 0.32)!;
     return _build(
       debugLabel: 'XZIT Pocket Light',
       colors: FColors.neutralLight.copyWith(
         barrier: const Color(0x520F172A),
-        background: const Color(0xFFF8FAFC),
+        background: background,
         foreground: const Color(0xFF0F172A),
         primary: primary,
         primaryForeground: const Color(0xFFFFFFFF),
-        secondary: Color.lerp(Colors.white, primary, 0.08)!,
+        secondary: Color.lerp(background, primary, 0.10)!,
         secondaryForeground: primary,
-        muted: const Color(0xFFF1F5F9),
+        muted: muted,
         mutedForeground: const Color(0xFF526176),
         destructive: const Color(0xFFB91C1C),
         destructiveForeground: const Color(0xFFFFFFFF),
         error: const Color(0xFFB91C1C),
         errorForeground: const Color(0xFFFFFFFF),
-        card: const Color(0xFFFFFFFF),
-        border: const Color(0xFFE2E8F0),
-        extensions: const [
+        card: card,
+        border: border,
+        extensions: [
           AppSemanticColors(
-            controlBorder: Color(0xFF94A3B8),
-            success: Color(0xFF15803D),
-            successContainer: Color(0xFFDCFCE7),
-            onSuccessContainer: Color(0xFF14532D),
-            warning: Color(0xFFA16207),
-            warningContainer: Color(0xFFFEF3C7),
-            onWarningContainer: Color(0xFF78350F),
-            info: Color(0xFF1D4ED8),
-            infoContainer: Color(0xFFDBEAFE),
-            onInfoContainer: Color(0xFF1E3A8A),
-            timetableForeground: Color(0xFF172033),
-            timetableMutedForeground: Color(0xFF475569),
+            controlBorder: controlBorder,
+            success: const Color(0xFF15803D),
+            successContainer: const Color(0xFFDCFCE7),
+            onSuccessContainer: const Color(0xFF14532D),
+            warning: const Color(0xFFA16207),
+            warningContainer: const Color(0xFFFEF3C7),
+            onWarningContainer: const Color(0xFF78350F),
+            info: const Color(0xFF1D4ED8),
+            infoContainer: const Color(0xFFDBEAFE),
+            onInfoContainer: const Color(0xFF1E3A8A),
+            timetableForeground: const Color(0xFF172033),
+            timetableMutedForeground: const Color(0xFF475569),
           ),
         ],
       ),
     );
   }
 
-  static FThemeData darkFor(AppThemeColor themeColor, {Color? customColor}) {
+  static FThemeData darkFor(
+    AppThemeColor themeColor, {
+    Color? customColor,
+    AppPageBackgroundColor? pageBackgroundColor,
+  }) {
     final primary = customColor == null
         ? themeColor.darkColor
         : ColorScheme.fromSeed(
             seedColor: customColor,
             brightness: Brightness.dark,
           ).primary;
-    const card = Color(0xFF111827);
+    final background =
+        pageBackgroundColor?.darkColor ?? const Color(0xFF0B1120);
+    final card = pageBackgroundColor == null
+        ? const Color(0xFF111827)
+        : Color.lerp(background, Colors.white, 0.08)!;
+    final muted = pageBackgroundColor == null
+        ? const Color(0xFF1E293B)
+        : Color.lerp(background, Colors.white, 0.12)!;
+    final border = pageBackgroundColor == null
+        ? const Color(0xFF334155)
+        : Color.lerp(background, Colors.white, 0.22)!;
+    final controlBorder = pageBackgroundColor == null
+        ? const Color(0xFF64748B)
+        : Color.lerp(background, Colors.white, 0.36)!;
     return _build(
       debugLabel: 'XZIT Pocket Dark',
       colors: FColors.neutralDark.copyWith(
         barrier: const Color(0xB3000000),
-        background: const Color(0xFF0B1120),
+        background: background,
         foreground: const Color(0xFFF8FAFC),
         primary: primary,
         primaryForeground: const Color(0xFF0F172A),
         secondary: Color.lerp(card, primary, 0.16)!,
         secondaryForeground: primary,
-        muted: const Color(0xFF1E293B),
+        muted: muted,
         mutedForeground: const Color(0xFFA8B3C5),
         destructive: const Color(0xFFF87171),
         destructiveForeground: const Color(0xFF450A0A),
         error: const Color(0xFFF87171),
         errorForeground: const Color(0xFF450A0A),
         card: card,
-        border: const Color(0xFF334155),
-        extensions: const [
+        border: border,
+        extensions: [
           AppSemanticColors(
-            controlBorder: Color(0xFF64748B),
-            success: Color(0xFF4ADE80),
-            successContainer: Color(0xFF14532D),
-            onSuccessContainer: Color(0xFFDCFCE7),
-            warning: Color(0xFFFBBF24),
-            warningContainer: Color(0xFF451A03),
-            onWarningContainer: Color(0xFFFEF3C7),
-            info: Color(0xFF60A5FA),
-            infoContainer: Color(0xFF172554),
-            onInfoContainer: Color(0xFFDBEAFE),
-            timetableForeground: Color(0xFFE5E7EB),
-            timetableMutedForeground: Color(0xFF94A3B8),
+            controlBorder: controlBorder,
+            success: const Color(0xFF4ADE80),
+            successContainer: const Color(0xFF14532D),
+            onSuccessContainer: const Color(0xFFDCFCE7),
+            warning: const Color(0xFFFBBF24),
+            warningContainer: const Color(0xFF451A03),
+            onWarningContainer: const Color(0xFFFEF3C7),
+            info: const Color(0xFF60A5FA),
+            infoContainer: const Color(0xFF172554),
+            onInfoContainer: const Color(0xFFDBEAFE),
+            timetableForeground: const Color(0xFFE5E7EB),
+            timetableMutedForeground: const Color(0xFF94A3B8),
           ),
         ],
       ),

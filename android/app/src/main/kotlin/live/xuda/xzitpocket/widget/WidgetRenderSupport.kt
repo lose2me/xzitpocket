@@ -10,6 +10,8 @@ import live.xuda.xzitpocket.R
 internal object WidgetRenderSupport {
     private const val PLACEHOLDER_TEXT = " "
     private const val FLUTTER_PREFS = "FlutterSharedPreferences"
+    private const val FLUTTER_DOUBLE_PREFIX =
+        "VGhpcyBpcyB0aGUgcHJlZml4IGZvciBEb3VibGUu"
 
     internal data class WidgetStyle(
         val fontScale: Float,
@@ -39,7 +41,7 @@ internal object WidgetRenderSupport {
     ): Float {
         return when (val value = prefs.all[key]) {
             is Number -> value.toFloat()
-            is String -> value.toFloatOrNull() ?: defaultValue
+            is String -> value.removePrefix(FLUTTER_DOUBLE_PREFIX).toFloatOrNull() ?: defaultValue
             else -> defaultValue
         }
     }
@@ -47,12 +49,14 @@ internal object WidgetRenderSupport {
     fun applyRootStyle(
         context: Context,
         views: RemoteViews,
-        rootId: Int,
     ): WidgetStyle {
         val style = readStyle(context)
-        // RemoteViews cannot change a shape drawable's alpha directly. Applying
-        // alpha to the root preserves the rounded drawable on all launchers.
-        views.setFloat(rootId, "setAlpha", style.backgroundAlpha)
+        setBackgroundResource(
+            views,
+            R.id.widget_background,
+            WidgetThemeSupport.backgroundDrawableRes(context),
+        )
+        views.setFloat(R.id.widget_background, "setAlpha", style.backgroundAlpha)
         return style
     }
 
@@ -325,6 +329,7 @@ internal object WidgetRenderSupport {
         } else {
             item.setViewVisibility(R.id.course_indicator, View.VISIBLE)
             item.setInt(R.id.course_indicator, "setBackgroundColor", course.color)
+            item.setFloat(R.id.course_indicator, "setAlpha", style.backgroundAlpha)
         }
         setTextColor(context, item, R.id.tv_course_title, R.color.widget_title_color)
         setTextColor(context, item, R.id.tv_course_meta, R.color.widget_sub_color)
@@ -483,11 +488,11 @@ internal object WidgetRenderSupport {
     fun applyPanelBackgrounds(
         context: Context,
         views: RemoteViews,
-        contentId: Int,
-        statusId: Int,
     ) {
-        val backgroundResId = WidgetThemeSupport.backgroundDrawableRes(context)
-        setBackgroundResource(views, contentId, backgroundResId)
-        setBackgroundResource(views, statusId, backgroundResId)
+        setBackgroundResource(
+            views,
+            R.id.widget_background,
+            WidgetThemeSupport.backgroundDrawableRes(context),
+        )
     }
 }

@@ -76,6 +76,7 @@ class TimetableGrid extends StatefulWidget {
   final Animation<double>? dayActionAnimation;
   final Animation<double>? countdownAnimation;
   final Color borderColor;
+  final Color? courseBorderColor;
   final double borderWidth;
   final double courseOpacity;
   final double courseBorderOpacity;
@@ -83,8 +84,12 @@ class TimetableGrid extends StatefulWidget {
   final double timeTextSize;
   final double dateTextSize;
   final double gridOpacity;
+  final Color? gridLineColor;
+  final double gridLineWidth;
   final bool showHeaderDivider;
   final bool showTodayGridLines;
+  final Color? todayLineColor;
+  final double todayLineWidth;
   final bool showGridLines;
   final bool showBelowFoldIndicator;
   final double sectionHeight;
@@ -134,6 +139,7 @@ class TimetableGrid extends StatefulWidget {
     this.dayActionAnimation,
     this.countdownAnimation,
     required this.borderColor,
+    this.courseBorderColor,
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
@@ -141,8 +147,12 @@ class TimetableGrid extends StatefulWidget {
     this.timeTextSize = 11.0,
     this.dateTextSize = 12.0,
     this.gridOpacity = 0.5,
+    this.gridLineColor,
+    this.gridLineWidth = 0.5,
     this.showHeaderDivider = true,
     this.showTodayGridLines = false,
+    this.todayLineColor,
+    this.todayLineWidth = 1.0,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
     this.sectionHeight = 70.0,
@@ -306,12 +316,12 @@ class _TimetableGridState extends State<TimetableGrid> {
         .toDouble();
 
     final dayCount = showWeekendColumns ? 7 : 5;
-    final effectiveTimeColumnWidth = widget.hideDateUnderDay
-        ? math.min(widget.timeColumnWidth, 28.0)
-        : widget.timeColumnWidth;
-    final effectiveDayHeaderHeight = widget.hideDateUnderDay
-        ? math.min(widget.dayHeaderHeight, 30.0)
-        : widget.dayHeaderHeight;
+    final effectiveTimeColumnWidth = widget.timeColumnWidth;
+    final effectiveDayHeaderHeight = widget.dayHeaderHeight;
+    final gridLineColor = (widget.gridLineColor ?? theme.colors.border)
+        .withValues(alpha: widget.gridOpacity);
+    final todayLineColor = (widget.todayLineColor ?? theme.colors.primary)
+        .withValues(alpha: widget.gridOpacity);
 
     // Cheap pre-compute: only the variant selection happens here (from the
     // cached day slots), never the grouping/backtracking.
@@ -465,20 +475,12 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             decoration: BoxDecoration(
                                               border: Border(
                                                 bottom: BorderSide(
-                                                  color: theme.colors.border
-                                                      .withValues(
-                                                        alpha:
-                                                            widget.gridOpacity,
-                                                      ),
-                                                  width: 0.5,
+                                                  color: gridLineColor,
+                                                  width: widget.gridLineWidth,
                                                 ),
                                                 right: BorderSide(
-                                                  color: theme.colors.border
-                                                      .withValues(
-                                                        alpha:
-                                                            widget.gridOpacity,
-                                                      ),
-                                                  width: 0.5,
+                                                  color: gridLineColor,
+                                                  width: widget.gridLineWidth,
                                                 ),
                                               ),
                                             ),
@@ -523,7 +525,9 @@ class _TimetableGridState extends State<TimetableGrid> {
                                           courseBorderOpacity: isCurrentWeek
                                               ? courseBorderOpacity
                                               : nonCurrentCourseBorderOpacity,
-                                          borderColor: widget.borderColor,
+                                          borderColor:
+                                              widget.courseBorderColor ??
+                                              widget.borderColor,
                                           borderWidth: widget.borderWidth,
                                           textSize:
                                               widget.courseTextSize *
@@ -588,24 +592,18 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               left: 0,
                                               top: 0,
                                               bottom: 0,
-                                              width: 1,
+                                              width: widget.todayLineWidth,
                                               child: ColoredBox(
-                                                color: theme.colors.primary
-                                                    .withValues(
-                                                      alpha: widget.gridOpacity,
-                                                    ),
+                                                color: todayLineColor,
                                               ),
                                             ),
                                             Positioned(
                                               right: 0,
                                               top: 0,
                                               bottom: 0,
-                                              width: 1,
+                                              width: widget.todayLineWidth,
                                               child: ColoredBox(
-                                                color: theme.colors.primary
-                                                    .withValues(
-                                                      alpha: widget.gridOpacity,
-                                                    ),
+                                                color: todayLineColor,
                                               ),
                                             ),
                                           ],

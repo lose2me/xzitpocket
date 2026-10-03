@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xzitpocket/models/app_settings.dart';
 import 'package:xzitpocket/ui/app_components.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
 
@@ -46,6 +47,34 @@ void main() {
     expect(
       AppTheme.light.colors.semantic.timetableForeground,
       isNot(AppTheme.dark.colors.semantic.timetableForeground),
+    );
+  });
+
+  test('global page background color harmonizes surfaces in both themes', () {
+    final light = AppTheme.lightFor(
+      AppThemeColor.rose,
+      pageBackgroundColor: AppPageBackgroundColor.teal,
+    );
+    final dark = AppTheme.darkFor(
+      AppThemeColor.rose,
+      pageBackgroundColor: AppPageBackgroundColor.teal,
+    );
+
+    expect(light.colors.background, AppPageBackgroundColor.teal.lightColor);
+    expect(dark.colors.background, AppPageBackgroundColor.teal.darkColor);
+    expect(light.colors.card, isNot(AppTheme.light.colors.card));
+    expect(light.colors.muted, isNot(AppTheme.light.colors.muted));
+    expect(light.colors.border, isNot(AppTheme.light.colors.border));
+    expect(
+      light.colors.semantic.controlBorder,
+      isNot(AppTheme.light.colors.semantic.controlBorder),
+    );
+    expect(dark.colors.card, isNot(AppTheme.dark.colors.card));
+    expect(dark.colors.muted, isNot(AppTheme.dark.colors.muted));
+    expect(dark.colors.border, isNot(AppTheme.dark.colors.border));
+    expect(
+      dark.colors.semantic.controlBorder,
+      isNot(AppTheme.dark.colors.semantic.controlBorder),
     );
   });
 }

@@ -396,6 +396,7 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
   final List<Color> colors;
   final ValueChanged<Color?> onChanged;
   final VoidCallback? onCustomColorPressed;
+  final Color? lastCustomColor;
   final bool allowReset;
 
   const ProfileSettingsColorTile({
@@ -406,6 +407,7 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
     required this.colors,
     required this.onChanged,
     this.onCustomColorPressed,
+    this.lastCustomColor,
     this.allowReset = true,
   });
 
@@ -512,17 +514,20 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
                         return DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: const SweepGradient(
-                              colors: [
-                                Color(0xFFE53935),
-                                Color(0xFFFDD835),
-                                Color(0xFF43A047),
-                                Color(0xFF00ACC1),
-                                Color(0xFF3949AB),
-                                Color(0xFF8E24AA),
-                                Color(0xFFE53935),
-                              ],
-                            ),
+                            color: lastCustomColor,
+                            gradient: lastCustomColor == null
+                                ? const SweepGradient(
+                                    colors: [
+                                      Color(0xFFE53935),
+                                      Color(0xFFFDD835),
+                                      Color(0xFF43A047),
+                                      Color(0xFF00ACC1),
+                                      Color(0xFF3949AB),
+                                      Color(0xFF8E24AA),
+                                      Color(0xFFE53935),
+                                    ],
+                                  )
+                                : null,
                             border: Border.all(
                               color: selected
                                   ? context.theme.colors.foreground

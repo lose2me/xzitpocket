@@ -7,7 +7,7 @@ import live.xuda.xzitpocket.R
 internal object DoubleDaysWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_double_days)
-        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        val style = WidgetRenderSupport.applyRootStyle(context, views)
         WidgetRenderSupport.applyTextScale(
             views,
             style,
@@ -28,8 +28,6 @@ internal object DoubleDaysWidgetRenderer {
         WidgetRenderSupport.applyPanelBackgrounds(
             context,
             views,
-            R.id.container_content,
-            R.id.container_status,
         )
         views.setViewVisibility(R.id.tv_week, View.GONE)
         views.setViewVisibility(R.id.tv_today_footer, View.GONE)
@@ -143,7 +141,7 @@ internal object DoubleDaysWidgetRenderer {
 internal object LargeWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_large)
-        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        val style = WidgetRenderSupport.applyRootStyle(context, views)
         WidgetRenderSupport.applyTextScale(
             views,
             style,
@@ -157,8 +155,6 @@ internal object LargeWidgetRenderer {
         WidgetRenderSupport.applyPanelBackgrounds(
             context,
             views,
-            R.id.container_content,
-            R.id.container_status,
         )
         WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))

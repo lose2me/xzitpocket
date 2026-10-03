@@ -50,6 +50,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
+    final brightness = Theme.of(context).brightness;
     return AppPage(
       title: '个性化设置',
       actions: [
@@ -84,9 +85,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             child: ClipRect(
               child: SizedBox(
                 height:
-                    (settings.timetableHideDateUnderDay
-                        ? math.min(settings.timetableDayHeaderHeight, 30.0)
-                        : settings.timetableDayHeaderHeight) +
+                    settings.timetableDayHeaderHeight +
                     settings.timetableSectionHeight * 2 +
                     2,
                 child: _TimetableGridPreview(
@@ -137,6 +136,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           settings.themeColor.color,
                       colors: _styleColors,
                       allowReset: false,
+                      lastCustomColor: settings.lastCustomThemeColor,
                       onChanged: (color) {
                         if (color == null) return;
                         final selected = AppThemeColor.values.firstWhere(
@@ -150,13 +150,37 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       },
                       onCustomColorPressed: () => unawaited(
                         _selectCustomColor(
-                          settings.customThemeColor ??
+                          settings.lastCustomThemeColor ??
+                              settings.customThemeColor ??
                               settings.themeColor.color,
                           ref
                               .read(appSettingsProvider.notifier)
                               .setCustomThemeColor,
                         ),
                       ),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.paintBucket,
+                      title: '全局页面背景色',
+                      value: settings.pageBackgroundColor?.resolve(brightness),
+                      colors: [
+                        for (final color in AppPageBackgroundColor.values)
+                          color.resolve(brightness),
+                      ],
+                      onChanged: (color) {
+                        final selected = color == null
+                            ? null
+                            : AppPageBackgroundColor.values.firstWhere(
+                                (item) =>
+                                    item.resolve(brightness).toARGB32() ==
+                                    color.toARGB32(),
+                              );
+                        unawaited(
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setPageBackgroundColor(selected),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -200,6 +224,94 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableDayHeaderHeight(value),
                     ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.grid2x2,
+                      title: '显示网格线',
+                      value: settings.showTimetableGridLines,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setShowTimetableGridLines(value),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.square,
+                      title: '网格线颜色',
+                      value: settings.timetableGridLineColor,
+                      colors: _styleColors,
+                      lastCustomColor:
+                          settings.timetableLastCustomGridLineColor,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableGridLineColor(color),
+                      ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.timetableLastCustomGridLineColor ??
+                              settings.timetableGridLineColor ??
+                              context.theme.colors.border,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomTimetableGridLineColor,
+                        ),
+                      ),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.columns3,
+                      title: '网格线粗细',
+                      value: settings.timetableGridLineWidth,
+                      min: 0.5,
+                      max: 3,
+                      divisions: 5,
+                      suffix: ' px',
+                      displayDecimals: 1,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableGridLineWidth(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.calendarDays,
+                      title: '显示今日课程边线',
+                      value: settings.showTodayGridLines,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setShowTodayGridLines(value),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.palette,
+                      title: '今日课程边线颜色',
+                      value: settings.timetableTodayLineColor,
+                      colors: _styleColors,
+                      lastCustomColor:
+                          settings.timetableLastCustomTodayLineColor,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableTodayLineColor(color),
+                      ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.timetableLastCustomTodayLineColor ??
+                              settings.timetableTodayLineColor ??
+                              context.theme.colors.primary,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomTimetableTodayLineColor,
+                        ),
+                      ),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.move,
+                      title: '今日课程边线粗细',
+                      value: settings.timetableTodayLineWidth,
+                      min: 0.5,
+                      max: 4,
+                      divisions: 7,
+                      suffix: ' px',
+                      displayDecimals: 1,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTodayLineWidth(value),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -212,8 +324,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableCourseFontScale,
                       min: 0.5,
                       max: 2,
-                      divisions: 15,
+                      divisions: 30,
                       suffix: 'x',
+                      displayDecimals: 2,
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseFontScale(value),
@@ -236,8 +349,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableCourseInnerPadding,
                       min: 0,
                       max: 12,
-                      divisions: 12,
+                      divisions: 24,
                       suffix: ' px',
+                      displayDecimals: 1,
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseInnerPadding(value),
@@ -248,15 +362,16 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableCourseOuterPadding,
                       min: 0,
                       max: 8,
-                      divisions: 8,
+                      divisions: 16,
                       suffix: ' px',
+                      displayDecimals: 1,
                       onChanged: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseOuterPadding(value),
                     ),
                     ProfileSettingsSliderTile(
                       icon: FLucideIcons.layers,
-                      title: '课程块透明度',
+                      title: '课程块不透明度',
                       value: settings.timetableCourseAlpha,
                       min: 0.1,
                       max: 1,
@@ -268,18 +383,73 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseAlpha(value),
                     ),
-                    ProfileSettingsTile(
+                    ProfileSettingsOptionsTile<TimetableBorderType>(
                       icon: FLucideIcons.squareDashed,
                       title: '课程块边框',
-                      value: _borderTypeLabel(settings.timetableBorderType),
-                      onTap: () =>
-                          _openBorderTypeSheet(settings.timetableBorderType),
+                      value: settings.timetableBorderType,
+                      options: const [
+                        ProfileSettingsOption(
+                          value: TimetableBorderType.none,
+                          label: '无边框',
+                        ),
+                        ProfileSettingsOption(
+                          value: TimetableBorderType.solid,
+                          label: '实线',
+                        ),
+                        ProfileSettingsOption(
+                          value: TimetableBorderType.dashed,
+                          label: '虚线',
+                        ),
+                      ],
+                      onChanged: (value) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableBorderType(value),
+                      ),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.square,
+                      title: '课程块边框颜色',
+                      value: settings.timetableCourseBorderColor,
+                      colors: _styleColors,
+                      lastCustomColor:
+                          settings.timetableLastCustomCourseBorderColor,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableCourseBorderColor(color),
+                      ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.timetableLastCustomCourseBorderColor ??
+                              settings.timetableCourseBorderColor ??
+                              context.theme.colors.foreground,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomTimetableCourseBorderColor,
+                        ),
+                      ),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.move,
+                      title: '课程块边框线粗细',
+                      value: settings.timetableCourseBorderWidth,
+                      min: 0.5,
+                      max: 3,
+                      divisions: 5,
+                      suffix: ' px',
+                      displayDecimals: 1,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableCourseBorderWidth(value),
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
                       title: '课程块文字颜色',
                       value: settings.timetableCourseTextColor,
                       colors: _styleColors,
+                      lastCustomColor:
+                          settings.timetableLastCustomCourseTextColor,
                       onChanged: (color) => unawaited(
                         ref
                             .read(appSettingsProvider.notifier)
@@ -287,11 +457,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       ),
                       onCustomColorPressed: () => unawaited(
                         _selectCustomColor(
-                          settings.timetableCourseTextColor ??
+                          settings.timetableLastCustomCourseTextColor ??
+                              settings.timetableCourseTextColor ??
                               context.theme.colors.foreground,
                           ref
                               .read(appSettingsProvider.notifier)
-                              .setTimetableCourseTextColor,
+                              .setCustomTimetableCourseTextColor,
                         ),
                       ),
                     ),
@@ -373,19 +544,13 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableHideDateUnderDay(value),
                     ),
-                    ProfileSettingsCheckboxTile(
-                      icon: FLucideIcons.grid2x2,
-                      title: '隐藏网格线',
-                      value: !settings.showTimetableGridLines,
-                      onChange: (value) => ref
-                          .read(appSettingsProvider.notifier)
-                          .setShowTimetableGridLines(!value),
-                    ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
                       title: '页面文字颜色',
                       value: settings.timetablePageTextColor,
                       colors: _styleColors,
+                      lastCustomColor:
+                          settings.timetableLastCustomPageTextColor,
                       onChanged: (color) => unawaited(
                         ref
                             .read(appSettingsProvider.notifier)
@@ -393,21 +558,24 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       ),
                       onCustomColorPressed: () => unawaited(
                         _selectCustomColor(
-                          settings.timetablePageTextColor ??
+                          settings.timetableLastCustomPageTextColor ??
+                              settings.timetablePageTextColor ??
                               context.theme.colors.foreground,
                           ref
                               .read(appSettingsProvider.notifier)
-                              .setTimetablePageTextColor,
+                              .setCustomTimetablePageTextColor,
                         ),
                       ),
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.sunMedium,
-                      title: '统一使用浅色背景',
+                      title: '全局使用浅色背景图',
                       value: settings.timetableUseLightBackgroundInDarkMode,
-                      onChange: (value) => ref
-                          .read(appSettingsProvider.notifier)
-                          .setTimetableUseLightBackgroundInDarkMode(value),
+                      onChange: (value) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableUseLightBackgroundInDarkMode(value),
+                      ),
                     ),
                     ProfileSettingsTile(
                       icon: FLucideIcons.sun,
@@ -479,7 +647,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     ),
                     ProfileSettingsSliderTile(
                       icon: FLucideIcons.layers,
-                      title: '小组件背景透明度',
+                      title: '小组件背景不透明度',
                       value: settings.widgetBackgroundAlpha,
                       min: 0,
                       max: 1,
@@ -757,36 +925,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
   String _visualDateLabel(DateTime date) =>
       '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-  String _borderTypeLabel(TimetableBorderType type) => switch (type) {
-    TimetableBorderType.none => '无边框',
-    TimetableBorderType.solid => '实线',
-    TimetableBorderType.dashed => '虚线',
-  };
-
-  Future<void> _openBorderTypeSheet(TimetableBorderType current) async {
-    final selected = await showAppSheet<TimetableBorderType>(
-      context: context,
-      builder: (context) => AppOptionSheet<TimetableBorderType>(
-        title: '课程块边框',
-        value: current,
-        options: [
-          for (final type in TimetableBorderType.values)
-            AppOption(
-              value: type,
-              title: _borderTypeLabel(type),
-              icon: type == current
-                  ? FLucideIcons.circleCheck
-                  : FLucideIcons.square,
-            ),
-        ],
-      ),
-    );
-    if (selected == null || selected == current) return;
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setTimetableBorderType(selected);
-  }
 
   Future<void> _selectCustomColor(
     Color initialColor,
@@ -1140,15 +1278,20 @@ class _TimetableGridPreview extends StatelessWidget {
             slotCount: 14,
             visibleSlots: 2,
             borderColor: theme.colors.foreground,
-            borderWidth: 0.5,
+            courseBorderColor: settings.timetableCourseBorderColor,
+            borderWidth: settings.timetableCourseBorderWidth,
             courseOpacity: settings.timetableCourseAlpha,
-            courseBorderOpacity: 1.0,
+            courseBorderOpacity: settings.timetableCourseBorderOpacity,
             courseTextSize: settings.timetableCourseTextSize,
             timeTextSize: settings.timetableTimeTextSize,
             dateTextSize: settings.timetableDateTextSize,
             gridOpacity: settings.timetableGridOpacity,
+            gridLineColor: settings.timetableGridLineColor,
+            gridLineWidth: settings.timetableGridLineWidth,
             showHeaderDivider: backgroundPath == null || backgroundPath.isEmpty,
             showTodayGridLines: settings.showTodayGridLines,
+            todayLineColor: settings.timetableTodayLineColor,
+            todayLineWidth: settings.timetableTodayLineWidth,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
             suppressDayDrop: true,

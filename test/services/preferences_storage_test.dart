@@ -142,11 +142,18 @@ void main() {
     test('uses the timetable teacher display defaults', () {
       expect(storage.getTimetableHideTeacher(), isTrue);
       expect(storage.getTimetableHideTeacherBrackets(), isTrue);
+      expect(storage.getTimetableCourseCornerRadius(), 6.0);
+      expect(storage.getTimetableCourseInnerPadding(), 2.0);
+      expect(storage.getTimetableCourseOuterPadding(), 1.8);
+      expect(storage.getTimetableComponentOpacity(), 0.7);
+      expect(storage.getTimetableGridOpacity(), 0.5);
+      expect(storage.getTimetableCourseBorderOpacity(), 0.7);
     });
 
     test('roundtrips timetable appearance settings', () async {
       await storage.setThemeColor('blue');
       await storage.setCustomThemeColor(0xFF123456);
+      await storage.setLastCustomThemeColor(0xFF654321);
       await storage.setCourseReminderEnabled(true);
       await storage.setCourseReminderMinutes(30);
       await storage.setWearableNotificationCompatibility(true);
@@ -158,11 +165,21 @@ void main() {
       await storage.setWidgetHideDate(true);
       await storage.setTimetableHideTeacher(false);
       await storage.setTimetableHideTeacherBrackets(false);
+      await storage.setTimetablePageTextColor(0xFF111111);
+      await storage.setTimetableLastCustomPageTextColor(0xFF121212);
+      await storage.setTimetableCourseTextColor(0xFF222222);
+      await storage.setTimetableLastCustomCourseTextColor(0xFF232323);
+      await storage.setTimetableCourseBorderColor(0xFF333333);
+      await storage.setTimetableLastCustomCourseBorderColor(0xFF343434);
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
       await storage.setTimetableDarkBackgroundPath('/tmp/background-dark.jpg');
       await storage.setTimetableUseLightBackgroundInDarkMode(true);
+      await storage.setPageBackgroundColor('teal');
       await storage.setTimetableComponentOpacity(0.72);
       await storage.setTimetableGridOpacity(0.42);
+      await storage.setTimetableGridLineColor(0xFF454545);
+      await storage.setTimetableLastCustomGridLineColor(0xFF464646);
+      await storage.setTimetableGridLineWidth(1.5);
       await storage.setTimetableCourseTextSize(14);
       await storage.setTimetableTimeTextSize(10);
       await storage.setTimetableDateTextSize(13);
@@ -170,9 +187,13 @@ void main() {
       await storage.setTimetableCourseBorderOpacity(0.35);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(false);
+      await storage.setTimetableTodayLineColor(0xFF565656);
+      await storage.setTimetableLastCustomTodayLineColor(0xFF575757);
+      await storage.setTimetableTodayLineWidth(2.5);
 
       expect(storage.getThemeColor(), 'blue');
       expect(storage.getCustomThemeColor(), 0xFF123456);
+      expect(storage.getLastCustomThemeColor(), 0xFF654321);
       expect(storage.getCourseReminderEnabled(), isTrue);
       expect(storage.getCourseReminderMinutes(), 30);
       expect(storage.getWearableNotificationCompatibility(), isTrue);
@@ -184,14 +205,24 @@ void main() {
       expect(storage.getWidgetHideDate(), isTrue);
       expect(storage.getTimetableHideTeacher(), isFalse);
       expect(storage.getTimetableHideTeacherBrackets(), isFalse);
+      expect(storage.getTimetablePageTextColor(), 0xFF111111);
+      expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
+      expect(storage.getTimetableCourseTextColor(), 0xFF222222);
+      expect(storage.getTimetableLastCustomCourseTextColor(), 0xFF232323);
+      expect(storage.getTimetableCourseBorderColor(), 0xFF333333);
+      expect(storage.getTimetableLastCustomCourseBorderColor(), 0xFF343434);
       expect(storage.getTimetableBackgroundPath(), '/tmp/background.jpg');
       expect(
         storage.getTimetableDarkBackgroundPath(),
         '/tmp/background-dark.jpg',
       );
       expect(storage.getTimetableUseLightBackgroundInDarkMode(), isTrue);
+      expect(storage.getPageBackgroundColor(), 'teal');
       expect(storage.getTimetableComponentOpacity(), 0.72);
       expect(storage.getTimetableGridOpacity(), 0.42);
+      expect(storage.getTimetableGridLineColor(), 0xFF454545);
+      expect(storage.getTimetableLastCustomGridLineColor(), 0xFF464646);
+      expect(storage.getTimetableGridLineWidth(), 1.5);
       expect(storage.getTimetableCourseTextSize(), 14);
       expect(storage.getTimetableTimeTextSize(), 10);
       expect(storage.getTimetableDateTextSize(), 13);
@@ -199,6 +230,9 @@ void main() {
       expect(storage.getTimetableCourseBorderOpacity(), 0.35);
       expect(storage.getShowTimetableGridLines(), isFalse);
       expect(storage.getShowTodayGridLines(), isFalse);
+      expect(storage.getTimetableTodayLineColor(), 0xFF565656);
+      expect(storage.getTimetableLastCustomTodayLineColor(), 0xFF575757);
+      expect(storage.getTimetableTodayLineWidth(), 2.5);
     });
 
     test('roundtrips hidden service features', () async {
@@ -227,6 +261,16 @@ void main() {
 
       expect(storage.getWidgetFontScale(), 2.0);
       expect(storage.getWidgetBackgroundAlpha(), 0.0);
+    });
+
+    test('preserves fine-grained timetable course layout values', () async {
+      await storage.setTimetableCourseFontScale(1.05);
+      await storage.setTimetableCourseInnerPadding(2.5);
+      await storage.setTimetableCourseOuterPadding(1.5);
+
+      expect(storage.getTimetableCourseFontScale(), 1.05);
+      expect(storage.getTimetableCourseInnerPadding(), 2.5);
+      expect(storage.getTimetableCourseOuterPadding(), 1.5);
     });
 
     test(
@@ -279,8 +323,18 @@ void main() {
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
       await storage.setTimetableDarkBackgroundPath('/tmp/background-dark.jpg');
       await storage.setTimetableUseLightBackgroundInDarkMode(true);
+      await storage.setPageBackgroundColor('teal');
+      await storage.setTimetablePageTextColor(0xFF111111);
+      await storage.setTimetableLastCustomPageTextColor(0xFF121212);
+      await storage.setTimetableCourseTextColor(0xFF222222);
+      await storage.setTimetableLastCustomCourseTextColor(0xFF232323);
+      await storage.setTimetableCourseBorderColor(0xFF333333);
+      await storage.setTimetableLastCustomCourseBorderColor(0xFF343434);
       await storage.setTimetableComponentOpacity(0.2);
       await storage.setTimetableGridOpacity(0.9);
+      await storage.setTimetableGridLineColor(0xFF454545);
+      await storage.setTimetableLastCustomGridLineColor(0xFF464646);
+      await storage.setTimetableGridLineWidth(1.5);
       await storage.setTimetableCourseTextSize(16);
       await storage.setTimetableTimeTextSize(15);
       await storage.setTimetableDateTextSize(14);
@@ -288,6 +342,9 @@ void main() {
       await storage.setTimetableCourseBorderOpacity(0.2);
       await storage.setShowTimetableGridLines(false);
       await storage.setShowTodayGridLines(true);
+      await storage.setTimetableTodayLineColor(0xFF565656);
+      await storage.setTimetableLastCustomTodayLineColor(0xFF575757);
+      await storage.setTimetableTodayLineWidth(2.5);
       await storage.setWidgetThemePreference('dark');
       await storage.setWidgetFontScale(1.5);
       await storage.setWidgetBackgroundAlpha(0.4);
@@ -303,8 +360,18 @@ void main() {
       expect(storage.getTimetableBackgroundPath(), isNull);
       expect(storage.getTimetableDarkBackgroundPath(), isNull);
       expect(storage.getTimetableUseLightBackgroundInDarkMode(), isFalse);
+      expect(storage.getPageBackgroundColor(), isNull);
+      expect(storage.getTimetablePageTextColor(), isNull);
+      expect(storage.getTimetableLastCustomPageTextColor(), isNull);
+      expect(storage.getTimetableCourseTextColor(), isNull);
+      expect(storage.getTimetableLastCustomCourseTextColor(), isNull);
+      expect(storage.getTimetableCourseBorderColor(), isNull);
+      expect(storage.getTimetableLastCustomCourseBorderColor(), isNull);
       expect(storage.getTimetableComponentOpacity(), 0.7);
       expect(storage.getTimetableGridOpacity(), 0.5);
+      expect(storage.getTimetableGridLineColor(), isNull);
+      expect(storage.getTimetableLastCustomGridLineColor(), isNull);
+      expect(storage.getTimetableGridLineWidth(), 0.5);
       expect(storage.getTimetableCourseTextSize(), 12);
       expect(storage.getTimetableTimeTextSize(), 11);
       expect(storage.getTimetableDateTextSize(), 12);
@@ -312,6 +379,9 @@ void main() {
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
       expect(storage.getShowTimetableGridLines(), isTrue);
       expect(storage.getShowTodayGridLines(), isFalse);
+      expect(storage.getTimetableTodayLineColor(), isNull);
+      expect(storage.getTimetableLastCustomTodayLineColor(), isNull);
+      expect(storage.getTimetableTodayLineWidth(), 1.0);
       expect(storage.getWidgetThemePreference(), isNull);
       expect(storage.getWidgetFontScale(), 1.0);
       expect(storage.getWidgetBackgroundAlpha(), 1.0);

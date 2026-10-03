@@ -51,6 +51,15 @@ class PreferencesStorage {
     }
   }
 
+  int? getLastCustomThemeColor() => _prefs.getInt('last_custom_theme_color');
+  Future<void> setLastCustomThemeColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('last_custom_theme_color');
+    } else {
+      await _prefs.setInt('last_custom_theme_color', value);
+    }
+  }
+
   String? getClassAutomationMode() => _prefs.getString('class_automation_mode');
   Future<void> setClassAutomationMode(String value) =>
       _prefs.setString('class_automation_mode', value);
@@ -142,7 +151,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseCornerRadius() =>
-      (_prefs.getDouble('timetable_course_corner_radius') ?? 4.0)
+      (_prefs.getDouble('timetable_course_corner_radius') ?? 6.0)
           .clamp(0.0, 24.0)
           .toDouble();
 
@@ -152,7 +161,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseInnerPadding() =>
-      (_prefs.getDouble('timetable_course_inner_padding') ?? 4.0)
+      (_prefs.getDouble('timetable_course_inner_padding') ?? 2.0)
           .clamp(0.0, 12.0)
           .toDouble();
 
@@ -162,7 +171,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseOuterPadding() =>
-      (_prefs.getDouble('timetable_course_outer_padding') ?? 1.0)
+      (_prefs.getDouble('timetable_course_outer_padding') ?? 1.8)
           .clamp(0.0, 8.0)
           .toDouble();
 
@@ -234,6 +243,9 @@ class PreferencesStorage {
   int? getTimetablePageTextColor() =>
       _prefs.getInt('timetable_page_text_color');
 
+  int? getTimetableLastCustomPageTextColor() =>
+      _prefs.getInt('timetable_last_custom_page_text_color');
+
   Future<void> setTimetablePageTextColor(int? value) async {
     if (value == null) {
       await _prefs.remove('timetable_page_text_color');
@@ -242,14 +254,96 @@ class PreferencesStorage {
     }
   }
 
+  Future<void> setTimetableLastCustomPageTextColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_last_custom_page_text_color');
+    } else {
+      await _prefs.setInt('timetable_last_custom_page_text_color', value);
+    }
+  }
+
   int? getTimetableCourseTextColor() =>
       _prefs.getInt('timetable_course_text_color');
+
+  int? getTimetableLastCustomCourseTextColor() =>
+      _prefs.getInt('timetable_last_custom_course_text_color');
 
   Future<void> setTimetableCourseTextColor(int? value) async {
     if (value == null) {
       await _prefs.remove('timetable_course_text_color');
     } else {
       await _prefs.setInt('timetable_course_text_color', value);
+    }
+  }
+
+  Future<void> setTimetableLastCustomCourseTextColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_last_custom_course_text_color');
+    } else {
+      await _prefs.setInt('timetable_last_custom_course_text_color', value);
+    }
+  }
+
+  int? getTimetableCourseBorderColor() =>
+      _prefs.getInt('timetable_course_border_color');
+  int? getTimetableLastCustomCourseBorderColor() =>
+      _prefs.getInt('timetable_last_custom_course_border_color');
+
+  Future<void> setTimetableCourseBorderColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_course_border_color');
+    } else {
+      await _prefs.setInt('timetable_course_border_color', value);
+    }
+  }
+
+  Future<void> setTimetableLastCustomCourseBorderColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_last_custom_course_border_color');
+    } else {
+      await _prefs.setInt('timetable_last_custom_course_border_color', value);
+    }
+  }
+
+  int? getTimetableGridLineColor() =>
+      _prefs.getInt('timetable_grid_line_color');
+  int? getTimetableLastCustomGridLineColor() =>
+      _prefs.getInt('timetable_last_custom_grid_line_color');
+
+  Future<void> setTimetableGridLineColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_grid_line_color');
+    } else {
+      await _prefs.setInt('timetable_grid_line_color', value);
+    }
+  }
+
+  Future<void> setTimetableLastCustomGridLineColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_last_custom_grid_line_color');
+    } else {
+      await _prefs.setInt('timetable_last_custom_grid_line_color', value);
+    }
+  }
+
+  int? getTimetableTodayLineColor() =>
+      _prefs.getInt('timetable_today_line_color');
+  int? getTimetableLastCustomTodayLineColor() =>
+      _prefs.getInt('timetable_last_custom_today_line_color');
+
+  Future<void> setTimetableTodayLineColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_today_line_color');
+    } else {
+      await _prefs.setInt('timetable_today_line_color', value);
+    }
+  }
+
+  Future<void> setTimetableLastCustomTodayLineColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_last_custom_today_line_color');
+    } else {
+      await _prefs.setInt('timetable_last_custom_today_line_color', value);
     }
   }
 
@@ -281,6 +375,18 @@ class PreferencesStorage {
   Future<void> setTimetableUseLightBackgroundInDarkMode(bool value) =>
       _prefs.setBool('timetable_use_light_background_in_dark_mode', value);
 
+  String? getPageBackgroundColor() =>
+      _prefs.getString('page_background_color') ??
+      _prefs.getString('timetable_solid_background');
+  Future<void> setPageBackgroundColor(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _prefs.remove('page_background_color');
+    } else {
+      await _prefs.setString('page_background_color', value);
+    }
+    await _prefs.remove('timetable_solid_background');
+  }
+
   Future<void> clearLegacyTimetableBackgroundSettings() async {
     await Future.wait([
       _prefs.remove('timetable_background_original_path'),
@@ -307,6 +413,28 @@ class PreferencesStorage {
   Future<void> setTimetableGridOpacity(double value) => _prefs.setDouble(
     'timetable_grid_opacity',
     value.clamp(0.0, 1.0).toDouble(),
+  );
+
+  double getTimetableGridLineWidth() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_grid_line_width') ?? 0.5,
+    min: 0.5,
+    max: 3.0,
+  );
+
+  Future<void> setTimetableGridLineWidth(double value) => _prefs.setDouble(
+    'timetable_grid_line_width',
+    _clampTimetableDimension(value, min: 0.5, max: 3.0),
+  );
+
+  double getTimetableTodayLineWidth() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_today_line_width') ?? 1.0,
+    min: 0.5,
+    max: 4.0,
+  );
+
+  Future<void> setTimetableTodayLineWidth(double value) => _prefs.setDouble(
+    'timetable_today_line_width',
+    _clampTimetableDimension(value, min: 0.5, max: 4.0),
   );
 
   double getTimetableCourseTextSize() => _clampTimetableDimension(
@@ -370,6 +498,8 @@ class PreferencesStorage {
       _prefs.remove('timetable_background_path'),
       _prefs.remove('timetable_dark_background_path'),
       _prefs.remove('timetable_use_light_background_in_dark_mode'),
+      _prefs.remove('page_background_color'),
+      _prefs.remove('timetable_solid_background'),
       // Remove settings from versions that supported separate source images,
       // non-fullscreen backgrounds, and background opacity.
       _prefs.remove('timetable_background_original_path'),
@@ -377,6 +507,12 @@ class PreferencesStorage {
       _prefs.remove('timetable_background_opacity'),
       _prefs.remove('timetable_component_opacity'),
       _prefs.remove('timetable_grid_opacity'),
+      _prefs.remove('timetable_grid_line_color'),
+      _prefs.remove('timetable_last_custom_grid_line_color'),
+      _prefs.remove('timetable_grid_line_width'),
+      _prefs.remove('timetable_today_line_color'),
+      _prefs.remove('timetable_last_custom_today_line_color'),
+      _prefs.remove('timetable_today_line_width'),
       _prefs.remove('timetable_course_text_size'),
       _prefs.remove('timetable_time_text_size'),
       _prefs.remove('timetable_date_text_size'),
@@ -409,7 +545,11 @@ class PreferencesStorage {
       _prefs.remove('timetable_text_align_center_vertical'),
       _prefs.remove('timetable_border_type'),
       _prefs.remove('timetable_page_text_color'),
+      _prefs.remove('timetable_last_custom_page_text_color'),
       _prefs.remove('timetable_course_text_color'),
+      _prefs.remove('timetable_last_custom_course_text_color'),
+      _prefs.remove('timetable_course_border_color'),
+      _prefs.remove('timetable_last_custom_course_border_color'),
     ]);
   }
 

@@ -697,19 +697,31 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       _conflictCountdownController,
                                   dayActionAnimation: _dayActionPulseController,
                                   borderColor: courseBorderColor,
-                                  borderWidth: 0.5,
+                                  courseBorderColor:
+                                      settings.timetableCourseBorderColor,
+                                  borderWidth:
+                                      settings.timetableCourseBorderWidth,
                                   courseOpacity: courseOpacity,
-                                  courseBorderOpacity: 1.0,
+                                  courseBorderOpacity:
+                                      settings.timetableCourseBorderOpacity,
                                   courseTextSize:
                                       settings.timetableCourseTextSize,
                                   timeTextSize: settings.timetableTimeTextSize,
                                   dateTextSize: settings.timetableDateTextSize,
                                   gridOpacity: settings.timetableGridOpacity,
+                                  gridLineColor:
+                                      settings.timetableGridLineColor,
+                                  gridLineWidth:
+                                      settings.timetableGridLineWidth,
                                   showHeaderDivider: !hasBackground,
                                   showGridLines:
                                       settings.showTimetableGridLines,
                                   showTodayGridLines:
                                       settings.showTodayGridLines,
+                                  todayLineColor:
+                                      settings.timetableTodayLineColor,
+                                  todayLineWidth:
+                                      settings.timetableTodayLineWidth,
                                   sectionHeight:
                                       settings.timetableSectionHeight,
                                   timeColumnWidth:

@@ -84,6 +84,34 @@ enum TimetableBorderType {
   }
 }
 
+enum AppPageBackgroundColor {
+  neutral(Color(0xFFEEF2F6), Color(0xFF1B1F24), '雾灰'),
+  blue(Color(0xFFE7EFFA), Color(0xFF172A46), '浅蓝'),
+  teal(Color(0xFFDDEFEF), Color(0xFF123636), '青绿'),
+  green(Color(0xFFE5F0E0), Color(0xFF1D3420), '浅绿'),
+  rose(Color(0xFFF6E7E7), Color(0xFF3D2325), '浅红'),
+  purple(Color(0xFFF0E7F4), Color(0xFF33263A), '淡紫');
+
+  final Color lightColor;
+  final Color darkColor;
+  final String label;
+
+  const AppPageBackgroundColor(this.lightColor, this.darkColor, this.label);
+
+  String get storageValue => name;
+
+  Color resolve(Brightness brightness) =>
+      brightness == Brightness.dark ? darkColor : lightColor;
+
+  static AppPageBackgroundColor? fromStorage(String? value) {
+    if (value == null) return null;
+    for (final item in values) {
+      if (item.storageValue == value) return item;
+    }
+    return null;
+  }
+}
+
 enum ClassAutomationMode {
   off,
   dnd,
@@ -126,6 +154,7 @@ class AppSettings {
   final AppThemePreference themePreference;
   final AppThemeColor themeColor;
   final Color? customThemeColor;
+  final Color? lastCustomThemeColor;
   final ClassAutomationMode classAutomationMode;
   final bool courseReminderEnabled;
   final int courseReminderMinutes;
@@ -155,12 +184,20 @@ class AppSettings {
   final bool timetableTextAlignCenterVertical;
   final TimetableBorderType timetableBorderType;
   final Color? timetablePageTextColor;
+  final Color? timetableLastCustomPageTextColor;
   final Color? timetableCourseTextColor;
+  final Color? timetableLastCustomCourseTextColor;
+  final Color? timetableCourseBorderColor;
+  final Color? timetableLastCustomCourseBorderColor;
   final String? timetableBackgroundPath;
   final String? timetableDarkBackgroundPath;
   final bool timetableUseLightBackgroundInDarkMode;
+  final AppPageBackgroundColor? pageBackgroundColor;
   final double timetableComponentOpacity;
   final double timetableGridOpacity;
+  final Color? timetableGridLineColor;
+  final Color? timetableLastCustomGridLineColor;
+  final double timetableGridLineWidth;
   final double timetableCourseTextSize;
   final double timetableTimeTextSize;
   final double timetableDateTextSize;
@@ -168,6 +205,9 @@ class AppSettings {
   final double timetableCourseBorderOpacity;
   final bool showTimetableGridLines;
   final bool showTodayGridLines;
+  final Color? timetableTodayLineColor;
+  final Color? timetableLastCustomTodayLineColor;
+  final double timetableTodayLineWidth;
   final bool useCloudTimetableAdjustments;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
@@ -175,6 +215,7 @@ class AppSettings {
     this.themePreference = AppThemePreference.system,
     this.themeColor = AppThemeColor.rose,
     this.customThemeColor,
+    this.lastCustomThemeColor,
     this.classAutomationMode = ClassAutomationMode.off,
     this.courseReminderEnabled = false,
     this.courseReminderMinutes = 15,
@@ -188,9 +229,9 @@ class AppSettings {
     this.timetableSectionHeight = 70.0,
     this.timetableTimeColumnWidth = 40.0,
     this.timetableDayHeaderHeight = 45.0,
-    this.timetableCourseCornerRadius = 4.0,
-    this.timetableCourseInnerPadding = 4.0,
-    this.timetableCourseOuterPadding = 1.0,
+    this.timetableCourseCornerRadius = 6.0,
+    this.timetableCourseInnerPadding = 2.0,
+    this.timetableCourseOuterPadding = 1.8,
     this.timetableCourseAlpha = 1.0,
     this.timetableCourseFontScale = 1.0,
     this.timetableHideSectionTime = false,
@@ -204,19 +245,30 @@ class AppSettings {
     this.timetableTextAlignCenterVertical = false,
     this.timetableBorderType = TimetableBorderType.solid,
     this.timetablePageTextColor,
+    this.timetableLastCustomPageTextColor,
     this.timetableCourseTextColor,
+    this.timetableLastCustomCourseTextColor,
+    this.timetableCourseBorderColor,
+    this.timetableLastCustomCourseBorderColor,
     this.timetableBackgroundPath,
     this.timetableDarkBackgroundPath,
     this.timetableUseLightBackgroundInDarkMode = false,
-    this.timetableComponentOpacity = 0.6,
-    this.timetableGridOpacity = 0.7,
+    this.pageBackgroundColor,
+    this.timetableComponentOpacity = 0.7,
+    this.timetableGridOpacity = 0.5,
+    this.timetableGridLineColor,
+    this.timetableLastCustomGridLineColor,
+    this.timetableGridLineWidth = 0.5,
     this.timetableCourseTextSize = 12.0,
     this.timetableTimeTextSize = 11.0,
     this.timetableDateTextSize = 12.0,
     this.timetableCourseBorderWidth = 0.5,
-    this.timetableCourseBorderOpacity = 0.6,
+    this.timetableCourseBorderOpacity = 0.7,
     this.showTimetableGridLines = true,
     this.showTodayGridLines = false,
+    this.timetableTodayLineColor,
+    this.timetableLastCustomTodayLineColor,
+    this.timetableTodayLineWidth = 1.0,
     this.useCloudTimetableAdjustments = true,
     this.hiddenServiceFeatures = const {},
   });
@@ -227,6 +279,7 @@ class AppSettings {
     AppThemePreference? themePreference,
     AppThemeColor? themeColor,
     Object? customThemeColor = _unset,
+    Object? lastCustomThemeColor = _unset,
     ClassAutomationMode? classAutomationMode,
     bool? courseReminderEnabled,
     int? courseReminderMinutes,
@@ -256,12 +309,20 @@ class AppSettings {
     bool? timetableTextAlignCenterVertical,
     TimetableBorderType? timetableBorderType,
     Object? timetablePageTextColor = _unset,
+    Object? timetableLastCustomPageTextColor = _unset,
     Object? timetableCourseTextColor = _unset,
+    Object? timetableLastCustomCourseTextColor = _unset,
+    Object? timetableCourseBorderColor = _unset,
+    Object? timetableLastCustomCourseBorderColor = _unset,
     Object? timetableBackgroundPath = _unset,
     Object? timetableDarkBackgroundPath = _unset,
     bool? timetableUseLightBackgroundInDarkMode,
+    Object? pageBackgroundColor = _unset,
     double? timetableComponentOpacity,
     double? timetableGridOpacity,
+    Object? timetableGridLineColor = _unset,
+    Object? timetableLastCustomGridLineColor = _unset,
+    double? timetableGridLineWidth,
     double? timetableCourseTextSize,
     double? timetableTimeTextSize,
     double? timetableDateTextSize,
@@ -269,6 +330,9 @@ class AppSettings {
     double? timetableCourseBorderOpacity,
     bool? showTimetableGridLines,
     bool? showTodayGridLines,
+    Object? timetableTodayLineColor = _unset,
+    Object? timetableLastCustomTodayLineColor = _unset,
+    double? timetableTodayLineWidth,
     bool? useCloudTimetableAdjustments,
     Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
@@ -278,6 +342,9 @@ class AppSettings {
       customThemeColor: identical(customThemeColor, _unset)
           ? this.customThemeColor
           : customThemeColor as Color?,
+      lastCustomThemeColor: identical(lastCustomThemeColor, _unset)
+          ? this.lastCustomThemeColor
+          : lastCustomThemeColor as Color?,
       classAutomationMode: classAutomationMode ?? this.classAutomationMode,
       courseReminderEnabled:
           courseReminderEnabled ?? this.courseReminderEnabled,
@@ -332,9 +399,24 @@ class AppSettings {
       timetablePageTextColor: identical(timetablePageTextColor, _unset)
           ? this.timetablePageTextColor
           : timetablePageTextColor as Color?,
+      timetableLastCustomPageTextColor:
+          identical(timetableLastCustomPageTextColor, _unset)
+          ? this.timetableLastCustomPageTextColor
+          : timetableLastCustomPageTextColor as Color?,
       timetableCourseTextColor: identical(timetableCourseTextColor, _unset)
           ? this.timetableCourseTextColor
           : timetableCourseTextColor as Color?,
+      timetableLastCustomCourseTextColor:
+          identical(timetableLastCustomCourseTextColor, _unset)
+          ? this.timetableLastCustomCourseTextColor
+          : timetableLastCustomCourseTextColor as Color?,
+      timetableCourseBorderColor: identical(timetableCourseBorderColor, _unset)
+          ? this.timetableCourseBorderColor
+          : timetableCourseBorderColor as Color?,
+      timetableLastCustomCourseBorderColor:
+          identical(timetableLastCustomCourseBorderColor, _unset)
+          ? this.timetableLastCustomCourseBorderColor
+          : timetableLastCustomCourseBorderColor as Color?,
       timetableBackgroundPath: identical(timetableBackgroundPath, _unset)
           ? this.timetableBackgroundPath
           : timetableBackgroundPath as String?,
@@ -345,9 +427,21 @@ class AppSettings {
       timetableUseLightBackgroundInDarkMode:
           timetableUseLightBackgroundInDarkMode ??
           this.timetableUseLightBackgroundInDarkMode,
+      pageBackgroundColor: identical(pageBackgroundColor, _unset)
+          ? this.pageBackgroundColor
+          : pageBackgroundColor as AppPageBackgroundColor?,
       timetableComponentOpacity:
           timetableComponentOpacity ?? this.timetableComponentOpacity,
       timetableGridOpacity: timetableGridOpacity ?? this.timetableGridOpacity,
+      timetableGridLineColor: identical(timetableGridLineColor, _unset)
+          ? this.timetableGridLineColor
+          : timetableGridLineColor as Color?,
+      timetableLastCustomGridLineColor:
+          identical(timetableLastCustomGridLineColor, _unset)
+          ? this.timetableLastCustomGridLineColor
+          : timetableLastCustomGridLineColor as Color?,
+      timetableGridLineWidth:
+          timetableGridLineWidth ?? this.timetableGridLineWidth,
       timetableCourseTextSize:
           timetableCourseTextSize ?? this.timetableCourseTextSize,
       timetableTimeTextSize:
@@ -361,6 +455,15 @@ class AppSettings {
       showTimetableGridLines:
           showTimetableGridLines ?? this.showTimetableGridLines,
       showTodayGridLines: showTodayGridLines ?? this.showTodayGridLines,
+      timetableTodayLineColor: identical(timetableTodayLineColor, _unset)
+          ? this.timetableTodayLineColor
+          : timetableTodayLineColor as Color?,
+      timetableLastCustomTodayLineColor:
+          identical(timetableLastCustomTodayLineColor, _unset)
+          ? this.timetableLastCustomTodayLineColor
+          : timetableLastCustomTodayLineColor as Color?,
+      timetableTodayLineWidth:
+          timetableTodayLineWidth ?? this.timetableTodayLineWidth,
       useCloudTimetableAdjustments:
           useCloudTimetableAdjustments ?? this.useCloudTimetableAdjustments,
       hiddenServiceFeatures:
@@ -375,4 +478,7 @@ class AppSettings {
     }
     return timetableBackgroundPath;
   }
+
+  Color? pageBackgroundFor(Brightness brightness) =>
+      pageBackgroundColor?.resolve(brightness);
 }

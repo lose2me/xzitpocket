@@ -19,6 +19,23 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   @override
   AppSettings build() {
     _storage = ref.watch(preferencesStorageProvider);
+    final customThemeColor = _storage.getCustomThemeColor();
+    final courseTextColor = _storage.getTimetableCourseTextColor();
+    final pageTextColor = _storage.getTimetablePageTextColor();
+    if (_storage.getLastCustomThemeColor() == null &&
+        customThemeColor != null) {
+      unawaited(_storage.setLastCustomThemeColor(customThemeColor));
+    }
+    if (_storage.getTimetableLastCustomCourseTextColor() == null &&
+        courseTextColor != null) {
+      unawaited(
+        _storage.setTimetableLastCustomCourseTextColor(courseTextColor),
+      );
+    }
+    if (_storage.getTimetableLastCustomPageTextColor() == null &&
+        pageTextColor != null) {
+      unawaited(_storage.setTimetableLastCustomPageTextColor(pageTextColor));
+    }
     unawaited(_storage.clearLegacyTimetableBackgroundSettings());
     unawaited(NativeAutomationService.refreshClassAutomation());
     unawaited(NativeAutomationService.refreshCourseReminders());
@@ -27,9 +44,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         _storage.getThemePreference(),
       ),
       themeColor: AppThemeColor.fromStorage(_storage.getThemeColor()),
-      customThemeColor: _storage.getCustomThemeColor() == null
+      customThemeColor: customThemeColor == null
           ? null
-          : Color(_storage.getCustomThemeColor()!),
+          : Color(customThemeColor),
+      lastCustomThemeColor:
+          (_storage.getLastCustomThemeColor() ?? customThemeColor) == null
+          ? null
+          : Color(_storage.getLastCustomThemeColor() ?? customThemeColor!),
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
@@ -67,18 +88,53 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableBorderType: TimetableBorderType.fromStorage(
         _storage.getTimetableBorderType(),
       ),
-      timetablePageTextColor: _storage.getTimetablePageTextColor() == null
+      timetablePageTextColor: pageTextColor == null
           ? null
-          : Color(_storage.getTimetablePageTextColor()!),
-      timetableCourseTextColor: _storage.getTimetableCourseTextColor() == null
+          : Color(pageTextColor),
+      timetableLastCustomPageTextColor:
+          (_storage.getTimetableLastCustomPageTextColor() ?? pageTextColor) ==
+              null
           ? null
-          : Color(_storage.getTimetableCourseTextColor()!),
+          : Color(
+              _storage.getTimetableLastCustomPageTextColor() ?? pageTextColor!,
+            ),
+      timetableCourseTextColor: courseTextColor == null
+          ? null
+          : Color(courseTextColor),
+      timetableLastCustomCourseTextColor:
+          (_storage.getTimetableLastCustomCourseTextColor() ??
+                  courseTextColor) ==
+              null
+          ? null
+          : Color(
+              _storage.getTimetableLastCustomCourseTextColor() ??
+                  courseTextColor!,
+            ),
+      timetableCourseBorderColor:
+          _storage.getTimetableCourseBorderColor() == null
+          ? null
+          : Color(_storage.getTimetableCourseBorderColor()!),
+      timetableLastCustomCourseBorderColor:
+          _storage.getTimetableLastCustomCourseBorderColor() == null
+          ? null
+          : Color(_storage.getTimetableLastCustomCourseBorderColor()!),
       timetableBackgroundPath: _storage.getTimetableBackgroundPath(),
       timetableDarkBackgroundPath: _storage.getTimetableDarkBackgroundPath(),
       timetableUseLightBackgroundInDarkMode: _storage
           .getTimetableUseLightBackgroundInDarkMode(),
+      pageBackgroundColor: AppPageBackgroundColor.fromStorage(
+        _storage.getPageBackgroundColor(),
+      ),
       timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
+      timetableGridLineColor: _storage.getTimetableGridLineColor() == null
+          ? null
+          : Color(_storage.getTimetableGridLineColor()!),
+      timetableLastCustomGridLineColor:
+          _storage.getTimetableLastCustomGridLineColor() == null
+          ? null
+          : Color(_storage.getTimetableLastCustomGridLineColor()!),
+      timetableGridLineWidth: _storage.getTimetableGridLineWidth(),
       timetableCourseTextSize: _storage.getTimetableCourseTextSize(),
       timetableTimeTextSize: _storage.getTimetableTimeTextSize(),
       timetableDateTextSize: _storage.getTimetableDateTextSize(),
@@ -86,6 +142,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseBorderOpacity: _storage.getTimetableCourseBorderOpacity(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
       showTodayGridLines: _storage.getShowTodayGridLines(),
+      timetableTodayLineColor: _storage.getTimetableTodayLineColor() == null
+          ? null
+          : Color(_storage.getTimetableTodayLineColor()!),
+      timetableLastCustomTodayLineColor:
+          _storage.getTimetableLastCustomTodayLineColor() == null
+          ? null
+          : Color(_storage.getTimetableLastCustomTodayLineColor()!),
+      timetableTodayLineWidth: _storage.getTimetableTodayLineWidth(),
       useCloudTimetableAdjustments: _storage.getUseCloudTimetableAdjustments(),
       hiddenServiceFeatures: {
         for (final value in _storage.getHiddenServiceFeatures())
@@ -119,7 +183,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   Future<void> setCustomThemeColor(Color color) async {
     await _storage.setCustomThemeColor(color.toARGB32());
-    state = state.copyWith(customThemeColor: color);
+    await _storage.setLastCustomThemeColor(color.toARGB32());
+    state = state.copyWith(
+      customThemeColor: color,
+      lastCustomThemeColor: color,
+    );
     try {
       await WidgetService.refreshWidget();
     } on WidgetSyncException {
@@ -293,9 +361,69 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(timetablePageTextColor: value);
   }
 
+  Future<void> setCustomTimetablePageTextColor(Color value) async {
+    await _storage.setTimetablePageTextColor(value.toARGB32());
+    await _storage.setTimetableLastCustomPageTextColor(value.toARGB32());
+    state = state.copyWith(
+      timetablePageTextColor: value,
+      timetableLastCustomPageTextColor: value,
+    );
+  }
+
   Future<void> setTimetableCourseTextColor(Color? value) async {
     await _storage.setTimetableCourseTextColor(value?.toARGB32());
     state = state.copyWith(timetableCourseTextColor: value);
+  }
+
+  Future<void> setCustomTimetableCourseTextColor(Color value) async {
+    await _storage.setTimetableCourseTextColor(value.toARGB32());
+    await _storage.setTimetableLastCustomCourseTextColor(value.toARGB32());
+    state = state.copyWith(
+      timetableCourseTextColor: value,
+      timetableLastCustomCourseTextColor: value,
+    );
+  }
+
+  Future<void> setTimetableCourseBorderColor(Color? value) async {
+    await _storage.setTimetableCourseBorderColor(value?.toARGB32());
+    state = state.copyWith(timetableCourseBorderColor: value);
+  }
+
+  Future<void> setCustomTimetableCourseBorderColor(Color value) async {
+    await _storage.setTimetableCourseBorderColor(value.toARGB32());
+    await _storage.setTimetableLastCustomCourseBorderColor(value.toARGB32());
+    state = state.copyWith(
+      timetableCourseBorderColor: value,
+      timetableLastCustomCourseBorderColor: value,
+    );
+  }
+
+  Future<void> setTimetableGridLineColor(Color? value) async {
+    await _storage.setTimetableGridLineColor(value?.toARGB32());
+    state = state.copyWith(timetableGridLineColor: value);
+  }
+
+  Future<void> setCustomTimetableGridLineColor(Color value) async {
+    await _storage.setTimetableGridLineColor(value.toARGB32());
+    await _storage.setTimetableLastCustomGridLineColor(value.toARGB32());
+    state = state.copyWith(
+      timetableGridLineColor: value,
+      timetableLastCustomGridLineColor: value,
+    );
+  }
+
+  Future<void> setTimetableTodayLineColor(Color? value) async {
+    await _storage.setTimetableTodayLineColor(value?.toARGB32());
+    state = state.copyWith(timetableTodayLineColor: value);
+  }
+
+  Future<void> setCustomTimetableTodayLineColor(Color value) async {
+    await _storage.setTimetableTodayLineColor(value.toARGB32());
+    await _storage.setTimetableLastCustomTodayLineColor(value.toARGB32());
+    state = state.copyWith(
+      timetableTodayLineColor: value,
+      timetableLastCustomTodayLineColor: value,
+    );
   }
 
   Future<void> _refreshWidgetSettings() async {
@@ -317,8 +445,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   }
 
   Future<void> setTimetableUseLightBackgroundInDarkMode(bool value) async {
-    await _storage.setTimetableUseLightBackgroundInDarkMode(value);
     state = state.copyWith(timetableUseLightBackgroundInDarkMode: value);
+    await _storage.setTimetableUseLightBackgroundInDarkMode(value);
+  }
+
+  Future<void> setPageBackgroundColor(AppPageBackgroundColor? value) async {
+    await _storage.setPageBackgroundColor(value?.storageValue);
+    state = state.copyWith(pageBackgroundColor: value);
   }
 
   Future<void> setTimetableComponentOpacity(double value) async {
@@ -331,6 +464,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     final normalized = value.clamp(0.0, 1.0).toDouble();
     await _storage.setTimetableGridOpacity(normalized);
     state = state.copyWith(timetableGridOpacity: normalized);
+  }
+
+  Future<void> setTimetableGridLineWidth(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 0.5, 3.0);
+    await _storage.setTimetableGridLineWidth(normalized);
+    state = state.copyWith(timetableGridLineWidth: normalized);
+  }
+
+  Future<void> setTimetableTodayLineWidth(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 0.5, 4.0);
+    await _storage.setTimetableTodayLineWidth(normalized);
+    state = state.copyWith(timetableTodayLineWidth: normalized);
   }
 
   Future<void> setTimetableCourseTextSize(double value) async {
@@ -371,8 +516,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableDarkBackgroundPath: null,
       timetableUseLightBackgroundInDarkMode:
           defaults.timetableUseLightBackgroundInDarkMode,
+      pageBackgroundColor: null,
       timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
+      timetableGridLineColor: null,
+      timetableLastCustomGridLineColor: null,
+      timetableGridLineWidth: defaults.timetableGridLineWidth,
       timetableCourseTextSize: defaults.timetableCourseTextSize,
       timetableTimeTextSize: defaults.timetableTimeTextSize,
       timetableDateTextSize: defaults.timetableDateTextSize,
@@ -380,6 +529,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseBorderOpacity: defaults.timetableCourseBorderOpacity,
       showTimetableGridLines: defaults.showTimetableGridLines,
       showTodayGridLines: defaults.showTodayGridLines,
+      timetableTodayLineColor: null,
+      timetableLastCustomTodayLineColor: null,
+      timetableTodayLineWidth: defaults.timetableTodayLineWidth,
       widgetThemePreference: defaults.widgetThemePreference,
       widgetFontScale: defaults.widgetFontScale,
       widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,
@@ -407,7 +559,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           defaults.timetableTextAlignCenterVertical,
       timetableBorderType: defaults.timetableBorderType,
       timetablePageTextColor: null,
+      timetableLastCustomPageTextColor: null,
       timetableCourseTextColor: null,
+      timetableLastCustomCourseTextColor: null,
+      timetableCourseBorderColor: null,
+      timetableLastCustomCourseBorderColor: null,
     );
     await _refreshWidgetSettings();
   }

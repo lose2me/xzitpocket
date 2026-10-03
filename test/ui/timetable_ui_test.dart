@@ -7,6 +7,7 @@ import 'package:xzitpocket/pages/timetable/course_form_page.dart';
 import 'package:xzitpocket/pages/timetable/course_picker_sheet.dart';
 import 'package:xzitpocket/pages/timetable/course_card.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
+import 'package:xzitpocket/pages/timetable/time_column.dart';
 import 'package:xzitpocket/ui/app_components.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
 
@@ -81,6 +82,45 @@ void main() {
     await pumpCard(hideBrackets: true);
     expect(find.text('【张老师】'), findsNothing);
     expect(find.text('张老师'), findsOneWidget);
+  });
+
+  testWidgets('course border modes preserve the same content width', (
+    tester,
+  ) async {
+    final course = Course(
+      title: '一行课程文字宽度测试',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1, 2],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+
+    Future<Size> contentSize(String borderType) async {
+      await tester.pumpWidget(
+        _testApp(
+          SizedBox(
+            width: 100,
+            height: 100,
+            child: CourseCard(
+              course: course,
+              borderColor: Colors.black,
+              borderWidth: 3,
+              borderType: borderType,
+            ),
+          ),
+        ),
+      );
+      return tester.getSize(find.byType(ClipRRect));
+    }
+
+    final none = await contentSize('none');
+    final solid = await contentSize('solid');
+    final dashed = await contentSize('dashed');
+    expect(solid, none);
+    expect(dashed, none);
   });
 
   testWidgets('timetable date divider has no surrounding vertical gap', (
@@ -160,6 +200,35 @@ void main() {
 
     final fridayLabel = tester.widget<Text>(find.text('五'));
     expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
+  });
+
+  testWidgets('hiding dates preserves the configured day header height', (
+    tester,
+  ) async {
+    Future<double> timeColumnTop({required bool hideDate}) async {
+      await tester.pumpWidget(
+        _testApp(
+          SizedBox(
+            width: 390,
+            height: 500,
+            child: TimetableGrid(
+              courses: const [],
+              week: 1,
+              calendar: semesterCalendar,
+              borderColor: AppTheme.light.colors.border,
+              dayHeaderHeight: 64,
+              hideDateUnderDay: hideDate,
+            ),
+          ),
+        ),
+      );
+      return tester.getTopLeft(find.byType(TimeColumn)).dy;
+    }
+
+    final withDates = await timeColumnTop(hideDate: false);
+    final withoutDates = await timeColumnTop(hideDate: true);
+
+    expect(withoutDates, withDates);
   });
 
   testWidgets('app sheets render an opaque full-width surface', (tester) async {

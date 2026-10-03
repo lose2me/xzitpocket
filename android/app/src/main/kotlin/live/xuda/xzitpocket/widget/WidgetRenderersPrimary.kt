@@ -7,7 +7,7 @@ import live.xuda.xzitpocket.R
 internal object TinyWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_tiny)
-        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        val style = WidgetRenderSupport.applyRootStyle(context, views)
         WidgetRenderSupport.applyTextScale(
             views,
             style,
@@ -20,7 +20,7 @@ internal object TinyWidgetRenderer {
         WidgetRenderSupport.attachRootClick(context, views)
         WidgetRenderSupport.setBackgroundResource(
             views,
-            R.id.widget_root,
+            R.id.widget_background,
             WidgetThemeSupport.backgroundDrawableRes(context),
         )
 
@@ -68,7 +68,7 @@ internal object TinyWidgetRenderer {
                     )
                     WidgetRenderSupport.setBackgroundResource(
                         views,
-                        R.id.widget_root,
+                        R.id.widget_background,
                         WidgetThemeSupport.backgroundDrawableRes(
                             context,
                             conflict = nextCourse.isConflict,
@@ -114,7 +114,7 @@ internal object TinyWidgetRenderer {
 internal object CompactWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_compact)
-        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        val style = WidgetRenderSupport.applyRootStyle(context, views)
         WidgetRenderSupport.applyTextScale(
             views,
             style,
@@ -128,8 +128,6 @@ internal object CompactWidgetRenderer {
         WidgetRenderSupport.applyPanelBackgrounds(
             context,
             views,
-            R.id.container_content,
-            R.id.container_status,
         )
         WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
         views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
@@ -209,7 +207,7 @@ internal object CompactWidgetRenderer {
 internal object ModerateWidgetRenderer {
     fun render(context: android.content.Context, snapshot: RenderSnapshot): RemoteViews {
         val views = RemoteViews(context.packageName, R.layout.widget_moderate)
-        val style = WidgetRenderSupport.applyRootStyle(context, views, R.id.widget_root)
+        val style = WidgetRenderSupport.applyRootStyle(context, views)
         WidgetRenderSupport.applyTextScale(
             views,
             style,
@@ -223,8 +221,6 @@ internal object ModerateWidgetRenderer {
         WidgetRenderSupport.applyPanelBackgrounds(
             context,
             views,
-            R.id.container_content,
-            R.id.container_status,
         )
         views.setViewVisibility(R.id.tv_week, View.VISIBLE)
         WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)

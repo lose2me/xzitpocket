@@ -69,16 +69,9 @@ class CourseCard extends StatelessWidget {
       (255 * courseBorderOpacity).round(),
     );
 
-    final solidBorder = borderType == 'solid' && courseBorderOpacity > 0
-        ? Border.all(color: effectiveBorderColor, width: borderWidth)
-        : null;
     final card = Container(
       padding: EdgeInsets.all(innerPadding),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: borderRadius,
-        border: solidBorder,
-      ),
+      decoration: BoxDecoration(color: bgColor, borderRadius: borderRadius),
       child: Stack(
         children: [
           ClipRRect(
@@ -184,12 +177,13 @@ class CourseCard extends StatelessWidget {
         ],
       ),
     );
-    final decorated = borderType == 'dashed' && courseBorderOpacity > 0
+    final decorated = borderType != 'none' && courseBorderOpacity > 0
         ? CustomPaint(
-            foregroundPainter: _DashedBorderPainter(
+            foregroundPainter: _CourseBorderPainter(
               color: effectiveBorderColor,
               width: borderWidth,
               radius: cornerRadius,
+              dashed: borderType == 'dashed',
             ),
             child: card,
           )
@@ -205,15 +199,17 @@ class CourseCard extends StatelessWidget {
       .start;
 }
 
-class _DashedBorderPainter extends CustomPainter {
+class _CourseBorderPainter extends CustomPainter {
   final Color color;
   final double width;
   final double radius;
+  final bool dashed;
 
-  const _DashedBorderPainter({
+  const _CourseBorderPainter({
     required this.color,
     required this.width,
     required this.radius,
+    required this.dashed,
   });
 
   @override
@@ -231,6 +227,10 @@ class _DashedBorderPainter extends CustomPainter {
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = width;
+    if (!dashed) {
+      canvas.drawPath(path, paint);
+      return;
+    }
     for (final metric in path.computeMetrics()) {
       const dashLength = 5.0;
       const gapLength = 3.0;
@@ -251,10 +251,11 @@ class _DashedBorderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+  bool shouldRepaint(covariant _CourseBorderPainter oldDelegate) =>
       oldDelegate.color != color ||
       oldDelegate.width != width ||
-      oldDelegate.radius != radius;
+      oldDelegate.radius != radius ||
+      oldDelegate.dashed != dashed;
 }
 
 class _CountdownBarPainter extends CustomPainter {

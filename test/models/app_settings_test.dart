@@ -82,6 +82,7 @@ void main() {
       expect(settings.themePreference, AppThemePreference.system);
       expect(settings.themeColor, AppThemeColor.rose);
       expect(settings.customThemeColor, isNull);
+      expect(settings.lastCustomThemeColor, isNull);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.courseReminderEnabled, isFalse);
       expect(settings.courseReminderMinutes, 15);
@@ -97,15 +98,24 @@ void main() {
       expect(settings.timetableBackgroundPath, isNull);
       expect(settings.timetableDarkBackgroundPath, isNull);
       expect(settings.timetableUseLightBackgroundInDarkMode, isFalse);
-      expect(settings.timetableComponentOpacity, 0.6);
-      expect(settings.timetableGridOpacity, 0.7);
+      expect(settings.pageBackgroundColor, isNull);
+      expect(settings.timetableCourseCornerRadius, 6.0);
+      expect(settings.timetableCourseInnerPadding, 2.0);
+      expect(settings.timetableCourseOuterPadding, 1.8);
+      expect(settings.timetableComponentOpacity, 0.7);
+      expect(settings.timetableGridOpacity, 0.5);
+      expect(settings.timetableGridLineColor, isNull);
+      expect(settings.timetableGridLineWidth, 0.5);
       expect(settings.timetableCourseTextSize, 12.0);
       expect(settings.timetableTimeTextSize, 11.0);
       expect(settings.timetableDateTextSize, 12.0);
       expect(settings.timetableCourseBorderWidth, 0.5);
-      expect(settings.timetableCourseBorderOpacity, 0.6);
+      expect(settings.timetableCourseBorderOpacity, 0.7);
+      expect(settings.timetableCourseBorderColor, isNull);
       expect(settings.showTimetableGridLines, isTrue);
       expect(settings.showTodayGridLines, isFalse);
+      expect(settings.timetableTodayLineColor, isNull);
+      expect(settings.timetableTodayLineWidth, 1.0);
       expect(settings.hiddenServiceFeatures, isEmpty);
     });
 
@@ -115,6 +125,7 @@ void main() {
         themePreference: AppThemePreference.dark,
         themeColor: AppThemeColor.blue,
         customThemeColor: const Color(0xFF123456),
+        lastCustomThemeColor: const Color(0xFF654321),
         courseReminderEnabled: true,
         courseReminderMinutes: 30,
         wearableNotificationCompatibility: true,
@@ -129,8 +140,18 @@ void main() {
         timetableBackgroundPath: '/tmp/background.jpg',
         timetableDarkBackgroundPath: '/tmp/background-dark.jpg',
         timetableUseLightBackgroundInDarkMode: true,
+        pageBackgroundColor: AppPageBackgroundColor.teal,
+        timetablePageTextColor: const Color(0xFF111111),
+        timetableLastCustomPageTextColor: const Color(0xFF121212),
+        timetableCourseTextColor: const Color(0xFF222222),
+        timetableLastCustomCourseTextColor: const Color(0xFF232323),
+        timetableCourseBorderColor: const Color(0xFF333333),
+        timetableLastCustomCourseBorderColor: const Color(0xFF343434),
         timetableComponentOpacity: 0.7,
         timetableGridOpacity: 0.45,
+        timetableGridLineColor: const Color(0xFF454545),
+        timetableLastCustomGridLineColor: const Color(0xFF464646),
+        timetableGridLineWidth: 1.5,
         timetableCourseTextSize: 14,
         timetableTimeTextSize: 10,
         timetableDateTextSize: 13,
@@ -138,6 +159,9 @@ void main() {
         timetableCourseBorderOpacity: 0.35,
         showTimetableGridLines: false,
         showTodayGridLines: false,
+        timetableTodayLineColor: const Color(0xFF565656),
+        timetableLastCustomTodayLineColor: const Color(0xFF575757),
+        timetableTodayLineWidth: 2.5,
         hiddenServiceFeatures: {
           AppServiceFeature.power,
           AppServiceFeature.teacherEvaluation,
@@ -146,6 +170,7 @@ void main() {
       expect(updated.themePreference, AppThemePreference.dark);
       expect(updated.themeColor, AppThemeColor.blue);
       expect(updated.customThemeColor, const Color(0xFF123456));
+      expect(updated.lastCustomThemeColor, const Color(0xFF654321));
       expect(updated.classAutomationMode, ClassAutomationMode.off);
       expect(updated.courseReminderEnabled, isTrue);
       expect(updated.courseReminderMinutes, 30);
@@ -161,8 +186,24 @@ void main() {
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
       expect(updated.timetableDarkBackgroundPath, '/tmp/background-dark.jpg');
       expect(updated.timetableUseLightBackgroundInDarkMode, isTrue);
+      expect(updated.pageBackgroundColor, AppPageBackgroundColor.teal);
+      expect(updated.timetablePageTextColor, const Color(0xFF111111));
+      expect(updated.timetableLastCustomPageTextColor, const Color(0xFF121212));
+      expect(updated.timetableCourseTextColor, const Color(0xFF222222));
+      expect(
+        updated.timetableLastCustomCourseTextColor,
+        const Color(0xFF232323),
+      );
+      expect(updated.timetableCourseBorderColor, const Color(0xFF333333));
+      expect(
+        updated.timetableLastCustomCourseBorderColor,
+        const Color(0xFF343434),
+      );
       expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.timetableGridOpacity, 0.45);
+      expect(updated.timetableGridLineColor, const Color(0xFF454545));
+      expect(updated.timetableLastCustomGridLineColor, const Color(0xFF464646));
+      expect(updated.timetableGridLineWidth, 1.5);
       expect(updated.timetableCourseTextSize, 14);
       expect(updated.timetableTimeTextSize, 10);
       expect(updated.timetableDateTextSize, 13);
@@ -170,6 +211,12 @@ void main() {
       expect(updated.timetableCourseBorderOpacity, 0.35);
       expect(updated.showTimetableGridLines, isFalse);
       expect(updated.showTodayGridLines, isFalse);
+      expect(updated.timetableTodayLineColor, const Color(0xFF565656));
+      expect(
+        updated.timetableLastCustomTodayLineColor,
+        const Color(0xFF575757),
+      );
+      expect(updated.timetableTodayLineWidth, 2.5);
       expect(updated.hiddenServiceFeatures, {
         AppServiceFeature.power,
         AppServiceFeature.teacherEvaluation,
@@ -188,23 +235,26 @@ void main() {
       expect(updated.themeColor, AppThemeColor.rose);
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
       expect(updated.timetableBackgroundPath, isNull);
-      expect(updated.timetableComponentOpacity, 0.6);
+      expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.showTimetableGridLines, isTrue);
     });
 
     test('copyWith can clear the background path', () {
       const settings = AppSettings(
         customThemeColor: Color(0xFF123456),
+        lastCustomThemeColor: Color(0xFF654321),
         timetableBackgroundPath: '/tmp/bg.jpg',
         timetableDarkBackgroundPath: '/tmp/dark.jpg',
       );
       final updated = settings.copyWith(
         customThemeColor: null,
+        lastCustomThemeColor: null,
         timetableBackgroundPath: null,
         timetableDarkBackgroundPath: null,
       );
 
       expect(updated.customThemeColor, isNull);
+      expect(updated.lastCustomThemeColor, isNull);
       expect(updated.timetableBackgroundPath, isNull);
       expect(updated.timetableDarkBackgroundPath, isNull);
     });
@@ -225,6 +275,21 @@ void main() {
             .copyWith(timetableUseLightBackgroundInDarkMode: true)
             .timetableBackgroundFor(Brightness.dark),
         '/tmp/light.jpg',
+      );
+    });
+
+    test('resolves adaptive global page backgrounds', () {
+      const settings = AppSettings(
+        pageBackgroundColor: AppPageBackgroundColor.blue,
+      );
+
+      expect(
+        settings.pageBackgroundFor(Brightness.light),
+        AppPageBackgroundColor.blue.lightColor,
+      );
+      expect(
+        settings.pageBackgroundFor(Brightness.dark),
+        AppPageBackgroundColor.blue.darkColor,
       );
     });
   });
