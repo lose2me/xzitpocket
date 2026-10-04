@@ -705,9 +705,9 @@ class _BankInitial extends StatelessWidget {
     decoration: BoxDecoration(
       shape: BoxShape.circle,
       color: outerColor,
-      border: Border.all(color: outerColor, width: 3),
+      border: Border.all(color: outerColor, width: 2),
     ),
-    padding: const EdgeInsets.all(5),
+    padding: const EdgeInsets.all(3),
     child: DecoratedBox(
       decoration: BoxDecoration(shape: BoxShape.circle, color: innerColor),
       child: Center(

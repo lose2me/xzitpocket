@@ -793,6 +793,17 @@ class _TimetableGridState extends State<TimetableGrid> {
                       ),
                     ),
                   ),
+                if (isToday)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      key: ValueKey('timetable-today-indicator-$weekday'),
+                      height: 3,
+                      color: theme.colors.primary,
+                    ),
+                  ),
               ],
             ),
           ),

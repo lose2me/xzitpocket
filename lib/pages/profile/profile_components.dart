@@ -93,25 +93,65 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.theme;
     Widget tile(double attention) => FTile(
       style: attention <= 0
           ? _profileTileStyle
           : FItemStyleDelta.delta(
               backgroundColor: FVariantsValueDelta.delta([
                 FVariantValueDeltaOperation.all(
-                  context.theme.colors.primary.withValues(
-                    alpha: 0.06 + attention * 0.18,
+                  theme.colors.primary.withValues(
+                    alpha: 0.08 + attention * 0.24,
+                  ),
+                ),
+              ]),
+              contentDecoration: FVariantsDelta.delta([
+                FVariantOperation.all(
+                  DecorationDelta.value(
+                    ShapeDecoration(
+                      color: theme.colors.primary.withValues(
+                        alpha: 0.04 + attention * 0.12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: theme.colors.primary.withValues(
+                            alpha: 0.35 + attention * 0.65,
+                          ),
+                          width: 1.5 + attention,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ]),
               contentStyle: _profileTileContentStyle,
             ),
-      prefix: Icon(icon, size: 20, color: context.theme.colors.primary),
-      title: Text(title),
-      details: value == null ? null : Text(value!),
+      prefix: Icon(icon, size: 20, color: theme.colors.primary),
+      title: Text(
+        title,
+        style: attention <= 0
+            ? null
+            : TextStyle(
+                color: theme.colors.primary,
+                fontWeight: FontWeight.w700,
+              ),
+      ),
+      details: value == null
+          ? null
+          : Text(
+              value!,
+              style: attention <= 0
+                  ? null
+                  : TextStyle(color: theme.colors.primary),
+            ),
       suffix: onTap == null && onLongPress == null
           ? null
-          : const Icon(FLucideIcons.chevronRight, size: 18),
+          : Icon(
+              FLucideIcons.chevronRight,
+              size: 18,
+              color: attention <= 0 ? null : theme.colors.primary,
+            ),
       onPress: onTap,
       onLongPress: onLongPress,
     );

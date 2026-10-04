@@ -302,8 +302,7 @@ class _CourseReminderSettingsPageState
     _permissionAttentionTimer?.cancel();
     _permissionAttentionController
       ..stop()
-      ..reset()
-      ..repeat(reverse: true);
+      ..reset();
     setState(() => _highlightedPermissions = permissions);
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
@@ -327,7 +326,8 @@ class _CourseReminderSettingsPageState
       );
     }
     if (!mounted) return;
-    _permissionAttentionTimer = Timer(const Duration(milliseconds: 1800), () {
+    _permissionAttentionController.repeat(reverse: true);
+    _permissionAttentionTimer = Timer(const Duration(milliseconds: 2400), () {
       _permissionAttentionController
         ..stop()
         ..reset();
