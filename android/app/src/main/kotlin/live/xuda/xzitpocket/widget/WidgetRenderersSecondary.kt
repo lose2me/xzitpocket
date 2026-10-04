@@ -23,6 +23,7 @@ internal object DoubleDaysWidgetRenderer {
         WidgetRenderSupport.applyDateVisibility(
             views,
             style,
+            R.id.tv_week,
             R.id.tv_header_title,
             R.id.tv_today_title,
             R.id.tv_tomorrow_title,
@@ -33,34 +34,11 @@ internal object DoubleDaysWidgetRenderer {
             views,
         )
         views.setViewVisibility(R.id.tv_week, View.VISIBLE)
-        WidgetRenderSupport.setTextColor(context, views, R.id.tv_week, R.color.widget_sub_color)
-        views.setTextViewText(R.id.tv_week, WidgetRenderSupport.weekLabel(snapshot))
+        views.setViewVisibility(R.id.tv_header_title, View.VISIBLE)
         WidgetRenderSupport.setHeaderDateText(
             context,
             views,
-            R.id.tv_header_title,
-            WidgetTimeUtils.todayDisplayDate(),
-            adjusted = WidgetRenderSupport.isAdjusted(
-                snapshot,
-                WidgetTimeUtils.todayIsoDate(),
-            ),
-            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
-        )
-        views.setViewVisibility(R.id.tv_today_footer, View.GONE)
-        views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
-        views.setInt(
-            R.id.widget_divider,
-            "setBackgroundColor",
-            WidgetThemeSupport.color(context, R.color.widget_divider_color),
-        )
-        WidgetRenderSupport.setTextColor(context, views, R.id.tv_today_title, R.color.widget_sub_color)
-        WidgetRenderSupport.setTextColor(context, views, R.id.tv_tomorrow_title, R.color.widget_sub_color)
-        WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_today, R.color.widget_sub_color)
-        WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_tomorrow, R.color.widget_sub_color)
-        WidgetRenderSupport.setHeaderDateText(
-            context,
-            views,
-            R.id.tv_today_title,
+            R.id.tv_week,
             "${context.getString(R.string.widget_title_today)} ${WidgetTimeUtils.todayDisplayDate()}",
             adjusted = WidgetRenderSupport.isAdjusted(
                 snapshot,
@@ -72,7 +50,7 @@ internal object DoubleDaysWidgetRenderer {
         WidgetRenderSupport.setHeaderDateText(
             context,
             views,
-            R.id.tv_tomorrow_title,
+            R.id.tv_header_title,
             "${context.getString(R.string.widget_title_tomorrow)} ${WidgetTimeUtils.tomorrowDisplayDate()}",
             adjusted = WidgetRenderSupport.isAdjusted(
                 snapshot,
@@ -81,7 +59,17 @@ internal object DoubleDaysWidgetRenderer {
             holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.tomorrowIsoDate()),
             markerOffset = context.getString(R.string.widget_title_tomorrow).length + 1,
         )
-
+        views.setViewVisibility(R.id.tv_today_title, View.GONE)
+        views.setViewVisibility(R.id.tv_tomorrow_title, View.GONE)
+        views.setViewVisibility(R.id.tv_today_footer, View.GONE)
+        views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
+        views.setInt(
+            R.id.widget_divider,
+            "setBackgroundColor",
+            WidgetThemeSupport.color(context, R.color.widget_divider_color),
+        )
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_today, R.color.widget_sub_color)
+        WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_tomorrow, R.color.widget_sub_color)
         when {
             !snapshot.hasSchedule -> {
                 WidgetRenderSupport.showNotLoggedStatus(
