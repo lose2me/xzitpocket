@@ -120,8 +120,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (bank.questions.isEmpty) return;
     final key = _bankSelectionKey(bank);
     setState(() {
-      _bankSelectionMode = true;
       if (!_selectedBankKeys.add(key)) _selectedBankKeys.remove(key);
+      _bankSelectionMode = _selectedBankKeys.isNotEmpty;
     });
   }
 
@@ -175,11 +175,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                           ? null
                           : _clearSelectedBankProgress,
                       tooltip: '清空已选题库进度',
-                    ),
-                    AppIconButton(
-                      icon: FLucideIcons.x,
-                      onPress: _exitBankSelectionMode,
-                      tooltip: '退出选择',
                     ),
                   ]
                 : [

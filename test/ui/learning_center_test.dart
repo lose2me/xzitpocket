@@ -111,6 +111,52 @@ void main() {
 
     expect(repository.isJudged(remoteQuestion.id), isFalse);
     expect(find.text('0%'), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
+  });
+
+  testWidgets('bank selection shows only trash and exits when empty', (
+    tester,
+  ) async {
+    final secondQuestion = LearningQuestion(
+      id: 'remote-2',
+      bankId: 'QB-SECOND',
+      bankName: '第二题库',
+      bankIsNew: true,
+      title: remoteQuestion.title,
+      type: remoteQuestion.type,
+      options: remoteQuestion.options,
+      correctOptionIds: remoteQuestion.correctOptionIds,
+    );
+    final repository = LearningRepository(
+      preferencesStorage: await storage(),
+      fetcher: () async => [remoteQuestion, secondQuestion],
+    );
+
+    await pumpCenter(tester, repository);
+    await tester.longPress(find.text('在线题库'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.x), findsNothing);
+
+    await tester.tap(find.text('第二题库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('在线题库'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
+    expect(find.byType(LearningQuizPage), findsNothing);
+
+    await tester.tap(find.text('第二题库'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
+    expect(find.byIcon(FLucideIcons.x), findsNothing);
+
+    await tester.tap(find.text('在线题库'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LearningQuizPage), findsOneWidget);
   });
 
   testWidgets('wrong empty state uses the navigation icon', (tester) async {
