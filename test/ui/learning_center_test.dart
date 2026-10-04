@@ -77,6 +77,7 @@ void main() {
     expect(find.text('收藏集'), findsOneWidget);
     expect(find.text('兑换通用 CDK'), findsNothing);
     expect(find.byType(FTile), findsOneWidget);
+    expect(find.text('0%'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.refreshCw), findsNothing);
     expect(find.byIcon(FLucideIcons.check), findsOneWidget);
 
@@ -84,6 +85,64 @@ void main() {
     await tester.pump();
     expect(fetchCount, 1);
     await tester.pump(const Duration(seconds: 4));
+  });
+
+  testWidgets('selects banks and clears their progress in one action', (
+    tester,
+  ) async {
+    final repository = LearningRepository(
+      preferencesStorage: await storage(),
+      fetcher: () async => [remoteQuestion],
+    );
+    await repository.load();
+    await repository.submitAnswer(remoteQuestion.id, {'A'});
+
+    await pumpCenter(tester, repository);
+    expect(find.text('100%'), findsOneWidget);
+
+    await tester.longPress(find.text('在线题库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(FLucideIcons.trash2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('清空做题进度'), findsOneWidget);
+    await tester.tap(find.text('清空'));
+    await tester.pumpAndSettle();
+
+    expect(repository.isJudged(remoteQuestion.id), isFalse);
+    expect(find.text('0%'), findsOneWidget);
+  });
+
+  testWidgets('wrong empty state uses the navigation icon', (tester) async {
+    final repository = LearningRepository(
+      preferencesStorage: await storage(),
+      fetcher: () async => [remoteQuestion],
+    );
+
+    await pumpCenter(tester, repository);
+    await tester.tap(find.text('错题集'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('这里还没有题目'), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.circleAlert), findsWidgets);
+  });
+
+  testWidgets('bank selection does not carry into collection tabs', (
+    tester,
+  ) async {
+    final repository = LearningRepository(
+      preferencesStorage: await storage(),
+      fetcher: () async => [remoteQuestion],
+    );
+
+    await pumpCenter(tester, repository);
+    await tester.longPress(find.text('在线题库'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('错题集'));
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(FLucideIcons.listChecks), findsNothing);
+    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
   });
 
   testWidgets('groups banks and opens CDK sheet from a locked bank', (

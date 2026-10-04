@@ -105,15 +105,12 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
     return AppPage(
       title: _title,
       actions: [
-        AppIconButton(
-          icon: FLucideIcons.trash2,
-          onPress: _clearData,
-          tooltip: widget.kind == LearningListKind.wrong
-              ? '清空错题集'
-              : widget.kind == LearningListKind.favorite
-              ? '清空收藏集'
-              : '清空做题数据',
-        ),
+        if (widget.kind != LearningListKind.bank)
+          AppIconButton(
+            icon: FLucideIcons.trash2,
+            onPress: _clearData,
+            tooltip: widget.kind == LearningListKind.wrong ? '清空错题集' : '清空收藏集',
+          ),
         AppIconButton(
           icon: FLucideIcons.settings,
           onPress: _openModeSettings,
@@ -124,7 +121,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           ? AppStateView(
               icon: switch (widget.kind) {
                 LearningListKind.bank => FLucideIcons.library,
-                LearningListKind.wrong => FLucideIcons.circleCheck,
+                LearningListKind.wrong => FLucideIcons.circleAlert,
                 LearningListKind.favorite => FLucideIcons.bookmark,
               },
               title: widget.kind == LearningListKind.bank ? '题库为空' : '这里还没有题目',
@@ -242,7 +239,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           ),
           AppOption(
             value: LearningQuizMode.memorizeFlow,
-            title: '背题模式·流水',
+            title: '背题模式【瀑布式】',
             icon: FLucideIcons.rows3,
           ),
         ],

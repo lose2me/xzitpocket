@@ -204,7 +204,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final control = ControlService.instance;
     if (!control.isConfigured) {
       if (mounted) {
-        showAppSnackBar(context, '学习中心服务未配置', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '题库中心服务未配置', severity: ToastSeverity.warning);
       }
       return;
     }
@@ -437,7 +437,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         _buildSimpleCard(
           theme,
           icon: FLucideIcons.graduationCap,
-          title: '学习中心',
+          title: '题库中心',
           onTap: learningEnabled ? _openLearningCenter : null,
         ),
       );

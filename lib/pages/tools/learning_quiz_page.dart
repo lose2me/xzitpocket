@@ -107,6 +107,8 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   late final PageController _pageController;
   late final List<String> _questionIds;
   late int _currentIndex;
+  late final String _positionKey;
+  late final ScrollController _flowScrollController;
   final Map<String, Set<String>> _draftAnswers = {};
   final Map<String, String> _draftTextAnswers = {};
   final Map<String, TextEditingController> _textControllers = {};
@@ -147,19 +149,55 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   void initState() {
     super.initState();
     _questionIds = [...widget.questionIds];
+    _positionKey = _buildPositionKey();
+    _flowScrollController = ScrollController(
+      initialScrollOffset: widget.mode == LearningQuizMode.memorizeFlow
+          ? (repository.quizPosition(_positionKey) ?? 0)
+          : 0,
+    )..addListener(_onFlowScroll);
     if (widget.mode == LearningQuizMode.random) {
       _questionIds.shuffle(Random());
     }
     final lastIndex = _questionIds.isEmpty ? 0 : _questionIds.length - 1;
     _currentIndex = widget.initialIndex.clamp(0, lastIndex);
+    final savedIndex = widget.mode == LearningQuizMode.memorizeFlow
+        ? null
+        : repository.quizPosition(_positionKey)?.round();
+    if (widget.initialIndex == 0 &&
+        savedIndex != null &&
+        savedIndex >= 0 &&
+        savedIndex < widget.questionIds.length) {
+      final savedQuestionId = widget.questionIds[savedIndex];
+      final restoredIndex = _questionIds.indexOf(savedQuestionId);
+      if (restoredIndex >= 0) _currentIndex = restoredIndex;
+    }
     _pageController = PageController(initialPage: _currentIndex);
     _loadSelection(_currentIndex);
     repository.addListener(_onRepositoryUpdate);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_isMemorizeFlow) {
+        _savePagePosition(_currentIndex);
+      }
+      if (_isMemorize && !_isMemorizeFlow && _questionIds.isNotEmpty) {
+        unawaited(
+          repository.markQuizViewed(_positionKey, [
+            _questionIds[_currentIndex],
+          ]),
+        );
+      }
+      if (_isMemorizeFlow && _questionIds.isNotEmpty) {
+        _onFlowScroll();
+      }
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _flowScrollController
+      ..removeListener(_onFlowScroll)
+      ..dispose();
     for (final controller in _textControllers.values) {
       controller.dispose();
     }
@@ -169,6 +207,24 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
 
   void _onRepositoryUpdate() {
     if (mounted) setState(() {});
+  }
+
+  void _onFlowScroll() {
+    if (!_isMemorizeFlow) return;
+    unawaited(
+      repository.setQuizPosition(_positionKey, _flowScrollController.offset),
+    );
+    final visibleIndex = (_flowScrollController.offset / 180).floor().clamp(
+      0,
+      _questionIds.length - 1,
+    );
+    if (visibleIndex != _currentIndex && mounted) {
+      setState(() => _currentIndex = visibleIndex);
+    }
+    final visibleCount = visibleIndex + 2;
+    unawaited(
+      repository.markQuizViewed(_positionKey, _questionIds.take(visibleCount)),
+    );
   }
 
   Set<String> _selectionFor(LearningQuestion question) =>
@@ -263,6 +319,12 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     final previousIndex = _currentIndex;
     final previousQuestion = _question;
     _currentIndex = nextIndex;
+    _savePagePosition(nextIndex);
+    if (_isMemorize) {
+      unawaited(
+        repository.markQuizViewed(_positionKey, [_questionIds[nextIndex]]),
+      );
+    }
     _loadSelection(nextIndex);
     setState(() {});
 
@@ -425,7 +487,10 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                   final correct = judged && repository.isCorrect(question.id);
                   final targetPage = _questionIds.indexOf(questionId);
                   final current = _question?.id == questionId;
-                  final background = _isMemorize
+                  final viewed = repository
+                      .quizViewedIds(_positionKey)
+                      .contains(question.id);
+                  final background = _isMemorize && viewed
                       ? context.theme.colors.semantic.successContainer
                       : judged
                       ? correct
@@ -434,7 +499,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                       : current
                       ? context.theme.colors.secondary
                       : context.theme.colors.card;
-                  final foreground = _isMemorize
+                  final foreground = _isMemorize && viewed
                       ? context.theme.colors.semantic.onSuccessContainer
                       : judged
                       ? correct
@@ -443,7 +508,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                       : current
                       ? context.theme.colors.primary
                       : context.theme.colors.mutedForeground;
-                  final border = _isMemorize
+                  final border = _isMemorize && viewed
                       ? context.theme.colors.semantic.success
                       : judged
                       ? correct
@@ -462,6 +527,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
                           ? null
                           : () => Navigator.pop(sheetContext, targetPage),
                       child: Container(
+                        key: ValueKey('quiz-card-$questionId'),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: background,
@@ -489,6 +555,18 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
       ),
     );
     if (!mounted || selectedIndex == null || !_pageController.hasClients) {
+      if (!_isMemorizeFlow || selectedIndex == null || !mounted) return;
+      final target = (selectedIndex * 180.0).clamp(
+        0.0,
+        _flowScrollController.position.maxScrollExtent,
+      );
+      unawaited(
+        _flowScrollController.animateTo(
+          target,
+          duration: AppMotion.standard,
+          curve: Curves.easeOutCubic,
+        ),
+      );
       return;
     }
     unawaited(
@@ -504,24 +582,6 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     final question = _question;
     if (question == null) return;
     await repository.toggleFavorite(question.id);
-  }
-
-  Future<void> _resetProgress() async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '清空做题数据',
-      message: '将清空本题单的答题进度，错题集和收藏集会保留。',
-      confirmLabel: '清空',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    await repository.resetProgress(_questionIds);
-    _draftAnswers.clear();
-    _draftTextAnswers.clear();
-    for (final controller in _textControllers.values) {
-      controller.clear();
-    }
-    if (mounted) setState(() {});
   }
 
   Future<void> _openMode(LearningQuizMode mode) async {
@@ -564,7 +624,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
           ),
           AppOption(
             value: LearningQuizMode.memorizeFlow,
-            title: '背题模式·流水',
+            title: '背题模式【瀑布式】',
             icon: FLucideIcons.rows3,
           ),
         ],
@@ -613,11 +673,6 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               ),
             ]
           : [
-              AppIconButton(
-                icon: FLucideIcons.trash2,
-                onPress: _resetProgress,
-                tooltip: '清空做题数据',
-              ),
               AppIconButton(
                 icon: FLucideIcons.settings,
                 onPress: _openSettings,
@@ -774,6 +829,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   Widget _buildMemorizeFlow(FThemeData theme) => AppPageListView(
+    controller: _flowScrollController,
     maxWidth: AppLayout.resultMaxWidth,
     topPadding: AppSpacing.lg,
     bottomPadding: AppSpacing.xxl,
@@ -857,7 +913,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   }
 
   Widget _buildQuestionStatusDots(FThemeData theme) {
-    final slotCount = min(_questionIds.length, 6);
+    final slotCount = min(_questionIds.length, 5);
     final maxStart = _questionIds.length - slotCount;
     final windowStart = (_currentIndex - slotCount ~/ 2).clamp(0, maxStart);
     return Row(
@@ -871,13 +927,32 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
     );
   }
 
+  String _buildPositionKey() {
+    final ids = [...widget.questionIds]..sort();
+    return 'quiz:${widget.mode.name}:${ids.join(',')}';
+  }
+
+  void _savePagePosition(int pageIndex) {
+    if (pageIndex < 0 || pageIndex >= _questionIds.length) return;
+    final originalIndex = widget.questionIds.indexOf(_questionIds[pageIndex]);
+    if (originalIndex < 0) return;
+    unawaited(
+      repository.setQuizPosition(_positionKey, originalIndex.toDouble()),
+    );
+  }
+
   Widget _buildQuestionStatusDot(FThemeData theme, int index) {
     final questionId = _questionIds[index];
-    return _buildStatusDot(
-      theme,
-      repository.isJudged(questionId) ? repository.isCorrect(questionId) : null,
-      questionNumber: _questionNumberFor(questionId),
-      current: index == _currentIndex,
+    return KeyedSubtree(
+      key: ValueKey('quiz-status-$questionId'),
+      child: _buildStatusDot(
+        theme,
+        repository.isJudged(questionId)
+            ? repository.isCorrect(questionId)
+            : null,
+        questionNumber: _questionNumberFor(questionId),
+        current: index == _currentIndex,
+      ),
     );
   }
 

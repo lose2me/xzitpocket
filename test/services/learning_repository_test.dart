@@ -143,6 +143,22 @@ void main() {
   });
 
   test(
+    'quiz positions and viewed questions survive a repository reload',
+    () async {
+      final first = repository();
+      await first.load();
+      await first.setQuizPosition('quiz:normal:test', 3);
+      await first.markQuizViewed('quiz:memorize:test', {'q1', 'q2'});
+
+      final second = repository();
+      await second.load();
+
+      expect(second.quizPosition('quiz:normal:test'), 3);
+      expect(second.quizViewedIds('quiz:memorize:test'), {'q1', 'q2'});
+    },
+  );
+
+  test(
     'resets answers while preserving wrong and favorite collections',
     () async {
       final value = repository();

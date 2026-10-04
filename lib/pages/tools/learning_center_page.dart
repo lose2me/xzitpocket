@@ -30,6 +30,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   int _cachedLibraryRevision = -1;
   bool _refreshing = false;
   bool _refreshSucceeded = false;
+  bool _bankSelectionMode = false;
+  final Set<String> _selectedBankKeys = {};
 
   @override
   void initState() {
@@ -98,27 +100,97 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     }
   }
 
+  String _bankSelectionKey(_QuestionBankGroup bank) {
+    final id = bank.id.trim();
+    return id.isNotEmpty
+        ? id
+        : '${bank.name}\u0000${bank.isNew == true ? 'new' : 'old'}';
+  }
+
+  void _enterBankSelectionMode([_QuestionBankGroup? bank]) {
+    setState(() {
+      _bankSelectionMode = true;
+      if (bank != null && bank.questions.isNotEmpty) {
+        _selectedBankKeys.add(_bankSelectionKey(bank));
+      }
+    });
+  }
+
+  void _toggleBankSelection(_QuestionBankGroup bank) {
+    if (bank.questions.isEmpty) return;
+    final key = _bankSelectionKey(bank);
+    setState(() {
+      _bankSelectionMode = true;
+      if (!_selectedBankKeys.add(key)) _selectedBankKeys.remove(key);
+    });
+  }
+
+  void _exitBankSelectionMode() {
+    setState(() {
+      _bankSelectionMode = false;
+      _selectedBankKeys.clear();
+    });
+  }
+
+  Future<void> _clearSelectedBankProgress() async {
+    final selectedBanks = [
+      for (final term in _termGroups())
+        for (final bank in term.banks)
+          if (_selectedBankKeys.contains(_bankSelectionKey(bank))) bank,
+    ];
+    final questionIds = {
+      for (final bank in selectedBanks)
+        for (final question in bank.questions) question.id,
+    };
+    if (questionIds.isEmpty) return;
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '清空做题进度',
+      message: '将清空已选 ${selectedBanks.length} 个题库的答题进度，错题集和收藏集会保留。',
+      confirmLabel: '清空',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    await repository.resetProgress(questionIds);
+    if (mounted) _exitBankSelectionMode();
+  }
+
   @override
   Widget build(BuildContext context) {
     final loading = !repository.isLoaded;
     return AppPage(
       title: switch (_tab) {
-        _LearningTab.bank => '题库',
+        _LearningTab.bank => '题库中心',
         _LearningTab.wrong => '错题集',
         _LearningTab.favorite => '收藏集',
       },
       actions: loading
           ? const []
           : _tab == _LearningTab.bank
-          ? [
-              AppIconButton(
-                icon: FLucideIcons.refreshCw,
-                onPress: _refreshing ? null : _refreshLibrary,
-                tooltip: '刷新题库',
-                loading: _refreshing,
-                completed: _refreshSucceeded,
-              ),
-            ]
+          ? _bankSelectionMode
+                ? [
+                    AppIconButton(
+                      icon: FLucideIcons.trash2,
+                      onPress: _selectedBankKeys.isEmpty
+                          ? null
+                          : _clearSelectedBankProgress,
+                      tooltip: '清空已选题库进度',
+                    ),
+                    AppIconButton(
+                      icon: FLucideIcons.x,
+                      onPress: _exitBankSelectionMode,
+                      tooltip: '退出选择',
+                    ),
+                  ]
+                : [
+                    AppIconButton(
+                      icon: FLucideIcons.refreshCw,
+                      onPress: _refreshing ? null : _refreshLibrary,
+                      tooltip: '刷新题库',
+                      loading: _refreshing,
+                      completed: _refreshSucceeded,
+                    ),
+                  ]
           : [
               AppIconButton(
                 icon: FLucideIcons.trash2,
@@ -149,7 +221,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     index: _tab.index,
     onChange: (index) {
       if (index < 0 || index >= _LearningTab.values.length) return;
-      setState(() => _tab = _LearningTab.values[index]);
+      setState(() {
+        _tab = _LearningTab.values[index];
+        if (_tab != _LearningTab.bank) {
+          _bankSelectionMode = false;
+          _selectedBankKeys.clear();
+        }
+      });
     },
     children: const [
       FBottomNavigationBarItem(
@@ -251,6 +329,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     _QuestionBankGroup bank, {
     LearningListKind? collectionKind,
   }) {
+    final selectingBanks = collectionKind == null && _bankSelectionMode;
+    final selected =
+        selectingBanks && _selectedBankKeys.contains(_bankSelectionKey(bank));
     final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
     final onPress = bank.locked
         ? () => unawaited(_openCdkRedeem(bank))
@@ -280,7 +361,33 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         tooltip: '删除此收藏题库',
         size: FButtonSizeVariant.sm,
       ),
-      _ => null,
+      _ => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (needsCdk)
+            _CdkBadge(
+              theme: theme,
+              label: 'CDK',
+              foreground: theme.colors.semantic.onWarningContainer,
+              background: theme.colors.semantic.warningContainer,
+            )
+          else if (unlockedWithCdk)
+            _CdkBadge(
+              theme: theme,
+              label: '已解锁',
+              foreground: theme.colors.semantic.onSuccessContainer,
+              background: theme.colors.semantic.successContainer,
+            ),
+          if (needsCdk || unlockedWithCdk) const SizedBox(width: AppSpacing.sm),
+          Text(
+            '${_bankProgressPercent(bank)}%',
+            style: theme.typography.bodySmall.copyWith(
+              color: theme.colors.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     };
 
     return FTile(
@@ -293,10 +400,16 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           FVariantOperation.all(
             DecorationDelta.value(
               ShapeDecoration(
-                color: Colors.transparent,
+                color: selected
+                    ? theme.colors.primary.withValues(alpha: 0.08)
+                    : Colors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(22),
-                  side: BorderSide(color: theme.colors.border),
+                  side: BorderSide(
+                    color: selected
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                  ),
                 ),
               ),
             ),
@@ -314,8 +427,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
       prefix: _BankInitial(
         initial: _bankInitial(name),
-        outerColor: theme.colors.primary,
-        innerColor: theme.colors.secondary,
+        outerColor: Color.lerp(theme.colors.primary, Colors.white, 0.55)!,
+        innerColor: Color.lerp(theme.colors.primary, Colors.black, 0.2)!,
       ),
       title: Text(
         name,
@@ -326,25 +439,24 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      details:
-          collectionDetails ??
-          (needsCdk
-              ? _CdkBadge(
-                  theme: theme,
-                  label: 'CDK',
-                  foreground: theme.colors.semantic.onWarningContainer,
-                  background: theme.colors.semantic.warningContainer,
-                )
-              : unlockedWithCdk
-              ? _CdkBadge(
-                  theme: theme,
-                  label: '已解锁',
-                  foreground: theme.colors.semantic.onSuccessContainer,
-                  background: theme.colors.semantic.successContainer,
-                )
-              : null),
-      onPress: onPress,
+      details: collectionDetails,
+      onPress: selectingBanks
+          ? bank.questions.isEmpty
+                ? null
+                : () => _toggleBankSelection(bank)
+          : onPress,
+      onLongPress: collectionKind != null || bank.questions.isEmpty
+          ? null
+          : () => _enterBankSelectionMode(bank),
     );
+  }
+
+  int _bankProgressPercent(_QuestionBankGroup bank) {
+    if (bank.questions.isEmpty) return 0;
+    final judged = bank.questions
+        .where((q) => repository.isJudged(q.id))
+        .length;
+    return (judged * 100 / bank.questions.length).round();
   }
 
   Future<void> _removeFavoriteBank(_QuestionBankGroup bank) async {
@@ -483,7 +595,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final groups = _groupedQuestions(kind);
     final sections = <String, List<_QuestionBankGroup>>{'': groups};
     final emptyIcon = kind == LearningListKind.wrong
-        ? FLucideIcons.circleCheck
+        ? FLucideIcons.circleAlert
         : FLucideIcons.bookmark;
     return groups.isEmpty
         ? AppStateView(
@@ -587,18 +699,22 @@ class _BankInitial extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     alignment: Alignment.center,
-    decoration: BoxDecoration(shape: BoxShape.circle, color: outerColor),
-    padding: const EdgeInsets.all(2),
+    decoration: BoxDecoration(
+      shape: BoxShape.circle,
+      color: outerColor,
+      border: Border.all(color: outerColor, width: 3),
+    ),
+    padding: const EdgeInsets.all(5),
     child: DecoratedBox(
       decoration: BoxDecoration(shape: BoxShape.circle, color: innerColor),
       child: Center(
         child: Text(
           initial,
           style: TextStyle(
-            color: outerColor,
+            color: Colors.white,
             fontSize: 16,
             height: 1.2,
             fontWeight: FontWeight.w500,

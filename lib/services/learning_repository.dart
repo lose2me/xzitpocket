@@ -35,6 +35,8 @@ class LearningRepository extends ChangeNotifier {
   final Set<String> _favoriteIds = {};
   final Set<String> _wrongIds = {};
   final Map<String, Set<String>> _answers = {};
+  final Map<String, double> _quizPositions = {};
+  final Map<String, Set<String>> _quizViewedIds = {};
   final Set<String> _judgedIds = {};
   final List<String> _judgedOrder = [];
   bool _loaded = false;
@@ -81,6 +83,28 @@ class LearningRepository extends ChangeNotifier {
       Set.unmodifiable(_answers[questionId] ?? const <String>{});
 
   bool isJudged(String questionId) => _judgedIds.contains(questionId);
+
+  double? quizPosition(String key) => _quizPositions[key];
+
+  Set<String> quizViewedIds(String key) =>
+      Set.unmodifiable(_quizViewedIds[key] ?? const <String>{});
+
+  Future<void> setQuizPosition(String key, double position) async {
+    if (!position.isFinite || position < 0) return;
+    if (_quizPositions[key] == position) return;
+    _quizPositions[key] = position;
+    await _persistState();
+  }
+
+  Future<void> markQuizViewed(String key, Iterable<String> questionIds) async {
+    final ids = questionIds.where((id) => id.isNotEmpty).toSet();
+    if (ids.isEmpty) return;
+    final viewed = _quizViewedIds.putIfAbsent(key, () => <String>{});
+    final previousLength = viewed.length;
+    viewed.addAll(ids);
+    if (viewed.length == previousLength) return;
+    await _persistState();
+  }
 
   List<String> recentJudgedIds(Iterable<String> questionIds, {int limit = 6}) {
     final allowed = questionIds.toSet();
@@ -184,12 +208,20 @@ class LearningRepository extends ChangeNotifier {
       _answers
         ..clear()
         ..addAll(_answersFromJson(state['answers']));
+      _quizPositions
+        ..clear()
+        ..addAll(_positionsFromJson(state['quizPositions']));
+      _quizViewedIds
+        ..clear()
+        ..addAll(_answersFromJson(state['quizViewedIds']));
     } catch (_) {
       _favoriteIds.clear();
       _wrongIds.clear();
       _judgedIds.clear();
       _judgedOrder.clear();
       _answers.clear();
+      _quizPositions.clear();
+      _quizViewedIds.clear();
     }
   }
 
@@ -365,6 +397,15 @@ class LearningRepository extends ChangeNotifier {
     };
   }
 
+  static Map<String, double> _positionsFromJson(dynamic value) {
+    if (value is! Map) return <String, double>{};
+    return {
+      for (final entry in value.entries)
+        if (entry.value is num)
+          entry.key.toString(): (entry.value as num).toDouble(),
+    };
+  }
+
   Future<void> toggleFavorite(String questionId) async {
     if (_favoriteIds.contains(questionId)) {
       _favoriteIds.remove(questionId);
@@ -443,6 +484,11 @@ class LearningRepository extends ChangeNotifier {
       'judgedOrder': _judgedOrder,
       'answers': {
         for (final entry in _answers.entries) entry.key: entry.value.toList(),
+      },
+      'quizPositions': _quizPositions,
+      'quizViewedIds': {
+        for (final entry in _quizViewedIds.entries)
+          entry.key: entry.value.toList(),
       },
     }),
   );

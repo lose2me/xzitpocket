@@ -29,8 +29,9 @@ void main() {
   Future<void> pumpQuiz(
     WidgetTester tester,
     LearningRepository repository,
-    List<String> ids,
-  ) async {
+    List<String> ids, [
+    LearningQuizMode mode = LearningQuizMode.normal,
+  ]) async {
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(size: Size(390, 844)),
@@ -41,7 +42,11 @@ void main() {
             data: AppTheme.light,
             child: FToaster(child: FTooltipGroup(child: child!)),
           ),
-          home: LearningQuizPage(repository: repository, questionIds: ids),
+          home: LearningQuizPage(
+            repository: repository,
+            questionIds: ids,
+            mode: mode,
+          ),
         ),
       ),
     );
@@ -72,6 +77,101 @@ void main() {
     ],
     correctOptionIds: {'A'},
   );
+
+  testWidgets('quiz page no longer exposes progress reset action', (
+    tester,
+  ) async {
+    final repository = await createRepository([first]);
+    await pumpQuiz(tester, repository, const ['q1']);
+
+    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
+    expect(find.byIcon(FLucideIcons.settings), findsOneWidget);
+  });
+
+  testWidgets('question status header displays at most five circles', (
+    tester,
+  ) async {
+    final questions = List.generate(
+      7,
+      (index) => LearningQuestion(
+        id: 'status-$index',
+        questionNumber: index + 1,
+        title: '状态题 ${index + 1}',
+        questionText: '状态题干 ${index + 1}',
+        type: LearningQuestionType.single,
+        options: const [LearningOption(id: 'A', text: '答案')],
+        correctOptionIds: const {'A'},
+      ),
+    );
+    final repository = await createRepository(questions);
+    await pumpQuiz(
+      tester,
+      repository,
+      questions.map((question) => question.id).toList(),
+    );
+
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith('quiz-status-'),
+      ),
+      findsNWidgets(5),
+    );
+  });
+
+  testWidgets('memorize question card turns green only after viewing', (
+    tester,
+  ) async {
+    final repository = await createRepository([first, second]);
+    await pumpQuiz(tester, repository, const [
+      'q1',
+      'q2',
+    ], LearningQuizMode.memorize);
+
+    await tester.tap(find.byIcon(FLucideIcons.grid2x2));
+    await tester.pumpAndSettle();
+    final firstCard = tester.widget<Container>(
+      find.byKey(const ValueKey('quiz-card-q1')),
+    );
+    final secondCard = tester.widget<Container>(
+      find.byKey(const ValueKey('quiz-card-q2')),
+    );
+    expect(
+      (firstCard.decoration! as BoxDecoration).color,
+      AppTheme.light.colors.semantic.successContainer,
+    );
+    expect(
+      (secondCard.decoration! as BoxDecoration).color,
+      isNot(AppTheme.light.colors.semantic.successContainer),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('quiz-card-q2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(FLucideIcons.grid2x2));
+    await tester.pumpAndSettle();
+    final viewedSecondCard = tester.widget<Container>(
+      find.byKey(const ValueKey('quiz-card-q2')),
+    );
+    expect(
+      (viewedSecondCard.decoration! as BoxDecoration).color,
+      AppTheme.light.colors.semantic.successContainer,
+    );
+  });
+
+  testWidgets('quiz reopens at the last viewed question', (tester) async {
+    final repository = await createRepository([first, second]);
+    await pumpQuiz(tester, repository, const ['q1', 'q2']);
+    await tester.tap(find.text('下一题'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('第二题题干'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    await pumpQuiz(tester, repository, const ['q1', 'q2']);
+
+    expect(find.textContaining('第二题题干'), findsOneWidget);
+  });
 
   testWidgets('wrong option is judged immediately and remains on question', (
     tester,

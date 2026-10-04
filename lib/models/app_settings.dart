@@ -140,7 +140,7 @@ enum AppServiceFeature {
   academic('academic', '学业情况'),
   network('network', '网络管理'),
   repair('repair', '极速报修'),
-  learning('learning', '学习中心'),
+  learning('learning', '题库中心'),
   calendar('calendar', '学校校历'),
   teacherEvaluation('teacher_evaluation', '教师评价');
 
