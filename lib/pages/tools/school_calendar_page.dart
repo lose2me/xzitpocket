@@ -56,7 +56,7 @@ class SchoolCalendarPage extends StatelessWidget {
                     children: [
                       _legendDot(theme, _weekendBackground, '周末'),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, _makeupBackground, '上课'),
+                      _legendDot(theme, _makeupBackground, '调休'),
                       const SizedBox(width: AppSpacing.sm),
                       _legendDot(theme, _holidayBackground, '放假'),
                       const SizedBox(width: AppSpacing.sm),
