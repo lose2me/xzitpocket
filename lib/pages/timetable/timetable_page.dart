@@ -99,7 +99,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _conflictCountdownController.repeat();
     _dayActionPulseController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 420),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0) {

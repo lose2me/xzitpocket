@@ -5,15 +5,17 @@ import 'package:forui/forui.dart';
 
 import '../../ui/app_components.dart';
 
-const _profileTileStyle = FItemStyleDelta.delta(
-  contentStyle: FItemContentStyleDelta.delta(
-    suffixedPadding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.fromLTRB(15, 16.5, 13, 16.5),
-    ),
-    unsuffixedPadding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.symmetric(horizontal: 15, vertical: 16.5),
-    ),
+const _profileTileContentStyle = FItemContentStyleDelta.delta(
+  suffixedPadding: EdgeInsetsGeometryDelta.value(
+    EdgeInsets.fromLTRB(15, 16.5, 13, 16.5),
   ),
+  unsuffixedPadding: EdgeInsetsGeometryDelta.value(
+    EdgeInsets.symmetric(horizontal: 15, vertical: 16.5),
+  ),
+);
+
+const _profileTileStyle = FItemStyleDelta.delta(
+  contentStyle: _profileTileContentStyle,
 );
 
 const _compactProfileTileStyle = FItemStyleDelta.delta(
@@ -77,6 +79,7 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
   final String? value;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final Animation<double>? attentionAnimation;
 
   const ProfileSettingsTile({
     super.key,
@@ -85,20 +88,41 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
     this.value,
     this.onTap,
     this.onLongPress,
+    this.attentionAnimation,
   });
 
   @override
-  Widget build(BuildContext context) => FTile(
-    style: _profileTileStyle,
-    prefix: Icon(icon, size: 20, color: context.theme.colors.primary),
-    title: Text(title),
-    details: value == null ? null : Text(value!),
-    suffix: onTap == null && onLongPress == null
-        ? null
-        : const Icon(FLucideIcons.chevronRight, size: 18),
-    onPress: onTap,
-    onLongPress: onLongPress,
-  );
+  Widget build(BuildContext context) {
+    Widget tile(double attention) => FTile(
+      style: attention <= 0
+          ? _profileTileStyle
+          : FItemStyleDelta.delta(
+              backgroundColor: FVariantsValueDelta.delta([
+                FVariantValueDeltaOperation.all(
+                  context.theme.colors.primary.withValues(
+                    alpha: 0.06 + attention * 0.18,
+                  ),
+                ),
+              ]),
+              contentStyle: _profileTileContentStyle,
+            ),
+      prefix: Icon(icon, size: 20, color: context.theme.colors.primary),
+      title: Text(title),
+      details: value == null ? null : Text(value!),
+      suffix: onTap == null && onLongPress == null
+          ? null
+          : const Icon(FLucideIcons.chevronRight, size: 18),
+      onPress: onTap,
+      onLongPress: onLongPress,
+    );
+
+    final animation = attentionAnimation;
+    if (animation == null) return tile(0);
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) => tile(animation.value),
+    );
+  }
 }
 
 class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {

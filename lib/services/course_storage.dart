@@ -59,9 +59,7 @@ class CourseStorage {
     required DateTime semesterStart,
   }) async {
     if (_originalCourseBox.isEmpty) return false;
-    final rules = days
-        .where((day) => day.adjustment != null && day.adjustment!.isNotEmpty)
-        .toList();
+    final rules = days.where((day) => day.adjustment.isNotEmpty).toList();
     if (rules.isEmpty) return false;
 
     var changed = false;
@@ -73,7 +71,7 @@ class CourseStorage {
         week: targetWeek,
       );
       changed = true;
-      final sourceValue = target.adjustment!;
+      final sourceValue = target.adjustment;
       if (sourceValue == '/') continue;
       final sourceDate = _parseAdjustmentDate(sourceValue);
       if (sourceDate == null) continue;

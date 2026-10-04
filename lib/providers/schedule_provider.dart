@@ -71,6 +71,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
   Future<void> _notifyWidget(List<Course> courses) {
     return WidgetService.updateWidget(
       courses: courses,
+      originalCourses: _originalCourses,
       semesterStart: semesterStartDate,
     );
   }

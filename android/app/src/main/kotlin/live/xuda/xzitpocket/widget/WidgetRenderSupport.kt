@@ -5,6 +5,9 @@ import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.ColorRes
@@ -34,7 +37,7 @@ internal object WidgetRenderSupport {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
         val useLightBackground = prefs.getBoolean(
             "flutter.widget_use_light_background_in_dark_mode",
-            false,
+            true,
         )
         val backgroundImagePath = if (
             WidgetThemeSupport.resolveThemeMode(context) == WidgetThemeMode.DARK &&
@@ -82,13 +85,18 @@ internal object WidgetRenderSupport {
         views: RemoteViews,
     ): WidgetStyle {
         val style = readStyle(context)
+        val backgroundBitmap = WidgetBackgroundImageCache.load(style.backgroundImagePath)
         setBackgroundResource(
             views,
             R.id.widget_background,
-            WidgetThemeSupport.backgroundDrawableRes(context),
+            if (backgroundBitmap == null) {
+                WidgetThemeSupport.backgroundDrawableRes(context)
+            } else {
+                R.drawable.widget_background_image
+            },
         )
         views.setImageViewResource(R.id.widget_background, android.R.color.transparent)
-        WidgetBackgroundImageCache.load(style.backgroundImagePath)?.let { bitmap ->
+        backgroundBitmap?.let { bitmap ->
             views.setImageViewBitmap(R.id.widget_background, bitmap)
         }
         views.setFloat(R.id.widget_background, "setAlpha", style.backgroundAlpha)
@@ -96,9 +104,13 @@ internal object WidgetRenderSupport {
             views.setColorStateList(
                 R.id.widget_background,
                 "setBackgroundTintList",
-                style.backgroundColor?.let(ColorStateList::valueOf),
+                if (backgroundBitmap == null) {
+                    style.backgroundColor?.let(ColorStateList::valueOf)
+                } else {
+                    null
+                },
             )
-        } else {
+        } else if (backgroundBitmap == null) {
             style.backgroundColor?.let { color ->
                 views.setInt(R.id.widget_background, "setBackgroundColor", color)
             }
@@ -163,19 +175,54 @@ internal object WidgetRenderSupport {
         views: RemoteViews,
         viewId: Int,
         text: String,
+        adjusted: Boolean = false,
+        markerOffset: Int = 0,
     ) {
         setTextColor(context, views, viewId, R.color.widget_sub_color)
-        views.setTextViewText(viewId, text)
+        views.setTextViewText(
+            viewId,
+            adjustedDateText(context, text, adjusted, markerOffset),
+        )
     }
 
     fun setTomorrowPreviewText(
         context: Context,
         views: RemoteViews,
         viewId: Int,
+        adjusted: Boolean = false,
     ) {
         setTextColor(context, views, viewId, R.color.widget_preview_blue)
-        views.setTextViewText(viewId, context.getString(R.string.widget_tomorrow_preview))
+        views.setTextViewText(
+            viewId,
+            adjustedDateText(
+                context,
+                context.getString(R.string.widget_tomorrow_preview),
+                adjusted,
+            ),
+        )
     }
+
+    fun adjustedDateText(
+        context: Context,
+        text: String,
+        adjusted: Boolean,
+        markerOffset: Int = 0,
+    ): CharSequence {
+        if (!adjusted) return text
+        val offset = markerOffset.coerceIn(0, text.length)
+        val marker = "【调】"
+        return SpannableString(text.substring(0, offset) + marker + text.substring(offset)).apply {
+            setSpan(
+                ForegroundColorSpan(WidgetThemeSupport.primaryColor(context)),
+                offset,
+                offset + marker.length,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+    }
+
+    fun isAdjusted(snapshot: RenderSnapshot, date: String): Boolean =
+        snapshot.adjustedDates.contains(date)
 
     fun weekLabel(snapshot: RenderSnapshot): String {
         return if (snapshot.hasSchedule && snapshot.currentWeek > 0) {
@@ -537,11 +584,18 @@ internal object WidgetRenderSupport {
     fun applyPanelBackgrounds(
         context: Context,
         views: RemoteViews,
+        conflict: Boolean = false,
     ) {
+        val hasBackgroundImage = WidgetBackgroundImageCache
+            .load(readStyle(context).backgroundImagePath) != null
         setBackgroundResource(
             views,
             R.id.widget_background,
-            WidgetThemeSupport.backgroundDrawableRes(context),
+            if (hasBackgroundImage) {
+                R.drawable.widget_background_image
+            } else {
+                WidgetThemeSupport.backgroundDrawableRes(context, conflict)
+            },
         )
     }
 }

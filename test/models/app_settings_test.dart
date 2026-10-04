@@ -94,7 +94,7 @@ void main() {
       expect(settings.widgetBackgroundColor, isNull);
       expect(settings.widgetBackgroundPath, isNull);
       expect(settings.widgetDarkBackgroundPath, isNull);
-      expect(settings.widgetUseLightBackgroundInDarkMode, isFalse);
+      expect(settings.widgetUseLightBackgroundInDarkMode, isTrue);
       expect(settings.widgetTextColor, isNull);
       expect(settings.widgetTextOpacity, 1.0);
       expect(settings.widgetHideTeacher, isFalse);
@@ -104,7 +104,7 @@ void main() {
       expect(settings.timetableHideTeacherBrackets, isTrue);
       expect(settings.timetableBackgroundPath, isNull);
       expect(settings.timetableDarkBackgroundPath, isNull);
-      expect(settings.timetableUseLightBackgroundInDarkMode, isFalse);
+      expect(settings.timetableUseLightBackgroundInDarkMode, isTrue);
       expect(settings.pageBackgroundColor, isNull);
       expect(settings.timetableCourseCornerRadius, 6.0);
       expect(settings.timetableCourseInnerPadding, 2.0);
@@ -286,6 +286,7 @@ void main() {
       const settings = AppSettings(
         timetableBackgroundPath: '/tmp/light.jpg',
         timetableDarkBackgroundPath: '/tmp/dark.jpg',
+        timetableUseLightBackgroundInDarkMode: false,
       );
 
       expect(
@@ -305,6 +306,7 @@ void main() {
       const settings = AppSettings(
         widgetBackgroundPath: '/tmp/widget-light.jpg',
         widgetDarkBackgroundPath: '/tmp/widget-dark.jpg',
+        widgetUseLightBackgroundInDarkMode: false,
       );
 
       expect(

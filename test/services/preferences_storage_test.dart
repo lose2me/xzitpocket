@@ -396,7 +396,7 @@ void main() {
       expect(storage.getLastCustomThemeColor(), 0xFF203040);
       expect(storage.getTimetableBackgroundPath(), isNull);
       expect(storage.getTimetableDarkBackgroundPath(), isNull);
-      expect(storage.getTimetableUseLightBackgroundInDarkMode(), isFalse);
+      expect(storage.getTimetableUseLightBackgroundInDarkMode(), isTrue);
       expect(storage.getPageBackgroundColor(), isNull);
       expect(storage.getCustomPageBackgroundColor(), 0xFF102030);
       expect(storage.getLastCustomPageBackgroundColor(), 0xFF102030);
@@ -427,7 +427,7 @@ void main() {
       expect(storage.getWidgetBackgroundColor(), 0xFFABCDEF);
       expect(storage.getWidgetBackgroundPath(), isNull);
       expect(storage.getWidgetDarkBackgroundPath(), isNull);
-      expect(storage.getWidgetUseLightBackgroundInDarkMode(), isFalse);
+      expect(storage.getWidgetUseLightBackgroundInDarkMode(), isTrue);
       expect(storage.getWidgetTextColor(), isNull);
       expect(storage.getLastCustomWidgetBackgroundColor(), 0xFFABCDEF);
       expect(storage.getLastCustomWidgetTextColor(), 0xFF654321);

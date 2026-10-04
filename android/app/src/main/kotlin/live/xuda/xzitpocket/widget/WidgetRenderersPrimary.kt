@@ -18,11 +18,7 @@ internal object TinyWidgetRenderer {
             WidgetRenderSupport.TextSpec(R.id.tv_status_sub, 12f),
         )
         WidgetRenderSupport.attachRootClick(context, views)
-        WidgetRenderSupport.setBackgroundResource(
-            views,
-            R.id.widget_background,
-            WidgetThemeSupport.backgroundDrawableRes(context),
-        )
+        WidgetRenderSupport.applyPanelBackgrounds(context, views)
 
         when {
             !snapshot.hasSchedule -> {
@@ -66,13 +62,10 @@ internal object TinyWidgetRenderer {
                         R.id.container_content,
                         R.id.container_status,
                     )
-                    WidgetRenderSupport.setBackgroundResource(
+                    WidgetRenderSupport.applyPanelBackgrounds(
+                        context,
                         views,
-                        R.id.widget_background,
-                        WidgetThemeSupport.backgroundDrawableRes(
-                            context,
-                            conflict = nextCourse.isConflict,
-                        ),
+                        conflict = nextCourse.isConflict,
                     )
                     WidgetRenderSupport.setTextColor(
                         context,
@@ -136,6 +129,10 @@ internal object CompactWidgetRenderer {
             views,
             R.id.tv_header_title,
             WidgetTimeUtils.todayDisplayDate(),
+            adjusted = WidgetRenderSupport.isAdjusted(
+                snapshot,
+                WidgetTimeUtils.todayIsoDate(),
+            ),
         )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
@@ -176,6 +173,10 @@ internal object CompactWidgetRenderer {
                         views,
                         R.id.tv_header_title,
                         WidgetTimeUtils.todayDisplayDate(),
+                        adjusted = WidgetRenderSupport.isAdjusted(
+                            snapshot,
+                            WidgetTimeUtils.todayIsoDate(),
+                        ),
                     )
                     WidgetRenderSupport.fillVerticalContainer(
                         context,
@@ -230,6 +231,10 @@ internal object ModerateWidgetRenderer {
             views,
             R.id.tv_header_title,
             WidgetTimeUtils.todayDisplayDate(),
+            adjusted = WidgetRenderSupport.isAdjusted(
+                snapshot,
+                WidgetTimeUtils.todayIsoDate(),
+            ),
         )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
@@ -272,6 +277,10 @@ internal object ModerateWidgetRenderer {
                             views,
                             R.id.tv_header_title,
                             WidgetTimeUtils.todayDisplayDate(),
+                            adjusted = WidgetRenderSupport.isAdjusted(
+                                snapshot,
+                                WidgetTimeUtils.todayIsoDate(),
+                            ),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
@@ -294,6 +303,10 @@ internal object ModerateWidgetRenderer {
                             context,
                             views,
                             R.id.tv_header_title,
+                            adjusted = WidgetRenderSupport.isAdjusted(
+                                snapshot,
+                                WidgetTimeUtils.tomorrowIsoDate(),
+                            ),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,

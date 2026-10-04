@@ -7,10 +7,11 @@ import 'package:forui/forui.dart';
 import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/native_automation_service.dart';
-import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import 'profile_components.dart';
+
+enum _PermissionTarget { notifications, exactAlarm, dnd }
 
 class CourseReminderSettingsPage extends ConsumerStatefulWidget {
   const CourseReminderSettingsPage({super.key});
@@ -22,21 +23,38 @@ class CourseReminderSettingsPage extends ConsumerStatefulWidget {
 
 class _CourseReminderSettingsPageState
     extends ConsumerState<CourseReminderSettingsPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
   CourseReminderPermissionStatus? _permissionStatus;
-  bool _automationPermissionFlowActive = false;
-  final _promptedAutomationPermissions = <String>{};
+  final _scrollController = ScrollController();
+  final _notificationPermissionKey = GlobalKey();
+  final _exactAlarmPermissionKey = GlobalKey();
+  final _dndPermissionKey = GlobalKey();
+  late final AnimationController _permissionAttentionController;
+  late final Animation<double> _permissionAttention;
+  Timer? _permissionAttentionTimer;
+  Set<_PermissionTarget> _highlightedPermissions = const {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _permissionAttentionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _permissionAttention = CurvedAnimation(
+      parent: _permissionAttentionController,
+      curve: Curves.easeInOut,
+    );
     unawaited(_loadPermissionStatus());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _permissionAttentionTimer?.cancel();
+    _permissionAttentionController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -45,16 +63,24 @@ class _CourseReminderSettingsPageState
     if (state == AppLifecycleState.resumed) {
       unawaited(_loadPermissionStatus());
       unawaited(NativeAutomationService.refreshCourseReminders());
-      if (_automationPermissionFlowActive) {
-        unawaited(_continueAutomationPermissionFlow());
-      }
     }
   }
 
-  Future<void> _loadPermissionStatus() async {
+  Future<CourseReminderPermissionStatus> _loadPermissionStatus() async {
     final status =
         await NativeAutomationService.getCourseReminderPermissionStatus();
+    if (!mounted) return status;
+    final settings = ref.read(appSettingsProvider);
+    final notifier = ref.read(appSettingsProvider.notifier);
+    if (settings.courseReminderEnabled && !status.isFullyGranted) {
+      await notifier.setCourseReminderEnabled(false);
+    }
+    if (settings.classAutomationMode != ClassAutomationMode.off &&
+        (!status.dndGranted || !status.exactAlarmGranted)) {
+      await notifier.setClassAutomationMode(ClassAutomationMode.off);
+    }
     if (mounted) setState(() => _permissionStatus = status);
+    return status;
   }
 
   @override
@@ -64,6 +90,7 @@ class _CourseReminderSettingsPageState
     return AppPage(
       title: '课程提醒',
       child: AppPageListView(
+        controller: _scrollController,
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
@@ -75,14 +102,7 @@ class _CourseReminderSettingsPageState
                 icon: FLucideIcons.bell,
                 title: '开启课程提醒',
                 value: settings.courseReminderEnabled,
-                onChange: (value) async {
-                  await notifier.setCourseReminderEnabled(value);
-                  if (value) {
-                    await NativeAutomationService.requestNotificationPermission();
-                    await NativeAutomationService.refreshCourseReminders();
-                    await _loadPermissionStatus();
-                  }
-                },
+                onChange: _setCourseReminderEnabled,
               ),
               ProfileSettingsTile(
                 icon: FLucideIcons.clock3,
@@ -102,12 +122,6 @@ class _CourseReminderSettingsPageState
               ),
             ],
           ),
-          if (settings.courseReminderEnabled &&
-              _permissionStatus != null &&
-              !_permissionStatus!.isFullyGranted) ...[
-            const SizedBox(height: AppSpacing.md),
-            _PermissionStatusNotice(status: _permissionStatus!),
-          ],
           const SizedBox(height: AppSpacing.md),
           const ProfileSettingsHint(
             '提醒通过系统通知发送。开启穿戴设备兼容模式后，提醒会使用可自动收起的普通通知，更容易被手表或手环同步。',
@@ -117,33 +131,52 @@ class _CourseReminderSettingsPageState
           ProfileSettingsGroup(
             children: [
               ProfileSettingsTile(
+                key: _notificationPermissionKey,
                 icon: FLucideIcons.bell,
                 title: '通知权限',
                 value: _permissionStatus == null
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.notificationsGranted),
+                attentionAnimation:
+                    _highlightedPermissions.contains(
+                      _PermissionTarget.notifications,
+                    )
+                    ? _permissionAttention
+                    : null,
                 onTap: () async {
                   await NativeAutomationService.openNotificationSettings();
                   await _loadPermissionStatus();
                 },
               ),
               ProfileSettingsTile(
+                key: _exactAlarmPermissionKey,
                 icon: FLucideIcons.alarmClock,
                 title: '精确闹钟权限',
                 value: _permissionStatus == null
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.exactAlarmGranted),
+                attentionAnimation:
+                    _highlightedPermissions.contains(
+                      _PermissionTarget.exactAlarm,
+                    )
+                    ? _permissionAttention
+                    : null,
                 onTap: () async {
                   await NativeAutomationService.openExactAlarmSettings();
                   await _loadPermissionStatus();
                 },
               ),
               ProfileSettingsTile(
+                key: _dndPermissionKey,
                 icon: FLucideIcons.bellOff,
                 title: '勿扰模式权限',
                 value: _permissionStatus == null
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.dndGranted),
+                attentionAnimation:
+                    _highlightedPermissions.contains(_PermissionTarget.dnd)
+                    ? _permissionAttention
+                    : null,
                 onTap: () async {
                   await NativeAutomationService.openDndSettings();
                   await _loadPermissionStatus();
@@ -206,75 +239,100 @@ class _CourseReminderSettingsPageState
 
   String _permissionLabel(bool granted) => granted ? '已授权' : '未授权';
 
-  Future<void> _setAutomationMode(ClassAutomationMode selected) async {
-    final currentMode = ref.read(appSettingsProvider).classAutomationMode;
-    if (selected != currentMode) {
-      await ref
-          .read(appSettingsProvider.notifier)
-          .setClassAutomationMode(selected);
+  Future<void> _setCourseReminderEnabled(bool enabled) async {
+    final notifier = ref.read(appSettingsProvider.notifier);
+    if (!enabled) {
+      await notifier.setCourseReminderEnabled(false);
+      return;
     }
-    if (!mounted || selected == ClassAutomationMode.off) return;
-    final status = await NativeAutomationService.getPermissionStatus();
-    if (!mounted || status.isFullyGranted) return;
-    _automationPermissionFlowActive = true;
-    _promptedAutomationPermissions.clear();
-    final missing = [
-      if (!status.hasDndPermission) '勿扰',
-      if (!status.hasExactAlarmPermission) '精确闹钟',
-    ];
-    showAppSnackBar(
-      context,
-      '需要开启${missing.join('和')}权限',
-      severity: ToastSeverity.warning,
-    );
-    await _continueAutomationPermissionFlow(status);
+    final status = await _loadPermissionStatus();
+    if (!mounted) return;
+    final missing = <_PermissionTarget>{
+      if (!status.notificationsGranted) _PermissionTarget.notifications,
+      if (!status.exactAlarmGranted) _PermissionTarget.exactAlarm,
+    };
+    if (missing.isNotEmpty) {
+      showAppSnackBar(
+        context,
+        '请先开启${_permissionLabels(missing)}',
+        severity: ToastSeverity.warning,
+      );
+      await _focusPermissions(missing);
+      return;
+    }
+    await notifier.setCourseReminderEnabled(true);
   }
 
-  Future<void> _continueAutomationPermissionFlow([
-    AutomationPermissionStatus? knownStatus,
-  ]) async {
-    if (!mounted || !_automationPermissionFlowActive) return;
-    final status =
-        knownStatus ?? await NativeAutomationService.getPermissionStatus();
+  Future<void> _setAutomationMode(ClassAutomationMode selected) async {
+    final currentMode = ref.read(appSettingsProvider).classAutomationMode;
+    if (selected == currentMode) return;
+    final notifier = ref.read(appSettingsProvider.notifier);
+    if (selected == ClassAutomationMode.off) {
+      await notifier.setClassAutomationMode(selected);
+      return;
+    }
+    final status = await _loadPermissionStatus();
     if (!mounted) return;
-    if (status.isFullyGranted) {
-      _automationPermissionFlowActive = false;
-      _promptedAutomationPermissions.clear();
+    final missing = <_PermissionTarget>{
+      if (!status.exactAlarmGranted) _PermissionTarget.exactAlarm,
+      if (!status.dndGranted) _PermissionTarget.dnd,
+    };
+    if (missing.isNotEmpty) {
+      showAppSnackBar(
+        context,
+        '请先开启${_permissionLabels(missing)}',
+        severity: ToastSeverity.warning,
+      );
+      await _focusPermissions(missing);
       return;
     }
+    await notifier.setClassAutomationMode(selected);
+  }
 
-    String? nextPermission;
-    if (!status.hasDndPermission) {
-      if (!_promptedAutomationPermissions.contains('dnd')) {
-        nextPermission = 'dnd';
-      }
-    } else if (!status.hasExactAlarmPermission &&
-        !_promptedAutomationPermissions.contains('exactAlarm')) {
-      nextPermission = 'exactAlarm';
-    }
-    if (nextPermission == null) {
-      _automationPermissionFlowActive = false;
-      return;
-    }
+  String _permissionLabels(Set<_PermissionTarget> permissions) {
+    final labels = [
+      if (permissions.contains(_PermissionTarget.notifications)) '通知权限',
+      if (permissions.contains(_PermissionTarget.exactAlarm)) '精确闹钟权限',
+      if (permissions.contains(_PermissionTarget.dnd)) '勿扰模式权限',
+    ];
+    return labels.join('和');
+  }
 
-    _promptedAutomationPermissions.add(nextPermission);
-    try {
-      if (nextPermission == 'dnd') {
-        await NativeAutomationService.openDndSettings();
-      } else {
-        await NativeAutomationService.openExactAlarmSettings();
-      }
-    } catch (error, stackTrace) {
-      talker.warning('打开课堂勿扰权限设置失败', error, stackTrace);
-      _automationPermissionFlowActive = false;
-      if (mounted) {
-        showAppSnackBar(
-          context,
-          '无法打开权限设置，请到系统设置中手动开启',
-          severity: ToastSeverity.warning,
-        );
-      }
+  Future<void> _focusPermissions(Set<_PermissionTarget> permissions) async {
+    _permissionAttentionTimer?.cancel();
+    _permissionAttentionController
+      ..stop()
+      ..reset()
+      ..repeat(reverse: true);
+    setState(() => _highlightedPermissions = permissions);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    final first = [
+      _PermissionTarget.notifications,
+      _PermissionTarget.exactAlarm,
+      _PermissionTarget.dnd,
+    ].firstWhere(permissions.contains);
+    final targetContext = switch (first) {
+      _PermissionTarget.notifications =>
+        _notificationPermissionKey.currentContext,
+      _PermissionTarget.exactAlarm => _exactAlarmPermissionKey.currentContext,
+      _PermissionTarget.dnd => _dndPermissionKey.currentContext,
+    };
+    if (targetContext != null && targetContext.mounted) {
+      await Scrollable.ensureVisible(
+        targetContext,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutCubic,
+      );
     }
+    if (!mounted) return;
+    _permissionAttentionTimer = Timer(const Duration(milliseconds: 1800), () {
+      _permissionAttentionController
+        ..stop()
+        ..reset();
+      if (mounted) setState(() => _highlightedPermissions = const {});
+    });
   }
 
   static Future<void> _openMinutesSheet(
@@ -304,50 +362,5 @@ class _CourseReminderSettingsPageState
           .read(appSettingsProvider.notifier)
           .setCourseReminderMinutes(selected);
     }
-  }
-}
-
-class _PermissionStatusNotice extends StatelessWidget {
-  final CourseReminderPermissionStatus status;
-
-  const _PermissionStatusNotice({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final missing = [
-      if (!status.notificationsGranted) '通知权限',
-      if (!status.exactAlarmGranted) '精确闹钟权限',
-    ].join('、');
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: context.theme.colors.semantic.warning.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: context.theme.colors.semantic.warning.withValues(alpha: 0.35),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              FLucideIcons.circleAlert,
-              size: 18,
-              color: context.theme.colors.semantic.warning,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Text(
-                '尚未获得$missing，提醒可能延迟或无法显示。',
-                style: context.theme.typography.caption.copyWith(
-                  color: context.theme.colors.semantic.warning,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

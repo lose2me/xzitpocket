@@ -40,6 +40,10 @@ internal object DoubleDaysWidgetRenderer {
             views,
             R.id.tv_header_title,
             WidgetTimeUtils.todayDisplayDate(),
+            adjusted = WidgetRenderSupport.isAdjusted(
+                snapshot,
+                WidgetTimeUtils.todayIsoDate(),
+            ),
         )
         views.setViewVisibility(R.id.tv_today_footer, View.GONE)
         views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
@@ -52,13 +56,27 @@ internal object DoubleDaysWidgetRenderer {
         WidgetRenderSupport.setTextColor(context, views, R.id.tv_tomorrow_title, R.color.widget_sub_color)
         WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_today, R.color.widget_sub_color)
         WidgetRenderSupport.setTextColor(context, views, R.id.tv_empty_tomorrow, R.color.widget_sub_color)
-        views.setTextViewText(
+        WidgetRenderSupport.setHeaderDateText(
+            context,
+            views,
             R.id.tv_today_title,
             "${context.getString(R.string.widget_title_today)} ${WidgetTimeUtils.todayDisplayDate()}",
+            adjusted = WidgetRenderSupport.isAdjusted(
+                snapshot,
+                WidgetTimeUtils.todayIsoDate(),
+            ),
+            markerOffset = context.getString(R.string.widget_title_today).length + 1,
         )
-        views.setTextViewText(
+        WidgetRenderSupport.setHeaderDateText(
+            context,
+            views,
             R.id.tv_tomorrow_title,
             "${context.getString(R.string.widget_title_tomorrow)} ${WidgetTimeUtils.tomorrowDisplayDate()}",
+            adjusted = WidgetRenderSupport.isAdjusted(
+                snapshot,
+                WidgetTimeUtils.tomorrowIsoDate(),
+            ),
+            markerOffset = context.getString(R.string.widget_title_tomorrow).length + 1,
         )
 
         when {
@@ -174,6 +192,10 @@ internal object LargeWidgetRenderer {
             views,
             R.id.tv_header_title,
             WidgetTimeUtils.todayDisplayDate(),
+            adjusted = WidgetRenderSupport.isAdjusted(
+                snapshot,
+                WidgetTimeUtils.todayIsoDate(),
+            ),
         )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
@@ -216,6 +238,10 @@ internal object LargeWidgetRenderer {
                             views,
                             R.id.tv_header_title,
                             WidgetTimeUtils.todayDisplayDate(),
+                            adjusted = WidgetRenderSupport.isAdjusted(
+                                snapshot,
+                                WidgetTimeUtils.todayIsoDate(),
+                            ),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
@@ -239,6 +265,10 @@ internal object LargeWidgetRenderer {
                             context,
                             views,
                             R.id.tv_header_title,
+                            adjusted = WidgetRenderSupport.isAdjusted(
+                                snapshot,
+                                WidgetTimeUtils.tomorrowIsoDate(),
+                            ),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,

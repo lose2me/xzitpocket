@@ -205,8 +205,8 @@ class SchoolCalendarPage extends StatelessWidget {
   }
 
   Widget _dayCell(FThemeData theme, SchoolDay day) {
-    final isFestival = day.festival != null;
-    final isAdjustment = day.adjustment?.isNotEmpty == true;
+    final hasName = day.name.isNotEmpty;
+    final isAdjustment = day.adjustment.isNotEmpty;
     final isMonthStart = day.date.day == 1;
     final isWeekend = day.weekday == 6 || day.weekday == 7;
     final now = DateTime.now();
@@ -215,16 +215,17 @@ class SchoolCalendarPage extends StatelessWidget {
         day.date.month == now.month &&
         day.date.day == now.day;
 
-    // 节假日/特殊节日（含非周末的放假日）用主题浅粉；周末(周六/日)用之前琥珀色。
+    // Named school-calendar days use the secondary color; weekends are derived
+    // locally from the date rather than supplied by the API.
     final Color bg;
     final Color fg;
     if (isAdjustment) {
       bg = theme.colors.semantic.successContainer;
       fg = theme.colors.semantic.onSuccessContainer;
-    } else if (isFestival || (day.holiday && !isWeekend)) {
+    } else if (hasName) {
       bg = theme.colors.secondary;
       fg = theme.colors.secondaryForeground;
-    } else if (day.holiday) {
+    } else if (isWeekend) {
       bg = theme.colors.semantic.warningContainer;
       fg = theme.colors.semantic.onWarningContainer;
     } else {
@@ -256,14 +257,14 @@ class SchoolCalendarPage extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: theme.typography.body.sm.copyWith(
               color: fg,
-              fontWeight: isMonthStart || isFestival
+              fontWeight: isMonthStart || hasName
                   ? FontWeight.w700
                   : FontWeight.w500,
             ),
           ),
-          if (isFestival)
+          if (hasName)
             Text(
-              day.festival!,
+              day.name,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.typography.caption.copyWith(

@@ -158,7 +158,7 @@ class PreferencesStorage {
   }
 
   bool getWidgetUseLightBackgroundInDarkMode() =>
-      _prefs.getBool('widget_use_light_background_in_dark_mode') ?? false;
+      _prefs.getBool('widget_use_light_background_in_dark_mode') ?? true;
 
   Future<void> setWidgetUseLightBackgroundInDarkMode(bool value) =>
       _prefs.setBool('widget_use_light_background_in_dark_mode', value);
@@ -472,7 +472,7 @@ class PreferencesStorage {
   }
 
   bool getTimetableUseLightBackgroundInDarkMode() =>
-      _prefs.getBool('timetable_use_light_background_in_dark_mode') ?? false;
+      _prefs.getBool('timetable_use_light_background_in_dark_mode') ?? true;
 
   Future<void> setTimetableUseLightBackgroundInDarkMode(bool value) =>
       _prefs.setBool('timetable_use_light_background_in_dark_mode', value);

@@ -9,32 +9,27 @@ import 'package:flutter/foundation.dart';
 /// startup without requiring an app release each semester.
 class SchoolDay {
   final DateTime date;
-  final int weekday; // 1=周一 … 7=周日
-  final bool holiday; // 是否放假（周末 + 标注的节假日）
-  final String? festival; // 特殊节日名（如 国庆），无则 null
-  final String? adjustment; // 云端课程调整：源日期 YYYYMMDD，/ 表示清空
+  final String name; // 仅用于学校校历展示
+  final String adjustment; // 云端课程调整：空串不处理，/ 清空，YYYYMMDD 覆盖
 
-  const SchoolDay({
-    required this.date,
-    required this.weekday,
-    required this.holiday,
-    this.festival,
-    this.adjustment,
-  });
+  const SchoolDay({required this.date, this.name = '', this.adjustment = ''});
+
+  int get weekday => date.weekday;
+
+  bool get isWeekend => weekday >= DateTime.saturday;
 
   Map<String, dynamic> toJson() => {
     'date':
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
-    'weekday': weekday,
-    'holiday': holiday,
-    'festival': festival,
+    'name': name,
     'adjustment': adjustment,
   };
 
   factory SchoolDay.fromJson(Map<String, dynamic> json) {
-    final rawDate = json['date']?.toString() ?? '';
-    final match = RegExp(r'^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$')
-        .firstMatch(rawDate.trim());
+    final dateValue = json['date'];
+    if (dateValue is! String) throw const FormatException('校历日期格式无效');
+    final rawDate = dateValue;
+    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(rawDate);
     if (match == null) {
       throw const FormatException('校历日期格式无效');
     }
@@ -45,17 +40,17 @@ class SchoolDay {
     if (date.year != year || date.month != month || date.day != day) {
       throw const FormatException('校历日期格式无效');
     }
-    final weekday = (json['weekday'] as num?)?.toInt() ?? date.weekday;
-    if (weekday < 1 || weekday > 7 || weekday != date.weekday) {
-      throw const FormatException('校历星期格式无效');
+    final rawName = json['name'];
+    if (rawName is! String) throw const FormatException('校历名称格式无效');
+    final name = rawName.trim();
+    if (name.length > 64 || name.contains(RegExp(r'[\r\n\x00]'))) {
+      throw const FormatException('校历名称格式无效');
     }
-    final holiday = json['holiday'];
-    if (holiday is! bool) throw const FormatException('校历假期标记无效');
-    final rawFestival = json['festival'];
-    final festival = rawFestival == null || rawFestival == false
-        ? null
-        : rawFestival.toString().trim();
-    final rawAdjustment = json['adjustment']?.toString().trim() ?? '';
+    final adjustmentValue = json['adjustment'];
+    if (adjustmentValue is! String) {
+      throw const FormatException('课程调整参数格式无效');
+    }
+    final rawAdjustment = adjustmentValue.trim();
     if (rawAdjustment.isNotEmpty && rawAdjustment != '/') {
       if (!RegExp(r'^\d{8}$').hasMatch(rawAdjustment)) {
         throw const FormatException('课程调整日期格式无效');
@@ -74,26 +69,18 @@ class SchoolDay {
         throw const FormatException('课程调整日期无效');
       }
     }
-    return SchoolDay(
-      date: date,
-      weekday: weekday,
-      holiday: holiday,
-      festival: festival == null || festival.isEmpty ? null : festival,
-      adjustment: rawAdjustment.isEmpty ? null : rawAdjustment,
-    );
+    return SchoolDay(date: date, name: name, adjustment: rawAdjustment);
   }
 
   @override
   bool operator ==(Object other) =>
       other is SchoolDay &&
       other.date == date &&
-      other.weekday == weekday &&
-      other.holiday == holiday &&
-      other.festival == festival &&
+      other.name == name &&
       other.adjustment == adjustment;
 
   @override
-  int get hashCode => Object.hash(date, weekday, holiday, festival, adjustment);
+  int get hashCode => Object.hash(date, name, adjustment);
 }
 
 /// 每日原始数据：(年, 月, 日, 星期几, 放假, 节日)。
@@ -235,13 +222,8 @@ const List<(int, int, int, int, bool, String?)> _rawDays = [
 
 /// 构建每日校历信息。
 List<SchoolDay> schoolCalendarDays() => [
-  for (final (y, m, d, wd, holiday, festival) in _rawDays)
-    SchoolDay(
-      date: DateTime(y, m, d),
-      weekday: wd,
-      holiday: holiday,
-      festival: festival,
-    ),
+  for (final (y, m, d, _, _, name) in _rawDays)
+    SchoolDay(date: DateTime(y, m, d), name: name ?? ''),
 ];
 
 /// 基于校历数据的学期日历：提供周号、周区间、该周假期等查询。
@@ -308,10 +290,10 @@ class SemesterCalendar extends ChangeNotifier {
   }
 
   /// 第 [week] 周内的特殊节日名（去重）。
-  List<String> festivalNamesInWeek(int week) {
+  List<String> namesInWeek(int week) {
     final seen = <String>{};
     for (final d in daysOfWeek(week)) {
-      if (d.festival != null) seen.add(d.festival!);
+      if (d.name.isNotEmpty) seen.add(d.name);
     }
     return seen.toList();
   }
@@ -325,15 +307,10 @@ List<SchoolDay> _sortedDays(Iterable<SchoolDay> days) {
   return result;
 }
 
-/// Decodes the control-service calendar payload. The payload may be either a
-/// bare list or an object containing a `days` list for compatibility.
+/// Decodes the control-service calendar payload.
 List<SchoolDay> schoolCalendarDaysFromJson(String source) {
   final decoded = jsonDecode(source);
-  final raw = decoded is List
-      ? decoded
-      : decoded is Map
-      ? decoded['days']
-      : null;
+  final raw = decoded is Map ? decoded['days'] : null;
   if (raw is! List || raw.isEmpty) {
     throw const FormatException('校历数据为空');
   }
@@ -353,8 +330,9 @@ List<SchoolDay> schoolCalendarDaysFromJson(String source) {
   return sorted;
 }
 
-String schoolCalendarDaysToJson(Iterable<SchoolDay> days) =>
-    jsonEncode([for (final day in _sortedDays(days)) day.toJson()]);
+String schoolCalendarDaysToJson(Iterable<SchoolDay> days) => jsonEncode({
+  'days': [for (final day in _sortedDays(days)) day.toJson()],
+});
 
 DateTime _dateOnly(DateTime value) =>
     DateTime(value.year, value.month, value.day);

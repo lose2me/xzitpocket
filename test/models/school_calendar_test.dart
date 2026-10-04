@@ -38,10 +38,10 @@ void main() {
     );
   });
 
-  test('exposes holiday names in their corresponding weeks', () {
-    expect(calendar.festivalNamesInWeek(4), contains('中秋'));
-    expect(calendar.festivalNamesInWeek(5), contains('国庆'));
-    expect(calendar.festivalNamesInWeek(18), contains('元旦'));
+  test('exposes calendar names in their corresponding weeks', () {
+    expect(calendar.namesInWeek(4), contains('中秋'));
+    expect(calendar.namesInWeek(5), contains('国庆'));
+    expect(calendar.namesInWeek(18), contains('元旦'));
     expect(calendar.totalWeeks, 19);
   });
 
@@ -51,16 +51,16 @@ void main() {
       'then the exact start date and Monday week anchor are both preserved',
       () {
         final custom = SemesterCalendar([
-          SchoolDay(date: DateTime(2026, 9, 1), weekday: 2, holiday: false),
-          SchoolDay(date: DateTime(2026, 9, 2), weekday: 3, holiday: false),
-          SchoolDay(date: DateTime(2026, 9, 3), weekday: 4, holiday: false),
+          SchoolDay(date: DateTime(2026, 9, 1)),
+          SchoolDay(date: DateTime(2026, 9, 2)),
+          SchoolDay(date: DateTime(2026, 9, 3)),
         ]);
 
         expect(custom.semesterStartDate, DateTime(2026, 9, 1));
         expect(custom.start, DateTime(2026, 8, 31));
         expect(custom.weekOf(DateTime(2026, 8, 31)), 1);
         expect(custom.daysOfWeek(1), hasLength(3));
-        expect(custom.festivalNamesInWeek(1), isEmpty);
+        expect(custom.namesInWeek(1), isEmpty);
       },
     );
 
@@ -71,19 +71,14 @@ void main() {
       expect(empty.semesterStartDate, DateTime(2026, 8, 31));
       expect(empty.totalWeeks, 0);
       expect(empty.daysOfWeek(1), isEmpty);
-      expect(empty.festivalNamesInWeek(1), isEmpty);
+      expect(empty.namesInWeek(1), isEmpty);
     });
   });
 
   test('encodes and decodes a control-service calendar payload', () {
     final days = [
-      SchoolDay(date: DateTime(2027, 2, 23), weekday: 2, holiday: false),
-      SchoolDay(
-        date: DateTime(2027, 2, 22),
-        weekday: 1,
-        holiday: true,
-        festival: '校庆',
-      ),
+      SchoolDay(date: DateTime(2027, 2, 23)),
+      SchoolDay(date: DateTime(2027, 2, 22), name: '校庆'),
     ];
     final decoded = schoolCalendarDaysFromJson(schoolCalendarDaysToJson(days));
     expect(decoded, [days[1], days[0]]);
@@ -91,18 +86,8 @@ void main() {
 
   test('roundtrips cloud course adjustment parameters', () {
     final days = [
-      SchoolDay(
-        date: DateTime(2027, 2, 22),
-        weekday: 1,
-        holiday: false,
-        adjustment: '20270223',
-      ),
-      SchoolDay(
-        date: DateTime(2027, 2, 23),
-        weekday: 2,
-        holiday: false,
-        adjustment: '/',
-      ),
+      SchoolDay(date: DateTime(2027, 2, 22), adjustment: '20270223'),
+      SchoolDay(date: DateTime(2027, 2, 23), adjustment: '/'),
     ];
     final decoded = schoolCalendarDaysFromJson(schoolCalendarDaysToJson(days));
     expect(decoded, days);
@@ -111,7 +96,7 @@ void main() {
   test('rejects invalid cloud course adjustment parameters', () {
     expect(
       () => schoolCalendarDaysFromJson(
-        '[{"date":"2027-02-22","weekday":1,"holiday":false,"adjustment":"20270231"}]',
+        '{"days":[{"date":"2027-02-22","name":"","adjustment":"20270231"}]}',
       ),
       throwsFormatException,
     );
@@ -120,7 +105,21 @@ void main() {
   test('rejects non-contiguous calendar data', () {
     expect(
       () => schoolCalendarDaysFromJson(
-        '[{"date":"2027-02-22","weekday":1,"holiday":false},{"date":"2027-02-24","weekday":3,"holiday":false}]',
+        '{"days":[{"date":"2027-02-22","name":"","adjustment":""},{"date":"2027-02-24","name":"","adjustment":""}]}',
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('derives weekdays from ISO dates and rejects the legacy payload', () {
+    final decoded = schoolCalendarDaysFromJson(
+      '{"days":[{"date":"2027-02-22","name":"校庆","adjustment":""}]}',
+    );
+    expect(decoded.single.weekday, DateTime.monday);
+    expect(decoded.single.name, '校庆');
+    expect(
+      () => schoolCalendarDaysFromJson(
+        '[{"date":"2027-02-22","weekday":1,"holiday":false}]',
       ),
       throwsFormatException,
     );

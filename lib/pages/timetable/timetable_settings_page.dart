@@ -922,6 +922,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
     final rules = <_TimetableAdjustment>[];
     final movedSources = <String>{};
+    final cloudSources = {
+      for (final day in semesterCalendar.days)
+        if (day.adjustment != '/' && day.adjustment.isNotEmpty)
+          _dateKey(day.date): day.adjustment,
+    };
     for (final target in snapshots.values) {
       final currentSignature = _courseSignatures(target.currentCourses)
           .join('\u001e');
@@ -930,25 +935,43 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
               _courseSignatures(target.originalCourses).join('\u001e')) {
         continue;
       }
+      final preferredSourceDate = _parseDateKey(
+        cloudSources[_dateKey(target.date)] ?? '',
+      );
+      final preferredSource = preferredSourceDate == null
+          ? null
+          : snapshots[_dateKey(preferredSourceDate)];
       final candidates = snapshots.values.where((source) {
-        if (source.date == target.date ||
-            source.originalCourses.isEmpty ||
-            source.currentCourses.isNotEmpty) {
+        if (source.date == target.date || source.originalCourses.isEmpty) {
           return false;
         }
         return _courseSignatures(source.originalCourses).join('\u001e') ==
             currentSignature;
       }).toList();
-      if (candidates.length == 1) {
-        final source = candidates.single;
+      final source =
+          preferredSource != null &&
+              _courseSignatures(preferredSource.originalCourses)
+                      .join('\u001e') ==
+                  currentSignature
+          ? preferredSource
+          : candidates.length == 1
+          ? candidates.single
+          : null;
+      if (source != null) {
         rules.add(
           _TimetableAdjustment(
             sourceDate: source.date,
-            operation: '移动',
+            operation: '移动至',
             targetDate: target.date,
           ),
         );
-        movedSources.add(_dateKey(source.date));
+        if (source.currentCourses.isEmpty) {
+          movedSources.add(_dateKey(source.date));
+        }
+      } else {
+        rules.add(
+          _TimetableAdjustment(sourceDate: target.date, operation: '调整'),
+        );
       }
     }
 
@@ -978,9 +1001,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     return date;
   }
 
-  List<SchoolDay> get _cloudAdjustments => semesterCalendar.days
-      .where((day) => day.adjustment != null && day.adjustment!.isNotEmpty)
-      .toList();
+  List<SchoolDay> get _cloudAdjustments =>
+      semesterCalendar.days.where((day) => day.adjustment.isNotEmpty).toList();
 
   // ignore: unused_element
   Future<void> _setCloudAdjustmentsEnabled(bool enabled) async {
@@ -997,7 +1019,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     if (_cloudAdjustments.isEmpty) return const SizedBox.shrink();
     final rows = <_TimetableAdjustment>[];
     for (final day in _cloudAdjustments) {
-      final value = day.adjustment!;
+      final value = day.adjustment;
       if (value == '/') {
         rows.add(_TimetableAdjustment(sourceDate: day.date, operation: '清空'));
         continue;
@@ -1006,9 +1028,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       if (source != null) {
         rows.add(
           _TimetableAdjustment(
-            sourceDate: source,
-            operation: '移动',
-            targetDate: day.date,
+            sourceDate: day.date,
+            operation: '按照',
+            targetDate: source,
           ),
         );
       }
@@ -1885,6 +1907,7 @@ class _BackgroundCropPageState extends State<_BackgroundCropPage> {
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   FButton(
+                    variant: FButtonVariant.ghost,
                     onPress: _isCropping
                         ? null
                         : () {

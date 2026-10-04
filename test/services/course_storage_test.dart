@@ -166,9 +166,7 @@ void main() {
         for (var i = 0; i < 7; i++)
           SchoolDay(
             date: start.add(Duration(days: i)),
-            weekday: i + 1,
-            holiday: false,
-            adjustment: i == 1 ? '20260902' : (i == 2 ? '/' : null),
+            adjustment: i == 1 ? '20260902' : (i == 2 ? '/' : ''),
           ),
       ];
       expect(

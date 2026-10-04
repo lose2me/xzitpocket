@@ -29,6 +29,8 @@ internal object WidgetThemeSupport {
     private const val FLUTTER_PREFS = "FlutterSharedPreferences"
     private const val KEY_THEME_PREFERENCE = "flutter.theme_preference"
     private const val KEY_WIDGET_THEME_PREFERENCE = "flutter.widget_theme_preference"
+    private const val KEY_THEME_COLOR = "flutter.theme_color"
+    private const val KEY_CUSTOM_THEME_COLOR = "flutter.custom_theme_color"
 
     fun resolveThemeMode(context: Context): WidgetThemeMode {
         return when (readPreference(context)) {
@@ -46,6 +48,21 @@ internal object WidgetThemeSupport {
         @ColorRes colorResId: Int,
     ): Int {
         return ContextCompat.getColor(themedContext(context), colorResId)
+    }
+
+    @ColorInt
+    fun primaryColor(context: Context): Int {
+        val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
+        (prefs.all[KEY_CUSTOM_THEME_COLOR] as? Number)?.let { return it.toLong().toInt() }
+        val dark = resolveThemeMode(context) == WidgetThemeMode.DARK
+        return when (prefs.getString(KEY_THEME_COLOR, "rose")) {
+            "blue" -> if (dark) 0xFFAAC7FF.toInt() else 0xFF415F91.toInt()
+            "green" -> if (dark) 0xFFA4D88A.toInt() else 0xFF3F682E.toInt()
+            "orange" -> if (dark) 0xFFFFB86D.toInt() else 0xFF8B5000.toInt()
+            "purple" -> if (dark) 0xFFE0B6F2.toInt() else 0xFF735085.toInt()
+            "teal" -> if (dark) 0xFF4FD8D8.toInt() else 0xFF006A6A.toInt()
+            else -> if (dark) 0xFFFFB3B3.toInt() else 0xFF904A4A.toInt()
+        }
     }
 
     fun backgroundDrawableRes(

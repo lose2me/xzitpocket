@@ -46,6 +46,7 @@ internal object WidgetUpdateHelper {
                     isUpcoming = WidgetTimeUtils.isBeforeSemesterStart(
                         storedSnapshot.semesterStart,
                     ),
+                    adjustedDates = storedSnapshot.adjustedDates,
                     courses = storedSnapshot.courses,
                 )
 
