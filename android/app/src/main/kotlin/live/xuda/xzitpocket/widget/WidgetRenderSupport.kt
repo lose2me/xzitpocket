@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.os.Build
 import android.text.SpannableString
 import android.text.Spanned
@@ -176,12 +177,13 @@ internal object WidgetRenderSupport {
         viewId: Int,
         text: String,
         adjusted: Boolean = false,
+        holiday: Boolean = false,
         markerOffset: Int = 0,
     ) {
         setTextColor(context, views, viewId, R.color.widget_sub_color)
         views.setTextViewText(
             viewId,
-            adjustedDateText(context, text, adjusted, markerOffset),
+            adjustedDateText(context, text, adjusted, holiday, markerOffset),
         )
     }
 
@@ -190,6 +192,7 @@ internal object WidgetRenderSupport {
         views: RemoteViews,
         viewId: Int,
         adjusted: Boolean = false,
+        holiday: Boolean = false,
     ) {
         setTextColor(context, views, viewId, R.color.widget_preview_blue)
         views.setTextViewText(
@@ -198,6 +201,7 @@ internal object WidgetRenderSupport {
                 context,
                 context.getString(R.string.widget_tomorrow_preview),
                 adjusted,
+                holiday,
             ),
         )
     }
@@ -206,14 +210,16 @@ internal object WidgetRenderSupport {
         context: Context,
         text: String,
         adjusted: Boolean,
+        holiday: Boolean = false,
         markerOffset: Int = 0,
     ): CharSequence {
-        if (!adjusted) return text
+        if (!adjusted && !holiday) return text
         val offset = markerOffset.coerceIn(0, text.length)
-        val marker = "【调】"
+        val marker = if (holiday) "【假】" else "【调】"
+        val markerColor = if (holiday) Color.rgb(33, 110, 58) else Color.rgb(180, 35, 24)
         return SpannableString(text.substring(0, offset) + marker + text.substring(offset)).apply {
             setSpan(
-                ForegroundColorSpan(WidgetThemeSupport.primaryColor(context)),
+                ForegroundColorSpan(markerColor),
                 offset,
                 offset + marker.length,
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
@@ -223,6 +229,9 @@ internal object WidgetRenderSupport {
 
     fun isAdjusted(snapshot: RenderSnapshot, date: String): Boolean =
         snapshot.adjustedDates.contains(date)
+
+    fun isHoliday(snapshot: RenderSnapshot, date: String): Boolean =
+        snapshot.holidayDates.contains(date)
 
     fun weekLabel(snapshot: RenderSnapshot): String {
         return if (snapshot.hasSchedule && snapshot.currentWeek > 0) {

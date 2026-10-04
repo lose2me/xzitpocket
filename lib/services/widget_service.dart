@@ -6,6 +6,7 @@ import 'package:home_widget/home_widget.dart';
 
 import '../constants/time_slots.dart';
 import '../models/course.dart';
+import '../models/school_calendar.dart';
 import 'talker.dart';
 
 const _appGroupId = 'live.xuda.xzitpocket';
@@ -80,14 +81,18 @@ class WidgetService {
     }
 
     try {
+      final calendarDays = semesterCalendar.days;
       final scheduleJson = jsonEncode({
         'semesterStart':
             '${semesterStart.year}-${semesterStart.month.toString().padLeft(2, '0')}-${semesterStart.day.toString().padLeft(2, '0')}',
         'totalWeeks': maxWeek,
-        'adjustedDates': adjustedCourseDates(
-          courses: courses,
-          originalCourses: originalCourses,
-          semesterStart: semesterStart,
+        'holidayDates': schoolCalendarDates(
+          calendarDays,
+          (day) => day.isHoliday,
+        ).toList()..sort(),
+        'adjustedDates': schoolCalendarDates(
+          calendarDays,
+          (day) => day.isMakeupClass,
         ).toList()..sort(),
         'courses': payloadCourses,
       });
@@ -154,6 +159,17 @@ Set<String> adjustedCourseDates({
   }
   return result;
 }
+
+Set<String> schoolCalendarDates(
+  Iterable<SchoolDay> days,
+  bool Function(SchoolDay day) predicate,
+) => {
+  for (final day in days)
+    if (predicate(day)) _calendarDateKey(day.date),
+};
+
+String _calendarDateKey(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
 List<String> _courseDaySignatures(
   List<Course> courses,

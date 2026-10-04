@@ -44,6 +44,7 @@ internal object DoubleDaysWidgetRenderer {
                 snapshot,
                 WidgetTimeUtils.todayIsoDate(),
             ),
+            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
         )
         views.setViewVisibility(R.id.tv_today_footer, View.GONE)
         views.setViewVisibility(R.id.tv_tomorrow_footer, View.GONE)
@@ -65,6 +66,7 @@ internal object DoubleDaysWidgetRenderer {
                 snapshot,
                 WidgetTimeUtils.todayIsoDate(),
             ),
+            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
             markerOffset = context.getString(R.string.widget_title_today).length + 1,
         )
         WidgetRenderSupport.setHeaderDateText(
@@ -76,6 +78,7 @@ internal object DoubleDaysWidgetRenderer {
                 snapshot,
                 WidgetTimeUtils.tomorrowIsoDate(),
             ),
+            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.tomorrowIsoDate()),
             markerOffset = context.getString(R.string.widget_title_tomorrow).length + 1,
         )
 
@@ -196,6 +199,7 @@ internal object LargeWidgetRenderer {
                 snapshot,
                 WidgetTimeUtils.todayIsoDate(),
             ),
+            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
         )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
@@ -242,6 +246,7 @@ internal object LargeWidgetRenderer {
                                 snapshot,
                                 WidgetTimeUtils.todayIsoDate(),
                             ),
+                            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
@@ -269,6 +274,7 @@ internal object LargeWidgetRenderer {
                                 snapshot,
                                 WidgetTimeUtils.tomorrowIsoDate(),
                             ),
+                            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.tomorrowIsoDate()),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,

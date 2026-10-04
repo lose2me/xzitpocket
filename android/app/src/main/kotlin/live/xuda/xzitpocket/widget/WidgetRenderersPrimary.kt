@@ -133,6 +133,7 @@ internal object CompactWidgetRenderer {
                 snapshot,
                 WidgetTimeUtils.todayIsoDate(),
             ),
+            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
         )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
@@ -177,6 +178,7 @@ internal object CompactWidgetRenderer {
                             snapshot,
                             WidgetTimeUtils.todayIsoDate(),
                         ),
+                        holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
                     )
                     WidgetRenderSupport.fillVerticalContainer(
                         context,
@@ -235,6 +237,7 @@ internal object ModerateWidgetRenderer {
                 snapshot,
                 WidgetTimeUtils.todayIsoDate(),
             ),
+            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.todayIsoDate()),
         )
         views.setViewVisibility(R.id.tv_footer, View.GONE)
 
@@ -281,6 +284,10 @@ internal object ModerateWidgetRenderer {
                                 snapshot,
                                 WidgetTimeUtils.todayIsoDate(),
                             ),
+                            holiday = WidgetRenderSupport.isHoliday(
+                                snapshot,
+                                WidgetTimeUtils.todayIsoDate(),
+                            ),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,
@@ -307,6 +314,7 @@ internal object ModerateWidgetRenderer {
                                 snapshot,
                                 WidgetTimeUtils.tomorrowIsoDate(),
                             ),
+                            holiday = WidgetRenderSupport.isHoliday(snapshot, WidgetTimeUtils.tomorrowIsoDate()),
                         )
                         WidgetRenderSupport.fillSplitColumns(
                             context,

@@ -10,6 +10,11 @@ import '../../ui/app_tokens.dart';
 import 'course_card.dart';
 import 'time_column.dart';
 
+const _holidayHeaderBackground = Color(0xFFDDF4E5);
+const _holidayHeaderForeground = Color(0xFF216E3A);
+const _makeupHeaderBackground = Color(0xFFFBE3E3);
+const _makeupHeaderForeground = Color(0xFFB42318);
+
 class TimetableDayDragData {
   final int week;
   final int weekday;
@@ -310,6 +315,9 @@ class _TimetableGridState extends State<TimetableGrid> {
       otherByWeekday.putIfAbsent(entry.course.weekday, () => []).add(entry);
     }
     final dates = widget.calendar.weekDates(week);
+    final calendarDaysByDate = <String, SchoolDay>{
+      for (final day in widget.calendar.days) _dateKey(day.date): day,
+    };
     final today = widget.currentDate ?? DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
     final courseOpacity = widget.courseOpacity;
@@ -370,6 +378,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                       context,
                       weekday: i + 1,
                       date: date,
+                      calendarDay: calendarDaysByDate[_dateKey(date)],
                       weekdayLabel: weekdays[i],
                       isToday: isToday,
                       canDrag: currentByWeekday[i + 1]?.isNotEmpty == true,
@@ -684,6 +693,7 @@ class _TimetableGridState extends State<TimetableGrid> {
     BuildContext context, {
     required int weekday,
     required DateTime date,
+    required SchoolDay? calendarDay,
     required String weekdayLabel,
     required bool isToday,
     required bool canDrag,
@@ -691,7 +701,24 @@ class _TimetableGridState extends State<TimetableGrid> {
   }) {
     final theme = context.theme;
     final highlighted = !widget.suppressDayDrop && _dragHoverWeekday == weekday;
-    final adjusted = widget.adjustedWeekdays.contains(weekday);
+    final isHoliday = calendarDay?.isHoliday == true;
+    final isMakeupClass = calendarDay?.isMakeupClass == true;
+    final adjusted =
+        widget.adjustedWeekdays.contains(weekday) &&
+        !isHoliday &&
+        !isMakeupClass;
+    final marker = isHoliday
+        ? '假'
+        : isMakeupClass
+        ? '调'
+        : adjusted
+        ? '改'
+        : null;
+    final markerColor = isHoliday
+        ? _holidayHeaderForeground
+        : isMakeupClass
+        ? _makeupHeaderForeground
+        : theme.colors.primary;
     final pending =
         widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true
         ? widget.pendingDayAction
@@ -726,6 +753,10 @@ class _TimetableGridState extends State<TimetableGrid> {
                 ? const Color(0xFF8B5CF6).withValues(alpha: 0.16)
                 : actionColor != null
                 ? actionColor.withValues(alpha: 0.16)
+                : isHoliday
+                ? _holidayHeaderBackground.withValues(alpha: 0.78)
+                : isMakeupClass
+                ? _makeupHeaderBackground.withValues(alpha: 0.78)
                 : adjusted
                 ? theme.colors.primary.withValues(alpha: 0.05)
                 : isToday
@@ -749,14 +780,14 @@ class _TimetableGridState extends State<TimetableGrid> {
                         pending,
                         pendingIsMoveSource ? '被移动' : null,
                       ),
-                if (adjusted && pending == null)
+                if (marker != null && pending == null)
                   Positioned(
                     top: 2,
                     right: 3,
                     child: Text(
-                      '调',
+                      marker,
                       style: theme.typography.caption.copyWith(
-                        color: theme.colors.primary.withValues(alpha: 0.62),
+                        color: markerColor.withValues(alpha: 0.78),
                         fontSize: 7,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1015,6 +1046,9 @@ class _TimetableGridState extends State<TimetableGrid> {
     _daySlots = daySlots;
   }
 }
+
+String _dateKey(DateTime date) =>
+    '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
 class _GridLayoutCacheKey {
   final List<Course> courses;

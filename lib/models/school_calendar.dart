@@ -18,6 +18,11 @@ class SchoolDay {
 
   bool get isWeekend => weekday >= DateTime.saturday;
 
+  bool get isHoliday => adjustment == '/';
+
+  /// A numeric adjustment means the target date is an extra class day.
+  bool get isMakeupClass => RegExp(r'^\d{8}$').hasMatch(adjustment);
+
   Map<String, dynamic> toJson() => {
     'date':
         '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',

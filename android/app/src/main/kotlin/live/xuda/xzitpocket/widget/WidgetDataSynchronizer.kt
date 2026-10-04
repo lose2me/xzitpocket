@@ -101,6 +101,7 @@ internal object WidgetDataSynchronizer {
             windowStartDate = WidgetTimeUtils.formatIsoDate(syncStart),
             windowDays = SYNC_DAYS,
             sourceFingerprint = WidgetPrefsRepository.readScheduleFingerprint(context),
+            holidayDates = source.holidayDates,
             adjustedDates = source.adjustedDates,
             courses = courses.sortedWith(compareBy({ it.date }, { it.sortOrder }, { it.title })),
         )

@@ -124,4 +124,40 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('recognizes only eight-digit adjustments as makeup class days', () {
+    expect(
+      SchoolDay(
+        date: DateTime(2027, 2, 22),
+        adjustment: '20260713',
+      ).isMakeupClass,
+      isTrue,
+    );
+    expect(
+      SchoolDay(date: DateTime(2027, 2, 22), adjustment: '/').isMakeupClass,
+      isFalse,
+    );
+    expect(
+      SchoolDay(date: DateTime(2027, 2, 22), adjustment: '').isMakeupClass,
+      isFalse,
+    );
+    expect(
+      SchoolDay(
+        date: DateTime(2027, 2, 22),
+        adjustment: '2026-07-13',
+      ).isMakeupClass,
+      isFalse,
+    );
+  });
+
+  test('recognizes slash adjustments as holidays', () {
+    expect(
+      SchoolDay(date: DateTime(2027, 2, 22), adjustment: '/').isHoliday,
+      isTrue,
+    );
+    expect(
+      SchoolDay(date: DateTime(2027, 2, 22), adjustment: '').isHoliday,
+      isFalse,
+    );
+  });
 }

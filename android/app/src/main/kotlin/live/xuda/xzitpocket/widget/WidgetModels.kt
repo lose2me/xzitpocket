@@ -6,6 +6,7 @@ import org.json.JSONObject
 internal data class ScheduleSource(
     val semesterStart: String,
     val totalWeeks: Int,
+    val holidayDates: Set<String>,
     val adjustedDates: Set<String>,
     val courses: List<ScheduleSourceCourse>,
 ) {
@@ -16,6 +17,11 @@ internal data class ScheduleSource(
                 val root = JSONObject(json)
                 val semesterStart = root.optString("semesterStart", "")
                 val totalWeeks = root.optInt("totalWeeks", 16)
+                val holidayDatesArray = root.optJSONArray("holidayDates") ?: JSONArray()
+                val holidayDates = mutableSetOf<String>()
+                for (i in 0 until holidayDatesArray.length()) {
+                    holidayDatesArray.optString(i).takeIf { it.isNotBlank() }?.let(holidayDates::add)
+                }
                 val adjustedDatesArray = root.optJSONArray("adjustedDates") ?: JSONArray()
                 val adjustedDates = mutableSetOf<String>()
                 for (i in 0 until adjustedDatesArray.length()) {
@@ -53,6 +59,7 @@ internal data class ScheduleSource(
                 ScheduleSource(
                     semesterStart = semesterStart,
                     totalWeeks = totalWeeks,
+                    holidayDates = holidayDates,
                     adjustedDates = adjustedDates,
                     courses = courses,
                 )
@@ -101,6 +108,7 @@ internal data class WidgetSnapshot(
     val windowStartDate: String?,
     val windowDays: Int,
     val sourceFingerprint: String?,
+    val holidayDates: Set<String>,
     val adjustedDates: Set<String>,
     val courses: List<WidgetCourse>,
 ) {
@@ -112,6 +120,7 @@ internal data class WidgetSnapshot(
         root.put("windowStartDate", windowStartDate ?: "")
         root.put("windowDays", windowDays)
         root.put("sourceFingerprint", sourceFingerprint ?: "")
+        root.put("holidayDates", JSONArray(holidayDates.toList()))
         root.put("adjustedDates", JSONArray(adjustedDates.toList()))
 
         val courseArray = JSONArray()
@@ -145,6 +154,7 @@ internal data class WidgetSnapshot(
                 windowStartDate = null,
                 windowDays = 0,
                 sourceFingerprint = null,
+                holidayDates = emptySet(),
                 adjustedDates = emptySet(),
                 courses = emptyList(),
             )
@@ -155,6 +165,11 @@ internal data class WidgetSnapshot(
             return try {
                 val root = JSONObject(json)
                 val courseArray = root.optJSONArray("courses") ?: JSONArray()
+                val holidayDatesArray = root.optJSONArray("holidayDates") ?: JSONArray()
+                val holidayDates = mutableSetOf<String>()
+                for (i in 0 until holidayDatesArray.length()) {
+                    holidayDatesArray.optString(i).takeIf { it.isNotBlank() }?.let(holidayDates::add)
+                }
                 val adjustedDatesArray = root.optJSONArray("adjustedDates") ?: JSONArray()
                 val adjustedDates = mutableSetOf<String>()
                 for (i in 0 until adjustedDatesArray.length()) {
@@ -187,6 +202,7 @@ internal data class WidgetSnapshot(
                     windowStartDate = root.optString("windowStartDate", "").ifBlank { null },
                     windowDays = root.optInt("windowDays", 0),
                     sourceFingerprint = root.optString("sourceFingerprint", "").ifBlank { null },
+                    holidayDates = holidayDates,
                     adjustedDates = adjustedDates,
                     courses = courses,
                 )
@@ -201,6 +217,7 @@ internal data class RenderSnapshot(
     val hasSchedule: Boolean,
     val currentWeek: Int,
     val isUpcoming: Boolean,
+    val holidayDates: Set<String>,
     val adjustedDates: Set<String>,
     val courses: List<WidgetCourse>,
 )

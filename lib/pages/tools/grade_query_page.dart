@@ -20,10 +20,10 @@ typedef _SemesterOption = ({
 });
 
 const _scoreBandColors = <Color>[
-  Color(0xFFEA4335),
-  Color(0xFFFBBC05),
-  Color(0xFF4285F4),
-  Color(0xFF34A853),
+  Color(0xFFF8D2D7),
+  Color(0xFFF8F3D2),
+  Color(0xFFD2E5F8),
+  Color(0xFFD2F0E5),
 ];
 
 const _scoreBandLabels = ['不及格', '及格', '良好', '优秀'];

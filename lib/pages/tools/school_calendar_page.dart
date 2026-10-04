@@ -9,6 +9,14 @@ import '../../ui/app_components.dart';
 class SchoolCalendarPage extends StatelessWidget {
   const SchoolCalendarPage({super.key});
 
+  static const _weekendBackground = Color(0xFFFFF3D6);
+  static const _weekendForeground = Color(0xFF8A5A00);
+  static const _holidayBackground = Color(0xFFDDF4E5);
+  static const _holidayForeground = Color(0xFF216E3A);
+  static const _makeupBackground = Color(0xFFFBE3E3);
+  static const _makeupForeground = Color(0xFFB42318);
+  static const _todayBorder = Color(0xFF3B82F6);
+
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
   static const _weekLabelWidth = 28.0;
   static const _rowHeight = 46.0;
@@ -46,21 +54,13 @@ class SchoolCalendarPage extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _legendDot(
-                        theme,
-                        theme.colors.semantic.warningContainer,
-                        '周末',
-                      ),
+                      _legendDot(theme, _weekendBackground, '周末'),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(
-                        theme,
-                        theme.colors.semantic.successContainer,
-                        '调休',
-                      ),
+                      _legendDot(theme, _makeupBackground, '上课'),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, theme.colors.secondary, '节假日'),
+                      _legendDot(theme, _holidayBackground, '放假'),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, theme.colors.semantic.info, '今日'),
+                      _legendDot(theme, _todayBorder, '今日'),
                     ],
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -206,7 +206,8 @@ class SchoolCalendarPage extends StatelessWidget {
 
   Widget _dayCell(FThemeData theme, SchoolDay day) {
     final hasName = day.name.isNotEmpty;
-    final isAdjustment = day.adjustment.isNotEmpty;
+    final isHoliday = day.isHoliday;
+    final isMakeupClass = day.isMakeupClass;
     final isMonthStart = day.date.day == 1;
     final isWeekend = day.weekday == 6 || day.weekday == 7;
     final now = DateTime.now();
@@ -215,19 +216,19 @@ class SchoolCalendarPage extends StatelessWidget {
         day.date.month == now.month &&
         day.date.day == now.day;
 
-    // Named school-calendar days use the secondary color; weekends are derived
-    // locally from the date rather than supplied by the API.
+    // Calendar status colors stay fixed across app themes so the legend and
+    // date cells keep the same meaning in light and dark mode.
     final Color bg;
     final Color fg;
-    if (isAdjustment) {
-      bg = theme.colors.semantic.successContainer;
-      fg = theme.colors.semantic.onSuccessContainer;
-    } else if (hasName) {
-      bg = theme.colors.secondary;
-      fg = theme.colors.secondaryForeground;
+    if (isHoliday) {
+      bg = _holidayBackground;
+      fg = _holidayForeground;
+    } else if (isMakeupClass) {
+      bg = _makeupBackground;
+      fg = _makeupForeground;
     } else if (isWeekend) {
-      bg = theme.colors.semantic.warningContainer;
-      fg = theme.colors.semantic.onWarningContainer;
+      bg = _weekendBackground;
+      fg = _weekendForeground;
     } else {
       bg = theme.colors.card;
       fg = theme.colors.foreground;
@@ -244,7 +245,7 @@ class SchoolCalendarPage extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isToday ? theme.colors.semantic.info : theme.colors.border,
+          color: isToday ? _todayBorder : theme.colors.border,
           width: isToday ? 1.5 : 0.5,
         ),
       ),
