@@ -172,20 +172,23 @@ class _CampusCardPageState extends State<CampusCardPage> {
       hint: '请选择日期范围',
       readOnly: true,
       enabled: !_isQuerying,
+      textAlign: TextAlign.center,
       onTap: _pickRange,
       suffix: _isQuerying
           ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-          : const Icon(FLucideIcons.chevronDown),
+          : null,
     );
   }
 
   Future<void> _pickRange() async {
-    final picked = await showAppSheet<(DateTime, DateTime)>(
-      context: context,
-      maxHeightRatio: 0.9,
-      builder: (ctx) => AppDateRangeCalendarSheet(
-        initial: (_startDate, _endDate),
-        minDate: studentHistoryStartDate(widget.studentId),
+    final picked = await Navigator.of(context).push<(DateTime, DateTime)>(
+      appRoute(
+        name: '/tools/campus-card/date-range',
+        fullscreenDialog: true,
+        builder: (_) => AppDateRangeCalendarPage(
+          initial: (_startDate, _endDate),
+          minDate: studentHistoryStartDate(widget.studentId),
+        ),
       ),
     );
     if (picked == null || !mounted) return;

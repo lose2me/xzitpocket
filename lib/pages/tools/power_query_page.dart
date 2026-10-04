@@ -179,12 +179,14 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   }
 
   Future<void> _pickRange() async {
-    final picked = await showAppSheet<(DateTime, DateTime)>(
-      context: context,
-      maxHeightRatio: 0.9,
-      builder: (_) => AppDateRangeCalendarSheet(
-        initial: (_startDate, _endDate),
-        minDate: _historyStart,
+    final picked = await Navigator.of(context).push<(DateTime, DateTime)>(
+      appRoute(
+        name: '/tools/electricity/date-range',
+        fullscreenDialog: true,
+        builder: (_) => AppDateRangeCalendarPage(
+          initial: (_startDate, _endDate),
+          minDate: _historyStart,
+        ),
       ),
     );
     if (picked == null || !mounted) return;
@@ -202,10 +204,11 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     hint: '请选择日期范围',
     readOnly: true,
     enabled: !_isRefreshing,
+    textAlign: TextAlign.center,
     onTap: _pickRange,
     suffix: _isRefreshing
         ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-        : const Icon(FLucideIcons.chevronDown),
+        : null,
   );
 
   @override

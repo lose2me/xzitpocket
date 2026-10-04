@@ -16,8 +16,8 @@ DateTime studentHistoryStartDate(String? studentId, {DateTime? today}) {
 }
 
 /// Date-range selector shared by detail pages that query a server-side range.
-/// The interaction mirrors the campus-card picker: tap once for the start,
-/// tap again for the end, or use “选择全部” to select the complete range.
+/// Months are displayed vertically so the complete history can be browsed on
+/// one full-screen page. Tap once for the start, then again for the end.
 class AppDateRangeCalendarSheet extends StatefulWidget {
   final (DateTime, DateTime) initial;
   final DateTime minDate;
@@ -33,11 +33,29 @@ class AppDateRangeCalendarSheet extends StatefulWidget {
       _AppDateRangeCalendarSheetState();
 }
 
+/// Full-screen date-range picker used by detail pages with longer histories.
+class AppDateRangeCalendarPage extends StatelessWidget {
+  final (DateTime, DateTime) initial;
+  final DateTime minDate;
+
+  const AppDateRangeCalendarPage({
+    super.key,
+    required this.initial,
+    required this.minDate,
+  });
+
+  @override
+  Widget build(BuildContext context) => AppPage(
+    title: '选择日期范围',
+    child: AppDateRangeCalendarSheet(initial: initial, minDate: minDate),
+  );
+}
+
 class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
   late final DateTime _today;
   late final DateTime _calendarStart;
-  late final List<int> _yearOptions;
-  late final FGridSplitCalendarController _calendarController;
+  late final List<DateTime> _months;
+  late final List<FGridSplitCalendarController> _calendarControllers;
   late (DateTime, DateTime) _range;
   DateTime? _pendingStart;
 
@@ -59,20 +77,30 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
     if (end.isAfter(_today)) end = _today;
     if (end.isBefore(start)) end = start;
     _range = (start, end);
-    _yearOptions = [
-      for (var year = _calendarStart.year; year <= _today.year; year++) year,
+    _months = [
+      for (
+        var month = DateTime.utc(_calendarStart.year, _calendarStart.month);
+        !month.isAfter(DateTime.utc(_today.year, _today.month));
+        month = DateTime.utc(month.year, month.month + 1)
+      )
+        month,
     ];
-    _calendarController = FGridSplitCalendarController(
-      start: _calendarStart,
-      today: _today,
-      initial: _today,
-      end: _today,
-    );
+    _calendarControllers = [
+      for (final month in _months)
+        FGridSplitCalendarController(
+          start: _calendarStart,
+          today: _today,
+          initial: month,
+          end: _today,
+        ),
+    ];
   }
 
   @override
   void dispose() {
-    _calendarController.dispose();
+    for (final controller in _calendarControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -91,66 +119,35 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
           AppSpacing.lg,
           AppSpacing.lg,
           AppSpacing.lg,
-          AppSpacing.xl,
+          AppSpacing.md,
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Center(
               child: Text(
                 '${_fmt(_range.$1)} ~ ${_fmt(_range.$2)}',
+                textAlign: TextAlign.center,
                 style: theme.typography.label.copyWith(
                   color: theme.colors.primary,
                 ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const spacing = 2.0;
-                final calendarPadding = context.theme.calendarStyle.padding
-                    .resolve(Directionality.of(context));
-                final size =
-                    ((constraints.maxWidth -
-                                calendarPadding.horizontal -
-                                spacing * 6) /
-                            7)
-                        .clamp(32.0, 44.0)
-                        .toDouble();
-                return FCalendar.splitGrid(
-                  control: FGridSplitCalendarControl(
-                    controller: _calendarController,
-                  ),
-                  fixedWeeks: false,
-                  selectionControl: FDateSelectionControl.liftedRange(
-                    value: _range,
-                    onChange: (_) {},
-                  ),
-                  style: FCalendarStyleDelta.delta(
-                    dayPickerStyle: FCalendarDayPickerStyleDelta.delta(
-                      daySize: Size.square(size),
-                      daySpacing: spacing,
-                    ),
-                  ),
-                  headerBuilder: _buildCalendarHeader,
-                  onDayPress: _selectDay,
-                  dayBuilder: (context, styles, localizations, date, variants) {
-                    if (variants.contains(FCalendarDayVariant.adjacent)) {
-                      return const SizedBox.shrink();
-                    }
-                    return FCalendar.defaultDayBuilder(
-                      context,
-                      styles,
-                      localizations,
-                      date,
-                      variants,
-                    );
-                  },
-                );
-              },
+            Expanded(
+              child: ListView.separated(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                itemCount: _months.length,
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: AppSpacing.lg),
+                itemBuilder: (context, index) => _buildMonth(
+                  context,
+                  _months[index],
+                  _calendarControllers[index],
+                ),
+              ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Expanded(
@@ -175,8 +172,63 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
     );
   }
 
-  void _selectDay(DateTime date) {
-    final currentMonth = _calendarController.currentMonth;
+  Widget _buildMonth(
+    BuildContext context,
+    DateTime month,
+    FGridSplitCalendarController controller,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 2.0;
+        final calendarPadding = context.theme.calendarStyle.padding.resolve(
+          Directionality.of(context),
+        );
+        final size =
+            ((constraints.maxWidth - calendarPadding.horizontal - spacing * 6) /
+                    7)
+                .clamp(32.0, 44.0)
+                .toDouble();
+        return FCalendar.splitGrid(
+          control: FGridSplitCalendarControl(controller: controller),
+          fixedWeeks: false,
+          selectionControl: FDateSelectionControl.liftedRange(
+            value: _range,
+            onChange: (_) {},
+          ),
+          style: FCalendarStyleDelta.delta(
+            dayPickerStyle: FCalendarDayPickerStyleDelta.delta(
+              daySize: Size.square(size),
+              daySpacing: spacing,
+            ),
+          ),
+          headerBuilder: (context, _, _, _) => Center(
+            child: Text(
+              '${month.year}年${month.month}月',
+              style: context.theme.typography.tileTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          onDayPress: (date) => _selectDay(date, controller),
+          dayBuilder: (context, styles, localizations, date, variants) {
+            if (variants.contains(FCalendarDayVariant.adjacent)) {
+              return const SizedBox.shrink();
+            }
+            return FCalendar.defaultDayBuilder(
+              context,
+              styles,
+              localizations,
+              date,
+              variants,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _selectDay(DateTime date, FGridSplitCalendarController controller) {
+    final currentMonth = controller.currentMonth;
     if (date.year != currentMonth.year || date.month != currentMonth.month) {
       return;
     }
@@ -197,71 +249,10 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
     });
   }
 
-  Widget _buildCalendarHeader(
-    BuildContext context,
-    FGridSplitCalendarController controller,
-    FDateSelectionController selection,
-    Widget child,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        FButton(
-          variant: .ghost,
-          size: .sm,
-          mainAxisSize: MainAxisSize.min,
-          suffix: const Icon(FLucideIcons.chevronDown),
-          onPress: () => _pickYear(controller),
-          child: Text('${controller.currentMonth.year}年'),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Text(
-          '${controller.currentMonth.month}月',
-          style: context.theme.typography.tileTitle.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickYear(FGridSplitCalendarController controller) async {
-    final selected = await showAppSheet<int>(
-      context: context,
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.sm,
-          AppSpacing.md,
-          AppSpacing.md,
-        ),
-        child: FSelectTileGroup<int>(
-          control: FMultiValueControl.managedRadio(
-            initial: controller.currentMonth.year,
-            onChange: (values) {
-              if (values.isNotEmpty) Navigator.pop(sheetContext, values.first);
-            },
-          ),
-          maxHeight: 360,
-          children: [
-            for (final year in _yearOptions)
-              FSelectTile<int>.suffix(title: Text('$year年'), value: year),
-          ],
-        ),
-      ),
-    );
-    if (!mounted || selected == null) return;
-    final minMonth = selected == _calendarStart.year ? _calendarStart.month : 1;
-    final maxMonth = selected == _today.year ? _today.month : 12;
-    final month = controller.currentMonth.month.clamp(minMonth, maxMonth);
-    controller.jumpToDayPicker(DateTime.utc(selected, month));
-  }
-
   void _selectAll() {
     setState(() {
       _pendingStart = null;
       _range = (_calendarStart, _today);
     });
-    _calendarController.jumpToDayPicker(_calendarStart);
   }
 }
