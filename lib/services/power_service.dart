@@ -10,6 +10,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:path/path.dart' as path;
 import 'package:sqflite/sqflite.dart';
 
+import '../models/school_calendar.dart';
 import 'talker.dart';
 import 'dio_factory.dart';
 
@@ -1016,8 +1017,13 @@ class PowerService {
       return null;
     }
 
+    final holidayDates = {
+      for (final day in semesterCalendar.days)
+        if (day.adjustment == '/') _dateKey(day.date),
+    };
     final usageValues = <double>[];
     for (final item in dailyUsage) {
+      if (holidayDates.contains(_dateKey(item.dateValue))) continue;
       final value = double.tryParse(item.usage);
       if (value != null && value > 0) {
         usageValues.add(value);
@@ -1037,6 +1043,8 @@ class PowerService {
 
     return (availableValue / averageUsage).floor().toString();
   }
+
+  String _dateKey(DateTime date) => '${date.year}-${date.month}-${date.day}';
 
   String _normalizeText(String value) {
     return value
