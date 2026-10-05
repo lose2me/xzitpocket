@@ -38,5 +38,8 @@ void main() {
     expect(find.text('选择日期范围'), findsOneWidget);
     expect(find.text('选择全部'), findsOneWidget);
     expect(find.text('确定'), findsOneWidget);
+    expect(find.textContaining('~'), findsNothing);
+    expect(find.text('1日'), findsNothing);
+    expect(find.text('5日'), findsNothing);
   });
 }

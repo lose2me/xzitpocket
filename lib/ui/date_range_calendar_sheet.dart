@@ -56,6 +56,8 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
   late final DateTime _calendarStart;
   late final List<DateTime> _months;
   late final List<FGridSplitCalendarController> _calendarControllers;
+  late final List<GlobalKey> _monthKeys;
+  final _scrollController = ScrollController();
   late (DateTime, DateTime) _range;
   DateTime? _pendingStart;
 
@@ -94,6 +96,21 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
           end: _today,
         ),
     ];
+    _monthKeys = [for (final _ in _months) GlobalKey()];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _monthKeys.isEmpty) return;
+      final currentMonth = DateTime.utc(_today.year, _today.month);
+      final index = _months.indexWhere((month) => month == currentMonth);
+      if (index < 0) return;
+      final targetContext = _monthKeys[index].currentContext;
+      if (targetContext != null) {
+        Scrollable.ensureVisible(
+          targetContext,
+          alignment: 0.04,
+          duration: Duration.zero,
+        );
+      }
+    });
   }
 
   @override
@@ -101,18 +118,15 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
     for (final controller in _calendarControllers) {
       controller.dispose();
     }
+    _scrollController.dispose();
     super.dispose();
   }
-
-  String _fmt(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   DateTime _normalize(DateTime value) =>
       DateTime.utc(value.year, value.month, value.day);
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -124,27 +138,25 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Text(
-                '${_fmt(_range.$1)} ~ ${_fmt(_range.$2)}',
-                textAlign: TextAlign.center,
-                style: theme.typography.label.copyWith(
-                  color: theme.colors.primary,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             Expanded(
-              child: ListView.separated(
+              child: ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                itemCount: _months.length,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.lg),
-                itemBuilder: (context, index) => _buildMonth(
-                  context,
-                  _months[index],
-                  _calendarControllers[index],
-                ),
+                children: [
+                  for (var index = 0; index < _months.length; index++) ...[
+                    KeyedSubtree(
+                      key: _monthKeys[index],
+                      child: _buildMonth(
+                        context,
+                        _months[index],
+                        _calendarControllers[index],
+                      ),
+                    ),
+                    if (index != _months.length - 1)
+                      const SizedBox(height: AppSpacing.lg),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -191,6 +203,7 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
         return FCalendar.splitGrid(
           control: FGridSplitCalendarControl(controller: controller),
           fixedWeeks: false,
+          dayScrollPhysics: const NeverScrollableScrollPhysics(),
           selectionControl: FDateSelectionControl.liftedRange(
             value: _range,
             onChange: (_) {},
@@ -214,12 +227,29 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
             if (variants.contains(FCalendarDayVariant.adjacent)) {
               return const SizedBox.shrink();
             }
-            return FCalendar.defaultDayBuilder(
-              context,
-              styles,
-              localizations,
-              date,
-              variants,
+            final style = styles.resolve(variants);
+            final selected =
+                variants.contains(FCalendarDayVariant.single) ||
+                variants.contains(FCalendarDayVariant.start) ||
+                variants.contains(FCalendarDayVariant.middle) ||
+                variants.contains(FCalendarDayVariant.end);
+            final foreground = selected
+                ? context.theme.colors.primary
+                : const Color(0x00000000);
+            final textStyle = style.textStyle.copyWith(
+              color: selected
+                  ? context.theme.colors.primaryForeground
+                  : style.textStyle.color,
+              decoration: TextDecoration.none,
+            );
+            return SizedBox.expand(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: foreground,
+                ),
+                child: Center(child: Text('${date.day}', style: textStyle)),
+              ),
             );
           },
         );

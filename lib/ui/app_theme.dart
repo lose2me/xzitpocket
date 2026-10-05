@@ -23,35 +23,35 @@ abstract final class AppTheme {
     final background =
         customPageBackgroundColor ??
         pageBackgroundColor?.lightColor ??
-        const Color(0xFFF8FAFC);
+        const Color(0xFFF7F9FA);
     final card =
         pageBackgroundColor == null && customPageBackgroundColor == null
         ? const Color(0xFFFFFFFF)
         : Color.lerp(background, Colors.white, 0.58)!;
     final muted =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFFF1F5F9)
+        ? const Color(0xFFEEF2F3)
         : Color.lerp(background, primary, 0.06)!;
     final border =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFFE2E8F0)
-        : Color.lerp(background, const Color(0xFF0F172A), 0.14)!;
+        ? const Color(0xFFD7E0E3)
+        : Color.lerp(background, const Color(0xFF182126), 0.14)!;
     final controlBorder =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFF94A3B8)
-        : Color.lerp(background, const Color(0xFF0F172A), 0.32)!;
+        ? const Color(0xFF7A8B92)
+        : Color.lerp(background, const Color(0xFF182126), 0.32)!;
     return _build(
       debugLabel: 'XZIT Pocket Light',
       colors: FColors.neutralLight.copyWith(
         barrier: const Color(0x520F172A),
         background: background,
-        foreground: const Color(0xFF0F172A),
+        foreground: const Color(0xFF182126),
         primary: primary,
         primaryForeground: const Color(0xFFFFFFFF),
         secondary: Color.lerp(background, primary, 0.10)!,
         secondaryForeground: primary,
         muted: muted,
-        mutedForeground: const Color(0xFF526176),
+        mutedForeground: const Color(0xFF58686F),
         destructive: const Color(0xFFB91C1C),
         destructiveForeground: const Color(0xFFFFFFFF),
         error: const Color(0xFFB91C1C),
@@ -91,39 +91,39 @@ abstract final class AppTheme {
             brightness: Brightness.dark,
           ).primary;
     final background = customPageBackgroundColor == null
-        ? pageBackgroundColor?.darkColor ?? const Color(0xFF0B1120)
+        ? pageBackgroundColor?.darkColor ?? const Color(0xFF0E1417)
         : ColorScheme.fromSeed(
             seedColor: customPageBackgroundColor,
             brightness: Brightness.dark,
           ).surface;
     final card =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFF111827)
+        ? const Color(0xFF151D21)
         : Color.lerp(background, Colors.white, 0.08)!;
     final muted =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFF1E293B)
+        ? const Color(0xFF1D292D)
         : Color.lerp(background, Colors.white, 0.12)!;
     final border =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFF334155)
+        ? const Color(0xFF304047)
         : Color.lerp(background, Colors.white, 0.22)!;
     final controlBorder =
         pageBackgroundColor == null && customPageBackgroundColor == null
-        ? const Color(0xFF64748B)
+        ? const Color(0xFF71868F)
         : Color.lerp(background, Colors.white, 0.36)!;
     return _build(
       debugLabel: 'XZIT Pocket Dark',
       colors: FColors.neutralDark.copyWith(
         barrier: const Color(0xB3000000),
         background: background,
-        foreground: const Color(0xFFF8FAFC),
+        foreground: const Color(0xFFE8EEF0),
         primary: primary,
         primaryForeground: const Color(0xFF0F172A),
         secondary: Color.lerp(card, primary, 0.16)!,
         secondaryForeground: primary,
         muted: muted,
-        mutedForeground: const Color(0xFFA8B3C5),
+        mutedForeground: const Color(0xFFA5B6BC),
         destructive: const Color(0xFFF87171),
         destructiveForeground: const Color(0xFF450A0A),
         error: const Color(0xFFF87171),
