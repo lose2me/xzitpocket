@@ -10,12 +10,12 @@ import '../../providers/app_settings_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../providers/secondary_schedule_provider.dart';
+import '../../services/control_service.dart';
 import '../../services/course_backup.dart';
-import '../../services/preferences_storage.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 
-/// Clipboard backups for personalization and the two independent timetables.
+/// Shares all local timetable and personalization settings through a short-lived code.
 class ConfigBackupPage extends ConsumerStatefulWidget {
   const ConfigBackupPage({super.key});
 
@@ -24,115 +24,86 @@ class ConfigBackupPage extends ConsumerStatefulWidget {
 }
 
 class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
-  final _settingsController = TextEditingController();
-  final _coursesController = TextEditingController();
-  final _secondaryCoursesController = TextEditingController();
+  final _importController = TextEditingController();
+  final _generatedController = TextEditingController();
   bool _busy = false;
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _refreshSettingsExport();
-      _refreshCoursesExport(secondary: false);
-      _refreshCoursesExport(secondary: true);
-    });
-  }
-
-  @override
   void dispose() {
-    _settingsController.dispose();
-    _coursesController.dispose();
-    _secondaryCoursesController.dispose();
+    _importController.dispose();
+    _generatedController.dispose();
     super.dispose();
   }
 
-  PreferencesStorage get _storage => ref.read(preferencesStorageProvider);
-
-  void _refreshSettingsExport() {
-    _settingsController.text = jsonEncode({
-      'type': 'xzitpocket_personalization',
+  Map<String, dynamic> _exportData() {
+    final primary = ref.read(scheduleProvider).value ?? const <Course>[];
+    final secondary = ref.read(secondaryScheduleProvider);
+    return {
       'version': 1,
-      'settings': _storage.getPersonalizationSnapshot(),
-    });
+      'settings': ref
+          .read(preferencesStorageProvider)
+          .getPersonalizationSnapshot(),
+      'primaryCourses': courseBackup(courses: primary),
+      'secondaryCourses': courseBackup(courses: secondary.courses),
+      'secondaryTitle': secondary.title,
+    };
   }
 
-  void _refreshCoursesExport({required bool secondary}) {
-    final courses = secondary
-        ? ref.read(secondaryScheduleProvider).courses
-        : ref.read(scheduleProvider).value ?? const <Course>[];
-    final controller = secondary
-        ? _secondaryCoursesController
-        : _coursesController;
-    controller.text = jsonEncode(courseBackup(courses: courses));
-  }
-
-  Future<void> _copy(TextEditingController controller) async {
-    await Clipboard.setData(ClipboardData(text: controller.text));
-    if (mounted) showAppSnackBar(context, 'JSON 已复制');
-  }
-
-  Map<String, dynamic> _parseSettings(String source) {
-    final decoded = jsonDecode(source);
-    if (decoded is! Map) throw const FormatException('个性化设置必须是 JSON 对象');
-    if (decoded.containsKey('type') &&
-        (decoded['type'] != 'xzitpocket_personalization' ||
-            decoded['version'] != 1)) {
-      throw const FormatException('请选择个性化设置 JSON');
-    }
-    final raw = decoded['settings'] ?? decoded;
-    if (raw is! Map) throw const FormatException('找不到 settings 对象');
-    return Map<String, dynamic>.from(raw);
-  }
-
-  Future<void> _importSettings() async {
+  Future<void> _generate() async {
     if (_busy) return;
     setState(() => _busy = true);
     try {
-      final settings = _parseSettings(_settingsController.text.trim());
-      await _storage.restorePersonalizationSnapshot(settings);
+      final code = await ControlService.instance.createShareCode(_exportData());
+      if (!mounted) return;
+      setState(() => _generatedController.text = code);
+      showAppSnackBar(
+        context,
+        '分享码已生成，有效期 7 天',
+        severity: ToastSeverity.success,
+      );
+    } catch (error) {
+      if (mounted) {
+        showAppSnackBar(context, '生成失败：$error', severity: ToastSeverity.error);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _import() async {
+    if (_busy) return;
+    final code = _importController.text.trim();
+    if (code.isEmpty) {
+      showAppSnackBar(context, '请输入分享码', severity: ToastSeverity.warning);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final data = await ControlService.instance.fetchShareCode(code);
+      final settings = data['settings'];
+      if (settings is! Map) throw const FormatException('个性化设置格式无效');
+      final primary = _coursesFrom(data['primaryCourses'], '主课表');
+      final secondary = _coursesFrom(data['secondaryCourses'], '备用课表');
+      await ref
+          .read(preferencesStorageProvider)
+          .restorePersonalizationSnapshot(Map<String, dynamic>.from(settings));
       ref.invalidate(appSettingsProvider);
-      if (mounted) {
-        _refreshSettingsExport();
-        showAppSnackBar(context, '个性化设置已导入', severity: ToastSeverity.success);
-      }
-    } catch (error) {
-      if (mounted) {
-        showAppSnackBar(context, '导入失败：$error', severity: ToastSeverity.error);
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _importCourses({required bool secondary}) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      final controller = secondary
-          ? _secondaryCoursesController
-          : _coursesController;
-      final courses = parseCourseBackup(controller.text.trim());
-      if (secondary) {
-        await ref.read(secondaryScheduleProvider.notifier).setCourses(courses);
+      await ref.read(scheduleProvider.notifier).replaceCourses(primary);
+      if (secondary.isEmpty) {
+        await ref.read(secondaryScheduleProvider.notifier).clear();
       } else {
-        final confirmed = await showAppConfirmDialog(
-          context: context,
-          title: '导入主课表',
-          message: '导入会替换当前主课表，并同步小组件和课程提醒。确定继续吗？',
-          confirmLabel: '替换',
-        );
-        if (!confirmed || !mounted) return;
-        await ref.read(scheduleProvider.notifier).replaceCourses(courses);
+        await ref
+            .read(secondaryScheduleProvider.notifier)
+            .setCourses(secondary);
       }
+      await ref
+          .read(secondaryScheduleProvider.notifier)
+          .setTitle(
+            data['secondaryTitle']?.toString() ?? defaultSecondaryScheduleTitle,
+          );
       if (mounted) {
-        _refreshCoursesExport(secondary: secondary);
-        showAppSnackBar(
-          context,
-          secondary ? '已导入备用课表（${courses.length} 门课程）' : '主课表已导入',
-          severity: ToastSeverity.success,
-        );
+        _importController.clear();
+        showAppSnackBar(context, '配置已导入', severity: ToastSeverity.success);
       }
     } catch (error) {
       if (mounted) {
@@ -143,102 +114,83 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     }
   }
 
-  Widget _jsonSection({
-    required String title,
-    required String fieldKey,
-    required TextEditingController controller,
-    required VoidCallback onImport,
-  }) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Text(title, style: context.theme.typography.tileTitle),
-      const SizedBox(height: AppSpacing.sm),
-      AppTextField(
-        key: ValueKey(fieldKey),
-        controller: controller,
-        enabled: !_busy,
-        keyboardType: TextInputType.multiline,
-        minLines: 1,
-        maxLines: 1,
-        size: FTextFieldSizeVariant.sm,
-      ),
-      const SizedBox(height: AppSpacing.sm),
-      Row(
-        children: [
-          Expanded(
-            child: FButton(
-              variant: FButtonVariant.outline,
-              prefix: const Icon(FLucideIcons.copy),
-              onPress: _busy ? null : () => _copy(controller),
-              child: const Text('复制'),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: FButton(
-              variant: FButtonVariant.outline,
-              prefix: const Icon(FLucideIcons.clipboardPaste),
-              onPress: _busy ? null : onImport,
-              child: const Text('导入'),
-            ),
-          ),
-        ],
-      ),
-    ],
-  );
+  List<Course> _coursesFrom(Object? value, String label) {
+    if (value is! Map) throw FormatException('$label数据格式无效');
+    try {
+      return parseCourseBackup(jsonEncode(value));
+    } catch (error) {
+      throw FormatException('$label数据格式无效：$error');
+    }
+  }
+
+  Future<void> _copyGenerated() async {
+    if (_generatedController.text.isEmpty) return;
+    await Clipboard.setData(ClipboardData(text: _generatedController.text));
+    if (mounted) showAppSnackBar(context, '分享码已复制');
+  }
 
   @override
   Widget build(BuildContext context) => AppPage(
-    title: '配置备份',
-    child: AppPageBody(
-      maxWidth: AppLayout.contentMaxWidth,
-      child: FTabs(
-        expands: true,
-        style: appSegmentedTabsStyle(context.theme),
-        children: [
-          FTabEntry(
-            label: const Text('个性化配置'),
-            child: AppPageListView(
-              maxWidth: AppLayout.resultMaxWidth,
-              safeArea: false,
-              topPadding: AppSpacing.lg,
-              bottomPadding: AppSpacing.xxl,
-              children: [
-                _jsonSection(
-                  title: '个性化设置 JSON',
-                  fieldKey: 'backup_settings_json',
-                  controller: _settingsController,
-                  onImport: _importSettings,
-                ),
-              ],
-            ),
+    title: '分享码',
+    child: AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.lg,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        Text('分享码', style: context.theme.typography.pageTitle),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          '分享码包含个性化设置、主课表和备用课表，有效期 7 天。',
+          style: context.theme.typography.bodySmall.copyWith(
+            color: context.theme.colors.mutedForeground,
           ),
-          FTabEntry(
-            label: const Text('课表'),
-            child: AppPageListView(
-              maxWidth: AppLayout.resultMaxWidth,
-              safeArea: false,
-              topPadding: AppSpacing.lg,
-              bottomPadding: AppSpacing.xxl,
-              children: [
-                _jsonSection(
-                  title: '当前课程 JSON',
-                  fieldKey: 'backup_primary_courses_json',
-                  controller: _coursesController,
-                  onImport: () => _importCourses(secondary: false),
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                _jsonSection(
-                  title: '备用课程 JSON',
-                  fieldKey: 'backup_secondary_courses_json',
-                  controller: _secondaryCoursesController,
-                  onImport: () => _importCourses(secondary: true),
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(height: AppSpacing.xl),
+        AppTextField(
+          key: const ValueKey('config_backup_import_code'),
+          controller: _importController,
+          label: '输入分享码',
+          hint: '六位字母和数字',
+          enabled: !_busy,
+          textCapitalization: TextCapitalization.characters,
+          suffix: AppIconButton(
+            icon: FLucideIcons.download,
+            onPress: _busy ? null : _import,
+            tooltip: '导入分享码',
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: FButton(
+            onPress: _busy ? null : _import,
+            prefix: const Icon(FLucideIcons.download),
+            child: const Text('导入配置'),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xxl),
+        AppTextField(
+          key: const ValueKey('config_backup_generated_code'),
+          controller: _generatedController,
+          label: '生成的分享码',
+          readOnly: true,
+          suffix: AppIconButton(
+            icon: FLucideIcons.copy,
+            onPress: _generatedController.text.isEmpty ? null : _copyGenerated,
+            tooltip: '复制分享码',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: FButton(
+            variant: FButtonVariant.outline,
+            onPress: _busy ? null : _generate,
+            prefix: const Icon(FLucideIcons.plus),
+            child: const Text('生成分享码'),
+          ),
+        ),
+      ],
     ),
   );
 }

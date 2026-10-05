@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
@@ -6,6 +7,7 @@ import 'package:forui/forui.dart';
 import '../../models/book_list.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
@@ -13,11 +15,13 @@ import '../../utils/snackbar_helper.dart';
 class BookListPage extends StatefulWidget {
   final String studentId;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const BookListPage({
     super.key,
     required this.studentId,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -25,6 +29,8 @@ class BookListPage extends StatefulWidget {
 }
 
 class _BookListPageState extends State<BookListPage> {
+  static const _cacheTtl = Duration(minutes: 5);
+
   BookListResult? _result;
   bool _loading = false;
   bool _refreshSucceeded = false;
@@ -34,7 +40,41 @@ class _BookListPageState extends State<BookListPage> {
   @override
   void initState() {
     super.initState();
+    _restoreCache();
     unawaited(_load(showError: false));
+  }
+
+  void _restoreCache() {
+    try {
+      final cached = widget.preferencesStorage.getBookCache();
+      if (cached == null || cached.isEmpty) return;
+      final page = BookListPageResult.fromJson(
+        jsonDecode(cached) as Map<String, dynamic>,
+      );
+      _semesterOptions = page.semesters;
+      _selectedSemester = page.selectedSemester;
+      _result = page.books;
+    } catch (error, stackTrace) {
+      talker.warning('教材缓存解析失败', error, stackTrace);
+      _semesterOptions = const [];
+      _selectedSemester = null;
+      _result = null;
+    }
+  }
+
+  Future<void> _saveCache() async {
+    final selected = _selectedSemester;
+    final result = _result;
+    if (selected == null || result == null) return;
+    await widget.preferencesStorage.setBookCache(
+      jsonEncode(
+        BookListPageResult(
+          semesters: _semesterOptions,
+          selectedSemester: selected,
+          books: result,
+        ).toJson(),
+      ),
+    );
   }
 
   String _optionLabel(String key) {
@@ -59,8 +99,18 @@ class _BookListPageState extends State<BookListPage> {
     }
   }
 
-  Future<void> _load({bool showError = true}) async {
+  Future<void> _refresh() => _load(forceRefresh: true);
+
+  Future<void> _load({bool showError = true, bool forceRefresh = false}) async {
     if (_loading) return;
+    final hasFreshCache =
+        _result != null &&
+        PreferencesStorage.isCacheValid(
+          widget.preferencesStorage.getBookCacheTime(),
+          _cacheTtl,
+        );
+    if (!forceRefresh && hasFreshCache) return;
+
     setState(() {
       _loading = true;
       _refreshSucceeded = false;
@@ -92,13 +142,14 @@ class _BookListPageState extends State<BookListPage> {
         _result = result;
         _refreshSucceeded = true;
       });
+      await _saveCache();
     } on AuthException catch (error, stackTrace) {
-      talker.error('书单查询失败', error, stackTrace);
+      talker.error('教材查询失败', error, stackTrace);
       if (mounted && showError) {
         showAppSnackBar(context, error.message, severity: ToastSeverity.error);
       }
     } catch (error, stackTrace) {
-      talker.error('书单查询异常', error, stackTrace);
+      talker.error('教材查询异常', error, stackTrace);
       if (mounted && showError) {
         showAppSnackBar(context, '书单加载失败', severity: ToastSeverity.error);
       }
@@ -111,11 +162,11 @@ class _BookListPageState extends State<BookListPage> {
   Widget build(BuildContext context) {
     final result = _result;
     return AppPage(
-      title: '书单查询',
+      title: '教材查询',
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
-          onPress: _loading ? null : _load,
+          onPress: _loading ? null : _refresh,
           tooltip: '刷新书单',
           loading: _loading,
           completed: _refreshSucceeded,
@@ -130,22 +181,12 @@ class _BookListPageState extends State<BookListPage> {
             _buildSemesterSelector(),
             const SizedBox(height: AppSpacing.md),
           ],
-          if (result == null && _loading)
-            const SizedBox(
-              height: 200,
-              child: Center(child: FCircularProgress()),
-            )
-          else if (result == null)
-            const SizedBox(
-              height: 200,
-              child: AppStateView(icon: FLucideIcons.bookOpen, title: '书单加载失败'),
-            )
-          else if (result.isEmpty)
+          if (result == null || result.isEmpty)
             const SizedBox(
               height: 200,
               child: AppStateView(
                 icon: FLucideIcons.bookOpen,
-                title: '该学期暂无书单',
+                title: '暂未查询到相关教材',
               ),
             )
           else ...[

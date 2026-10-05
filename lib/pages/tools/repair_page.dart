@@ -127,11 +127,7 @@ class _RepairPageState extends State<RepairPage> {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    // The web repair list hides closed orders by default. Keep the app in
-    // sync with that view while retaining every other server-side status.
-    final visible = _records
-        .where((record) => record.status != '已关闭')
-        .toList(growable: false);
+    final visible = _records;
 
     return AppPage(
       title: '极速报修',
@@ -171,6 +167,15 @@ class _RepairPageState extends State<RepairPage> {
                       bottomPadding: AppSpacing.xxl,
                       safeArea: false,
                       children: [
+                        Center(
+                          child: Text(
+                            '点击可查看处理进度',
+                            style: theme.typography.body.xs.copyWith(
+                              color: theme.colors.mutedForeground,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
                         for (final record in visible)
                           _buildRecordCard(theme, record),
                       ],
@@ -212,13 +217,6 @@ class _RepairPageState extends State<RepairPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '点击可查看处理进度',
-              style: theme.typography.body.xs.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: 6),
             Row(
               children: [
                 Container(
@@ -233,7 +231,7 @@ class _RepairPageState extends State<RepairPage> {
                       fontSize: 11,
                       height: 1.1,
                       fontWeight: FontWeight.w600,
-                      color: _onColor(_statusColor(record.status)),
+                      color: const Color(0xFFFFFFFF),
                     ),
                   ),
                 ),
@@ -275,19 +273,8 @@ class _RepairPageState extends State<RepairPage> {
     return switch (status) {
       '已完工' || '已关闭' || '已评价' => const Color(0xFF4CAF50), // 绿
       '已接单' || '已转单' || '处理中' || '维修中' => const Color(0xFFFBC02D), // 黄
-      '已上报' || '已上传照片' => const Color(0xFF9E9E9E), // 灰
+      '已上报' || '已上传照片' || '已上传图片' || '待接单' => const Color(0xFF9E9E9E), // 灰
       _ => const Color(0xFFF44336), // 红
     };
-  }
-
-  /// Choose the foreground with the better WCAG contrast ratio. A fixed
-  /// luminance cutoff makes medium green/red badges unreadable in one theme.
-  Color _onColor(Color background) {
-    const black = Color(0xFF000000);
-    const white = Color(0xFFFFFFFF);
-    final luminance = background.computeLuminance();
-    final blackContrast = (luminance + 0.05) / 0.05;
-    final whiteContrast = 1.05 / (luminance + 0.05);
-    return blackContrast >= whiteContrast ? black : white;
   }
 }

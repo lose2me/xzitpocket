@@ -136,7 +136,7 @@ enum ClassAutomationMode {
 enum AppServiceFeature {
   campusCard('campus_card', '一卡通查询'),
   power('power', '电费查询'),
-  exams('exams', '考试查询'),
+  exams('exams', '考试安排'),
   academic('academic', '学业情况'),
   network('network', '网络管理'),
   repair('repair', '极速报修'),

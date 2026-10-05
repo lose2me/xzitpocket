@@ -110,7 +110,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
         });
 
     return AppPage(
-      title: '考试查询',
+      title: '考试安排',
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,

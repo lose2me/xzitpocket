@@ -127,6 +127,23 @@ class PreferencesStorage {
     }
   }
 
+  String getSecondaryScheduleTitle() {
+    final title = _prefs.getString('secondary_schedule_title');
+    if (title == null || title.isEmpty || title == '正在预览备用课表') {
+      return '正在预览备用课程';
+    }
+    return title;
+  }
+
+  Future<void> setSecondaryScheduleTitle(String value) async {
+    final title = value.trim();
+    if (title.isEmpty || title == '正在预览备用课程' || title == '正在预览备用课表') {
+      await _prefs.remove('secondary_schedule_title');
+    } else {
+      await _prefs.setString('secondary_schedule_title', title);
+    }
+  }
+
   // ── Student info ──
 
   String? getStudentId() => _prefs.getString('student_id');
@@ -990,6 +1007,13 @@ class PreferencesStorage {
   Future<void> setExamCache(String json) =>
       _setCache('exam_cache', 'exam_cache_time', json);
 
+  // ── Book list cache ──
+
+  String? getBookCache() => _prefs.getString('book_cache');
+  int? getBookCacheTime() => _prefs.getInt('book_cache_time');
+  Future<void> setBookCache(String json) =>
+      _setCache('book_cache', 'book_cache_time', json);
+
   String? getGradeCache() => _prefs.getString('grade_cache');
   int? getGradeCacheTime() => _prefs.getInt('grade_cache_time');
   Future<void> setGradeCache(String json) =>
@@ -1052,6 +1076,7 @@ class PreferencesStorage {
       _clearCache('jp_cache', 'jp_cache_time'),
       _clearCache('repair_cache', 'repair_cache_time'),
       _clearCache('exam_cache', 'exam_cache_time'),
+      _clearCache('book_cache', 'book_cache_time'),
       _clearCache('grade_cache', 'grade_cache_time'),
       _clearCache('academic_cache', 'academic_cache_time'),
       _clearCache('ykt_cache', 'ykt_cache_time'),

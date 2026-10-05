@@ -82,7 +82,8 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         PreferencesStorage.isCacheValid(
           widget.preferencesStorage.getAcademicCacheTime(),
           _cacheTtl,
-        );
+        ) &&
+        _academic?.parserVersion == AcademicStatus.currentParserVersion;
     if (!forceRefresh && hasFreshCache) return;
 
     setState(() => _loading = true);
@@ -292,7 +293,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     final gpa = totalCredit > 0 ? weightedSum / totalCredit : 0.0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, AppSpacing.xs, 0, AppSpacing.xs),
+      padding: EdgeInsets.fromLTRB(0, AppSpacing.xs, 0, AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -817,6 +818,7 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
     final cat = widget.category;
     final theme = widget.theme;
     final hasChildren = cat.children.isNotEmpty;
+    final noRequirement = cat.reqCredits <= 0;
     final progress = cat.reqCredits > 0
         ? (cat.earnedCredits / cat.reqCredits).clamp(0.0, 1.0)
         : 0.0;
@@ -855,34 +857,37 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        cat.name,
+                        noRequirement ? '${cat.name}[无需]' : cat.name,
                         style: theme.typography.body.md.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '已${_fmtNum(cat.earnedCredits)} / 需${_fmtNum(cat.reqCredits)}',
-                        style: theme.typography.body.xs.copyWith(
-                          color: theme.colors.mutedForeground,
+                      if (!noRequirement) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '已${_fmtNum(cat.earnedCredits)} / 需${_fmtNum(cat.reqCredits)}',
+                          style: theme.typography.body.xs.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
-                _RingProgress(
-                  progress: progress,
-                  size: 30,
-                  trackColor: theme.colors.border,
-                  color: theme.colors.primary,
-                  center: Text(
-                    '$pct%',
-                    style: theme.typography.body.xs.copyWith(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 8,
+                if (!noRequirement)
+                  _RingProgress(
+                    progress: progress,
+                    size: 30,
+                    trackColor: theme.colors.border,
+                    color: theme.colors.primary,
+                    center: Text(
+                      '$pct%',
+                      style: theme.typography.body.xs.copyWith(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 8,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -902,9 +907,100 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
               ],
             ),
           ),
+        if (!hasChildren && cat.courses.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 22, top: 2),
+            child: Column(
+              children: [
+                for (final course in cat.courses)
+                  _AcademicCourseDetail(course: course, theme: theme),
+              ],
+            ),
+          ),
       ],
     );
   }
+}
+
+class _AcademicCourseDetail extends StatelessWidget {
+  const _AcademicCourseDetail({required this.course, required this.theme});
+
+  final AcademicCourse course;
+  final FThemeData theme;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+    padding: const EdgeInsets.fromLTRB(
+      AppSpacing.sm,
+      AppSpacing.sm,
+      AppSpacing.sm,
+      AppSpacing.xs,
+    ),
+    decoration: BoxDecoration(
+      color: theme.colors.muted.withValues(alpha: 0.45),
+      border: Border.all(color: theme.colors.border.withValues(alpha: 0.7)),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          course.name.isEmpty ? '未命名课程' : course.name,
+          style: theme.typography.body.sm.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        _courseDetailLine('成绩学年', course.academicYear, '学期', course.term),
+        _courseDetailLine('课程号', course.courseCode, '学时', course.hours),
+        _courseDetailLine('课程性质', course.nature, '学分', course.credit),
+        _courseDetailLine('课程类别', course.category, '最大成绩', course.maxScore),
+        _courseDetailLine('绩点', course.gradePoint, '成绩', course.score),
+        _courseDetailLine('补考', course.makeup, '重修', course.retake),
+        _courseDetailLine(
+          '建议修读学年',
+          course.suggestedYear,
+          '学期',
+          course.suggestedTerm,
+        ),
+        _courseDetailLine('课程重要性系数', course.importance, '', ''),
+      ],
+    ),
+  );
+
+  Widget _courseDetailLine(
+    String leftLabel,
+    String leftValue,
+    String rightLabel,
+    String rightValue,
+  ) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: _courseField(leftLabel, leftValue)),
+        if (rightLabel.isNotEmpty) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(child: _courseField(rightLabel, rightValue)),
+        ],
+      ],
+    ),
+  );
+
+  Widget _courseField(String label, String value) => RichText(
+    text: TextSpan(
+      style: theme.typography.body.xs.copyWith(
+        color: theme.colors.mutedForeground,
+      ),
+      children: [
+        TextSpan(text: '$label：'),
+        TextSpan(
+          text: value.isEmpty ? '暂无' : value,
+          style: TextStyle(color: theme.colors.foreground),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Maps numeric and common textual grades to the four display bands.

@@ -402,6 +402,58 @@ class ControlService {
     );
   }
 
+  Future<String> createShareCode(Map<String, dynamic> data) async {
+    if (!isConfigured) {
+      throw const ControlApiException(
+        'control_not_configured',
+        'Control 服务地址未配置',
+      );
+    }
+    await initialize();
+    final pendingLogin = _loginFuture;
+    if (pendingLogin != null) await pendingLogin;
+    final token = await _validAccessToken();
+    if (token == null) {
+      throw const ControlApiException(
+        'control_login_required',
+        '请先登录后生成分享码',
+        401,
+      );
+    }
+    final response = await _request(
+      'POST',
+      '/api/v1/share-codes',
+      data: {'data': data},
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final code = response['code']?.toString().trim() ?? '';
+    if (code.length != 6) {
+      throw const ControlApiException(
+        'invalid_share_code_response',
+        '服务端返回的分享码无效',
+      );
+    }
+    return code;
+  }
+
+  Future<Map<String, dynamic>> fetchShareCode(String code) async {
+    if (!isConfigured) {
+      throw const ControlApiException(
+        'control_not_configured',
+        'Control 服务地址未配置',
+      );
+    }
+    final response = await _request(
+      'GET',
+      '/api/v1/share-codes/${Uri.encodeComponent(code.trim())}',
+    );
+    final data = response['data'];
+    if (data is! Map) {
+      throw const ControlApiException('invalid_share_data', '分享码数据格式无效');
+    }
+    return _stringMap(data);
+  }
+
   Future<ControlRelease?> checkForUpdate() async {
     if (!isConfigured) return null;
     try {

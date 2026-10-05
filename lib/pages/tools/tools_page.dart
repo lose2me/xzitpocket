@@ -160,7 +160,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   Future<void> _openExamQuery() => _openTool(
     loading: _manager.examLoading,
-    logLabel: '打开考试查询',
+    logLabel: '打开考试安排',
     routeName: AppRouteNames.exams,
     getData: () => _manager.exams,
     load: _manager.loadExam,
@@ -267,7 +267,11 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       appRoute(
         name: AppRouteNames.bookList,
         builder: (_) =>
-            BookListPage(studentId: creds.studentId, password: creds.password),
+            BookListPage(
+              studentId: creds.studentId,
+              password: creds.password,
+              preferencesStorage: ref.read(preferencesStorageProvider),
+            ),
       ),
     );
   }
@@ -456,7 +460,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       _buildSimpleCard(
         theme,
         icon: FLucideIcons.bookOpen,
-        title: '书单查询',
+        title: '教材查询',
         onTap: _openBookList,
       ),
     );
@@ -612,7 +616,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                           ),
                           const SizedBox(width: AppSpacing.sm),
                           Text(
-                            '考试查询',
+                            '考试安排',
                             style: theme.typography.bodySmall.copyWith(
                               color: theme.colors.mutedForeground,
                             ),
@@ -645,7 +649,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                         size: 22,
                       ),
                       const SizedBox(width: AppSpacing.md),
-                      Text('考试查询', style: theme.typography.tileTitle),
+                      Text('考试安排', style: theme.typography.tileTitle),
                     ],
                   ),
           ),

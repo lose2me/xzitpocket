@@ -741,6 +741,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         ? _toggleSchedule
                         : null,
                     showingSecondarySchedule: secondarySchedule.active,
+                    secondaryScheduleTitle: secondarySchedule.title,
                   ),
                 ),
                 Expanded(

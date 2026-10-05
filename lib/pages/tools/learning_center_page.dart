@@ -422,15 +422,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           prefixIconSpacing: 8,
         ),
       ),
-      prefix: Padding(
-        padding: const EdgeInsets.only(left: 2),
-        child: _BankInitial(
-          initial: _bankInitial(name),
-          outerColor: selected
-              ? theme.colors.primary.withValues(alpha: 0.3)
-              : Color.lerp(theme.colors.primary, Colors.white, 0.55)!,
-          innerColor: Color.lerp(theme.colors.primary, Colors.black, 0.2)!,
-        ),
+      prefix: _BankInitial(
+        initial: _bankInitial(name),
+        outerColor: selected
+            ? theme.colors.primary.withValues(alpha: 0.3)
+            : Color.lerp(theme.colors.primary, Colors.white, 0.55)!,
+        innerColor: Color.lerp(theme.colors.primary, Colors.black, 0.2)!,
       ),
       title: Text(
         name,

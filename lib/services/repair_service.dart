@@ -191,26 +191,39 @@ class RepairDetail {
             ]
             .whereType<List>()
             .expand((value) => value)
-            .whereType<Map<String, dynamic>>();
-    for (final node in rawFlow) {
+            .whereType<Map<String, dynamic>>()
+            .toList();
+    for (var index = 0; index < rawFlow.length; index++) {
+      final node = rawFlow[index];
       final name =
           '${node['nodename'] ?? node['nodeName'] ?? node['name'] ?? node['status'] ?? ''}';
       if (name.trim().isEmpty) continue;
+      final rawOperator =
+          '${node['operatorname'] ?? node['operator'] ?? node['operatorName'] ?? node['username'] ?? node['maintainer'] ?? ''}';
+      final operatorName =
+          rawOperator == '${json['creater'] ?? ''}' &&
+              '${json['username'] ?? ''}'.isNotEmpty
+          ? '${json['username']}'
+          : rawOperator;
+      final nodeAttachments = <RepairAttachment>[];
+      for (final image in (node['imgs'] as List? ?? const [])) {
+        if (image is Map<String, dynamic>) {
+          nodeAttachments.add(RepairAttachment.fromJson(image));
+        }
+      }
       steps.add(
         RepairProcessStep(
           name: name,
           time:
               '${node['time'] ?? node['operatetime'] ?? node['operateTime'] ?? node['createtime'] ?? ''}',
-          operatorName:
-              '${node['operator'] ?? node['operatorName'] ?? node['username'] ?? node['maintainer'] ?? ''}',
-          note: '${node['remark'] ?? node['comment'] ?? node['content'] ?? ''}',
-          current: node['current'] == true || node['iscurrent'] == true,
-          attachments:
-              (node['imgs'] as List?)
-                  ?.whereType<Map<String, dynamic>>()
-                  .map(RepairAttachment.fromJson)
-                  .toList() ??
-              const <RepairAttachment>[],
+          operatorName: operatorName,
+          note:
+              '${node['nodecontent'] ?? node['remark'] ?? node['comment'] ?? node['content'] ?? ''}',
+          current:
+              node['current'] == true ||
+              node['iscurrent'] == true ||
+              index == rawFlow.length - 1,
+          attachments: nodeAttachments,
         ),
       );
     }
@@ -256,6 +269,14 @@ class RepairDetail {
         );
       }
     }
+    steps.sort((a, b) {
+      final aTime = _repairStepDate(a.time);
+      final bTime = _repairStepDate(b.time);
+      if (aTime == null && bTime == null) return 0;
+      if (aTime == null) return 1;
+      if (bTime == null) return -1;
+      return bTime.compareTo(aTime);
+    });
 
     return RepairDetail(
       formUuid: '${json['uuid'] ?? json['formuuid'] ?? ''}',
@@ -276,6 +297,11 @@ class RepairDetail {
       steps: steps,
       raw: raw ?? json,
     );
+  }
+
+  static DateTime? _repairStepDate(String value) {
+    final normalized = value.trim().replaceFirst(' ', 'T');
+    return DateTime.tryParse(normalized);
   }
 }
 
@@ -478,10 +504,28 @@ class RepairService {
     String formUuid,
   ) async {
     final payload = await getRepairDetail(session, formUuid);
+    Map<String, dynamic> processPayload = const {};
+    try {
+      processPayload = await _api(session.dio, 'process/getbuslog', {
+        'sysid': formUuid,
+      });
+    } catch (error, stackTrace) {
+      // Older repair records can have no workflow log. Keep the form detail
+      // usable and let the UI show the milestones available in that response.
+      talker.debug('报修流程日志加载失败', error, stackTrace);
+    }
     final list = (payload['data'] as List?) ?? const [];
     final forms = list.whereType<Map<String, dynamic>>();
     final form = forms.isEmpty ? <String, dynamic>{} : forms.first;
-    return RepairDetail.fromJson(form, raw: payload);
+    final workflow =
+        (processPayload['data'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .toList() ??
+        const <Map<String, dynamic>>[];
+    return RepairDetail.fromJson(
+      {...form, 'processList': workflow},
+      raw: {...payload, 'process': processPayload},
+    );
   }
 
   Future<RepairResult> fetchAll(String username, String password) async {

@@ -14,6 +14,7 @@ class WeekHeader extends StatelessWidget {
   final bool syncing;
   final VoidCallback? onToggleSchedule;
   final bool showingSecondarySchedule;
+  final String secondaryScheduleTitle;
 
   const WeekHeader({
     super.key,
@@ -25,6 +26,7 @@ class WeekHeader extends StatelessWidget {
     this.syncing = false,
     this.onToggleSchedule,
     this.showingSecondarySchedule = false,
+    this.secondaryScheduleTitle = '正在预览备用课程',
   });
 
   @override
@@ -46,7 +48,7 @@ class WeekHeader extends StatelessWidget {
               children: [
                 Text(
                   showingSecondarySchedule
-                      ? '正在预览备用课表'
+                      ? secondaryScheduleTitle
                       : '${today.year}/${today.month}/${today.day}',
                   style: theme.typography.pageTitle.copyWith(
                     color: theme.colors.foreground,
@@ -76,12 +78,13 @@ class WeekHeader extends StatelessWidget {
               onPress: onJumpToCurrentWeek,
               tooltip: '回到当前周',
             ),
-          AppIconButton(
-            icon: FLucideIcons.refreshCw,
-            onPress: syncing ? null : onSync,
-            tooltip: '同步课表',
-            loading: syncing,
-          ),
+          if (!showingSecondarySchedule)
+            AppIconButton(
+              icon: FLucideIcons.refreshCw,
+              onPress: syncing ? null : onSync,
+              tooltip: '同步课表',
+              loading: syncing,
+            ),
           if (onToggleSchedule != null)
             AppIconButton(
               icon: FLucideIcons.arrowLeftRight,

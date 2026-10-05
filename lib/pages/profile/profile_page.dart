@@ -244,8 +244,8 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 ),
               ),
               ProfileSettingsTile(
-                icon: FLucideIcons.archiveRestore,
-                title: '配置备份',
+                icon: FLucideIcons.share,
+                title: '分享码',
                 onTap: () => Navigator.of(context).push(
                   appRoute(
                     name: AppRouteNames.configBackup,

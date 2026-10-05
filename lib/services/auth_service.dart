@@ -131,6 +131,12 @@ class GradeItem {
   final String examMethod;
   final String year;
   final String term;
+  final String hours;
+  final String maxScore;
+  final String makeup;
+  final String retake;
+  final String suggestedYear;
+  final String suggestedTerm;
 
   const GradeItem({
     required this.name,
@@ -145,6 +151,12 @@ class GradeItem {
     required this.examMethod,
     required this.year,
     required this.term,
+    this.hours = '',
+    this.maxScore = '',
+    this.makeup = '',
+    this.retake = '',
+    this.suggestedYear = '',
+    this.suggestedTerm = '',
   });
 }
 
@@ -175,6 +187,12 @@ class GradeResult {
           'examMethod': grade.examMethod,
           'year': grade.year,
           'term': grade.term,
+          'hours': grade.hours,
+          'maxScore': grade.maxScore,
+          'makeup': grade.makeup,
+          'retake': grade.retake,
+          'suggestedYear': grade.suggestedYear,
+          'suggestedTerm': grade.suggestedTerm,
         },
     ],
     'years': years,
@@ -197,6 +215,12 @@ class GradeResult {
           examMethod: '${raw['examMethod'] ?? ''}',
           year: '${raw['year'] ?? ''}',
           term: '${raw['term'] ?? ''}',
+          hours: '${raw['hours'] ?? ''}',
+          maxScore: '${raw['maxScore'] ?? ''}',
+          makeup: '${raw['makeup'] ?? ''}',
+          retake: '${raw['retake'] ?? ''}',
+          suggestedYear: '${raw['suggestedYear'] ?? ''}',
+          suggestedTerm: '${raw['suggestedTerm'] ?? ''}',
         ),
     ],
     years: [
@@ -231,6 +255,8 @@ class AcademicCategory {
 
   /// 子级项（树形层级，最多 4 级）。叶节点为空列表。
   final List<AcademicCategory> children;
+  final String sourceId;
+  final List<AcademicCourse> courses;
 
   const AcademicCategory({
     required this.name,
@@ -240,6 +266,8 @@ class AcademicCategory {
     this.isDirectory = false,
     this.completed = false,
     this.children = const [],
+    this.sourceId = '',
+    this.courses = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -250,6 +278,8 @@ class AcademicCategory {
     'isDirectory': isDirectory,
     'completed': completed,
     'children': [for (final child in children) child.toJson()],
+    'sourceId': sourceId,
+    'courses': [for (final course in courses) course.toJson()],
   };
 
   factory AcademicCategory.fromJson(Map<String, dynamic> json) =>
@@ -260,6 +290,11 @@ class AcademicCategory {
         missingCredits: _asDouble(json['missingCredits']),
         isDirectory: json['isDirectory'] == true,
         completed: json['completed'] == true,
+        sourceId: '${json['sourceId'] ?? ''}',
+        courses: [
+          for (final raw in (json['courses'] as List<dynamic>? ?? const []))
+            AcademicCourse.fromJson(raw as Map<String, dynamic>),
+        ],
         children: [
           for (final raw in (json['children'] as List<dynamic>? ?? const []))
             AcademicCategory.fromJson(raw as Map<String, dynamic>),
@@ -270,23 +305,109 @@ class AcademicCategory {
       value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
 }
 
+/// A course row returned by the academic-overview detail endpoint.
+class AcademicCourse {
+  final String studyStatus;
+  final String academicYear;
+  final String term;
+  final String courseCode;
+  final String name;
+  final String hours;
+  final String nature;
+  final String credit;
+  final String category;
+  final String maxScore;
+  final String gradePoint;
+  final String score;
+  final String makeup;
+  final String retake;
+  final String suggestedYear;
+  final String suggestedTerm;
+  final String importance;
+
+  const AcademicCourse({
+    this.studyStatus = '',
+    this.academicYear = '',
+    this.term = '',
+    this.courseCode = '',
+    this.name = '',
+    this.hours = '',
+    this.nature = '',
+    this.credit = '',
+    this.category = '',
+    this.maxScore = '',
+    this.gradePoint = '',
+    this.score = '',
+    this.makeup = '',
+    this.retake = '',
+    this.suggestedYear = '',
+    this.suggestedTerm = '',
+    this.importance = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+    'studyStatus': studyStatus,
+    'academicYear': academicYear,
+    'term': term,
+    'courseCode': courseCode,
+    'name': name,
+    'hours': hours,
+    'nature': nature,
+    'credit': credit,
+    'category': category,
+    'maxScore': maxScore,
+    'gradePoint': gradePoint,
+    'score': score,
+    'makeup': makeup,
+    'retake': retake,
+    'suggestedYear': suggestedYear,
+    'suggestedTerm': suggestedTerm,
+    'importance': importance,
+  };
+
+  factory AcademicCourse.fromJson(Map<String, dynamic> json) => AcademicCourse(
+    studyStatus: '${json['studyStatus'] ?? ''}',
+    academicYear: '${json['academicYear'] ?? ''}',
+    term: '${json['term'] ?? ''}',
+    courseCode: '${json['courseCode'] ?? ''}',
+    name: '${json['name'] ?? ''}',
+    hours: '${json['hours'] ?? ''}',
+    nature: '${json['nature'] ?? ''}',
+    credit: '${json['credit'] ?? ''}',
+    category: '${json['category'] ?? ''}',
+    maxScore: '${json['maxScore'] ?? ''}',
+    gradePoint: '${json['gradePoint'] ?? ''}',
+    score: '${json['score'] ?? ''}',
+    makeup: '${json['makeup'] ?? ''}',
+    retake: '${json['retake'] ?? ''}',
+    suggestedYear: '${json['suggestedYear'] ?? ''}',
+    suggestedTerm: '${json['suggestedTerm'] ?? ''}',
+    importance: '${json['importance'] ?? ''}',
+  );
+}
+
 class AcademicStatus {
+  static const currentParserVersion = 3;
+
   final double gpa;
   final double totalRequired;
   final double totalEarned;
   final List<AcademicCategory> categories;
+  final int parserVersion;
 
   const AcademicStatus({
     required this.gpa,
     required this.totalRequired,
     required this.totalEarned,
     required this.categories,
+    this.parserVersion = currentParserVersion,
   });
 
   Map<String, dynamic> toJson() => {
     'gpa': gpa,
     'totalRequired': totalRequired,
     'totalEarned': totalEarned,
+    'parserVersion': parserVersion,
     'categories': [for (final category in categories) category.toJson()],
   };
 
@@ -294,6 +415,7 @@ class AcademicStatus {
     gpa: _asDouble(json['gpa']),
     totalRequired: _asDouble(json['totalRequired']),
     totalEarned: _asDouble(json['totalEarned']),
+    parserVersion: (json['parserVersion'] as num?)?.toInt() ?? 1,
     categories: [
       for (final raw in (json['categories'] as List<dynamic>? ?? const []))
         AcademicCategory.fromJson(raw as Map<String, dynamic>),
@@ -973,6 +1095,12 @@ class AuthService {
           examMethod: (i['khfsmc'] ?? '') as String,
           year: year,
           term: term,
+          hours: _firstGradeValue(i, const ['zxs', 'rwzxs', 'xs']),
+          maxScore: _firstGradeValue(i, const ['bfzcj', 'zgcj']),
+          makeup: _firstGradeValue(i, const ['bksf', 'bkcj']),
+          retake: _firstGradeValue(i, const ['cxbj', 'cxsj']),
+          suggestedYear: _firstGradeValue(i, const ['jxnj', 'jxn']),
+          suggestedTerm: _firstGradeValue(i, const ['jxq', 'jxqm']),
         ),
       );
     }
@@ -981,6 +1109,14 @@ class AuthService {
     final termsMap = termsByYear.map((k, v) => MapEntry(k, v.toList()..sort()));
 
     return GradeResult(grades: grades, years: years, termsByYear: termsMap);
+  }
+
+  static String _firstGradeValue(Map<String, dynamic> item, List<String> keys) {
+    for (final key in keys) {
+      final value = item[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) return value;
+    }
+    return '';
   }
 
   Future<AcademicStatus> _fetchAcademicStatus(Dio dio) async {
@@ -1027,12 +1163,24 @@ class AuthService {
     // emits real HTML on others. Parse tag attributes independently of quote
     // style; `liX` and `pX` share the same X identifier.
     final parents = <String, String>{};
+    final sourceIds = <String, String>{};
+    final sourceModes = <String, String>{};
     final liPattern = RegExp(r'<li\b[^>]*>', caseSensitive: false);
     for (final match in liPattern.allMatches(body)) {
       final attrs = _parseAcademicAttributes(match.group(0)!);
       final id = _academicId(attrs['id'], 'li');
       if (id == null) continue;
       parents[id] = _academicParentId(attrs['fxfyqjd_id']);
+    }
+
+    final titlePattern = RegExp(
+      r'''<div\b[^>]*class\s*=\s*["']title["'][^>]*xfyqjd_id\s*=\s*["']([^"']+)["'][^>]*jdkcsx\s*=\s*["']([^"']*)["'][^>]*>[\s\S]*?<p\b[^>]*id\s*=\s*["']p([^"']+)["']''',
+      caseSensitive: false,
+    );
+    for (final match in titlePattern.allMatches(body)) {
+      sourceIds[match.group(3)!] = match.group(1)!;
+      sourceModes[match.group(3)!] = match.group(2)!;
+      sourceModes[match.group(1)!] = match.group(2)!;
     }
 
     final byId = <String, AcademicCategory>{};
@@ -1096,7 +1244,6 @@ class AuthService {
       if (!path.add(id)) return node;
       final kids = (childrenIds[id] ?? const <String>[])
           .map((childId) => buildTree(childId, {...path}))
-          .where((k) => !_ignoredAcademicNames.contains(k.name))
           .toList();
       return AcademicCategory(
         name: node.name,
@@ -1106,18 +1253,34 @@ class AuthService {
         isDirectory: kids.isNotEmpty,
         completed: node.completed,
         children: kids,
+        sourceId: sourceIds[id] ?? id,
       );
     }
 
-    var categories = rootIds
-        .map((id) => buildTree(id, <String>{}))
-        .where((c) => !_ignoredAcademicNames.contains(c.name))
-        .toList();
+    var categories = rootIds.map((id) => buildTree(id, <String>{})).toList();
 
     // If the server adds one transparent wrapper (for example, a major),
     // present its actual categories at the top level.
     if (categories.length == 1 && categories.first.children.isNotEmpty) {
       categories = categories.first.children;
+    }
+
+    final studentKey =
+        RegExp(
+          r'''<input\b[^>]*name\s*=\s*["']xh_id["'][^>]*value\s*=\s*["']([^"']+)["']''',
+          caseSensitive: false,
+        ).firstMatch(body)?.group(1) ??
+        RegExp(
+          r'''<input\b[^>]*value\s*=\s*["']([^"']+)["'][^>]*name\s*=\s*["']xh_id["']''',
+          caseSensitive: false,
+        ).firstMatch(body)?.group(1);
+    if (studentKey != null) {
+      categories = await _attachAcademicCourses(
+        dio,
+        categories,
+        sourceModes: sourceModes,
+        studentKey: studentKey,
+      );
     }
 
     return AcademicStatus(
@@ -1127,6 +1290,110 @@ class AuthService {
       categories: categories,
     );
   }
+
+  Future<List<AcademicCategory>> _attachAcademicCourses(
+    Dio dio,
+    List<AcademicCategory> categories, {
+    required Map<String, String> sourceModes,
+    required String studentKey,
+  }) async {
+    return Future.wait(
+      categories.map(
+        (category) => _attachAcademicCourseNode(
+          dio,
+          category,
+          sourceModes: sourceModes,
+          studentKey: studentKey,
+        ),
+      ),
+    );
+  }
+
+  Future<AcademicCategory> _attachAcademicCourseNode(
+    Dio dio,
+    AcademicCategory category, {
+    required Map<String, String> sourceModes,
+    required String studentKey,
+  }) async {
+    final children = await Future.wait(
+      category.children.map(
+        (child) => _attachAcademicCourseNode(
+          dio,
+          child,
+          sourceModes: sourceModes,
+          studentKey: studentKey,
+        ),
+      ),
+    );
+    final isOtherCourses = category.sourceId == 'qtkcxfyq';
+    if (children.isNotEmpty ||
+        (category.reqCredits <= 0 && !isOtherCourses) ||
+        category.sourceId.isEmpty ||
+        category.sourceId == 'zgzsxx') {
+      return _copyAcademicCategory(category, children: children);
+    }
+
+    try {
+      final endpoint = sourceModes[category.sourceId] == '2'
+          ? 'xsxyqk_cxJxzxjhxfyqFKcxx.html'
+          : 'xsxyqk_cxJxzxjhxfyqKcxx.html';
+      final response = await dio.post(
+        '$jwBaseUrl/xsxy/$endpoint',
+        data: {'xfyqjd_id': category.sourceId, 'xh_id': studentKey},
+        options: Options(contentType: Headers.formUrlEncodedContentType),
+      );
+      final raw = response.data;
+      final decoded = raw is String ? jsonDecode(raw) : raw;
+      final items = decoded is List ? decoded : const [];
+      final courses = [
+        for (final item in items)
+          if (item is Map) AcademicCourse.fromJson(_academicCourseJson(item)),
+      ];
+      return _copyAcademicCategory(
+        category,
+        children: children,
+        courses: courses,
+      );
+    } catch (_) {
+      return _copyAcademicCategory(category, children: children);
+    }
+  }
+
+  AcademicCategory _copyAcademicCategory(
+    AcademicCategory category, {
+    required List<AcademicCategory> children,
+    List<AcademicCourse>? courses,
+  }) => AcademicCategory(
+    name: category.name,
+    reqCredits: category.reqCredits,
+    earnedCredits: category.earnedCredits,
+    missingCredits: category.missingCredits,
+    isDirectory: children.isNotEmpty,
+    completed: category.completed,
+    children: children,
+    sourceId: category.sourceId,
+    courses: courses ?? category.courses,
+  );
+
+  Map<String, dynamic> _academicCourseJson(Map item) => {
+    'studyStatus': item['XDZT'],
+    'academicYear': item['XNMC'],
+    'term': item['XQMMC'],
+    'courseCode': item['KCH'],
+    'name': item['KCMC'],
+    'hours': item['XSXXXX'],
+    'nature': item['KCXZMC'],
+    'credit': item['XF'],
+    'category': item['KCLBMC'],
+    'maxScore': item['MAXCJ'],
+    'gradePoint': item['JD'],
+    'score': item['CJ'],
+    'makeup': item['MBKCJ'] ?? item['CXCJ1'],
+    'retake': item['MCXCJ'] ?? item['CXCJ2'],
+    'suggestedYear': item['JYXDXNMC'],
+    'suggestedTerm': item['JYXDXQMC'],
+    'importance': item['KCZYXXS'],
+  };
 
   static String? _academicId(String? raw, String prefix) {
     if (raw == null ||
@@ -1202,7 +1469,7 @@ class AuthService {
       final missing = double.tryParse(match.group(4)!) ?? 0;
       if (name.isEmpty || name.contains(':')) continue;
       if (req == totalRequired && earned == totalEarned) continue;
-      if (!_ignoredAcademicNames.contains(name) && seen.add('$name|$req')) {
+      if (seen.add('$name|$req')) {
         categories.add(
           AcademicCategory(
             name: name,
@@ -1236,6 +1503,3 @@ class AuthService {
     return int.tryParse(value.toString());
   }
 }
-
-/// 学业总览树里不展示的分类名称。
-const _ignoredAcademicNames = {'其他课程', '创新创业情况'};

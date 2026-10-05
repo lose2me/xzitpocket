@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -53,7 +52,7 @@ void main() {
 
   for (final emptyInitialSchedule in [false, true]) {
     testWidgets(
-      'backup page exports current schedule with emptyInitialSchedule=$emptyInitialSchedule',
+      'backup page uses a single share-code page with emptyInitialSchedule=$emptyInitialSchedule',
       (tester) async {
         final initial = emptyInitialSchedule
             ? <Course>[]
@@ -67,41 +66,18 @@ void main() {
         });
         await tester.pumpWidget(_app(container, const ConfigBackupPage()));
         await tester.pump();
-        await tester.tap(find.text('课表'));
-        await tester.pumpAndSettle();
-        final coursesField = find.byKey(
-          const ValueKey('backup_primary_courses_json'),
-        );
-        final exportedCourses = jsonDecode(
-          tester.widget<AppTextField>(coursesField).controller!.text,
+        expect(find.text('分享码'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('config_backup_import_code')),
+          findsOneWidget,
         );
         expect(
-          tester.widget<AppTextField>(coursesField).controller!.text,
-          isNot(contains('\n')),
+          find.byKey(const ValueKey('config_backup_generated_code')),
+          findsOneWidget,
         );
-        expect(exportedCourses['type'], 'xzitpocket_courses');
-        expect(
-          exportedCourses.keys,
-          unorderedEquals(['type', 'version', 'courses']),
-        );
-        expect(
-          exportedCourses['courses'],
-          storage.getCourses().map((course) => course.toJson()).toList(),
-        );
-        expect(
-          exportedCourses['courses'],
-          hasLength(emptyInitialSchedule ? 1 : 2),
-        );
-        expect(
-          exportedCourses['courses'],
-          contains(predicate<Map>((course) => course['title'] == 'Added')),
-        );
-        if (!emptyInitialSchedule) {
-          final baseline = (exportedCourses['courses'] as List)
-              .cast<Map>()
-              .singleWhere((course) => course['title'] == 'Baseline');
-          expect(baseline['weeks'], [2]);
-        }
+        expect(find.text('个性化设置 JSON'), findsNothing);
+        expect(find.text('当前课程 JSON'), findsNothing);
+        expect(find.text('备用课程 JSON'), findsNothing);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
@@ -143,7 +119,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       expect(container.read(secondaryScheduleProvider).active, isTrue);
-      expect(find.text('正在预览备用课表'), findsOneWidget);
+      expect(find.text('正在预览备用课程'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(WeekHeader),
@@ -176,7 +152,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       expect(container.read(secondaryScheduleProvider).active, isFalse);
-      expect(find.text('正在预览备用课表'), findsNothing);
+      expect(find.text('正在预览备用课程'), findsNothing);
       expect(find.byType(PageView), findsOneWidget);
       expect(storage.getCourses().single.title, 'Primary');
       expect(tester.takeException(), isNull);

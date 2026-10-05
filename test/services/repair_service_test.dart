@@ -37,7 +37,7 @@ void main() {
     expect(detail.orderId, '2609150140');
     expect(detail.attachments.single.url, 'http://example.test/photo.jpg');
     expect(detail.steps, hasLength(2));
-    expect(detail.steps.last.name, '已完工');
-    expect(detail.steps.last.current, isTrue);
+    expect(detail.steps.first.name, '已完工');
+    expect(detail.steps.first.current, isTrue);
   });
 }

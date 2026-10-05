@@ -477,6 +477,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "4.9.1"
+  image_gallery_saver_plus:
+    dependency: "direct main"
+    description:
+      name: image_gallery_saver_plus
+      sha256: "598beaaade0ead242416a6ef85883bb8f7f1c18f523c531c06c586a4688bd34a"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "5.1.1"
   image_picker:
     dependency: "direct main"
     description:

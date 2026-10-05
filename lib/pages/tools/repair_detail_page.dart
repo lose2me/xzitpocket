@@ -1,12 +1,16 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
+import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 
 import '../../services/cas_service.dart';
 import '../../services/repair_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
+import '../../utils/snackbar_helper.dart';
 
 class RepairDetailPage extends StatefulWidget {
   final RepairRecord record;
@@ -77,7 +81,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return AppPage(
-      title: '处理进度',
+      title: _title,
       actions: [
         if (_detail == null && _error == null)
           const FHeaderAction(
@@ -101,6 +105,12 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
             )
           : _buildContent(theme, _detail!),
     );
+  }
+
+  String get _title {
+    final content = _detail?.content.trim() ?? '';
+    if (content.isEmpty) return '处理进度';
+    return content.length > 16 ? '${content.substring(0, 16)}...' : content;
   }
 
   Widget _buildContent(FThemeData theme, RepairDetail detail) {
@@ -139,7 +149,13 @@ class _StatusBadge extends StatelessWidget {
     final background = switch (status) {
       '已完工' || '已关闭' || '已评价' => const Color(0xFF4CAF50),
       '已接单' || '已转单' || '处理中' || '维修中' => const Color(0xFFFBC02D),
-      '已上报' || '已上传照片' || '已提交' || '提交报修' || '报修' => const Color(0xFF9E9E9E),
+      '已上报' ||
+      '已上传照片' ||
+      '已上传图片' ||
+      '待接单' ||
+      '已提交' ||
+      '提交报修' ||
+      '报修' => const Color(0xFF9E9E9E),
       _ => const Color(0xFFF44336),
     };
     return DecoratedBox(
@@ -258,22 +274,7 @@ class _ProcessStepTile extends StatelessWidget {
                             if (image.url.isNotEmpty)
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(6),
-                                child: Image.network(
-                                  image.url,
-                                  width: 96,
-                                  height: 96,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: theme.colors.muted,
-                                    ),
-                                    child: const SizedBox(
-                                      width: 96,
-                                      height: 96,
-                                      child: Icon(FLucideIcons.imageOff),
-                                    ),
-                                  ),
-                                ),
+                                child: _RepairImageThumbnail(url: image.url),
                               ),
                         ],
                       ),
@@ -283,6 +284,115 @@ class _ProcessStepTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RepairImageThumbnail extends StatelessWidget {
+  final String url;
+
+  const _RepairImageThumbnail({required this.url});
+
+  @override
+  Widget build(BuildContext context) {
+    return FTappable(
+      onPress: () => Navigator.of(context).push(
+        appRoute<void>(
+          name: '/tools/repair/image-preview',
+          fullscreenDialog: true,
+          builder: (_) => _RepairImageViewerPage(url: url),
+        ),
+      ),
+      child: Image.network(
+        url,
+        width: 96,
+        height: 96,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => DecoratedBox(
+          decoration: BoxDecoration(color: context.theme.colors.muted),
+          child: const SizedBox(
+            width: 96,
+            height: 96,
+            child: Icon(FLucideIcons.imageOff),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RepairImageViewerPage extends StatefulWidget {
+  final String url;
+
+  const _RepairImageViewerPage({required this.url});
+
+  @override
+  State<_RepairImageViewerPage> createState() => _RepairImageViewerPageState();
+}
+
+class _RepairImageViewerPageState extends State<_RepairImageViewerPage> {
+  bool _saving = false;
+
+  Future<void> _save() async {
+    if (_saving) return;
+    setState(() => _saving = true);
+    try {
+      final response = await Dio().get<List<int>>(
+        widget.url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final data = response.data;
+      if (data == null || data.isEmpty) throw StateError('图片为空');
+      final bytes = Uint8List.fromList(data);
+      final result = await ImageGallerySaverPlus.saveImage(
+        bytes,
+        quality: 100,
+        name: 'xzitpocket_${DateTime.now().millisecondsSinceEpoch}',
+      );
+      final saved = result is! Map || result['isSuccess'] != false;
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        saved ? '已保存到相册' : '保存到相册失败',
+        severity: saved ? ToastSeverity.success : ToastSeverity.error,
+      );
+    } catch (error, stackTrace) {
+      talker.error('报修图片保存失败', error, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '保存到相册失败', severity: ToastSeverity.error);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppPage(
+      title: '图片预览',
+      transparentBackground: true,
+      actions: [
+        AppIconButton(
+          icon: FLucideIcons.download,
+          tooltip: '保存到相册',
+          onPress: _save,
+          loading: _saving,
+        ),
+      ],
+      child: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 5,
+          child: Image.network(
+            widget.url,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const AppStateView(
+              icon: FLucideIcons.imageOff,
+              title: '图片加载失败',
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -9,6 +9,35 @@ Map<String, dynamic> courseBackup({required List<Course> courses}) => {
   'courses': courses.map((course) => course.toJson()).toList(),
 };
 
+/// Formats JSON with one object property per line while keeping scalar lists
+/// such as `sessions` and `weeks` compact on their property line.
+String formatBackupJson(Object? value) {
+  String format(Object? value, String indent) {
+    final nextIndent = '$indent  ';
+    if (value is Map) {
+      if (value.isEmpty) return '{}';
+      final entries = value.entries.map(
+        (entry) =>
+            '$nextIndent${jsonEncode(entry.key)}: '
+            '${format(entry.value, nextIndent)}',
+      );
+      return '{\n${entries.join(',\n')}\n$indent}';
+    }
+    if (value is List) {
+      if (value.every((item) => item is! Map && item is! List)) {
+        return '[${value.map(jsonEncode).join(', ')}]';
+      }
+      final entries = value.map(
+        (item) => '$nextIndent${format(item, nextIndent)}',
+      );
+      return '[\n${entries.join(',\n')}\n$indent]';
+    }
+    return jsonEncode(value);
+  }
+
+  return format(value, '');
+}
+
 List<Course> parseCourseBackup(String source) {
   final decoded = jsonDecode(source);
   final dynamic raw;
