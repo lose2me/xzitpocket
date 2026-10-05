@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -8,6 +7,7 @@ import '../../models/course.dart';
 import '../../utils/course_text_parser.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../profile/profile_components.dart';
 import 'course_picker_sheet.dart';
 
 class CourseFormPage extends StatefulWidget {
@@ -15,6 +15,7 @@ class CourseFormPage extends StatefulWidget {
   final int session;
   final Course? existingCourse;
   final Color? defaultColor;
+  final int? defaultColorIndex;
   final Future<void> Function(Course) onSave;
 
   const CourseFormPage({
@@ -23,6 +24,7 @@ class CourseFormPage extends StatefulWidget {
     required this.session,
     this.existingCourse,
     this.defaultColor,
+    this.defaultColorIndex,
     required this.onSave,
   });
 
@@ -49,13 +51,16 @@ class _CourseFormPageState extends State<CourseFormPage> {
   final _placeCtrl = TextEditingController();
   final _campusCtrl = TextEditingController();
   final _weeksCtrl = TextEditingController();
-  final _colorCtrl = TextEditingController();
   final _weekdayCtrl = TextEditingController();
   final _sessionCtrl = TextEditingController();
   late List<int> _weeks;
   late int _weekday;
   late int _startSession;
   late int _endSession;
+  Color? _defaultColor;
+  int? _defaultColorIndex;
+  Color? _selectedColor;
+  Color? _lastCustomColor;
 
   @override
   void initState() {
@@ -70,70 +75,42 @@ class _CourseFormPageState extends State<CourseFormPage> {
       _weekday = c.weekday.clamp(1, 7);
       _startSession = c.startSession.clamp(1, 14);
       _endSession = c.endSession.clamp(_startSession, 14);
-      _colorCtrl.text = _colorToHex(c.color);
+      final isAutomaticColor =
+          c.colorIndex >= 0 && c.colorIndex < Course.colors.length;
+      _defaultColor = isAutomaticColor ? c.color : widget.defaultColor;
+      _defaultColorIndex = isAutomaticColor ? c.colorIndex : null;
+      _selectedColor = isAutomaticColor ? null : c.color;
+      if (!isAutomaticColor && !_isPresetColor(c.color)) {
+        _lastCustomColor = c.color;
+      }
     } else {
       _weeks = [for (var week = 1; week <= 20; week++) week];
       _weekday = widget.weekday.clamp(1, 7);
       _startSession = widget.session.clamp(1, 14);
       _endSession = (widget.session + 1).clamp(_startSession, 14);
-      _colorCtrl.text = _colorToHex(widget.defaultColor ?? Course.colors.first);
+      _defaultColor = widget.defaultColor;
+      _defaultColorIndex = widget.defaultColorIndex;
     }
     _syncPickerText();
   }
 
-  String _colorToHex(Color color) {
-    final argb = color.toARGB32().toRadixString(16).padLeft(8, '0');
-    return '#${argb.substring(2).toUpperCase()}';
-  }
+  bool _isPresetColor(Color color) =>
+      Course.colors.any((preset) => preset.toARGB32() == color.toARGB32());
 
-  /// 解析当前 HEX 输入值（#RRGGBB），非法返回 null。
-  Color? _parsedColor() {
-    final text = _colorCtrl.text;
-    if (!RegExp(r'^#[0-9A-Fa-f]{6}$').hasMatch(text)) return null;
-    return Color(int.parse('FF${text.substring(1)}', radix: 16));
-  }
-
-  void _applyColor(Color color) {
-    _colorCtrl.text = _colorToHex(color);
-    _colorCtrl.selection = TextSelection.collapsed(
-      offset: _colorCtrl.text.length,
+  Future<void> _pickCustomColor() async {
+    final color = await showProfileColorPicker(
+      context: context,
+      initialColor: _selectedColor ?? _defaultColor ?? Course.colors.first,
     );
-    setState(() {});
+    if (color == null || !mounted) return;
+    setState(() {
+      _selectedColor = color;
+      _lastCustomColor = color;
+    });
   }
 
-  /// 快捷调色板：横向滑动，点击圆圈直接把 HEX 输入值改成对应颜色。
-  Widget _buildColorSwatches() {
-    final selected = _parsedColor();
-    return SizedBox(
-      height: 32,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final color in Course.colors) ...[
-              GestureDetector(
-                onTap: () => _applyColor(color),
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: color == selected
-                          ? context.theme.colors.primary
-                          : context.theme.colors.border,
-                      width: color == selected ? 1.5 : 1,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-            ],
-          ],
-        ),
-      ),
-    );
+  void _setColor(Color? color) {
+    setState(() => _selectedColor = color);
   }
 
   @override
@@ -143,7 +120,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
     _placeCtrl.dispose();
     _campusCtrl.dispose();
     _weeksCtrl.dispose();
-    _colorCtrl.dispose();
     _weekdayCtrl.dispose();
     _sessionCtrl.dispose();
     super.dispose();
@@ -236,23 +212,21 @@ class _CourseFormPageState extends State<CourseFormPage> {
               suffix: const Icon(FLucideIcons.chevronDown),
             ),
             const SizedBox(height: 12),
-            AppTextFormField(
-              key: const ValueKey('course-color-field'),
-              controller: _colorCtrl,
-              label: '颜色 (HEX)',
-              hint: '#FF8800',
-              inputFormatters: const [_HexColorInputFormatter()],
-              textCapitalization: TextCapitalization.characters,
-              validator: (value) {
-                if (value == null || value.isEmpty) return '请输入颜色值';
-                if (!RegExp(r'^#[0-9A-F]{6}$').hasMatch(value)) {
-                  return '请输入 #RRGGBB 格式的颜色值';
-                }
-                return null;
-              },
+            ProfileSettingsColorTile(
+              icon: FLucideIcons.palette,
+              title: '颜色',
+              value: _selectedColor,
+              colors: [
+                for (final color in Course.colors)
+                  if (_defaultColor == null ||
+                      color.toARGB32() != _defaultColor!.toARGB32())
+                    color,
+              ],
+              resetLabel: '默认',
+              lastCustomColor: _lastCustomColor,
+              onChanged: _setColor,
+              onCustomColorPressed: _pickCustomColor,
             ),
-            const SizedBox(height: 20),
-            _buildColorSwatches(),
           ],
         ),
       ),
@@ -370,8 +344,11 @@ class _CourseFormPageState extends State<CourseFormPage> {
       showAppSnackBar(context, '请选择周次', severity: ToastSeverity.warning);
       return;
     }
-    final hex = _colorCtrl.text.substring(1);
     final existing = widget.existingCourse;
+    final color = _selectedColor ?? _defaultColor ?? Course.colors.first;
+    final colorIndex = _selectedColor == null && _defaultColorIndex != null
+        ? _defaultColorIndex!
+        : color.toARGB32();
 
     await widget.onSave(
       Course(
@@ -382,35 +359,11 @@ class _CourseFormPageState extends State<CourseFormPage> {
         weeks: _weeks,
         campus: _campusCtrl.text,
         place: _placeCtrl.text,
-        colorIndex: Color(int.parse('FF$hex', radix: 16)).toARGB32(),
+        colorIndex: colorIndex,
         courseId: existing?.courseId ?? '',
       ),
     );
     if (!mounted) return;
     Navigator.pop(context);
-  }
-}
-
-class _HexColorInputFormatter extends TextInputFormatter {
-  const _HexColorInputFormatter();
-
-  static final _pattern = RegExp(r'^#[0-9A-Fa-f]{0,6}$');
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    if (newValue.text.isEmpty) {
-      return const TextEditingValue(
-        text: '#',
-        selection: TextSelection.collapsed(offset: 1),
-      );
-    }
-    if (!_pattern.hasMatch(newValue.text)) return oldValue;
-    return newValue.copyWith(
-      text: newValue.text.toUpperCase(),
-      composing: TextRange.empty,
-    );
   }
 }

@@ -464,7 +464,7 @@ void main() {
   });
 
   testWidgets(
-    'course selection fields use Forui pickers and color requires hash',
+    'course selection fields use Forui pickers and color uses the profile control',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(390, 1000);
@@ -513,27 +513,8 @@ void main() {
             .text,
         '第1-2节',
       );
-      final colorField = tester.widget<AppTextFormField>(
-        find.byKey(const ValueKey('course-color-field')),
-      );
-      expect(colorField.controller!.text, '#F8D2D7');
-      final formatter = colorField.inputFormatters!.single;
-      final accepted = formatter.formatEditUpdate(
-        const TextEditingValue(text: '#F8D2D7'),
-        const TextEditingValue(text: '#12abef'),
-      );
-      expect(accepted.text, '#12ABEF');
-      final rejected = formatter.formatEditUpdate(
-        accepted,
-        const TextEditingValue(text: '123456'),
-      );
-      expect(rejected.text, '#12ABEF');
-      final cleared = formatter.formatEditUpdate(
-        accepted,
-        const TextEditingValue(),
-      );
-      expect(cleared.text, '#');
-      expect(cleared.selection, const TextSelection.collapsed(offset: 1));
+      expect(find.text('颜色'), findsOneWidget);
+      expect(find.text('默认'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('course-weekday-field')));
       await tester.pumpAndSettle();

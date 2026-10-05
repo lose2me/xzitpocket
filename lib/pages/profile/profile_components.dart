@@ -462,6 +462,7 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
   final VoidCallback? onCustomColorPressed;
   final Color? lastCustomColor;
   final bool allowReset;
+  final String resetLabel;
 
   const ProfileSettingsColorTile({
     super.key,
@@ -473,6 +474,7 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
     this.onCustomColorPressed,
     this.lastCustomColor,
     this.allowReset = true,
+    this.resetLabel = '跟随明暗',
   });
 
   @override
@@ -488,7 +490,7 @@ class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {
             Expanded(child: Text(title)),
             Text(
               value == null
-                  ? '跟随明暗'
+                  ? resetLabel
                   : '#${value!.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
             ),
           ],

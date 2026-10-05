@@ -143,14 +143,36 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   BookListSemesterOption? get _selectedSemester {
-    final options = _semesterCatalog.options;
+    final options = _gradedSemesterOptions;
     final key = _selectedSemesterKey;
     if (key != null) {
       for (final option in options) {
         if (option.key == key) return option;
       }
     }
-    return _semesterCatalog.current ?? (options.isEmpty ? null : options.first);
+    return options.isEmpty ? _semesterCatalog.current : options.first;
+  }
+
+  /// 成绩页只展示已经有成绩的学期；书单页还会额外展示当前未出成绩学期。
+  List<BookListSemesterOption> get _gradedSemesterOptions {
+    final options = <BookListSemesterOption>[];
+    for (final option in _semesterCatalog.options) {
+      if (_hasGradesFor(option)) options.add(option);
+    }
+    return options;
+  }
+
+  bool _hasGradesFor(BookListSemesterOption option) {
+    final result = _result;
+    final academicYear = int.tryParse(option.academicYear);
+    if (result == null || academicYear == null) return false;
+    final term = option.termCode == '3' ? 1 : 2;
+    return result.grades.any((grade) {
+      final gradeYear = int.tryParse(
+        RegExp(r'20\d{2}').firstMatch(grade.year)?.group(0) ?? '',
+      );
+      return gradeYear == academicYear && _gradeTermNumber(grade.term) == term;
+    });
   }
 
   List<GradeItem> get _filtered {
@@ -171,7 +193,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
   bool get _hideSemesterSelector {
     final current = _semesterCatalog.current;
-    if (current == null || _filtered.isNotEmpty) return false;
+    if (current == null || _gradedSemesterOptions.isNotEmpty) return false;
     final enrollmentYear = _studentEnrollmentYear(widget.studentId);
     return enrollmentYear != null &&
         current.academicYear == enrollmentYear.toString() &&
@@ -210,16 +232,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         maxWidth: AppLayout.contentMaxWidth,
         child: FTabs(
           expands: true,
-          style: FTabsStyleDelta.delta(
-            decoration: DecorationDelta.boxDelta(
-              borderRadius: BorderRadius.zero,
-            ),
-            padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
-            indicatorDecoration: DecorationDelta.boxDelta(
-              borderRadius: BorderRadius.zero,
-            ),
-            spacing: 0,
-          ),
+          style: appSegmentedTabsStyle(theme),
           children: [
             FTabEntry(label: const Text('学科成绩'), child: _buildGradeTab(theme)),
             FTabEntry(
@@ -295,16 +308,16 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   String _optionLabel(String key) {
-    for (final option in _semesterCatalog.options) {
+    for (final option in _gradedSemesterOptions) {
       if (option.key == key) return option.label;
     }
-    return _semesterCatalog.options.isEmpty
+    return _gradedSemesterOptions.isEmpty
         ? ''
-        : _semesterCatalog.options.first.label;
+        : _gradedSemesterOptions.first.label;
   }
 
   Widget _buildSemesterSelector(FThemeData theme) {
-    final options = _semesterCatalog.options;
+    final options = _gradedSemesterOptions;
     if (options.isEmpty) return const SizedBox.shrink();
     final selectedKey = _selectedSemester?.key ?? options.first.key;
 

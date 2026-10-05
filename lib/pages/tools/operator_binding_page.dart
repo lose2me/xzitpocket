@@ -189,14 +189,7 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
         index: _selectedIndex,
         onChange: _switchCarrier,
       ),
-      style: FTabsStyleDelta.delta(
-        decoration: DecorationDelta.boxDelta(borderRadius: BorderRadius.zero),
-        padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
-        indicatorDecoration: DecorationDelta.boxDelta(
-          borderRadius: BorderRadius.zero,
-        ),
-        spacing: 0,
-      ),
+      style: appSegmentedTabsStyle(context.theme),
       children: [
         for (final carrier in _carriers)
           FTabEntry(label: Text(carrier), child: const SizedBox.shrink()),

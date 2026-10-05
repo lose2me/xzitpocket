@@ -1177,7 +1177,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         usedIndices.contains(nextIndex)) {
       nextIndex++;
     }
-    final defaultColor = Course.colors[nextIndex % Course.colors.length];
+    final defaultColorIndex = nextIndex % Course.colors.length;
+    final defaultColor = Course.colors[defaultColorIndex];
 
     Navigator.of(context).push(
       appRoute(
@@ -1186,6 +1187,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           weekday: weekday,
           session: session,
           defaultColor: defaultColor,
+          defaultColorIndex: defaultColorIndex,
           onSave: (course) async {
             try {
               await ref.read(scheduleProvider.notifier).addCourse(course);

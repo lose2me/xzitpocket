@@ -151,16 +151,7 @@ class _RepairPageState extends State<RepairPage> {
             onChange: (index) => setState(() => _selectedTab = index),
           ),
           expands: true,
-          style: FTabsStyleDelta.delta(
-            decoration: DecorationDelta.boxDelta(
-              borderRadius: BorderRadius.zero,
-            ),
-            padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
-            indicatorDecoration: DecorationDelta.boxDelta(
-              borderRadius: BorderRadius.zero,
-            ),
-            spacing: 0,
-          ),
+          style: appSegmentedTabsStyle(theme),
           children: [
             FTabEntry(
               label: const Text('报修记录'),

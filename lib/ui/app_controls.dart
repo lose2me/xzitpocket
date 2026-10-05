@@ -5,6 +5,41 @@ import 'package:forui/forui.dart';
 import 'app_tokens.dart';
 import 'app_colors.dart';
 
+/// Shared square segmented-tab styling used by tool pages.
+FTabsStyleDelta appSegmentedTabsStyle(FThemeData theme) =>
+    FTabsStyleDelta.delta(
+      decoration: DecorationDelta.boxDelta(
+        color: theme.colors.muted,
+        border: Border.all(color: theme.colors.border),
+        borderRadius: BorderRadius.zero,
+      ),
+      padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.all(3)),
+      labelTextStyle: FVariantsDelta.delta([
+        FVariantOperation.exact(
+          {FTabVariant.selected},
+          TextStyleDelta.delta(
+            color: theme.colors.primaryForeground,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ]),
+      indicatorDecoration: DecorationDelta.boxDelta(
+        color: theme.colors.primary,
+        border: Border.all(color: theme.colors.primary),
+        borderRadius: BorderRadius.zero,
+        boxShadow: [
+          BoxShadow(
+            color: theme.colors.primary.withValues(alpha: 0.18),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      indicatorSize: FTabBarIndicatorSize.tab,
+      minHeight: 40,
+      spacing: 0,
+    );
+
 class AppIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPress;
