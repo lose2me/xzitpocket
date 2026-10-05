@@ -11,6 +11,7 @@ import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import 'repair_form_page.dart';
+import 'repair_detail_page.dart';
 
 class RepairPage extends StatefulWidget {
   final RepairResult initialResult;
@@ -126,10 +127,11 @@ class _RepairPageState extends State<RepairPage> {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    // Keep every record returned by the service. The repair platform can add
-    // new workflow statuses, and filtering by a local allow-list would make
-    // valid records disappear from the user's history.
-    final visible = _records;
+    // The web repair list hides closed orders by default. Keep the app in
+    // sync with that view while retaining every other server-side status.
+    final visible = _records
+        .where((record) => record.status != '已关闭')
+        .toList(growable: false);
 
     return AppPage(
       title: '极速报修',
@@ -195,9 +197,28 @@ class _RepairPageState extends State<RepairPage> {
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: AppCard(
         padding: const EdgeInsets.all(AppSpacing.md),
+        onPress: record.formUuid.isEmpty
+            ? null
+            : () => Navigator.of(context).push(
+                appRoute(
+                  name: AppRouteNames.repairDetail,
+                  builder: (_) => RepairDetailPage(
+                    record: record,
+                    studentId: widget.studentId,
+                    password: widget.password,
+                  ),
+                ),
+              ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              '点击可查看处理进度',
+              style: theme.typography.body.xs.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 6),
             Row(
               children: [
                 Container(

@@ -15,6 +15,7 @@ abstract final class AppRouteNames {
   static const networkManagement = '/tools/network-management';
   static const operatorBinding = '/tools/network-management/operator-binding';
   static const repair = '/tools/repair';
+  static const repairDetail = '/tools/repair/detail';
   static const newRepair = '/tools/repair/new';
   static const learning = '/tools/learning';
   static const learningQuestionBank = '/tools/learning/questions';
@@ -25,6 +26,7 @@ abstract final class AppRouteNames {
   static const editCourse = '/timetable/course/edit';
   static const timetableSettings = '/timetable/settings';
   static const appearanceSettings = '/profile/appearance-settings';
+  static const configBackup = '/profile/config-backup';
   static const courseReminderSettings = '/profile/course-reminder-settings';
   static const courseRulesSettings = '/profile/course-rules-settings';
 }

@@ -98,6 +98,13 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     await applyCloudAdjustments();
   }
 
+  /// Replaces the editable timetable from a validated backup file and keeps
+  /// all normal widget/reminder synchronization semantics.
+  Future<void> replaceCourses(List<Course> courses) async {
+    await _storage.saveCourses(courses);
+    await _reload();
+  }
+
   bool _sameCourses(List<Course> left, List<Course> right) {
     if (left.length != right.length) return false;
     final leftSignatures = left.map(_courseSignature).toList()..sort();

@@ -12,6 +12,8 @@ class WeekHeader extends StatelessWidget {
   final VoidCallback? onJumpToCurrentWeek;
   final int? currentWeek;
   final bool syncing;
+  final VoidCallback? onToggleSchedule;
+  final bool showingSecondarySchedule;
 
   const WeekHeader({
     super.key,
@@ -21,6 +23,8 @@ class WeekHeader extends StatelessWidget {
     this.onJumpToCurrentWeek,
     this.currentWeek,
     this.syncing = false,
+    this.onToggleSchedule,
+    this.showingSecondarySchedule = false,
   });
 
   @override
@@ -41,20 +45,24 @@ class WeekHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${today.year}/${today.month}/${today.day}',
+                  showingSecondarySchedule
+                      ? '正在预览备用课表'
+                      : '${today.year}/${today.month}/${today.day}',
                   style: theme.typography.pageTitle.copyWith(
                     color: theme.colors.foreground,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.micro),
-                Text(
-                  beforeStart ? '未开学' : '第$selectedWeek周',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.typography.caption.copyWith(
-                    color: theme.colors.mutedForeground,
+                if (!showingSecondarySchedule) ...[
+                  const SizedBox(height: AppSpacing.micro),
+                  Text(
+                    beforeStart ? '未开学' : '第$selectedWeek周',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.caption.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -74,6 +82,12 @@ class WeekHeader extends StatelessWidget {
             tooltip: '同步课表',
             loading: syncing,
           ),
+          if (onToggleSchedule != null)
+            AppIconButton(
+              icon: FLucideIcons.arrowLeftRight,
+              onPress: onToggleSchedule,
+              tooltip: showingSecondarySchedule ? '切换到主课表' : '切换到备用课表',
+            ),
         ],
       ),
     );

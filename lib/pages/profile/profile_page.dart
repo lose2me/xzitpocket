@@ -27,6 +27,7 @@ import 'profile_components.dart';
 import 'appearance_settings_page.dart';
 import 'course_reminder_settings_page.dart';
 import 'course_rules_settings_page.dart';
+import 'config_backup_page.dart';
 import '../timetable/timetable_settings_page.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -160,12 +161,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                     .where((value) => value.isNotEmpty)
                     .join(' '),
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          const ProfileSectionLabel(title: '补充信息'),
-          ProfileSettingsGroup(
-            children: [
               ProfileSettingsInlineControlTile(
                 icon: FLucideIcons.building2,
                 title: '宿舍号',
@@ -245,6 +240,16 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                   appRoute(
                     name: AppRouteNames.appearanceSettings,
                     builder: (_) => const AppearanceSettingsPage(),
+                  ),
+                ),
+              ),
+              ProfileSettingsTile(
+                icon: FLucideIcons.archiveRestore,
+                title: '配置备份',
+                onTap: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.configBackup,
+                    builder: (_) => const ConfigBackupPage(),
                   ),
                 ),
               ),

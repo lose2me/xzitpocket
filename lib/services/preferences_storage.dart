@@ -3,8 +3,128 @@ import 'package:shared_preferences/shared_preferences.dart';
 class PreferencesStorage {
   late SharedPreferences _prefs;
 
+  /// Only preferences exposed on the personalization page. The same allowlist
+  /// applies to imports, including backups made before reminders were separated.
+  static const _personalizationBackupKeys = <String>{
+    'theme_preference',
+    'theme_color',
+    'custom_theme_color',
+    'last_custom_theme_color',
+    'widget_theme_preference',
+    'widget_font_scale',
+    'widget_background_alpha',
+    'widget_text_opacity',
+    'widget_background_color',
+    'last_custom_widget_background_color',
+    'widget_background_path',
+    'widget_dark_background_path',
+    'widget_use_light_background_in_dark_mode',
+    'widget_text_color',
+    'last_custom_widget_text_color',
+    'widget_hide_teacher',
+    'widget_hide_location',
+    'widget_hide_date',
+    'timetable_section_height',
+    'timetable_time_column_width',
+    'timetable_day_header_height',
+    'timetable_course_corner_radius',
+    'timetable_course_inner_padding',
+    'timetable_course_outer_padding',
+    'timetable_course_alpha',
+    'timetable_course_font_scale',
+    'timetable_component_opacity',
+    'timetable_add_blank_line_after_title',
+    'timetable_dashed_border_density',
+    'timetable_hide_section_time',
+    'timetable_hide_date_under_day',
+    'timetable_show_start_time',
+    'timetable_hide_location',
+    'timetable_hide_teacher',
+    'timetable_hide_teacher_brackets',
+    'timetable_remove_location_at',
+    'timetable_text_align_center_horizontal',
+    'timetable_text_align_center_vertical',
+    'timetable_border_type',
+    'timetable_page_text_color',
+    'timetable_last_custom_page_text_color',
+    'timetable_page_text_opacity',
+    'timetable_course_text_color',
+    'timetable_last_custom_course_text_color',
+    'timetable_course_border_color',
+    'timetable_last_custom_course_border_color',
+    'timetable_background_path',
+    'timetable_dark_background_path',
+    'timetable_use_light_background_in_dark_mode',
+    'page_background_color',
+    'custom_page_background_color',
+    'last_custom_page_background_color',
+    'toast_opacity',
+    'timetable_grid_opacity',
+    'timetable_grid_line_color',
+    'timetable_last_custom_grid_line_color',
+    'timetable_grid_line_width',
+    'timetable_course_text_size',
+    'timetable_time_text_size',
+    'timetable_date_text_size',
+    'timetable_course_text_opacity',
+    'timetable_course_border_width',
+    'timetable_course_border_opacity',
+    'show_timetable_grid_lines',
+    'show_today_grid_lines',
+    'timetable_today_line_color',
+    'timetable_last_custom_today_line_color',
+    'timetable_today_line_width',
+    'timetable_today_line_opacity',
+  };
+
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+  }
+
+  Map<String, dynamic> getPersonalizationSnapshot() {
+    final result = <String, dynamic>{};
+    for (final key in _personalizationBackupKeys) {
+      if (_prefs.containsKey(key)) result[key] = _prefs.get(key);
+    }
+    return result;
+  }
+
+  Future<void> restorePersonalizationSnapshot(
+    Map<String, dynamic> values,
+  ) async {
+    for (final entry in values.entries) {
+      if (!_personalizationBackupKeys.contains(entry.key)) continue;
+      final value = entry.value;
+      if (value == null) {
+        await _prefs.remove(entry.key);
+      } else if (value is bool) {
+        await _prefs.setBool(entry.key, value);
+      } else if (value is int) {
+        await _prefs.setInt(entry.key, value);
+      } else if (value is double) {
+        await _prefs.setDouble(entry.key, value);
+      } else if (value is num) {
+        await _prefs.setDouble(entry.key, value.toDouble());
+      } else if (value is String) {
+        await _prefs.setString(entry.key, value);
+      } else if (value is List) {
+        await _prefs.setStringList(
+          entry.key,
+          value.map((item) => item.toString()).toList(),
+        );
+      }
+    }
+  }
+
+  String? getSecondaryScheduleJson() =>
+      _prefs.getString('secondary_schedule_json');
+
+  Future<void> setSecondaryScheduleJson(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _prefs.remove('secondary_schedule_json');
+    } else {
+      await _prefs.setString('secondary_schedule_json', value);
+    }
   }
 
   // ── Student info ──

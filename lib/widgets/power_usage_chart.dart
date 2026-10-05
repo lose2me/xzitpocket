@@ -123,18 +123,14 @@ class _PowerUsageChartPainter extends CustomPainter {
       );
     }
 
-    final path = Path();
+    final chartPoints = <Offset>[];
     for (var i = 0; i < points.length; i++) {
       final x = points.length == 1
           ? chart.center.dx
           : chart.left + chart.width * i / (points.length - 1);
       final y = chart.bottom - chart.height * (points[i].$2 / maxValue);
       final point = Offset(x, y);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
+      chartPoints.add(point);
       canvas.drawCircle(point, 3.2, dotPaint);
       final interval = (points.length / 5).ceil().clamp(1, points.length);
       if (i == 0 || i == points.length - 1 || i % interval == 0) {
@@ -146,8 +142,38 @@ class _PowerUsageChartPainter extends CustomPainter {
         );
       }
     }
-    canvas.drawPath(path, linePaint);
+    canvas.drawPath(_smoothPath(chartPoints, chart), linePaint);
   }
+
+  Path _smoothPath(List<Offset> points, Rect chart) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    if (points.length == 1) return path;
+
+    // Catmull-Rom-style cubic controls keep the curve tangent to adjacent
+    // segments while retaining the original data points as anchors.
+    for (var i = 0; i < points.length - 1; i++) {
+      final current = points[i];
+      final next = points[i + 1];
+      final previous = i == 0 ? current : points[i - 1];
+      final following = i + 2 < points.length ? points[i + 2] : next;
+      final control1 = _clampPoint(current + (next - previous) / 6, chart);
+      final control2 = _clampPoint(next - (following - current) / 6, chart);
+      path.cubicTo(
+        control1.dx,
+        control1.dy,
+        control2.dx,
+        control2.dy,
+        next.dx,
+        next.dy,
+      );
+    }
+    return path;
+  }
+
+  Offset _clampPoint(Offset point, Rect chart) => Offset(
+    point.dx.clamp(chart.left, chart.right).toDouble(),
+    point.dy.clamp(chart.top, chart.bottom).toDouble(),
+  );
 
   void _drawLabel(
     Canvas canvas,

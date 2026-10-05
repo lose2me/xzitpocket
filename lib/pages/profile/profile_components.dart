@@ -107,53 +107,14 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
                   ),
                 ),
               ]),
-              contentDecoration: FVariantsDelta.delta([
-                FVariantOperation.all(
-                  DecorationDelta.value(
-                    ShapeDecoration(
-                      color: theme.colors.primary.withValues(
-                        alpha: 0.04 + attention * 0.12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(
-                          color: theme.colors.primary.withValues(
-                            alpha: 0.35 + attention * 0.65,
-                          ),
-                          width: 1.5 + attention,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ]),
               contentStyle: _profileTileContentStyle,
             ),
       prefix: Icon(icon, size: 20, color: theme.colors.primary),
-      title: Text(
-        title,
-        style: attention <= 0
-            ? null
-            : TextStyle(
-                color: theme.colors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-      ),
-      details: value == null
-          ? null
-          : Text(
-              value!,
-              style: attention <= 0
-                  ? null
-                  : TextStyle(color: theme.colors.primary),
-            ),
+      title: Text(title),
+      details: value == null ? null : Text(value!),
       suffix: onTap == null && onLongPress == null
           ? null
-          : Icon(
-              FLucideIcons.chevronRight,
-              size: 18,
-              color: attention <= 0 ? null : theme.colors.primary,
-            ),
+          : const Icon(FLucideIcons.chevronRight, size: 18),
       onPress: onTap,
       onLongPress: onLongPress,
     );

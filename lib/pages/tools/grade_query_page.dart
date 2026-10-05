@@ -252,13 +252,29 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     if (_loading && _result == null) {
       return const Center(child: FCircularProgress());
     }
+    if (grades.isEmpty) {
+      return AppPageBody(
+        maxWidth: AppLayout.resultMaxWidth,
+        safeArea: false,
+        child: Column(
+          children: [
+            _buildHeader(theme, grades),
+            Expanded(child: _buildEmptyGradeState(theme)),
+          ],
+        ),
+      );
+    }
     return AppPageBody(
       maxWidth: AppLayout.resultMaxWidth,
       safeArea: false,
-      child: Column(
+      child: AppPageListView(
+        maxWidth: AppLayout.resultMaxWidth,
+        topPadding: AppSpacing.xs,
+        bottomPadding: AppSpacing.xxl,
+        safeArea: false,
         children: [
           _buildHeader(theme, grades),
-          Expanded(child: _buildList(theme, grades)),
+          for (final grade in grades) _buildGradeTile(theme, grade),
         ],
       ),
     );
@@ -276,12 +292,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     final gpa = totalCredit > 0 ? weightedSum / totalCredit : 0.0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        AppLayout.pageGutter(context),
-        AppSpacing.xs,
-        AppLayout.pageGutter(context),
-        AppSpacing.xs,
-      ),
+      padding: EdgeInsets.fromLTRB(0, AppSpacing.xs, 0, AppSpacing.xs),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -455,42 +466,27 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     );
   }
 
-  Widget _buildList(FThemeData theme, List<GradeItem> grades) {
-    if (grades.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              _hideSemesterSelector
-                  ? FLucideIcons.clock3
-                  : FLucideIcons.graduationCap,
-              size: 48,
-              color: theme.colors.mutedForeground,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
-              style: theme.typography.tileTitle.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-          ],
+  Widget _buildEmptyGradeState(FThemeData theme) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          _hideSemesterSelector
+              ? FLucideIcons.clock3
+              : FLucideIcons.graduationCap,
+          size: 48,
+          color: theme.colors.mutedForeground,
         ),
-      );
-    }
-
-    return ListView.builder(
-      padding: EdgeInsets.fromLTRB(
-        AppLayout.pageGutter(context),
-        AppSpacing.xs,
-        AppLayout.pageGutter(context),
-        AppSpacing.xxl,
-      ),
-      itemCount: grades.length,
-      itemBuilder: (_, i) => _buildGradeTile(theme, grades[i]),
-    );
-  }
+        const SizedBox(height: 12),
+        Text(
+          _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
+          style: theme.typography.tileTitle.copyWith(
+            color: theme.colors.mutedForeground,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _buildGradeTile(FThemeData theme, GradeItem grade) {
     final details = [
@@ -575,12 +571,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   List<Color> _scoreBandColors(FThemeData theme) => [
-    // Brighter red, yellow, blue and green: semantic hues stay recognizable
-    // while the foreground blend keeps them readable in both themes.
-    Color.lerp(theme.colors.foreground, theme.colors.destructive, 0.84)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.warning, 0.84)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.info, 0.84)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.success, 0.84)!,
+    // Soft macaron red, yellow, blue and green with enough foreground blend
+    // to remain readable on both light and dark surfaces.
+    Color.lerp(theme.colors.foreground, const Color(0xFFF3A6B8), 0.82)!,
+    Color.lerp(theme.colors.foreground, const Color(0xFFF2D98B), 0.82)!,
+    Color.lerp(theme.colors.foreground, const Color(0xFFA9C9F5), 0.82)!,
+    Color.lerp(theme.colors.foreground, const Color(0xFFA5DDB8), 0.82)!,
   ];
 
   // ── Academic Tab ──

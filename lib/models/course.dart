@@ -23,6 +23,68 @@ class Course {
     this.courseId = '',
   });
 
+  /// Stable, storage-independent representation used by configuration
+  /// backup files.  Hive's binary representation is intentionally not exposed
+  /// outside the app.
+  Map<String, dynamic> toJson() => {
+    'title': title,
+    'teacher': teacher,
+    'weekday': weekday,
+    'sessions': sessions,
+    'weeks': weeks,
+    'campus': campus,
+    'place': place,
+    'colorIndex': colorIndex,
+    'courseId': courseId,
+  };
+
+  factory Course.fromJson(Map<String, dynamic> json) {
+    List<int> readInts(String key) {
+      final value = json[key];
+      if (value is! List) {
+        throw FormatException('课程字段 $key 不是数组');
+      }
+      return value.map((item) {
+        if (item is int) return item;
+        final parsed = int.tryParse(item.toString());
+        if (parsed == null) throw FormatException('课程字段 $key 含有无效数字');
+        return parsed;
+      }).toList();
+    }
+
+    String readString(String key) {
+      final value = json[key];
+      if (value == null) return '';
+      if (value is! String) throw FormatException('课程字段 $key 不是文字');
+      return value;
+    }
+    final weekday = int.tryParse(json['weekday']?.toString() ?? '');
+    final colorIndex = int.tryParse(json['colorIndex']?.toString() ?? '');
+    if (readString('title').trim().isEmpty || weekday == null ||
+        weekday < 1 || weekday > 7 || colorIndex == null) {
+      throw const FormatException('课程字段无效');
+    }
+    final sessions = readInts('sessions');
+    final weeks = readInts('weeks');
+    if (sessions.isEmpty || sessions.any((session) => session < 1 || session > 14)) {
+      throw const FormatException('课程节次须在 1～14 节之间');
+    }
+    if (weeks.isEmpty || weeks.any((week) => week < 1 || week > 104)) {
+      throw const FormatException('课程周次须在 1～104 周之间');
+    }
+    return Course(
+      title: readString('title'),
+      teacher: readString('teacher'),
+      weekday: weekday,
+      sessions: sessions,
+      weeks: weeks,
+      campus: readString('campus'),
+      place: readString('place'),
+      colorIndex: colorIndex,
+      courseId: readString('courseId'),
+    );
+  }
+
   int get startSession =>
       sessions.isEmpty ? 1 : sessions.reduce((a, b) => a < b ? a : b);
   int get endSession =>

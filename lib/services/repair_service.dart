@@ -49,6 +49,9 @@ class RepairUserInfo {
 }
 
 class RepairRecord {
+  /// Internal form UUID required by getRepairFormById. This is different
+  /// from [orderId], which is the human-readable repair number.
+  final String formUuid;
   final String orderId;
   final String content;
   final String areaName;
@@ -58,6 +61,7 @@ class RepairRecord {
   final String createTime;
 
   const RepairRecord({
+    this.formUuid = '',
     required this.orderId,
     required this.content,
     required this.areaName,
@@ -68,6 +72,7 @@ class RepairRecord {
   });
 
   factory RepairRecord.fromJson(Map<String, dynamic> json) => RepairRecord(
+    formUuid: '${json['uuid'] ?? json['formuuid'] ?? json['formUuid'] ?? ''}',
     orderId: '${json['orderid'] ?? json['orderId'] ?? ''}',
     content: '${json['content'] ?? ''}',
     areaName: '${json['areaname'] ?? json['areaName'] ?? ''}',
@@ -78,6 +83,7 @@ class RepairRecord {
   );
 
   Map<String, dynamic> toJson() => {
+    'formUuid': formUuid,
     'orderId': orderId,
     'content': content,
     'areaName': areaName,
@@ -86,6 +92,191 @@ class RepairRecord {
     'status': status,
     'createTime': createTime,
   };
+}
+
+class RepairAttachment {
+  final String url;
+  final String thumbnailUrl;
+
+  const RepairAttachment({required this.url, required this.thumbnailUrl});
+
+  factory RepairAttachment.fromJson(Map<String, dynamic> json) {
+    final url = '${json['lookpath'] ?? json['url'] ?? json['imgurl'] ?? ''}';
+    final path = '${json['imgurl'] ?? ''}';
+    return RepairAttachment(url: url, thumbnailUrl: path);
+  }
+}
+
+class RepairProcessStep {
+  final String name;
+  final String time;
+  final String operatorName;
+  final String note;
+  final bool current;
+  final List<RepairAttachment> attachments;
+
+  const RepairProcessStep({
+    required this.name,
+    required this.time,
+    required this.operatorName,
+    required this.note,
+    required this.current,
+    this.attachments = const [],
+  });
+}
+
+class RepairDetail {
+  final String formUuid;
+  final String orderId;
+  final String content;
+  final String areaName;
+  final String itemName;
+  final String address;
+  final String status;
+  final String createTime;
+  final String acceptTime;
+  final String repairer;
+  final String teamName;
+  final String repairUnit;
+  final String remark;
+  final String result;
+  final List<RepairAttachment> attachments;
+  final List<RepairProcessStep> steps;
+  final Map<String, dynamic> raw;
+
+  const RepairDetail({
+    required this.formUuid,
+    required this.orderId,
+    required this.content,
+    required this.areaName,
+    required this.itemName,
+    required this.address,
+    required this.status,
+    required this.createTime,
+    required this.acceptTime,
+    required this.repairer,
+    required this.teamName,
+    required this.repairUnit,
+    required this.remark,
+    required this.result,
+    required this.attachments,
+    required this.steps,
+    required this.raw,
+  });
+
+  factory RepairDetail.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, dynamic>? raw,
+  }) {
+    final current =
+        '${json['nodename'] ?? json['orderstatus'] ?? json['status'] ?? ''}';
+    final createTime = '${json['createtime'] ?? json['createTime'] ?? ''}';
+    final acceptTime = '${json['jdrq'] ?? json['accepttime'] ?? ''}';
+    final attachments =
+        (json['imgs'] as List?)
+            ?.whereType<Map<String, dynamic>>()
+            .map(RepairAttachment.fromJson)
+            .toList() ??
+        const <RepairAttachment>[];
+
+    final steps = <RepairProcessStep>[];
+    final rawFlow =
+        <dynamic>[
+              json['process'],
+              json['processList'],
+              json['processlist'],
+              json['flow'],
+              json['flowList'],
+              json['nodelist'],
+            ]
+            .whereType<List>()
+            .expand((value) => value)
+            .whereType<Map<String, dynamic>>();
+    for (final node in rawFlow) {
+      final name =
+          '${node['nodename'] ?? node['nodeName'] ?? node['name'] ?? node['status'] ?? ''}';
+      if (name.trim().isEmpty) continue;
+      steps.add(
+        RepairProcessStep(
+          name: name,
+          time:
+              '${node['time'] ?? node['operatetime'] ?? node['operateTime'] ?? node['createtime'] ?? ''}',
+          operatorName:
+              '${node['operator'] ?? node['operatorName'] ?? node['username'] ?? node['maintainer'] ?? ''}',
+          note: '${node['remark'] ?? node['comment'] ?? node['content'] ?? ''}',
+          current: node['current'] == true || node['iscurrent'] == true,
+          attachments:
+              (node['imgs'] as List?)
+                  ?.whereType<Map<String, dynamic>>()
+                  .map(RepairAttachment.fromJson)
+                  .toList() ??
+              const <RepairAttachment>[],
+        ),
+      );
+    }
+    if (steps.isEmpty) {
+      // The production endpoint currently returns the form plus its current
+      // node, while older deployments may include the full workflow array.
+      // Use only milestones backed by fields present in that response.
+      if (createTime.isNotEmpty) {
+        steps.add(
+          RepairProcessStep(
+            name: '提交报修',
+            time: createTime,
+            operatorName: '${json['creater'] ?? json['username'] ?? ''}',
+            note: '${json['content'] ?? ''}',
+            current: false,
+            attachments: const [],
+          ),
+        );
+      }
+      if (acceptTime.isNotEmpty) {
+        steps.add(
+          RepairProcessStep(
+            name: '已接单',
+            time: acceptTime,
+            operatorName: '${json['repairer'] ?? json['maintainer'] ?? ''}',
+            note: '${json['teamname'] ?? json['maintainunit'] ?? ''}',
+            current: false,
+            attachments: const [],
+          ),
+        );
+      }
+      if (current.isNotEmpty) {
+        steps.add(
+          RepairProcessStep(
+            name: current,
+            time: '${json['finishTime'] ?? json['completiontime'] ?? ''}',
+            operatorName: '${json['username'] ?? json['maintainer'] ?? ''}',
+            note:
+                '${json['rvcontent'] ?? json['ysyj'] ?? json['remark'] ?? ''}',
+            current: true,
+            attachments: attachments,
+          ),
+        );
+      }
+    }
+
+    return RepairDetail(
+      formUuid: '${json['uuid'] ?? json['formuuid'] ?? ''}',
+      orderId: '${json['orderid'] ?? json['orderId'] ?? ''}',
+      content: '${json['content'] ?? ''}',
+      areaName: '${json['areaname'] ?? json['areaName'] ?? ''}',
+      itemName: '${json['itemname'] ?? json['itemName'] ?? ''}',
+      address: '${json['address'] ?? ''}',
+      status: current,
+      createTime: createTime,
+      acceptTime: acceptTime,
+      repairer: '${json['repairer'] ?? json['maintainer'] ?? ''}',
+      teamName: '${json['teamname'] ?? json['maintainunit'] ?? ''}',
+      repairUnit: '${json['maintainunit'] ?? json['bussinessmanname'] ?? ''}',
+      remark: '${json['remark'] ?? ''}',
+      result: '${json['rvcontent'] ?? json['ysyj'] ?? ''}',
+      attachments: attachments,
+      steps: steps,
+      raw: raw ?? json,
+    );
+  }
 }
 
 class RepairResult {
@@ -269,6 +460,28 @@ class RepairService {
         .cast<Map<String, dynamic>>()
         .map(RepairRecord.fromJson)
         .toList();
+  }
+
+  /// Loads the raw detail payload used by the repair platform's “详细” view.
+  /// The endpoint returns a decoded map after the platform's lightweight
+  /// response envelope has been unwrapped by [_api].
+  Future<Map<String, dynamic>> getRepairDetail(
+    CasSession session,
+    String formUuid,
+  ) => _api(session.dio, 'repair/getRepairFormById', {'fid': formUuid});
+
+  /// Converts the platform's detail envelope into a stable app-facing object.
+  /// Unknown fields are retained in [raw] so a newer server response can be
+  /// displayed without requiring an app update first.
+  Future<RepairDetail> getRepairDetails(
+    CasSession session,
+    String formUuid,
+  ) async {
+    final payload = await getRepairDetail(session, formUuid);
+    final list = (payload['data'] as List?) ?? const [];
+    final forms = list.whereType<Map<String, dynamic>>();
+    final form = forms.isEmpty ? <String, dynamic>{} : forms.first;
+    return RepairDetail.fromJson(form, raw: payload);
   }
 
   Future<RepairResult> fetchAll(String username, String password) async {
