@@ -17,7 +17,9 @@ FTabsStyleDelta appSegmentedTabsStyle(FThemeData theme) =>
         border: Border.all(color: theme.colors.border.withValues(alpha: 0.72)),
         borderRadius: BorderRadius.zero,
       ),
-      padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.all(2)),
+      padding: const EdgeInsetsGeometryDelta.value(
+        EdgeInsets.symmetric(horizontal: 2, vertical: 3),
+      ),
       labelTextStyle: FVariantsDelta.delta([
         FVariantOperation.exact(
           {FTabVariant.selected},
@@ -35,7 +37,7 @@ FTabsStyleDelta appSegmentedTabsStyle(FThemeData theme) =>
         borderRadius: BorderRadius.circular(6),
       ),
       indicatorSize: FTabBarIndicatorSize.tab,
-      minHeight: 36,
+      minHeight: 32,
       spacing: 0,
     );
 

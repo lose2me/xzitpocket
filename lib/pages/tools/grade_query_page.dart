@@ -575,12 +575,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   List<Color> _scoreBandColors(FThemeData theme) => [
-    // Muted red, yellow, blue and green: semantic hues stay recognizable
+    // Brighter red, yellow, blue and green: semantic hues stay recognizable
     // while the foreground blend keeps them readable in both themes.
-    Color.lerp(theme.colors.foreground, theme.colors.destructive, 0.7)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.warning, 0.7)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.info, 0.7)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.success, 0.7)!,
+    Color.lerp(theme.colors.foreground, theme.colors.destructive, 0.84)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.warning, 0.84)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.info, 0.84)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.success, 0.84)!,
   ];
 
   // ── Academic Tab ──

@@ -102,6 +102,7 @@ void main() {
 
     await tester.longPress(find.text('在线题库'));
     await tester.pumpAndSettle();
+    expect(tester.widget<FTile>(find.byType(FTile)).selected, isTrue);
     await tester.tap(find.byIcon(FLucideIcons.trash2));
     await tester.pumpAndSettle();
 

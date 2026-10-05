@@ -514,7 +514,7 @@ void main() {
         '第1-2节',
       );
       expect(find.text('颜色'), findsOneWidget);
-      expect(find.text('默认'), findsOneWidget);
+      expect(find.text('自动分配'), findsOneWidget);
 
       await tester.tap(find.byKey(const ValueKey('course-weekday-field')));
       await tester.pumpAndSettle();

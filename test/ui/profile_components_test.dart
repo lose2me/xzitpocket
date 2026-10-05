@@ -146,7 +146,7 @@ void main() {
 
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
-    expect(selectedColor?.toARGB32(), initialColor.toARGB32());
+    expect(HSVColor.fromColor(selectedColor!).value, closeTo(0.75, 0.001));
   });
 
   testWidgets('inline profile control stays on one row', (tester) async {

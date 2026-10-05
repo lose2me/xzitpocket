@@ -51,6 +51,7 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
 
 class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   final _imagePicker = ImagePicker();
+  bool _ignoreNextBackgroundTap = false;
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
@@ -722,11 +723,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           ? '点击选择'
                           : '长按删除',
                       onTap: settings.timetableBackgroundPath == null
-                          ? () => _pickBackground(dark: false)
+                          ? () => _pickBackgroundAfterLongPress(dark: false)
                           : null,
                       onLongPress: settings.timetableBackgroundPath == null
                           ? null
                           : () => _clearBackground(dark: false),
+                      onPointerUp: _releaseBackgroundPointer,
                     ),
                     ProfileSettingsTile(
                       icon: FLucideIcons.moon,
@@ -735,11 +737,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           ? '点击选择'
                           : '长按删除',
                       onTap: settings.timetableDarkBackgroundPath == null
-                          ? () => _pickBackground(dark: true)
+                          ? () => _pickBackgroundAfterLongPress(dark: true)
                           : null,
                       onLongPress: settings.timetableDarkBackgroundPath == null
                           ? null
                           : () => _clearBackground(dark: true),
+                      onPointerUp: _releaseBackgroundPointer,
                     ),
                   ],
                 ),
@@ -810,12 +813,16 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           ? '点击选择'
                           : '长按删除',
                       onTap: settings.widgetBackgroundPath == null
-                          ? () => _pickBackground(dark: false, forWidget: true)
+                          ? () => _pickBackgroundAfterLongPress(
+                              dark: false,
+                              forWidget: true,
+                            )
                           : null,
                       onLongPress: settings.widgetBackgroundPath == null
                           ? null
                           : () =>
                                 _clearBackground(dark: false, forWidget: true),
+                      onPointerUp: _releaseBackgroundPointer,
                     ),
                     ProfileSettingsTile(
                       icon: FLucideIcons.moon,
@@ -824,11 +831,15 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           ? '点击选择'
                           : '长按删除',
                       onTap: settings.widgetDarkBackgroundPath == null
-                          ? () => _pickBackground(dark: true, forWidget: true)
+                          ? () => _pickBackgroundAfterLongPress(
+                              dark: true,
+                              forWidget: true,
+                            )
                           : null,
                       onLongPress: settings.widgetDarkBackgroundPath == null
                           ? null
                           : () => _clearBackground(dark: true, forWidget: true),
+                      onPointerUp: _releaseBackgroundPointer,
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
@@ -1255,6 +1266,26 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     }
   }
 
+  void _pickBackgroundAfterLongPress({
+    required bool dark,
+    bool forWidget = false,
+  }) {
+    if (_ignoreNextBackgroundTap) {
+      _ignoreNextBackgroundTap = false;
+      return;
+    }
+    unawaited(_pickBackground(dark: dark, forWidget: forWidget));
+  }
+
+  void _releaseBackgroundPointer() {
+    if (!_ignoreNextBackgroundTap) return;
+    // Let the current gesture finish before allowing a newly rebuilt tile to
+    // respond to a later tap.
+    Future<void>.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) setState(() => _ignoreNextBackgroundTap = false);
+    });
+  }
+
   Future<Uint8List?> _selectBackgroundCrop(
     Uint8List sourceBytes,
     double aspectRatio,
@@ -1271,6 +1302,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     required bool dark,
     bool forWidget = false,
   }) async {
+    // The long-press callback runs while the finger is still down. Consume
+    // the release that follows the deletion so it cannot reopen the picker.
+    _ignoreNextBackgroundTap = true;
     final settings = ref.read(appSettingsProvider);
     final path = forWidget
         ? dark

@@ -386,6 +386,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     };
 
     return FTile(
+      selected: selected,
       style: FItemStyleDelta.delta(
         shape: const RoundedRectangleBorder(side: BorderSide.none),
         backgroundColor: FVariantsValueDelta.delta([
@@ -399,11 +400,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                     ? theme.colors.primary.withValues(alpha: 0.08)
                     : Colors.transparent,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
+                  borderRadius: BorderRadius.circular(20),
                   side: BorderSide(
                     color: selected
                         ? theme.colors.primary
                         : theme.colors.border,
+                    width: selected ? 1.5 : 1,
                   ),
                 ),
               ),
@@ -420,10 +422,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           prefixIconSpacing: 8,
         ),
       ),
-      prefix: _BankInitial(
-        initial: _bankInitial(name),
-        outerColor: Color.lerp(theme.colors.primary, Colors.white, 0.55)!,
-        innerColor: Color.lerp(theme.colors.primary, Colors.black, 0.2)!,
+      prefix: Padding(
+        padding: const EdgeInsets.only(left: 2),
+        child: _BankInitial(
+          initial: _bankInitial(name),
+          outerColor: selected
+              ? theme.colors.primary.withValues(alpha: 0.3)
+              : Color.lerp(theme.colors.primary, Colors.white, 0.55)!,
+          innerColor: Color.lerp(theme.colors.primary, Colors.black, 0.2)!,
+        ),
       ),
       title: Text(
         name,

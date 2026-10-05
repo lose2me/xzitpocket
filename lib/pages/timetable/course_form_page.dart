@@ -222,7 +222,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
                       color.toARGB32() != _defaultColor!.toARGB32())
                     color,
               ],
-              resetLabel: '默认',
+              resetLabel: '自动分配',
               lastCustomColor: _lastCustomColor,
               onChanged: _setColor,
               onCustomColorPressed: _pickCustomColor,

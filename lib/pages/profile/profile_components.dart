@@ -79,6 +79,7 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
   final String? value;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onPointerUp;
   final Animation<double>? attentionAnimation;
 
   const ProfileSettingsTile({
@@ -88,6 +89,7 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
     this.value,
     this.onTap,
     this.onLongPress,
+    this.onPointerUp,
     this.attentionAnimation,
   });
 
@@ -157,10 +159,17 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
     );
 
     final animation = attentionAnimation;
-    if (animation == null) return tile(0);
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, _) => tile(animation.value),
+    Widget result = animation == null
+        ? tile(0)
+        : AnimatedBuilder(
+            animation: animation,
+            builder: (context, _) => tile(animation.value),
+          );
+    if (onPointerUp == null) return result;
+    return Listener(
+      onPointerUp: (_) => onPointerUp!(),
+      onPointerCancel: (_) => onPointerUp!(),
+      child: result,
     );
   }
 }
@@ -649,7 +658,10 @@ class _ProfileColorPickerDialog extends StatefulWidget {
 }
 
 class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
-  late HSVColor _color = HSVColor.fromColor(widget.initialColor);
+  // Keep the picker thumb at a useful, visible default brightness. The
+  // selected hue/saturation still come from the color passed by the caller.
+  late HSVColor _color = HSVColor.fromColor(widget.initialColor)
+      .withValue(0.75);
 
   Color get _selectedColor => _color.toColor();
 
