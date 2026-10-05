@@ -6,37 +6,36 @@ import 'app_tokens.dart';
 import 'app_colors.dart';
 
 /// Shared square segmented-tab styling used by tool pages.
+///
+/// Keep the control deliberately quiet: the surrounding pages already have
+/// cards and section borders, so a solid primary indicator would make the
+/// tabs feel visually heavier than the content they switch.
 FTabsStyleDelta appSegmentedTabsStyle(FThemeData theme) =>
     FTabsStyleDelta.delta(
       decoration: DecorationDelta.boxDelta(
-        color: theme.colors.muted,
-        border: Border.all(color: theme.colors.border),
+        color: theme.colors.muted.withValues(alpha: 0.52),
+        border: Border.all(color: theme.colors.border.withValues(alpha: 0.72)),
         borderRadius: BorderRadius.zero,
       ),
-      padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.all(3)),
+      padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.all(2)),
       labelTextStyle: FVariantsDelta.delta([
         FVariantOperation.exact(
           {FTabVariant.selected},
           TextStyleDelta.delta(
-            color: theme.colors.primaryForeground,
-            fontWeight: FontWeight.w700,
+            color: theme.colors.primary,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ]),
       indicatorDecoration: DecorationDelta.boxDelta(
-        color: theme.colors.primary,
-        border: Border.all(color: theme.colors.primary),
+        color: theme.colors.primary.withValues(alpha: 0.12),
+        border: Border.all(
+          color: theme.colors.primary.withValues(alpha: 0.42),
+        ),
         borderRadius: BorderRadius.zero,
-        boxShadow: [
-          BoxShadow(
-            color: theme.colors.primary.withValues(alpha: 0.18),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
-          ),
-        ],
       ),
       indicatorSize: FTabBarIndicatorSize.tab,
-      minHeight: 40,
+      minHeight: 36,
       spacing: 0,
     );
 
