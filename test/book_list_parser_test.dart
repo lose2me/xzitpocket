@@ -81,12 +81,8 @@ void main() {
     );
 
     expect(catalog.current?.key, '2025|12');
-    expect(catalog.options.map((option) => option.key), [
-      '2025|12',
-      '2025|3',
-      '2024|12',
-      '2024|3',
-    ]);
+    expect(catalog.options.map((option) => option.key), ['2025|12', '2025|3']);
+    expect(catalog.options.map((option) => option.label), ['大一下学期', '大一上学期']);
   });
 
   test('moves from second semester to the next academic year', () {
@@ -102,7 +98,7 @@ void main() {
     );
 
     expect(catalog.current?.key, '2026|3');
-    expect(catalog.current?.label, '26学年第1学期');
+    expect(catalog.current?.label, '大二上学期');
   });
 
   test('uses the student number for a freshman without grades', () {
@@ -112,6 +108,6 @@ void main() {
     );
 
     expect(catalog.options.map((option) => option.key), ['2025|3']);
-    expect(catalog.current?.label, '25学年第1学期');
+    expect(catalog.current?.label, '大一上学期');
   });
 }

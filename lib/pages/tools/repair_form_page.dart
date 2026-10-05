@@ -18,12 +18,16 @@ class RepairFormPage extends StatefulWidget {
   final String studentId;
   final String password;
   final RepairUserInfo userInfo;
+  final bool embedded;
+  final VoidCallback? onSubmitted;
 
   const RepairFormPage({
     super.key,
     required this.studentId,
     required this.password,
     required this.userInfo,
+    this.embedded = false,
+    this.onSubmitted,
   });
 
   @override
@@ -261,7 +265,11 @@ class _RepairFormPageState extends State<RepairFormPage> {
         images: imagePaths,
       );
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      if (widget.embedded) {
+        widget.onSubmitted?.call();
+      } else {
+        Navigator.of(context).pop(true);
+      }
     } on AuthException catch (e, stackTrace) {
       talker.error('报修提交失败', e, stackTrace);
       if (!mounted) return;
@@ -286,6 +294,91 @@ class _RepairFormPageState extends State<RepairFormPage> {
   Widget build(BuildContext context) {
     final theme = context.theme;
 
+    final content = AppPageListView(
+      maxWidth: AppLayout.formMaxWidth,
+      topPadding: AppSpacing.lg,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        _buildPickerField(
+          label: '报修区域',
+          controller: _areaCtrl,
+          onTap: _pickArea,
+        ),
+        const SizedBox(height: 12),
+        _buildPickerField(
+          label: '报修项目',
+          controller: _itemCtrl,
+          onTap: _pickItem,
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: 140,
+          child: AppTextField(
+            controller: _addressCtrl,
+            label: '详细地址',
+            enabled: !_editingDisabled,
+          ),
+        ),
+        const SizedBox(height: 12),
+        AppTextField(
+          controller: _contentCtrl,
+          label: '故障描述',
+          enabled: !_editingDisabled,
+          minLines: 3,
+          maxLines: null,
+          keyboardType: TextInputType.multiline,
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var i = 0; i < _images.length; i++) _buildImageTile(theme, i),
+            if (_images.length < 9) _buildAddImageTile(theme),
+          ],
+        ),
+        const SizedBox(height: 24),
+        FButton(
+          onPress: _submitDisabled ? null : _submit,
+          prefix: _sessionLoading || _submitting
+              ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+              : const Icon(FLucideIcons.send),
+          child: const Text('提交报修'),
+        ),
+        if (_tutorial != null && _tutorial!.trim().isNotEmpty) ...[
+          const SizedBox(height: 28),
+          const FDivider(),
+          const SizedBox(height: 16),
+          MarkdownBody(
+            data: _tutorial!,
+            selectable: true,
+            styleSheet: MarkdownStyleSheet(
+              p: theme.typography.bodyText.copyWith(
+                color: theme.colors.foreground,
+              ),
+              h1: theme.typography.pageTitle.copyWith(
+                color: theme.colors.foreground,
+                fontWeight: FontWeight.w700,
+              ),
+              h2: theme.typography.tileTitle.copyWith(
+                color: theme.colors.foreground,
+                fontWeight: FontWeight.w700,
+              ),
+              h3: theme.typography.sectionTitle.copyWith(
+                color: theme.colors.foreground,
+                fontWeight: FontWeight.w600,
+              ),
+              code: theme.typography.body.sm.copyWith(
+                color: theme.colors.foreground,
+                fontFamily: 'monospace',
+                backgroundColor: theme.colors.muted,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+    if (widget.embedded) return content;
     return AppPage(
       title: '新建报修',
       actions: [
@@ -295,91 +388,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
             onPress: null,
           ),
       ],
-      child: AppPageListView(
-        maxWidth: AppLayout.formMaxWidth,
-        topPadding: AppSpacing.lg,
-        bottomPadding: AppSpacing.xxl,
-        children: [
-          _buildPickerField(
-            label: '报修区域',
-            controller: _areaCtrl,
-            onTap: _pickArea,
-          ),
-          const SizedBox(height: 12),
-          _buildPickerField(
-            label: '报修项目',
-            controller: _itemCtrl,
-            onTap: _pickItem,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: 140,
-            child: AppTextField(
-              controller: _addressCtrl,
-              label: '详细地址',
-              enabled: !_editingDisabled,
-            ),
-          ),
-          const SizedBox(height: 12),
-          AppTextField(
-            controller: _contentCtrl,
-            label: '故障描述',
-            enabled: !_editingDisabled,
-            minLines: 3,
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (var i = 0; i < _images.length; i++)
-                _buildImageTile(theme, i),
-              if (_images.length < 9) _buildAddImageTile(theme),
-            ],
-          ),
-          const SizedBox(height: 24),
-          FButton(
-            onPress: _submitDisabled ? null : _submit,
-            prefix: _sessionLoading || _submitting
-                ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-                : const Icon(FLucideIcons.send),
-            child: const Text('提交报修'),
-          ),
-          if (_tutorial != null && _tutorial!.trim().isNotEmpty) ...[
-            const SizedBox(height: 28),
-            const FDivider(),
-            const SizedBox(height: 16),
-            MarkdownBody(
-              data: _tutorial!,
-              selectable: true,
-              styleSheet: MarkdownStyleSheet(
-                p: theme.typography.bodyText.copyWith(
-                  color: theme.colors.foreground,
-                ),
-                h1: theme.typography.pageTitle.copyWith(
-                  color: theme.colors.foreground,
-                  fontWeight: FontWeight.w700,
-                ),
-                h2: theme.typography.tileTitle.copyWith(
-                  color: theme.colors.foreground,
-                  fontWeight: FontWeight.w700,
-                ),
-                h3: theme.typography.sectionTitle.copyWith(
-                  color: theme.colors.foreground,
-                  fontWeight: FontWeight.w600,
-                ),
-                code: theme.typography.body.sm.copyWith(
-                  color: theme.colors.foreground,
-                  fontFamily: 'monospace',
-                  backgroundColor: theme.colors.muted,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
+      child: content,
     );
   }
 

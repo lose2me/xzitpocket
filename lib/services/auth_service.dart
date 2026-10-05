@@ -384,40 +384,80 @@ BookListSemesterCatalog buildBookListSemesterCatalog(
   GradeResult grades,
   String studentId,
 ) {
-  final semesters = <String, BookListSemesterOption>{};
+  final enrollmentYear = _studentEnrollmentYear(studentId);
+  if (enrollmentYear == null) {
+    return const BookListSemesterCatalog(options: []);
+  }
+
+  final completed = <({int academicYear, int term})>[];
   for (final yearLabel in grades.years) {
-    final academicYear = RegExp(r'20\d{2}').firstMatch(yearLabel)?.group(0);
+    final academicYear = _academicYearStart(yearLabel);
     if (academicYear == null) continue;
     for (final termLabel in grades.termsByYear[yearLabel] ?? const <String>[]) {
-      final term = _bookTermNumber(termLabel);
-      if (term == null) continue;
-      final option = _bookSemesterOption(int.parse(academicYear), term);
+      final term = _gradeTermNumber(termLabel);
+      if (term != null) completed.add((academicYear: academicYear, term: term));
+    }
+  }
+
+  final latest = completed.isEmpty
+      ? null
+      : (completed..sort(_compareAcademicTerms)).last;
+  final currentTerm = latest == null
+      ? (academicYear: enrollmentYear, term: 1)
+      : _nextAcademicTerm(latest);
+
+  final semesters = <String, BookListSemesterOption>{};
+  for (
+    var academicYear = enrollmentYear;
+    academicYear <= currentTerm.academicYear;
+    academicYear++
+  ) {
+    final lastTerm = academicYear == currentTerm.academicYear
+        ? currentTerm.term
+        : 2;
+    for (var term = 1; term <= lastTerm; term++) {
+      final option = _bookSemesterOption(
+        academicYear,
+        term,
+        enrollmentYear: enrollmentYear,
+      );
       semesters[option.key] = option;
     }
   }
 
-  final historical = semesters.values.toList()..sort(_compareBookSemesters);
-  final BookListSemesterOption? current;
-  if (historical.isNotEmpty) {
-    current = _nextBookSemester(historical.first);
-  } else {
-    final enrollmentYear = _studentEnrollmentYear(studentId);
-    current = enrollmentYear == null
-        ? null
-        : _bookSemesterOption(enrollmentYear, 1);
-  }
-  if (current != null) semesters[current.key] = current;
+  final current = _bookSemesterOption(
+    currentTerm.academicYear,
+    currentTerm.term,
+    enrollmentYear: enrollmentYear,
+  );
   final options = semesters.values.toList()..sort(_compareBookSemesters);
   return BookListSemesterCatalog(options: options, current: current);
 }
 
-int? _bookTermNumber(String value) {
+int? _gradeTermNumber(String value) {
   final term = value.trim();
-  if (term == '3' || term.contains('一')) return 1;
-  if (term == '12' || term.contains('二')) return 2;
+  if (term == '1' || term == '3' || term.contains('一')) return 1;
+  if (term == '2' || term == '12' || term.contains('二')) return 2;
   final number = int.tryParse(term);
   return number == 1 || number == 2 ? number : null;
 }
+
+int? _academicYearStart(String value) =>
+    int.tryParse(RegExp(r'20\d{2}').firstMatch(value)?.group(0) ?? '');
+
+int _compareAcademicTerms(
+  ({int academicYear, int term}) left,
+  ({int academicYear, int term}) right,
+) {
+  final yearOrder = left.academicYear.compareTo(right.academicYear);
+  return yearOrder == 0 ? left.term.compareTo(right.term) : yearOrder;
+}
+
+({int academicYear, int term}) _nextAcademicTerm(
+  ({int academicYear, int term}) value,
+) => value.term == 1
+    ? (academicYear: value.academicYear, term: 2)
+    : (academicYear: value.academicYear + 1, term: 1);
 
 int? _studentEnrollmentYear(String studentId) {
   final value = studentId.trim();
@@ -428,20 +468,24 @@ int? _studentEnrollmentYear(String studentId) {
   return parsed == null ? null : 2000 + parsed;
 }
 
-BookListSemesterOption _bookSemesterOption(int academicYear, int term) {
-  final shortYear = (academicYear % 100).toString().padLeft(2, '0');
+BookListSemesterOption _bookSemesterOption(
+  int academicYear,
+  int term, {
+  required int enrollmentYear,
+}) {
+  final yearLevel = academicYear - enrollmentYear + 1;
+  final yearLabel = switch (yearLevel) {
+    1 => '大一',
+    2 => '大二',
+    3 => '大三',
+    4 => '大四',
+    _ => '大${yearLevel.clamp(1, 9)}',
+  };
   return BookListSemesterOption(
     academicYear: academicYear.toString(),
     termCode: term == 1 ? '3' : '12',
-    label: '$shortYear学年第$term学期',
+    label: '$yearLabel${term == 1 ? '上' : '下'}学期',
   );
-}
-
-BookListSemesterOption _nextBookSemester(BookListSemesterOption latest) {
-  final year = int.parse(latest.academicYear);
-  return latest.termCode == '3'
-      ? _bookSemesterOption(year, 2)
-      : _bookSemesterOption(year + 1, 1);
 }
 
 int _compareBookSemesters(

@@ -5,19 +5,13 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
+import '../../models/book_list.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
 import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
-
-typedef _SemesterOption = ({
-  int yearIndex,
-  int termIndex,
-  String label,
-  String key,
-});
 
 const _scoreBandLabels = ['不及格', '及格', '良好', '优秀'];
 
@@ -44,10 +38,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   AcademicStatus? _academic;
   bool _loading = false;
   bool _refreshSucceeded = false;
-  int _yearIndex = 0;
-  int _termIndex = 0;
+  String? _selectedSemesterKey;
   GradeResult? _semesterOptionsSource;
-  List<_SemesterOption> _semesterOptionsCache = const [];
+  BookListSemesterCatalog? _semesterCatalogCache;
 
   @override
   void initState() {
@@ -64,13 +57,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         _result = GradeResult.fromJson(
           jsonDecode(gradeJson) as Map<String, dynamic>,
         );
-        final latestYear = _result!.years.isNotEmpty
-            ? _result!.years.first
-            : null;
-        final latestTerms = latestYear == null
-            ? const <String>[]
-            : (_result!.termsByYear[latestYear] ?? const <String>[]);
-        _termIndex = latestTerms.isEmpty ? 0 : latestTerms.length - 1;
+        _selectedSemesterKey = _semesterCatalog.current?.key;
       }
       if (academicJson != null && academicJson.isNotEmpty) {
         _academic = AcademicStatus.fromJson(
@@ -120,14 +107,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         if (academicChanged) _academic = academic;
         _refreshSucceeded = true;
         if (gradesChanged) {
-          _yearIndex = 0;
-          final latestYear = grades.years.isNotEmpty
-              ? grades.years.first
-              : null;
-          final latestTerms = latestYear == null
-              ? const <String>[]
-              : (grades.termsByYear[latestYear] ?? const <String>[]);
-          _termIndex = latestTerms.isEmpty ? 0 : latestTerms.length - 1;
+          _semesterOptionsSource = null;
+          _semesterCatalogCache = null;
+          _selectedSemesterKey = _semesterCatalog.current?.key;
         }
       });
     } on AuthException catch (e, stackTrace) {
@@ -145,32 +127,68 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     }
   }
 
-  String? get _selectedYear {
-    final years = _result?.years;
-    if (years == null || years.isEmpty) return null;
-    return years[_yearIndex.clamp(0, years.length - 1)];
+  BookListSemesterCatalog get _semesterCatalog {
+    final result = _result;
+    if (result == null) {
+      return const BookListSemesterCatalog(options: []);
+    }
+    if (identical(result, _semesterOptionsSource) &&
+        _semesterCatalogCache != null) {
+      return _semesterCatalogCache!;
+    }
+    final catalog = buildBookListSemesterCatalog(result, widget.studentId);
+    _semesterOptionsSource = result;
+    _semesterCatalogCache = catalog;
+    return catalog;
   }
 
-  List<String> get _terms {
-    final year = _selectedYear;
-    if (year == null) return [];
-    return _result?.termsByYear[year] ?? [];
-  }
-
-  String? get _selectedTerm {
-    final terms = _terms;
-    if (terms.isEmpty) return null;
-    return terms[_termIndex.clamp(0, terms.length - 1)];
+  BookListSemesterOption? get _selectedSemester {
+    final options = _semesterCatalog.options;
+    final key = _selectedSemesterKey;
+    if (key != null) {
+      for (final option in options) {
+        if (option.key == key) return option;
+      }
+    }
+    return _semesterCatalog.current ?? (options.isEmpty ? null : options.first);
   }
 
   List<GradeItem> get _filtered {
     if (_result == null) return [];
-    final year = _selectedYear;
-    final term = _selectedTerm;
-    if (year == null || term == null) return [];
-    return _result!.grades
-        .where((g) => g.year == year && g.term == term)
-        .toList();
+    final semester = _selectedSemester;
+    if (semester == null) return [];
+    final academicYear = int.tryParse(semester.academicYear);
+    final term = semester.termCode == '3' ? 1 : 2;
+    if (academicYear == null) return [];
+    return _result!.grades.where((grade) {
+      final gradeYear = int.tryParse(
+        RegExp(r'20\d{2}').firstMatch(grade.year)?.group(0) ?? '',
+      );
+      final gradeTerm = _gradeTermNumber(grade.term);
+      return gradeYear == academicYear && gradeTerm == term;
+    }).toList();
+  }
+
+  bool get _hideSemesterSelector {
+    final current = _semesterCatalog.current;
+    if (current == null || _filtered.isNotEmpty) return false;
+    final enrollmentYear = _studentEnrollmentYear(widget.studentId);
+    return enrollmentYear != null &&
+        current.academicYear == enrollmentYear.toString() &&
+        current.termCode == '3';
+  }
+
+  int? _studentEnrollmentYear(String value) {
+    final match = RegExp(r'^(?:20)?(\d{2})').firstMatch(value.trim());
+    final year = int.tryParse(match?.group(1) ?? '');
+    return year == null ? null : 2000 + year;
+  }
+
+  int? _gradeTermNumber(String value) {
+    final term = value.trim();
+    if (term == '1' || term == '3' || term.contains('一')) return 1;
+    if (term == '2' || term == '12' || term.contains('二')) return 2;
+    return int.tryParse(term);
   }
 
   @override
@@ -254,8 +272,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 学年+学期 二合一：横向滚动选择栏
-          _buildSemesterSelector(theme),
+          if (!_hideSemesterSelector) _buildSemesterSelector(theme),
           if (grades.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             AppCard(
@@ -277,65 +294,19 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     );
   }
 
-  /// 学年 + 学期 合并成单个选项（新→旧），供滚动选择栏直接选择。
-  List<_SemesterOption> get _semesterOptions {
-    final result = _result;
-    if (identical(result, _semesterOptionsSource)) {
-      return _semesterOptionsCache;
-    }
-
-    final options = <_SemesterOption>[];
-    final years = result?.years ?? const <String>[];
-    for (var y = 0; y < years.length; y++) {
-      final terms = result?.termsByYear[years[y]] ?? const <String>[];
-      // 同一学年内按学期倒序，让"最新学期"排在最前。
-      for (var t = terms.length - 1; t >= 0; t--) {
-        options.add((
-          yearIndex: y,
-          termIndex: t,
-          label: _formatSemesterLabel(years[y], terms[t]),
-          key: '$y|$t',
-        ));
-      }
-    }
-    _semesterOptionsSource = result;
-    _semesterOptionsCache = options;
-    return _semesterOptionsCache;
-  }
-
-  /// 把学年/学期原始值格式化为下拉显示文本，如 "2025-2026 1" → "25学年第1学期"。
-  String _formatSemesterLabel(String year, String term) {
-    final startYear = year.split('-').first.trim();
-    final short = startYear.length >= 4
-        ? startYear.substring(startYear.length - 2)
-        : startYear;
-    final t = term.trim();
-    String semester;
-    if (t.startsWith('第')) {
-      semester = t;
-    } else if (int.tryParse(t) != null) {
-      semester = '第$t学期';
-    } else {
-      semester = t;
-    }
-    return '$short学年$semester';
-  }
-
   String _optionLabel(String key) {
-    for (final o in _semesterOptions) {
-      if (o.key == key) return o.label;
+    for (final option in _semesterCatalog.options) {
+      if (option.key == key) return option.label;
     }
-    return _semesterOptions.isEmpty ? '' : _semesterOptions.first.label;
+    return _semesterCatalog.options.isEmpty
+        ? ''
+        : _semesterCatalog.options.first.label;
   }
 
   Widget _buildSemesterSelector(FThemeData theme) {
-    final options = _semesterOptions;
+    final options = _semesterCatalog.options;
     if (options.isEmpty) return const SizedBox.shrink();
-    final selectedIndex = options.indexWhere(
-      (o) => o.yearIndex == _yearIndex && o.termIndex == _termIndex,
-    );
-    if (selectedIndex < 0) return const SizedBox.shrink();
-    final selectedKey = options[selectedIndex].key;
+    final selectedKey = _selectedSemester?.key ?? options.first.key;
 
     return SizedBox(
       width: double.infinity,
@@ -344,12 +315,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           value: selectedKey,
           onChange: (key) {
             if (key == null) return;
-            for (final o in options) {
-              if (o.key == key) {
-                setState(() {
-                  _yearIndex = o.yearIndex;
-                  _termIndex = o.termIndex;
-                });
+            for (final option in options) {
+              if (option.key == key) {
+                setState(() => _selectedSemesterKey = option.key);
                 return;
               }
             }
@@ -481,13 +449,15 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              FLucideIcons.graduationCap,
+              _hideSemesterSelector
+                  ? FLucideIcons.clock3
+                  : FLucideIcons.graduationCap,
               size: 48,
               color: theme.colors.mutedForeground,
             ),
             const SizedBox(height: 12),
             Text(
-              '暂无成绩',
+              _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
               style: theme.typography.tileTitle.copyWith(
                 color: theme.colors.mutedForeground,
               ),
@@ -592,10 +562,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   }
 
   List<Color> _scoreBandColors(FThemeData theme) => [
-    Color.lerp(theme.colors.foreground, theme.colors.destructive, 0.62)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.warning, 0.62)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.info, 0.62)!,
-    Color.lerp(theme.colors.foreground, theme.colors.semantic.success, 0.62)!,
+    // Muted red, yellow, blue and green: semantic hues stay recognizable
+    // while the foreground blend keeps them readable in both themes.
+    Color.lerp(theme.colors.foreground, theme.colors.destructive, 0.7)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.warning, 0.7)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.info, 0.7)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.success, 0.7)!,
   ];
 
   // ── Academic Tab ──

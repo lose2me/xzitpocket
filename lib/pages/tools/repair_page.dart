@@ -35,6 +35,7 @@ class _RepairPageState extends State<RepairPage> {
   late RepairUserInfo _userInfo;
   bool _isRefreshing = false;
   bool _refreshSucceeded = false;
+  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -107,27 +108,19 @@ class _RepairPageState extends State<RepairPage> {
     }
   }
 
-  Future<void> _openForm() async {
-    final submitted = await Navigator.of(context).push<bool>(
-      appRoute(
-        name: AppRouteNames.newRepair,
-        builder: (_) => RepairFormPage(
-          studentId: widget.studentId,
-          password: widget.password,
-          userInfo: _userInfo,
-        ),
-      ),
-    );
-    if (submitted == true) {
-      final refreshed = await _load(forceRefresh: true, showError: false);
-      if (mounted) {
+  void _onRepairSubmitted() {
+    if (!mounted) return;
+    setState(() => _selectedTab = 0);
+    unawaited(
+      _load(forceRefresh: true, showError: false).then((refreshed) {
+        if (!mounted) return;
         showAppSnackBar(
           context,
           refreshed ? '提交成功' : '提交成功，但列表刷新失败',
           severity: refreshed ? ToastSeverity.success : ToastSeverity.warning,
         );
-      }
-    }
+      }),
+    );
   }
 
   @override
@@ -139,7 +132,7 @@ class _RepairPageState extends State<RepairPage> {
     final visible = _records;
 
     return AppPage(
-      title: '我的报修',
+      title: '极速报修',
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
@@ -148,25 +141,61 @@ class _RepairPageState extends State<RepairPage> {
           loading: _isRefreshing,
           completed: _refreshSucceeded,
         ),
-        FHeaderAction(
-          icon: const Icon(FLucideIcons.plus),
-          semanticsLabel: '新建报修',
-          onPress: _openForm,
-        ),
       ],
-      child: visible.isEmpty
-          ? const AppPageBody(
-              maxWidth: AppLayout.resultMaxWidth,
-              child: AppStateView(icon: FLucideIcons.wrench, title: '暂无报修记录'),
-            )
-          : AppPageListView(
-              maxWidth: AppLayout.resultMaxWidth,
-              topPadding: AppSpacing.lg,
-              bottomPadding: AppSpacing.xxl,
-              children: [
-                for (final record in visible) _buildRecordCard(theme, record),
-              ],
+      child: AppPageBody(
+        maxWidth: AppLayout.resultMaxWidth,
+        safeArea: false,
+        child: FTabs(
+          control: FTabControl.lifted(
+            index: _selectedTab,
+            onChange: (index) => setState(() => _selectedTab = index),
+          ),
+          expands: true,
+          style: FTabsStyleDelta.delta(
+            decoration: DecorationDelta.boxDelta(
+              borderRadius: BorderRadius.zero,
             ),
+            padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
+            indicatorDecoration: DecorationDelta.boxDelta(
+              borderRadius: BorderRadius.zero,
+            ),
+            spacing: 0,
+          ),
+          children: [
+            FTabEntry(
+              label: const Text('报修记录'),
+              child: visible.isEmpty
+                  ? const AppPageBody(
+                      safeArea: false,
+                      child: AppStateView(
+                        icon: FLucideIcons.wrench,
+                        title: '暂无报修记录',
+                      ),
+                    )
+                  : AppPageListView(
+                      maxWidth: AppLayout.resultMaxWidth,
+                      topPadding: AppSpacing.lg,
+                      bottomPadding: AppSpacing.xxl,
+                      safeArea: false,
+                      children: [
+                        for (final record in visible)
+                          _buildRecordCard(theme, record),
+                      ],
+                    ),
+            ),
+            FTabEntry(
+              label: const Text('新建报修'),
+              child: RepairFormPage(
+                embedded: true,
+                studentId: widget.studentId,
+                password: widget.password,
+                userInfo: _userInfo,
+                onSubmitted: _onRepairSubmitted,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
