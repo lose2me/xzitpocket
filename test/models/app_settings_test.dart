@@ -45,9 +45,9 @@ void main() {
       }
     });
 
-    test('fromStorage returns rose for unknown value', () {
-      expect(AppThemeColor.fromStorage('invalid'), AppThemeColor.rose);
-      expect(AppThemeColor.fromStorage(null), AppThemeColor.rose);
+    test('fromStorage returns teal for unknown value', () {
+      expect(AppThemeColor.fromStorage('invalid'), AppThemeColor.teal);
+      expect(AppThemeColor.fromStorage(null), AppThemeColor.teal);
     });
   });
 
@@ -80,7 +80,7 @@ void main() {
     test('defaults are correct', () {
       const settings = AppSettings();
       expect(settings.themePreference, AppThemePreference.system);
-      expect(settings.themeColor, AppThemeColor.rose);
+      expect(settings.themeColor, AppThemeColor.teal);
       expect(settings.customThemeColor, isNull);
       expect(settings.lastCustomThemeColor, isNull);
       expect(settings.toastOpacity, 1.0);
@@ -108,7 +108,12 @@ void main() {
       expect(settings.pageBackgroundColor, isNull);
       expect(settings.timetableCourseCornerRadius, 6.0);
       expect(settings.timetableCourseInnerPadding, 2.0);
-      expect(settings.timetableCourseOuterPadding, 1.8);
+      expect(settings.timetableSectionHeight, 60.0);
+      expect(settings.timetableDayHeaderHeight, 40.0);
+      expect(settings.timetableCourseOuterPadding, 1.5);
+      expect(settings.timetableCourseFontScale, 0.95);
+      expect(settings.timetableAddBlankLineAfterTitle, isFalse);
+      expect(settings.timetableDashedBorderDensity, 1.0);
       expect(settings.timetableComponentOpacity, 0.7);
       expect(settings.timetableGridOpacity, 0.5);
       expect(settings.timetableGridLineColor, isNull);
@@ -173,6 +178,8 @@ void main() {
         timetableDateTextSize: 13,
         timetableCourseBorderWidth: 1.2,
         timetableCourseBorderOpacity: 0.35,
+        timetableAddBlankLineAfterTitle: true,
+        timetableDashedBorderDensity: 1.5,
         showTimetableGridLines: false,
         showTodayGridLines: false,
         timetableTodayLineColor: const Color(0xFF565656),
@@ -232,6 +239,8 @@ void main() {
       expect(updated.timetableDateTextSize, 13);
       expect(updated.timetableCourseBorderWidth, 1.2);
       expect(updated.timetableCourseBorderOpacity, 0.35);
+      expect(updated.timetableAddBlankLineAfterTitle, isTrue);
+      expect(updated.timetableDashedBorderDensity, 1.5);
       expect(updated.showTimetableGridLines, isFalse);
       expect(updated.showTodayGridLines, isFalse);
       expect(updated.timetableTodayLineColor, const Color(0xFF565656));
@@ -255,7 +264,7 @@ void main() {
         classAutomationMode: ClassAutomationMode.dndKeep,
       );
       expect(updated.themePreference, AppThemePreference.light);
-      expect(updated.themeColor, AppThemeColor.rose);
+      expect(updated.themeColor, AppThemeColor.teal);
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
       expect(updated.timetableBackgroundPath, isNull);
       expect(updated.timetableComponentOpacity, 0.7);

@@ -116,6 +116,43 @@ void main() {
     expect(find.text('1 08:00'), findsNothing);
   });
 
+  testWidgets('course title blank line increases detail spacing', (
+    tester,
+  ) async {
+    final course = Course(
+      title: '课程名称',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1, 2],
+      weeks: const [1],
+      campus: '',
+      place: '教室',
+      colorIndex: 0,
+    );
+
+    Future<double> placeTop({required bool addBlankLine}) async {
+      await tester.pumpWidget(
+        _testApp(
+          SizedBox(
+            width: 140,
+            height: 120,
+            child: CourseCard(
+              course: course,
+              borderColor: Colors.black,
+              addBlankLineAfterTitle: addBlankLine,
+            ),
+          ),
+        ),
+      );
+      return tester.getTopLeft(find.text('@教室')).dy;
+    }
+
+    final normalTop = await placeTop(addBlankLine: false);
+    final blankLineTop = await placeTop(addBlankLine: true);
+
+    expect(blankLineTop, greaterThan(normalTop + 8));
+  });
+
   testWidgets('course border modes preserve the same content width', (
     tester,
   ) async {

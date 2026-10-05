@@ -738,6 +738,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.timetableCourseOuterPadding,
                                   courseFontScale:
                                       settings.timetableCourseFontScale,
+                                  addBlankLineAfterTitle:
+                                      settings.timetableAddBlankLineAfterTitle,
+                                  dashedBorderDensity:
+                                      settings.timetableDashedBorderDensity,
                                   hideSectionTime:
                                       settings.timetableHideSectionTime,
                                   hideDateUnderDay:

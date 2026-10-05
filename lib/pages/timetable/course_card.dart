@@ -18,6 +18,8 @@ class CourseCard extends StatelessWidget {
   final double cornerRadius;
   final double innerPadding;
   final double outerPadding;
+  final bool addBlankLineAfterTitle;
+  final double dashedBorderDensity;
   final Color? textColor;
   final bool showStartTime;
   final bool hideLocation;
@@ -41,7 +43,9 @@ class CourseCard extends StatelessWidget {
     this.borderWidth = 0.5,
     this.cornerRadius = 6,
     this.innerPadding = 2,
-    this.outerPadding = 1.8,
+    this.outerPadding = 1.5,
+    this.addBlankLineAfterTitle = false,
+    this.dashedBorderDensity = 1.0,
     this.textColor,
     this.showStartTime = false,
     this.hideLocation = false,
@@ -101,7 +105,9 @@ class CourseCard extends StatelessWidget {
                       letterSpacing: 0,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  if (addBlankLineAfterTitle)
+                    SizedBox(height: textSize * 4 / 3),
+                  if (!addBlankLineAfterTitle) const SizedBox(height: 2),
                   if (showStartTime)
                     Text(
                       _startTime(course.startSession),
@@ -188,6 +194,7 @@ class CourseCard extends StatelessWidget {
               width: borderWidth,
               radius: cornerRadius,
               dashed: borderType == 'dashed',
+              density: dashedBorderDensity,
             ),
             child: card,
           )
@@ -211,12 +218,14 @@ class _CourseBorderPainter extends CustomPainter {
   final double width;
   final double radius;
   final bool dashed;
+  final double density;
 
   const _CourseBorderPainter({
     required this.color,
     required this.width,
     required this.radius,
     required this.dashed,
+    required this.density,
   });
 
   @override
@@ -239,8 +248,8 @@ class _CourseBorderPainter extends CustomPainter {
       return;
     }
     for (final metric in path.computeMetrics()) {
-      const dashLength = 5.0;
-      const gapLength = 3.0;
+      final dashLength = (5.0 / density).clamp(1.0, 20.0).toDouble();
+      final gapLength = (3.0 / density).clamp(1.0, 20.0).toDouble();
       for (
         var distance = 0.0;
         distance < metric.length;
@@ -262,7 +271,8 @@ class _CourseBorderPainter extends CustomPainter {
       oldDelegate.color != color ||
       oldDelegate.width != width ||
       oldDelegate.radius != radius ||
-      oldDelegate.dashed != dashed;
+      oldDelegate.dashed != dashed ||
+      oldDelegate.density != density;
 }
 
 class _CountdownBarPainter extends CustomPainter {

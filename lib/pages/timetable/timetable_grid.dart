@@ -105,6 +105,8 @@ class TimetableGrid extends StatefulWidget {
   final double courseInnerPadding;
   final double courseOuterPadding;
   final double courseFontScale;
+  final bool addBlankLineAfterTitle;
+  final double dashedBorderDensity;
   final bool hideSectionTime;
   final bool hideDateUnderDay;
   final bool showStartTime;
@@ -164,13 +166,15 @@ class TimetableGrid extends StatefulWidget {
     this.todayLineOpacity = 0.5,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
-    this.sectionHeight = 70.0,
+    this.sectionHeight = 60.0,
     this.timeColumnWidth = 40.0,
-    this.dayHeaderHeight = 45.0,
+    this.dayHeaderHeight = 40.0,
     this.courseCornerRadius = 4.0,
-    this.courseInnerPadding = 4.0,
-    this.courseOuterPadding = 1.0,
-    this.courseFontScale = 1.0,
+    this.courseInnerPadding = 2.0,
+    this.courseOuterPadding = 1.5,
+    this.courseFontScale = 0.95,
+    this.addBlankLineAfterTitle = false,
+    this.dashedBorderDensity = 1.0,
     this.hideSectionTime = false,
     this.hideDateUnderDay = false,
     this.showStartTime = false,
@@ -594,6 +598,10 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               widget.courseInnerPadding,
                                           outerPadding:
                                               widget.courseOuterPadding,
+                                          addBlankLineAfterTitle:
+                                              widget.addBlankLineAfterTitle,
+                                          dashedBorderDensity:
+                                              widget.dashedBorderDensity,
                                           showStartTime: widget.showStartTime,
                                           hideLocation: widget.hideLocation,
                                           hideTeacher: widget.hideTeacher,

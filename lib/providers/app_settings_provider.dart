@@ -106,6 +106,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseOuterPadding: _storage.getTimetableCourseOuterPadding(),
       timetableCourseAlpha: _storage.getTimetableCourseAlpha(),
       timetableCourseFontScale: _storage.getTimetableCourseFontScale(),
+      timetableAddBlankLineAfterTitle: _storage
+          .getTimetableAddBlankLineAfterTitle(),
+      timetableDashedBorderDensity: _storage.getTimetableDashedBorderDensity(),
       timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
       timetableHideDateUnderDay: _storage.getTimetableHideDateUnderDay(),
       timetableShowStartTime: _storage.getTimetableShowStartTime(),
@@ -396,6 +399,17 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     final normalized = value.clamp(0.5, 2.0).toDouble();
     state = state.copyWith(timetableCourseFontScale: normalized);
     await _storage.setTimetableCourseFontScale(normalized);
+  }
+
+  Future<void> setTimetableAddBlankLineAfterTitle(bool value) async {
+    state = state.copyWith(timetableAddBlankLineAfterTitle: value);
+    await _storage.setTimetableAddBlankLineAfterTitle(value);
+  }
+
+  Future<void> setTimetableDashedBorderDensity(double value) async {
+    final normalized = value.clamp(0.5, 2.0).toDouble();
+    state = state.copyWith(timetableDashedBorderDensity: normalized);
+    await _storage.setTimetableDashedBorderDensity(normalized);
   }
 
   Future<void> setTimetableHideSectionTime(bool value) async {
@@ -702,6 +716,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseOuterPadding: defaults.timetableCourseOuterPadding,
       timetableCourseAlpha: defaults.timetableCourseAlpha,
       timetableCourseFontScale: defaults.timetableCourseFontScale,
+      timetableAddBlankLineAfterTitle: defaults.timetableAddBlankLineAfterTitle,
+      timetableDashedBorderDensity: defaults.timetableDashedBorderDensity,
       timetableHideSectionTime: defaults.timetableHideSectionTime,
       timetableHideDateUnderDay: defaults.timetableHideDateUnderDay,
       timetableShowStartTime: defaults.timetableShowStartTime,

@@ -49,7 +49,7 @@ enum AppThemeColor {
   static AppThemeColor fromStorage(String? value) {
     return AppThemeColor.values.firstWhere(
       (item) => item.storageValue == value,
-      orElse: () => AppThemeColor.rose,
+      orElse: () => AppThemeColor.teal,
     );
   }
 }
@@ -184,6 +184,8 @@ class AppSettings {
   final double timetableCourseOuterPadding;
   final double timetableCourseAlpha;
   final double timetableCourseFontScale;
+  final bool timetableAddBlankLineAfterTitle;
+  final double timetableDashedBorderDensity;
   final bool timetableHideSectionTime;
   final bool timetableHideDateUnderDay;
   final bool timetableShowStartTime;
@@ -227,7 +229,7 @@ class AppSettings {
 
   const AppSettings({
     this.themePreference = AppThemePreference.system,
-    this.themeColor = AppThemeColor.rose,
+    this.themeColor = AppThemeColor.teal,
     this.customThemeColor,
     this.lastCustomThemeColor,
     this.customPageBackgroundColor,
@@ -251,14 +253,16 @@ class AppSettings {
     this.widgetHideTeacher = false,
     this.widgetHideLocation = false,
     this.widgetHideDate = false,
-    this.timetableSectionHeight = 70.0,
+    this.timetableSectionHeight = 60.0,
     this.timetableTimeColumnWidth = 40.0,
-    this.timetableDayHeaderHeight = 45.0,
+    this.timetableDayHeaderHeight = 40.0,
     this.timetableCourseCornerRadius = 6.0,
     this.timetableCourseInnerPadding = 2.0,
-    this.timetableCourseOuterPadding = 1.8,
+    this.timetableCourseOuterPadding = 1.5,
     this.timetableCourseAlpha = 1.0,
-    this.timetableCourseFontScale = 1.0,
+    this.timetableCourseFontScale = 0.95,
+    this.timetableAddBlankLineAfterTitle = false,
+    this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
     this.timetableHideDateUnderDay = false,
     this.timetableShowStartTime = false,
@@ -337,6 +341,8 @@ class AppSettings {
     double? timetableCourseOuterPadding,
     double? timetableCourseAlpha,
     double? timetableCourseFontScale,
+    bool? timetableAddBlankLineAfterTitle,
+    double? timetableDashedBorderDensity,
     bool? timetableHideSectionTime,
     bool? timetableHideDateUnderDay,
     bool? timetableShowStartTime,
@@ -449,6 +455,11 @@ class AppSettings {
       timetableCourseAlpha: timetableCourseAlpha ?? this.timetableCourseAlpha,
       timetableCourseFontScale:
           timetableCourseFontScale ?? this.timetableCourseFontScale,
+      timetableAddBlankLineAfterTitle:
+          timetableAddBlankLineAfterTitle ??
+          this.timetableAddBlankLineAfterTitle,
+      timetableDashedBorderDensity:
+          timetableDashedBorderDensity ?? this.timetableDashedBorderDensity,
       timetableHideSectionTime:
           timetableHideSectionTime ?? this.timetableHideSectionTime,
       timetableHideDateUnderDay:

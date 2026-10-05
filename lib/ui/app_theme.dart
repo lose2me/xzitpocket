@@ -5,8 +5,8 @@ import '../models/app_settings.dart';
 import 'app_colors.dart';
 
 abstract final class AppTheme {
-  static final light = lightFor(AppThemeColor.rose);
-  static final dark = darkFor(AppThemeColor.rose);
+  static final light = lightFor(AppThemeColor.teal);
+  static final dark = darkFor(AppThemeColor.teal);
 
   static FThemeData lightFor(
     AppThemeColor themeColor, {

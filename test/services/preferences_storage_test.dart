@@ -144,7 +144,12 @@ void main() {
       expect(storage.getTimetableHideTeacherBrackets(), isTrue);
       expect(storage.getTimetableCourseCornerRadius(), 6.0);
       expect(storage.getTimetableCourseInnerPadding(), 2.0);
-      expect(storage.getTimetableCourseOuterPadding(), 1.8);
+      expect(storage.getTimetableSectionHeight(), 60.0);
+      expect(storage.getTimetableDayHeaderHeight(), 40.0);
+      expect(storage.getTimetableCourseOuterPadding(), 1.5);
+      expect(storage.getTimetableCourseFontScale(), 0.95);
+      expect(storage.getTimetableAddBlankLineAfterTitle(), isFalse);
+      expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getTimetableComponentOpacity(), 0.7);
       expect(storage.getTimetableGridOpacity(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
@@ -173,6 +178,8 @@ void main() {
       await storage.setWidgetHideDate(true);
       await storage.setTimetableHideTeacher(false);
       await storage.setTimetableHideTeacherBrackets(false);
+      await storage.setTimetableAddBlankLineAfterTitle(true);
+      await storage.setTimetableDashedBorderDensity(1.5);
       await storage.setTimetablePageTextColor(0xFF111111);
       await storage.setTimetableLastCustomPageTextColor(0xFF121212);
       await storage.setTimetableCourseTextColor(0xFF222222);
@@ -222,6 +229,8 @@ void main() {
       expect(storage.getWidgetHideDate(), isTrue);
       expect(storage.getTimetableHideTeacher(), isFalse);
       expect(storage.getTimetableHideTeacherBrackets(), isFalse);
+      expect(storage.getTimetableAddBlankLineAfterTitle(), isTrue);
+      expect(storage.getTimetableDashedBorderDensity(), 1.5);
       expect(storage.getTimetablePageTextColor(), 0xFF111111);
       expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
       expect(storage.getTimetableCourseTextColor(), 0xFF222222);
@@ -386,6 +395,8 @@ void main() {
       await storage.setWidgetHideDate(true);
       await storage.setTimetableHideTeacher(false);
       await storage.setTimetableHideTeacherBrackets(false);
+      await storage.setTimetableAddBlankLineAfterTitle(true);
+      await storage.setTimetableDashedBorderDensity(1.8);
       await storage.setCourseReminderEnabled(true);
 
       await storage.resetTimetableAppearance();
@@ -438,6 +449,8 @@ void main() {
       expect(storage.getWidgetHideDate(), isFalse);
       expect(storage.getTimetableHideTeacher(), isTrue);
       expect(storage.getTimetableHideTeacherBrackets(), isTrue);
+      expect(storage.getTimetableAddBlankLineAfterTitle(), isFalse);
+      expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getCourseReminderEnabled(), isTrue);
     });
   });

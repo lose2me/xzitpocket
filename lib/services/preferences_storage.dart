@@ -196,7 +196,7 @@ class PreferencesStorage {
       _prefs.setBool('widget_hide_date', value);
 
   double getTimetableSectionHeight() =>
-      (_prefs.getDouble('timetable_section_height') ?? 70.0)
+      (_prefs.getDouble('timetable_section_height') ?? 60.0)
           .clamp(40.0, 140.0)
           .toDouble();
 
@@ -216,7 +216,7 @@ class PreferencesStorage {
   );
 
   double getTimetableDayHeaderHeight() =>
-      (_prefs.getDouble('timetable_day_header_height') ?? 45.0)
+      (_prefs.getDouble('timetable_day_header_height') ?? 40.0)
           .clamp(30.0, 80.0)
           .toDouble();
 
@@ -246,7 +246,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseOuterPadding() =>
-      (_prefs.getDouble('timetable_course_outer_padding') ?? 1.8)
+      (_prefs.getDouble('timetable_course_outer_padding') ?? 1.5)
           .clamp(0.0, 8.0)
           .toDouble();
 
@@ -266,7 +266,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseFontScale() =>
-      (_prefs.getDouble('timetable_course_font_scale') ?? 1.0)
+      (_prefs.getDouble('timetable_course_font_scale') ?? 0.95)
           .clamp(0.5, 2.0)
           .toDouble();
 
@@ -274,6 +274,23 @@ class PreferencesStorage {
     'timetable_course_font_scale',
     value.clamp(0.5, 2.0).toDouble(),
   );
+
+  bool getTimetableAddBlankLineAfterTitle() =>
+      _prefs.getBool('timetable_add_blank_line_after_title') ?? false;
+
+  Future<void> setTimetableAddBlankLineAfterTitle(bool value) =>
+      _prefs.setBool('timetable_add_blank_line_after_title', value);
+
+  double getTimetableDashedBorderDensity() =>
+      (_prefs.getDouble('timetable_dashed_border_density') ?? 1.0)
+          .clamp(0.5, 2.0)
+          .toDouble();
+
+  Future<void> setTimetableDashedBorderDensity(double value) =>
+      _prefs.setDouble(
+        'timetable_dashed_border_density',
+        value.clamp(0.5, 2.0).toDouble(),
+      );
 
   bool getTimetableHideSectionTime() =>
       _prefs.getBool('timetable_hide_section_time') ?? false;
@@ -709,6 +726,8 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_outer_padding'),
       _prefs.remove('timetable_course_alpha'),
       _prefs.remove('timetable_course_font_scale'),
+      _prefs.remove('timetable_add_blank_line_after_title'),
+      _prefs.remove('timetable_dashed_border_density'),
       _prefs.remove('timetable_hide_section_time'),
       _prefs.remove('timetable_hide_date_under_day'),
       _prefs.remove('timetable_show_start_time'),

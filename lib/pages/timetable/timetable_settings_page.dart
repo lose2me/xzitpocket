@@ -380,6 +380,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableCourseFontScale(value),
                     ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.text,
+                      title: '课程名称后加空行',
+                      value: settings.timetableAddBlankLineAfterTitle,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableAddBlankLineAfterTitle(value),
+                    ),
                     ProfileSettingsSliderTile(
                       icon: FLucideIcons.layers,
                       title: '课程字体不透明度',
@@ -469,6 +477,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                             .read(appSettingsProvider.notifier)
                             .setTimetableBorderType(value),
                       ),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.squareDashed,
+                      title: '虚线边框密度',
+                      value: settings.timetableDashedBorderDensity,
+                      min: 0.5,
+                      max: 2,
+                      divisions: 15,
+                      suffix: 'x',
+                      displayDecimals: 2,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableDashedBorderDensity(value),
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.square,
@@ -1560,6 +1581,8 @@ class _TimetableGridPreview extends StatelessWidget {
             courseInnerPadding: settings.timetableCourseInnerPadding,
             courseOuterPadding: settings.timetableCourseOuterPadding,
             courseFontScale: settings.timetableCourseFontScale,
+            addBlankLineAfterTitle: settings.timetableAddBlankLineAfterTitle,
+            dashedBorderDensity: settings.timetableDashedBorderDensity,
             hideSectionTime: settings.timetableHideSectionTime,
             hideDateUnderDay: settings.timetableHideDateUnderDay,
             showStartTime: settings.timetableShowStartTime,
