@@ -49,6 +49,29 @@ void main() {
       expect(AppThemeColor.fromStorage('invalid'), AppThemeColor.teal);
       expect(AppThemeColor.fromStorage(null), AppThemeColor.teal);
     });
+
+    test('built-in timetable text colors follow the active brightness', () {
+      const settings = AppSettings(
+        timetablePageTextColor: Color(0xFF006A6A),
+      );
+
+      expect(
+        settings.timetablePageTextFor(Brightness.light),
+        AppThemeColor.teal.lightColor,
+      );
+      expect(
+        settings.timetablePageTextFor(Brightness.dark),
+        AppThemeColor.teal.darkColor,
+      );
+    });
+
+    test('custom timetable text colors remain fixed', () {
+      const custom = Color(0xFF123456);
+      const settings = AppSettings(timetablePageTextColor: custom);
+
+      expect(settings.timetablePageTextFor(Brightness.light), custom);
+      expect(settings.timetablePageTextFor(Brightness.dark), custom);
+    });
   });
 
   group('ClassAutomationMode', () {

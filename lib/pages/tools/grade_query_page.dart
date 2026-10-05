@@ -19,13 +19,6 @@ typedef _SemesterOption = ({
   String key,
 });
 
-const _scoreBandColors = <Color>[
-  Color(0xFFF8D2D7),
-  Color(0xFFF8F3D2),
-  Color(0xFFD2E5F8),
-  Color(0xFFD2F0E5),
-];
-
 const _scoreBandLabels = ['不及格', '及格', '良好', '优秀'];
 
 class GradeQueryPage extends StatefulWidget {
@@ -199,6 +192,16 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         maxWidth: AppLayout.contentMaxWidth,
         child: FTabs(
           expands: true,
+          style: FTabsStyleDelta.delta(
+            decoration: DecorationDelta.boxDelta(
+              borderRadius: BorderRadius.zero,
+            ),
+            padding: const EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
+            indicatorDecoration: DecorationDelta.boxDelta(
+              borderRadius: BorderRadius.zero,
+            ),
+            spacing: 0,
+          ),
           children: [
             FTabEntry(label: const Text('学科成绩'), child: _buildGradeTab(theme)),
             FTabEntry(
@@ -424,7 +427,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                             ),
                             child: DecoratedBox(
                               decoration: BoxDecoration(
-                                color: _scoreBandColors[index],
+                                color: _scoreBandColors(theme)[index],
                                 borderRadius: BorderRadius.circular(999),
                               ),
                             ),
@@ -447,7 +450,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                         width: 7,
                         height: 7,
                         decoration: BoxDecoration(
-                          color: _scoreBandColors[index],
+                          color: _scoreBandColors(theme)[index],
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -583,8 +586,17 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
   Color _scoreColor(FThemeData theme, String score) {
     final band = _scoreBandIndex(score);
-    return band == null ? theme.colors.foreground : _scoreBandColors[band];
+    return band == null
+        ? theme.colors.foreground
+        : _scoreBandColors(theme)[band];
   }
+
+  List<Color> _scoreBandColors(FThemeData theme) => [
+    Color.lerp(theme.colors.foreground, theme.colors.destructive, 0.62)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.warning, 0.62)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.info, 0.62)!,
+    Color.lerp(theme.colors.foreground, theme.colors.semantic.success, 0.62)!,
+  ];
 
   // ── Academic Tab ──
 

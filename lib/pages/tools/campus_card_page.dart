@@ -175,7 +175,10 @@ class _CampusCardPageState extends State<CampusCardPage> {
       textAlign: TextAlign.center,
       onTap: _pickRange,
       suffix: _isQuerying
-          ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+          ? const Padding(
+              padding: EdgeInsets.only(right: 5),
+              child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+            )
           : null,
     );
   }

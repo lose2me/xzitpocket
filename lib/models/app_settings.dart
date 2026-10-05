@@ -578,4 +578,17 @@ class AppSettings {
 
   Color? pageBackgroundFor(Brightness brightness) =>
       customPageBackgroundColor ?? pageBackgroundColor?.resolve(brightness);
+
+  /// Resolves a built-in timetable page-text swatch for the active theme.
+  /// Custom colors remain fixed user choices.
+  Color? timetablePageTextFor(Brightness brightness) {
+    final value = timetablePageTextColor;
+    if (value == null) return null;
+    for (final color in AppThemeColor.values) {
+      if (value.toARGB32() == color.lightColor.toARGB32()) {
+        return color.resolve(brightness);
+      }
+    }
+    return value;
+  }
 }

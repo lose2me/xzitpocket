@@ -615,6 +615,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final courseBorderColor = context.theme.colors.foreground;
     final courseOpacity = settings.timetableCourseAlpha;
+    final pageTextColor = settings.timetablePageTextFor(
+      Theme.of(context).brightness,
+    );
     final backgroundPath = settings.timetableBackgroundFor(
       Theme.of(context).brightness,
     );
@@ -760,8 +763,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                       settings.timetableTextAlignCenterVertical,
                                   borderType:
                                       settings.timetableBorderType.storageValue,
-                                  pageTextColor:
-                                      settings.timetablePageTextColor,
+                                  pageTextColor: pageTextColor,
                                   pageTextOpacity:
                                       settings.timetablePageTextOpacity,
                                   courseTextColor:

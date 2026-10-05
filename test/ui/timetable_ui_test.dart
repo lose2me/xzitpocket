@@ -153,6 +153,41 @@ void main() {
     expect(blankLineTop, greaterThan(normalTop + 8));
   });
 
+  testWidgets('horizontal centering applies to every course text line', (
+    tester,
+  ) async {
+    final course = Course(
+      title: '课程名称很长需要换行',
+      teacher: '张老师',
+      weekday: 1,
+      sessions: const [1, 2],
+      weeks: const [1],
+      campus: '中心校区',
+      place: '教室101',
+      colorIndex: 0,
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 100,
+          height: 160,
+          child: CourseCard(
+            course: course,
+            borderColor: Colors.black,
+            centerHorizontal: true,
+            showStartTime: true,
+            hideTeacher: false,
+          ),
+        ),
+      ),
+    );
+
+    for (final label in ['课程名称很长需要换行', '8:00', '@教室101', '中心校区', '张老师']) {
+      expect(tester.widget<Text>(find.text(label)).textAlign, TextAlign.center);
+    }
+  });
+
   testWidgets('course border modes preserve the same content width', (
     tester,
   ) async {

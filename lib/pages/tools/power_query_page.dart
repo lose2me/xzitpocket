@@ -207,7 +207,10 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     textAlign: TextAlign.center,
     onTap: _pickRange,
     suffix: _isRefreshing
-        ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+        ? const Padding(
+            padding: EdgeInsets.only(right: 5),
+            child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+          )
         : null,
   );
 

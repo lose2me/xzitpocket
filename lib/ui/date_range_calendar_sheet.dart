@@ -56,7 +56,6 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
   late final DateTime _calendarStart;
   late final List<DateTime> _months;
   late final List<FGridSplitCalendarController> _calendarControllers;
-  late final List<GlobalKey> _monthKeys;
   final _scrollController = ScrollController();
   late (DateTime, DateTime) _range;
   DateTime? _pendingStart;
@@ -96,20 +95,9 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
           end: _today,
         ),
     ];
-    _monthKeys = [for (final _ in _months) GlobalKey()];
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _monthKeys.isEmpty) return;
-      final currentMonth = DateTime.utc(_today.year, _today.month);
-      final index = _months.indexWhere((month) => month == currentMonth);
-      if (index < 0) return;
-      final targetContext = _monthKeys[index].currentContext;
-      if (targetContext != null) {
-        Scrollable.ensureVisible(
-          targetContext,
-          alignment: 0.04,
-          duration: Duration.zero,
-        );
-      }
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
     });
   }
 
@@ -145,13 +133,10 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
                 padding: const EdgeInsets.only(bottom: AppSpacing.md),
                 children: [
                   for (var index = 0; index < _months.length; index++) ...[
-                    KeyedSubtree(
-                      key: _monthKeys[index],
-                      child: _buildMonth(
-                        context,
-                        _months[index],
-                        _calendarControllers[index],
-                      ),
+                    _buildMonth(
+                      context,
+                      _months[index],
+                      _calendarControllers[index],
                     ),
                     if (index != _months.length - 1)
                       const SizedBox(height: AppSpacing.lg),
@@ -228,25 +213,28 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
               return const SizedBox.shrink();
             }
             final style = styles.resolve(variants);
-            final selected =
+            final endpoint =
                 variants.contains(FCalendarDayVariant.single) ||
                 variants.contains(FCalendarDayVariant.start) ||
-                variants.contains(FCalendarDayVariant.middle) ||
                 variants.contains(FCalendarDayVariant.end);
-            final foreground = selected
-                ? context.theme.colors.primary
-                : const Color(0x00000000);
+            final start = variants.contains(FCalendarDayVariant.start);
+            final end = variants.contains(FCalendarDayVariant.end);
+            final middle = variants.contains(FCalendarDayVariant.middle);
             final textStyle = style.textStyle.copyWith(
-              color: selected
+              color: endpoint
                   ? context.theme.colors.primaryForeground
                   : style.textStyle.color,
               decoration: TextDecoration.none,
             );
             return SizedBox.expand(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: foreground,
+              child: CustomPaint(
+                painter: _RangeSelectionDayPainter(
+                  barColor: context.theme.colors.secondary,
+                  circleColor: context.theme.colors.primary,
+                  middle: middle,
+                  start: start,
+                  end: end,
+                  single: variants.contains(FCalendarDayVariant.single),
                 ),
                 child: Center(child: Text('${date.day}', style: textStyle)),
               ),
@@ -285,4 +273,57 @@ class _AppDateRangeCalendarSheetState extends State<AppDateRangeCalendarSheet> {
       _range = (_calendarStart, _today);
     });
   }
+}
+
+class _RangeSelectionDayPainter extends CustomPainter {
+  final Color barColor;
+  final Color circleColor;
+  final bool middle;
+  final bool start;
+  final bool end;
+  final bool single;
+
+  const _RangeSelectionDayPainter({
+    required this.barColor,
+    required this.circleColor,
+    required this.middle,
+    required this.start,
+    required this.end,
+    required this.single,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final barPaint = Paint()..color = barColor;
+    if (middle) {
+      canvas.drawRect(Offset.zero & size, barPaint);
+    } else if (start) {
+      canvas.drawRect(
+        Rect.fromLTRB(size.width / 2, 0, size.width, size.height),
+        barPaint,
+      );
+    } else if (end) {
+      canvas.drawRect(
+        Rect.fromLTRB(0, 0, size.width / 2, size.height),
+        barPaint,
+      );
+    }
+
+    if (single || start || end) {
+      canvas.drawCircle(
+        size.center(Offset.zero),
+        size.shortestSide / 2,
+        Paint()..color = circleColor,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RangeSelectionDayPainter oldDelegate) =>
+      oldDelegate.barColor != barColor ||
+      oldDelegate.circleColor != circleColor ||
+      oldDelegate.middle != middle ||
+      oldDelegate.start != start ||
+      oldDelegate.end != end ||
+      oldDelegate.single != single;
 }

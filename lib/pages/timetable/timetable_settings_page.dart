@@ -645,19 +645,31 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
                       title: '页面文字颜色',
-                      value: settings.timetablePageTextColor,
-                      colors: _styleColors,
+                      value: settings.timetablePageTextFor(brightness),
+                      colors: [
+                        for (final color in AppThemeColor.values)
+                          color.resolve(brightness),
+                      ],
                       lastCustomColor:
                           settings.timetableLastCustomPageTextColor,
-                      onChanged: (color) => unawaited(
-                        ref
-                            .read(appSettingsProvider.notifier)
-                            .setTimetablePageTextColor(color),
-                      ),
+                      onChanged: (color) {
+                        final selected = color == null
+                            ? null
+                            : AppThemeColor.values.firstWhere(
+                                (item) =>
+                                    item.resolve(brightness).toARGB32() ==
+                                    color.toARGB32(),
+                              );
+                        unawaited(
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetablePageTextColor(selected?.lightColor),
+                        );
+                      },
                       onCustomColorPressed: () => unawaited(
                         _selectCustomColor(
                           settings.timetableLastCustomPageTextColor ??
-                              settings.timetablePageTextColor ??
+                              settings.timetablePageTextFor(brightness) ??
                               context.theme.colors.foreground,
                           ref
                               .read(appSettingsProvider.notifier)
@@ -1594,7 +1606,9 @@ class _TimetableGridPreview extends StatelessWidget {
                 settings.timetableTextAlignCenterHorizontal,
             textAlignCenterVertical: settings.timetableTextAlignCenterVertical,
             borderType: settings.timetableBorderType.storageValue,
-            pageTextColor: settings.timetablePageTextColor,
+            pageTextColor: settings.timetablePageTextFor(
+              Theme.of(context).brightness,
+            ),
             pageTextOpacity: settings.timetablePageTextOpacity,
             courseTextColor: settings.timetableCourseTextColor,
             courseTextOpacity: settings.timetableCourseTextOpacity,

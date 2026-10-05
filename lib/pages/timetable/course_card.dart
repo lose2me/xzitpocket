@@ -87,17 +87,15 @@ class CourseCard extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.only(top: countdownAnimation == null ? 0 : 7),
               child: Column(
-                crossAxisAlignment: centerHorizontal
-                    ? CrossAxisAlignment.center
-                    : CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: centerVertical
                     ? MainAxisAlignment.center
                     : MainAxisAlignment.start,
                 mainAxisSize: MainAxisSize.max,
                 children: [
-                  Text(
+                  _line(
                     course.title,
-                    style: TextStyle(
+                    TextStyle(
                       fontSize: textSize,
                       fontWeight: FontWeight.w600,
                       color: effectiveTextColor,
@@ -109,9 +107,9 @@ class CourseCard extends StatelessWidget {
                     SizedBox(height: textSize * 4 / 3),
                   if (!addBlankLineAfterTitle) const SizedBox(height: 2),
                   if (showStartTime)
-                    Text(
+                    _line(
                       _startTime(course.startSession),
-                      style: TextStyle(
+                      TextStyle(
                         fontSize: textSize * 11 / 12,
                         color: secondaryTextColor,
                         height: 14 / 11,
@@ -119,9 +117,9 @@ class CourseCard extends StatelessWidget {
                       ),
                     ),
                   if (!hideLocation && course.place.isNotEmpty)
-                    Text(
+                    _line(
                       '${removeLocationAt ? '' : '@'}${course.place}',
-                      style: TextStyle(
+                      TextStyle(
                         fontSize: textSize * 11 / 12,
                         color: secondaryTextColor,
                         height: 14 / 11,
@@ -129,9 +127,9 @@ class CourseCard extends StatelessWidget {
                       ),
                     ),
                   if (!hideLocation && course.campus.isNotEmpty)
-                    Text(
+                    _line(
                       course.campus,
-                      style: TextStyle(
+                      TextStyle(
                         fontSize: textSize * 11 / 12,
                         color: secondaryTextColor,
                         height: 14 / 11,
@@ -139,11 +137,11 @@ class CourseCard extends StatelessWidget {
                       ),
                     ),
                   if (!hideTeacher && course.teacher.isNotEmpty)
-                    Text(
+                    _line(
                       hideTeacherBrackets
                           ? course.teacher
                           : '【${course.teacher}】',
-                      style: TextStyle(
+                      TextStyle(
                         fontSize: textSize * 11 / 12,
                         color: secondaryTextColor,
                         height: 14 / 11,
@@ -201,6 +199,15 @@ class CourseCard extends StatelessWidget {
         : card;
     return Container(margin: EdgeInsets.all(outerPadding), child: decorated);
   }
+
+  Widget _line(String text, TextStyle style) => SizedBox(
+    width: double.infinity,
+    child: Text(
+      text,
+      textAlign: centerHorizontal ? TextAlign.center : TextAlign.start,
+      style: style,
+    ),
+  );
 
   String _startTime(int session) {
     final start = kTimeSlots
