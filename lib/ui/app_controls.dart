@@ -32,7 +32,7 @@ FTabsStyleDelta appSegmentedTabsStyle(FThemeData theme) =>
         border: Border.all(
           color: theme.colors.primary.withValues(alpha: 0.42),
         ),
-        borderRadius: BorderRadius.zero,
+        borderRadius: BorderRadius.circular(6),
       ),
       indicatorSize: FTabBarIndicatorSize.tab,
       minHeight: 36,
