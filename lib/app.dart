@@ -136,13 +136,18 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         final theme = Theme.of(context).brightness == Brightness.dark
             ? darkTheme
             : lightTheme;
-        return _SmoothThemeTransition(
-          transitionKey:
-              '${Theme.of(context).brightness.name}:'
-              '${theme.colors.background.toARGB32()}:'
-              '${theme.colors.primary.toARGB32()}',
-          theme: theme,
-          child: child!,
+        // The app owns its text sizing: the timetable exposes an explicit
+        // font-scale setting, so every other label must stay at 1x regardless
+        // of the system font-size preference.
+        return MediaQuery.withNoTextScaling(
+          child: _SmoothThemeTransition(
+            transitionKey:
+                '${Theme.of(context).brightness.name}:'
+                '${theme.colors.background.toARGB32()}:'
+                '${theme.colors.primary.toARGB32()}',
+            theme: theme,
+            child: child!,
+          ),
         );
       },
       home: HomePage(key: HomePage.globalKey),
