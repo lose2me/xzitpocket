@@ -287,6 +287,15 @@ class LearningQuestionBank {
   final int? orderId;
   final bool requiresCDK;
   final bool locked;
+
+  /// Server-side modification time of the bank summary. Used to skip detail
+  /// requests for banks that have not changed.
+  final String updatedAt;
+
+  /// True when control reports the bank as disabled/draft. Hidden banks keep
+  /// their cached questions and saved collections, but are not shown until the
+  /// bank is re-enabled (or removed if it is deleted).
+  final bool hidden;
   final List<LearningQuestion> questions;
 
   const LearningQuestionBank({
@@ -296,8 +305,22 @@ class LearningQuestionBank {
     this.orderId,
     this.requiresCDK = false,
     this.locked = false,
+    this.updatedAt = '',
+    this.hidden = false,
     required this.questions,
   });
+
+  LearningQuestionBank copyWith({bool? hidden}) => LearningQuestionBank(
+    id: id,
+    isNew: isNew,
+    name: name,
+    orderId: orderId,
+    requiresCDK: requiresCDK,
+    locked: locked,
+    updatedAt: updatedAt,
+    hidden: hidden ?? this.hidden,
+    questions: questions,
+  );
 
   factory LearningQuestionBank.fromJson(Map<String, dynamic> json) {
     final rawBank = json['questionBank'];
@@ -311,6 +334,9 @@ class LearningQuestionBank {
     final isNew = bank['new'] is bool ? bank['new'] as bool : null;
     final requiresCDK = bank['requiresCDK'] == true;
     final locked = bank['locked'] == true;
+    final hidden = bank['hidden'] == true;
+    final updatedAt =
+        bank['updatedAt']?.toString() ?? bank['updated_at']?.toString() ?? '';
     final rawQuestions = bank['questions'] as List<dynamic>? ?? const [];
     final questions =
         [
@@ -341,6 +367,8 @@ class LearningQuestionBank {
       orderId: orderId,
       requiresCDK: requiresCDK,
       locked: locked,
+      updatedAt: updatedAt,
+      hidden: hidden,
       questions: questions,
     );
   }
@@ -353,6 +381,8 @@ class LearningQuestionBank {
       if (orderId != null) 'orderId': orderId,
       if (requiresCDK) 'requiresCDK': true,
       if (locked) 'locked': true,
+      if (updatedAt.isNotEmpty) 'updatedAt': updatedAt,
+      if (hidden) 'hidden': true,
       'questions': [for (final question in questions) question.toJson()],
     },
   };

@@ -8,6 +8,7 @@ import 'app_settings_provider.dart';
 import 'config_provider.dart';
 import '../services/auth_service.dart';
 import '../services/cas_service.dart';
+import '../services/control_service.dart';
 import '../services/preferences_storage.dart';
 import '../services/talker.dart';
 
@@ -44,6 +45,18 @@ class AuthNotifier extends Notifier<AuthState> {
     Future<void> Function(LoginResult schedule)? onScheduleReady,
   }) async {
     state = const AuthState(status: AuthStatus.loading);
+
+    // Control may block this login when the account is disabled or this device
+    // is revoked. The check fails open, so an unreachable control service never
+    // prevents login.
+    final blockedReason = await ControlService.instance.loginBlockReason(
+      studentId,
+    );
+    if (blockedReason != null) {
+      state = AuthState(status: AuthStatus.error, errorMessage: blockedReason);
+      return null;
+    }
+
     try {
       final authService = AuthService();
       final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;

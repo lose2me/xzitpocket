@@ -1067,14 +1067,6 @@ class PreferencesStorage {
     json,
   );
 
-  /// Server-side question-bank version (max `updated_at`). A cached library is
-  /// only reused while this value is unchanged.
-  String? getLearningQuestionBankVersion() =>
-      _prefs.getString('learning_question_bank_version');
-
-  Future<void> setLearningQuestionBankVersion(String value) =>
-      _prefs.setString('learning_question_bank_version', value);
-
   String? getLearningStateCache() => _prefs.getString('learning_state_cache');
 
   Future<void> setLearningStateCache(String json) =>
@@ -1086,7 +1078,6 @@ class PreferencesStorage {
         'learning_question_bank_cache',
         'learning_question_bank_cache_time',
       ),
-      _prefs.remove('learning_question_bank_version'),
       _prefs.remove('learning_state_cache'),
     ]);
   }

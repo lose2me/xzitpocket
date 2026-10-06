@@ -13,7 +13,9 @@ typedef LearningCdkRedeemer = Future<void> Function(
   String code,
   String questionBankId,
 );
-typedef LearningVersionFetcher = Future<String> Function();
+typedef LearningBankSyncFetcher = Future<List<LearningQuestionBank>> Function(
+  Map<String, LearningQuestionBank> existing,
+);
 
 class LearningRepository extends ChangeNotifier {
   final PreferencesStorage preferencesStorage;
@@ -21,16 +23,17 @@ class LearningRepository extends ChangeNotifier {
   final LearningQuestionBankFetcher? bankFetcher;
   final LearningCdkRedeemer? cdkRedeemer;
 
-  /// Returns the control-side question-bank version (max `updated_at`). The
-  /// cached library is reused while this value is unchanged.
-  final LearningVersionFetcher? versionFetcher;
+  /// Incrementally syncs question banks: it receives the currently cached banks
+  /// and returns the merged list, downloading only banks whose server
+  /// `updated_at` changed.
+  final LearningBankSyncFetcher? bankSyncFetcher;
 
   LearningRepository({
     required this.preferencesStorage,
     this.fetcher,
     this.bankFetcher,
     this.cdkRedeemer,
-    this.versionFetcher,
+    this.bankSyncFetcher,
   });
 
   List<LearningQuestion> _questions = const [];
@@ -49,8 +52,28 @@ class LearningRepository extends ChangeNotifier {
   bool _loadedFromCache = false;
   bool _loadedFromNetwork = false;
 
-  List<LearningQuestion> get questions => List.unmodifiable(_questions);
-  List<LearningQuestionBank> get banks => List.unmodifiable(_banks);
+  // Question ids that belong to a disabled/draft bank. They are retained in
+  // local state so collections reappear when the bank is re-enabled.
+  Set<String> get _hiddenQuestionIds => {
+    for (final bank in _banks)
+      if (bank.hidden)
+        for (final question in bank.questions) question.id,
+  };
+
+  /// Questions of currently published banks. Hidden banks keep their saved
+  /// collections, but their questions are not listed or quizzed.
+  List<LearningQuestion> get questions {
+    final hidden = _hiddenQuestionIds;
+    if (hidden.isEmpty) return List.unmodifiable(_questions);
+    return List.unmodifiable(
+      _questions.where((question) => !hidden.contains(question.id)),
+    );
+  }
+
+  /// Banks currently published to the user. Disabled/draft banks stay cached
+  /// (marked hidden) and are excluded until re-enabled.
+  List<LearningQuestionBank> get banks =>
+      List.unmodifiable(_banks.where((bank) => !bank.hidden));
   Set<String> get favoriteIds => Set.unmodifiable(_favoriteIds);
   Set<String> get wrongIds => Set.unmodifiable(_wrongIds);
   bool get isLoaded => _loaded;
@@ -60,24 +83,15 @@ class LearningRepository extends ChangeNotifier {
   bool get loadedFromCache => _loadedFromCache;
   bool get loadedFromNetwork => _loadedFromNetwork;
 
-  /// True when control reports a newer question-bank version than the cached
-  /// one. Returns false when no version source is configured or on failure, so
-  /// a transient network error keeps the cached library visible.
-  Future<bool> hasUpdate() async {
-    final fetchVersion = versionFetcher;
-    if (fetchVersion == null) return false;
-    try {
-      final version = await fetchVersion();
-      if (version.isEmpty) return false;
-      final cached = preferencesStorage.getLearningQuestionBankVersion();
-      return cached == null || cached.isEmpty || cached != version;
-    } catch (_) {
-      return false;
-    }
+  int get answeredCount {
+    final hidden = _hiddenQuestionIds;
+    return _questions
+        .where(
+          (question) =>
+              !hidden.contains(question.id) && _judgedIds.contains(question.id),
+        )
+        .length;
   }
-
-  int get answeredCount =>
-      _questions.where((question) => _judgedIds.contains(question.id)).length;
 
   LearningQuestion? questionById(String id) {
     final index = _questionIndex ??= <String, LearningQuestion>{};
@@ -171,7 +185,7 @@ class LearningRepository extends ChangeNotifier {
       return;
     }
 
-    if (bankFetcher != null) {
+    if (bankFetcher != null || bankSyncFetcher != null) {
       try {
         await refresh();
       } catch (_) {
@@ -246,12 +260,19 @@ class LearningRepository extends ChangeNotifier {
     final redeem = cdkRedeemer;
     if (redeem == null) return;
     await redeem(code, questionBankId);
-    await refresh();
+    if (bankSyncFetcher != null) {
+      await sync(forceBankIds: {questionBankId});
+    } else {
+      await refresh();
+    }
   }
 
   Future<void> refresh() async {
+    if (bankSyncFetcher != null) {
+      await sync();
+      return;
+    }
     if (fetcher == null && bankFetcher == null) return;
-    final previousBanks = _banks;
     final wasLoaded = _loaded;
     final wasLibraryUnavailable = _libraryUnavailable;
     List<LearningQuestionBank> fetchedBanks;
@@ -268,7 +289,48 @@ class LearningRepository extends ChangeNotifier {
       final fetched = await fetcher!();
       fetchedBanks = _deriveBanks(fetched);
     }
+    await _commitBanks(
+      fetchedBanks,
+      wasLoaded: wasLoaded,
+      wasLibraryUnavailable: wasLibraryUnavailable,
+    );
+  }
 
+  /// Incrementally pulls question banks. Only banks whose server `updated_at`
+  /// changed (or that are in [forceBankIds]) trigger a detail request;
+  /// unchanged banks are reused from the local cache.
+  Future<void> sync({Set<String> forceBankIds = const {}}) async {
+    final syncFetcher = bankSyncFetcher;
+    if (syncFetcher == null) return;
+    final wasLoaded = _loaded;
+    final wasLibraryUnavailable = _libraryUnavailable;
+    final existing = <String, LearningQuestionBank>{
+      for (final bank in _banks)
+        if (bank.id.isNotEmpty && !forceBankIds.contains(bank.id))
+          bank.id: bank,
+    };
+    final List<LearningQuestionBank> fetchedBanks;
+    try {
+      _libraryUnavailable = false;
+      fetchedBanks = await syncFetcher(existing);
+    } on ControlApiException catch (error) {
+      _libraryUnavailable = error.code == 'user_unavailable';
+      notifyListeners();
+      rethrow;
+    }
+    await _commitBanks(
+      fetchedBanks,
+      wasLoaded: wasLoaded,
+      wasLibraryUnavailable: wasLibraryUnavailable,
+    );
+  }
+
+  Future<void> _commitBanks(
+    List<LearningQuestionBank> fetchedBanks, {
+    required bool wasLoaded,
+    required bool wasLibraryUnavailable,
+  }) async {
+    final previousBanks = _banks;
     final encoded = jsonEncode([
       for (final bank in fetchedBanks) bank.toJson(),
     ]);
@@ -359,25 +421,10 @@ class LearningRepository extends ChangeNotifier {
     return changed;
   }
 
-  Future<void> _saveBankCache() async {
-    await preferencesStorage.setLearningQuestionBankCache(
-      jsonEncode([for (final bank in _banks) bank.toJson()]),
-    );
-    await _saveBankVersion();
-  }
-
-  Future<void> _saveBankVersion() async {
-    final fetchVersion = versionFetcher;
-    if (fetchVersion == null) return;
-    try {
-      final version = await fetchVersion();
-      if (version.isNotEmpty) {
-        await preferencesStorage.setLearningQuestionBankVersion(version);
-      }
-    } catch (_) {
-      // The version only skips redundant downloads; a failure is harmless.
-    }
-  }
+  Future<void> _saveBankCache() =>
+      preferencesStorage.setLearningQuestionBankCache(
+        jsonEncode([for (final bank in _banks) bank.toJson()]),
+      );
 
   static List<LearningQuestionBank>? _decodeBanks(String raw) {
     try {

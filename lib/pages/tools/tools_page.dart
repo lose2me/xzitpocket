@@ -229,8 +229,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           ? control.fetchLearningQuestionBanks
           : null,
       cdkRedeemer: control.isConfigured ? control.redeemLibraryCdk : null,
-      versionFetcher: control.isConfigured
-          ? control.fetchQuestionBankVersion
+      bankSyncFetcher: control.isConfigured
+          ? control.syncLearningQuestionBanks
           : null,
     );
     if (!mounted) return;

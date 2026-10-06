@@ -26,12 +26,10 @@ class ControlRelease {
 class ControlConfigVersions {
   final String appRelease;
   final String schoolCalendar;
-  final String questionBanks;
 
   const ControlConfigVersions({
     required this.appRelease,
     required this.schoolCalendar,
-    required this.questionBanks,
   });
 }
 
@@ -63,6 +61,8 @@ class ControlService {
   Future<String?>? _refreshFuture;
   Future<void>? _loginFuture;
   Future<bool>? _healthFuture;
+  Future<ControlConfigVersions>? _configVersionsFuture;
+  Future<String?>? _loginBlockFuture;
   PackageInfo? _packageInfo;
 
   String? _installationId;
@@ -147,6 +147,57 @@ class ControlService {
       await _sendTelemetry('app_start');
     } catch (error, stackTrace) {
       talker.warning('Control 初始化失败', error, stackTrace);
+    }
+  }
+
+  /// Returns a user-facing reason when control has banned the current device or
+  /// disabled the account, or null when login is allowed. Any failure to reach
+  /// control (or any other response) is treated as allowed so a control outage
+  /// never blocks app usage.
+  Future<String?> loginBlockReason(String studentId) {
+    final normalized = studentId.trim();
+    if (!isConfigured || normalized.isEmpty) return Future.value();
+    final pending = _loginBlockFuture;
+    if (pending != null) return pending;
+    final future = _loginBlockReason(normalized);
+    _loginBlockFuture = future;
+    return future.whenComplete(() {
+      if (identical(_loginBlockFuture, future)) _loginBlockFuture = null;
+    });
+  }
+
+  Future<String?> _loginBlockReason(String studentId) async {
+    try {
+      return await _checkLoginEligibility(studentId)
+          .timeout(const Duration(seconds: 3));
+    } catch (error, stackTrace) {
+      // Unreachable, slow, or otherwise unavailable control: allow the login.
+      talker.warning('Control 登录资格检查失败，按允许处理', error, stackTrace);
+      return null;
+    }
+  }
+
+  Future<String?> _checkLoginEligibility(String studentId) async {
+    await _loadState();
+    await _ensureDevice();
+    final token = _deviceToken;
+    if (token == null) return null;
+    try {
+      await _request(
+        'POST',
+        '/api/v1/auth/login-eligibility',
+        data: {'student_id': studentId},
+        headers: {'Authorization': 'Device $token'},
+      );
+      return null;
+    } on ControlApiException catch (error) {
+      switch (error.code) {
+        case 'device_revoked':
+          return '该设备已被封禁，无法登录';
+        case 'account_disabled':
+          return error.message;
+      }
+      return null;
     }
   }
 
@@ -292,7 +343,16 @@ class ControlService {
     await _sendTelemetry('control_login_success');
   }
 
-  Future<List<LearningQuestionBank>> fetchLearningQuestionBanks() async {
+  Future<List<LearningQuestionBank>> fetchLearningQuestionBanks() =>
+      syncLearningQuestionBanks(const {});
+
+  /// Fetches question-bank summaries and only downloads full questions for
+  /// banks that are new or whose server `updated_at` differs from [existing].
+  /// Unchanged banks are returned from [existing] without a detail request, so
+  /// a version-only sync costs a single summary request.
+  Future<List<LearningQuestionBank>> syncLearningQuestionBanks(
+    Map<String, LearningQuestionBank> existing,
+  ) async {
     if (!isConfigured) {
       throw const ControlApiException(
         'control_not_configured',
@@ -312,6 +372,7 @@ class ControlService {
     }
 
     final summaries = <Map<String, dynamic>>[];
+    final hiddenIds = <String>{};
     var offset = 0;
     const limit = 100;
     while (true) {
@@ -323,6 +384,15 @@ class ControlService {
       final items = page['items'];
       if (items is List) {
         summaries.addAll(items.whereType<Map>().map(_stringMap));
+      }
+      final hidden = page['hidden'];
+      if (hidden is List) {
+        for (final item in hidden.whereType<Map>()) {
+          final id = item['id']?.toString() ?? '';
+          if (id.isNotEmpty && item['status']?.toString() != 'active') {
+            hiddenIds.add(id);
+          }
+        }
       }
       final total = _asInt(page['total']) ?? summaries.length;
       if (summaries.length >= total || items is! List || items.isEmpty) break;
@@ -340,15 +410,25 @@ class ControlService {
     });
 
     final banks = <LearningQuestionBank>[];
+    final activeIds = <String>{};
     for (final summary in summaries) {
       final id = summary['id']?.toString() ?? '';
       if (id.isEmpty) continue;
+      activeIds.add(id);
+      final updatedAt = summary['updated_at']?.toString() ?? '';
+      final cached = existing[id];
+      if (cached != null && cached.updatedAt == updatedAt && !cached.hidden) {
+        // Summary timestamp is unchanged, so the cached questions are current.
+        banks.add(cached);
+        continue;
+      }
       final summaryBank = LearningQuestionBank.fromJson({
         'id': id,
         'orderId': summary['orderId'],
         'new': summary['new'],
         'name': summary['name'],
         'requiresCDK': summary['requiresCDK'] == true,
+        'updatedAt': updatedAt,
         'questions': const [],
       });
       try {
@@ -357,7 +437,14 @@ class ControlService {
           '/api/v1/question-banks/${Uri.encodeComponent(id)}',
           headers: {'Authorization': 'Bearer $token'},
         );
-        banks.add(LearningQuestionBank.fromJson(response));
+        final rawBank = response['questionBank'];
+        banks.add(
+          LearningQuestionBank.fromJson(
+            rawBank is Map<String, dynamic>
+                ? <String, dynamic>{...rawBank, 'updatedAt': updatedAt}
+                : <String, dynamic>{...response, 'updatedAt': updatedAt},
+          ),
+        );
       } on ControlApiException catch (error) {
         if (error.code != 'question_bank_locked') rethrow;
         banks.add(
@@ -368,9 +455,20 @@ class ControlService {
             'name': summaryBank.name,
             'requiresCDK': summaryBank.requiresCDK,
             'locked': true,
+            'updatedAt': updatedAt,
             'questions': const [],
           }),
         );
+      }
+    }
+
+    // Banks that are disabled/draft stay cached but marked hidden, so their
+    // questions and saved collections survive until the bank is re-enabled.
+    // Anything absent from both the active and hidden lists was deleted.
+    for (final cached in existing.values) {
+      if (activeIds.contains(cached.id)) continue;
+      if (hiddenIds.contains(cached.id)) {
+        banks.add(cached.copyWith(hidden: true));
       }
     }
     return banks;
@@ -486,26 +584,30 @@ class ControlService {
     }
   }
 
-  Future<ControlConfigVersions> fetchConfigVersions() async {
+  Future<ControlConfigVersions> fetchConfigVersions() {
     if (!isConfigured) {
-      throw const ControlApiException(
-        'control_not_configured',
-        'Control 服务地址未配置',
+      return Future.error(
+        const ControlApiException('control_not_configured', 'Control 服务地址未配置'),
       );
     }
+    final pending = _configVersionsFuture;
+    if (pending != null) return pending;
+    final future = _fetchConfigVersions();
+    _configVersionsFuture = future;
+    return future.whenComplete(() {
+      if (identical(_configVersionsFuture, future)) {
+        _configVersionsFuture = null;
+      }
+    });
+  }
+
+  Future<ControlConfigVersions> _fetchConfigVersions() async {
     final response = await _request('GET', '/api/v1/config/versions');
+    _serviceAvailable = true;
     return ControlConfigVersions(
       appRelease: response['appRelease']?.toString() ?? '',
       schoolCalendar: response['schoolCalendar']?.toString() ?? '',
-      questionBanks: response['questionBanks']?.toString() ?? '',
     );
-  }
-
-  /// Current control-side question-bank version, compared by clients against
-  /// the cached library to avoid redundant downloads.
-  Future<String> fetchQuestionBankVersion() async {
-    final versions = await fetchConfigVersions();
-    return versions.questionBanks;
   }
 
   /// Downloads the school calendar only when control reports a version the
@@ -514,8 +616,13 @@ class ControlService {
   Future<bool> refreshSchoolCalendarIfChanged(PreferencesStorage prefs) async {
     if (!isConfigured) return false;
     await initialize();
-    if (!await checkHealth()) return false;
-    final versions = await fetchConfigVersions();
+    late final ControlConfigVersions versions;
+    try {
+      versions = await fetchConfigVersions();
+    } catch (_) {
+      _serviceAvailable = false;
+      return false;
+    }
     if (prefs.getSchoolCalendarCache() != null &&
         prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
       return false;

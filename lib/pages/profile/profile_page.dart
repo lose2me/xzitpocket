@@ -758,7 +758,10 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     // 1. Register with control and refresh the school calendar before the OA
     //    login so cloud course adjustments use the latest calendar.
     try {
-      await ControlService.instance.refreshSchoolCalendarIfChanged(prefs);
+      // Bounded so a slow/unreachable control service never delays the login.
+      await ControlService.instance
+          .refreshSchoolCalendarIfChanged(prefs)
+          .timeout(const Duration(seconds: 3));
     } catch (error, stackTrace) {
       talker.warning('登录前刷新校历失败', error, stackTrace);
     }

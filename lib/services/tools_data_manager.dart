@@ -6,6 +6,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/app_settings.dart';
+import '../models/learning_question.dart';
 import '../utils/in_flight_operation.dart';
 import 'auth_service.dart';
 import 'cas_service.dart';
@@ -1050,20 +1051,35 @@ class ToolsDataManager extends ChangeNotifier {
     final prefs = _savedPrefs;
     if (prefs == null) return;
     try {
-      final version = await ControlService.instance.fetchQuestionBankVersion();
-      if (version.isNotEmpty &&
-          prefs.getLearningQuestionBankVersion() == version) {
-        return;
-      }
-      final banks = await ControlService.instance.fetchLearningQuestionBanks();
+      final existing = _decodeLearningBanks(
+        prefs.getLearningQuestionBankCache(),
+      );
+      final banks = await ControlService.instance.syncLearningQuestionBanks(
+        existing,
+      );
       await prefs.setLearningQuestionBankCache(
         jsonEncode([for (final bank in banks) bank.toJson()]),
       );
-      if (version.isNotEmpty) {
-        await prefs.setLearningQuestionBankVersion(version);
-      }
     } catch (error, stackTrace) {
       talker.warning('学习中心后台加载失败', error, stackTrace);
+    }
+  }
+
+  Map<String, LearningQuestionBank> _decodeLearningBanks(String? raw) {
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const {};
+      final result = <String, LearningQuestionBank>{};
+      for (final item in decoded) {
+        if (item is! Map<String, dynamic>) continue;
+        final bank = LearningQuestionBank.fromJson(item);
+        if (bank.id.isNotEmpty) result[bank.id] = bank;
+      }
+      return result;
+    } catch (error, stackTrace) {
+      talker.warning('题库缓存解析失败', error, stackTrace);
+      return const {};
     }
   }
 }

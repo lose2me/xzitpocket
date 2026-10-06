@@ -285,20 +285,94 @@ void main() {
     expect(question.correctOptionIds, {'A', 'C'});
   });
 
-  test('hasUpdate compares the cached question-bank version', () async {
-    var version = 'v1';
+  test('sync only downloads banks whose updated_at changed', () async {
+    final downloads = <String>[];
+    var updatedAt = 'v1';
+    var questionCount = 1;
+
+    LearningQuestionBank build(String updatedAt, int count) =>
+        LearningQuestionBank(
+          id: 'QB-1',
+          name: '题库',
+          orderId: 1,
+          updatedAt: updatedAt,
+          questions: [
+            for (var index = 1; index <= count; index++)
+              LearningQuestion(
+                id: 'q-$index',
+                bankId: 'QB-1',
+                bankName: '题库',
+                questionNumber: index,
+                title: '题目$index',
+                type: LearningQuestionType.single,
+                options: const [LearningOption(id: 'A', text: 'A')],
+                correctOptionIds: const {'A'},
+              ),
+          ],
+        );
+
     final value = LearningRepository(
       preferencesStorage: storage,
-      bankFetcher: () async => [_fixtureBank('QB-1', '题库', 'q-1')],
-      versionFetcher: () async => version,
+      bankSyncFetcher: (existing) async {
+        final cached = existing['QB-1'];
+        if (cached != null && cached.updatedAt == updatedAt) return [cached];
+        downloads.add(updatedAt);
+        return [build(updatedAt, questionCount)];
+      },
     );
 
     await value.load();
-    expect(await value.hasUpdate(), isFalse);
-    expect(storage.getLearningQuestionBankVersion(), 'v1');
+    expect(downloads, ['v1']);
+    expect(value.questions, hasLength(1));
 
-    version = 'v2';
-    expect(await value.hasUpdate(), isTrue);
+    await value.sync();
+    expect(downloads, ['v1']);
+
+    updatedAt = 'v2';
+    questionCount = 2;
+    await value.sync();
+    expect(downloads, ['v1', 'v2']);
+    expect(value.questions, hasLength(2));
+  });
+
+  test('hidden banks keep collections until re-enabled or deleted', () async {
+    var mode = 'active'; // active | hidden | deleted
+    final value = LearningRepository(
+      preferencesStorage: storage,
+      bankSyncFetcher: (existing) async {
+        if (mode == 'deleted') return const <LearningQuestionBank>[];
+        final bank = existing['QB-1'] ?? _fixtureBank('QB-1', '题库', 'q-1');
+        return [bank.copyWith(hidden: mode == 'hidden')];
+      },
+    );
+
+    await value.load();
+    expect(value.banks, hasLength(1));
+    final questionId = value.questions.single.id;
+    await value.toggleFavorite(questionId);
+    await value.submitAnswer(questionId, {'wrong'});
+
+    mode = 'hidden';
+    await value.sync();
+    expect(value.banks, isEmpty);
+    expect(value.questions, isEmpty);
+    expect(value.favoriteIds, contains(questionId));
+    expect(value.wrongIds, contains(questionId));
+
+    mode = 'active';
+    await value.sync();
+    expect(value.banks, hasLength(1));
+    expect(
+      value.questions.map((question) => question.id),
+      contains(questionId),
+    );
+    expect(value.favoriteIds, contains(questionId));
+
+    mode = 'deleted';
+    await value.sync();
+    expect(value.banks, isEmpty);
+    expect(value.favoriteIds, isNot(contains(questionId)));
+    expect(value.wrongIds, isNot(contains(questionId)));
   });
 }
 

@@ -6,6 +6,7 @@ import 'package:forui/forui.dart';
 import '../../models/learning_question.dart';
 import '../../services/control_service.dart';
 import '../../services/learning_repository.dart';
+import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_question_list_page.dart';
@@ -41,10 +42,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Future<void> _loadInitial() async {
     await repository.load();
-    if (!mounted) return;
-    if (repository.loadedFromCache && await repository.hasUpdate()) {
-      if (!mounted) return;
-      unawaited(_refreshLibrary(showToast: false));
+    if (!mounted || !repository.loadedFromCache) return;
+    try {
+      // Version compare happens inside sync; only changed banks are downloaded.
+      await repository.sync();
+    } catch (error, stackTrace) {
+      talker.warning('题库同步失败', error, stackTrace);
     }
   }
 
