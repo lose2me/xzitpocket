@@ -728,7 +728,7 @@ class PreferencesStorage {
   );
 
   double getTimetableDayTextMarkerSize() => _clampTimetableDimension(
-    _prefs.getDouble('timetable_day_text_marker_size') ?? 7.0,
+    _prefs.getDouble('timetable_day_text_marker_size') ?? 8.0,
     min: 4.0,
     max: 16.0,
   );

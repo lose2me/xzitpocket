@@ -672,7 +672,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       value: settings.timetableDayTextMarkerSize,
                       min: 4,
                       max: 16,
-                      divisions: 24,
+                      divisions: 120,
                       suffix: ' px',
                       displayDecimals: 1,
                       onChanged: (value) => ref

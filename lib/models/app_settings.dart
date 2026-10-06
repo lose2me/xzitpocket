@@ -295,7 +295,7 @@ class AppSettings {
     this.timetableCourseTextOpacity = 1.0,
     this.timetableTimeTextSize = 11.0,
     this.timetableDateTextSize = 12.0,
-    this.timetableDayTextMarkerSize = 7.0,
+    this.timetableDayTextMarkerSize = 8.0,
     this.timetableCourseBorderWidth = 0.5,
     this.timetableCourseBorderOpacity = 0.7,
     this.showTimetableGridLines = true,

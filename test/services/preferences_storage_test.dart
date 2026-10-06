@@ -263,7 +263,7 @@ void main() {
         expect(snapshot['timetable_day_text_marker_size'], 9.5);
 
         await storage.resetTimetableAppearance();
-        expect(storage.getTimetableDayTextMarkerSize(), 7.0);
+        expect(storage.getTimetableDayTextMarkerSize(), 8.0);
 
         await storage.restorePersonalizationSnapshot(snapshot);
         expect(storage.getTimetableDayTextMarkerSize(), 9.5);
@@ -329,11 +329,13 @@ void main() {
       await storage.setTimetableCourseTextSize(14.06);
       await storage.setTimetableTimeTextSize(10.04);
       await storage.setTimetableDateTextSize(13.25);
+      await storage.setTimetableDayTextMarkerSize(9.06);
       await storage.setTimetableCourseBorderWidth(1.26);
 
       expect(storage.getTimetableCourseTextSize(), 14.1);
       expect(storage.getTimetableTimeTextSize(), 10.0);
       expect(storage.getTimetableDateTextSize(), 13.3);
+      expect(storage.getTimetableDayTextMarkerSize(), 9.1);
       expect(storage.getTimetableCourseBorderWidth(), 1.3);
     });
 
