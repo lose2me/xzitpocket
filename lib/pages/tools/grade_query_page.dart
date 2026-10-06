@@ -39,7 +39,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   GradeResult? _result;
   AcademicStatus? _academic;
   bool _loading = false;
-  bool _refreshSucceeded = false;
   String? _selectedSemesterKey;
   GradeResult? _semesterOptionsSource;
   BookListSemesterCatalog? _semesterCatalogCache;
@@ -109,7 +108,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       setState(() {
         if (gradesChanged) _result = grades;
         if (academicChanged) _academic = academic;
-        _refreshSucceeded = true;
         if (gradesChanged) {
           _semesterOptionsSource = null;
           _semesterCatalogCache = null;
@@ -229,7 +227,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           onPress: _loading ? null : () => _load(forceRefresh: true),
           tooltip: '刷新成绩',
           loading: _loading,
-          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageBody(

@@ -88,7 +88,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: _title,
+      title: '报修进度',
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
@@ -115,17 +115,24 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
     );
   }
 
-  String get _title {
-    final content = _detail?.content.trim() ?? '';
-    if (content.isEmpty) return '处理进度';
-    return content.length > 16 ? '${content.substring(0, 16)}...' : content;
-  }
-
   Widget _buildContent(RepairDetail detail) {
+    final name = detail.content.trim();
     if (detail.steps.isEmpty) {
-      return const AppPageBody(
+      return AppPageBody(
+        maxWidth: AppLayout.resultMaxWidth,
         safeArea: false,
-        child: AppStateView(icon: FLucideIcons.listChecks, title: '暂无流程记录'),
+        pageGutter: true,
+        child: Column(
+          children: [
+            if (name.isNotEmpty) _buildName(name, topPadding: AppSpacing.lg),
+            const Expanded(
+              child: AppStateView(
+                icon: FLucideIcons.listChecks,
+                title: '暂无流程记录',
+              ),
+            ),
+          ],
+        ),
       );
     }
     return AppPageListView(
@@ -133,6 +140,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
       topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
       children: [
+        if (name.isNotEmpty) _buildName(name),
         for (var i = 0; i < detail.steps.length; i++)
           _ProcessStepTile(
             step: detail.steps[i],
@@ -141,6 +149,15 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
       ],
     );
   }
+
+  Widget _buildName(String name, {double topPadding = 0}) => Padding(
+    padding: EdgeInsets.only(top: topPadding, bottom: AppSpacing.xxl),
+    child: Text(
+      name,
+      textAlign: TextAlign.center,
+      style: context.theme.typography.body.lg,
+    ),
+  );
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -321,10 +338,20 @@ class _RepairImageThumbnail extends StatelessWidget {
   }
 }
 
+const _repairImageBarrierColor = Color(0xF2333333);
+
 Future<void> _showRepairImage(BuildContext context, String url) =>
-    showFDialog<void>(
+    showGeneralDialog<void>(
       context: context,
-      builder: (context, style, animation) => _RepairImageOverlay(url: url),
+      useRootNavigator: false,
+      barrierDismissible: true,
+      barrierLabel: '关闭图片预览',
+      barrierColor: _repairImageBarrierColor,
+      transitionDuration: AppMotion.fast,
+      pageBuilder: (context, animation, secondaryAnimation) =>
+          _RepairImageOverlay(url: url),
+      transitionBuilder: (context, animation, secondaryAnimation, child) =>
+          FadeTransition(opacity: animation, child: child),
     );
 
 class _RepairImageOverlay extends StatefulWidget {
@@ -378,29 +405,30 @@ class _RepairImageOverlayState extends State<_RepairImageOverlay> {
       child: Stack(
         children: [
           Positioned.fill(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).maybePop(),
-            ),
-          ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.xxl,
-                vertical: AppSpacing.page,
-              ),
-              child: InteractiveViewer(
-                minScale: 0.5,
-                maxScale: 5,
-                child: Image.network(
-                  widget.url,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, _, _) => const AppStateView(
-                    icon: FLucideIcons.imageOff,
-                    title: '图片加载失败',
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppSpacing.page,
+                  ),
+                  child: Image.network(
+                    widget.url,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const AppStateView(
+                      icon: FLucideIcons.imageOff,
+                      title: '图片加载失败',
+                    ),
                   ),
                 ),
               ),
+            ),
+          ),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => Navigator.of(context).maybePop(),
             ),
           ),
           Positioned(

@@ -78,12 +78,12 @@ void main() {
     expect(find.text('兑换通用 CDK'), findsNothing);
     expect(find.byType(FTile), findsOneWidget);
     expect(find.text('0%'), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.refreshCw), findsNothing);
-    expect(find.byIcon(FLucideIcons.check), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.check), findsNothing);
+    expect(find.byIcon(FLucideIcons.refreshCw), findsOneWidget);
 
-    await tester.tap(find.byIcon(FLucideIcons.check));
+    await tester.tap(find.byIcon(FLucideIcons.refreshCw));
     await tester.pump();
-    expect(fetchCount, 1);
+    expect(fetchCount, 2);
     await tester.pump(const Duration(seconds: 4));
   });
 

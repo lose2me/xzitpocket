@@ -29,7 +29,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   List<_TermGroup>? _cachedTermGroups;
   int _cachedLibraryRevision = -1;
   bool _refreshing = false;
-  bool _refreshSucceeded = false;
   bool _bankSelectionMode = false;
   final Set<String> _selectedBankKeys = {};
 
@@ -40,9 +39,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     unawaited(
       repository.load().then((_) {
         if (!mounted) return;
-        setState(() {
-          _refreshSucceeded = repository.loadedFromNetwork;
-        });
         if (repository.loadedFromCache && !repository.isLibraryCacheFresh) {
           unawaited(_refreshLibrary(showToast: false));
         }
@@ -65,7 +61,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     setState(() => _refreshing = true);
     try {
       await repository.refresh();
-      if (mounted) setState(() => _refreshSucceeded = true);
       if (mounted && showToast) {
         showAppSnackBar(context, '题库已刷新', severity: ToastSeverity.success);
       }
@@ -190,7 +185,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                       onPress: _refreshing ? null : _refreshLibrary,
                       tooltip: '刷新题库',
                       loading: _refreshing,
-                      completed: _refreshSucceeded,
                     ),
                   ]
           : [

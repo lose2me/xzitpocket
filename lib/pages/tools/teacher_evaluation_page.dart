@@ -8,7 +8,6 @@ import '../../providers/config_provider.dart';
 import '../../services/cas_service.dart';
 import '../../services/jp_service.dart';
 import '../../services/credential_storage.dart';
-import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../utils/snackbar_helper.dart';
@@ -29,7 +28,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   final _manager = ToolsDataManager.instance;
   bool _isLoading = false;
   bool _isEvaluating = false;
-  bool _refreshSucceeded = false;
   JpStatusResult? _status;
   int _currentPage = 0;
   final _pageController = PageController();
@@ -89,22 +87,14 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     if (password == null || password.isEmpty) return;
     if (!_requireCampusNetwork()) return;
     final prefs = ref.read(preferencesStorageProvider);
-    final requestedRefresh =
-        forceRefresh ||
-        !PreferencesStorage.isCacheValid(
-          prefs.getJpCacheTime(),
-          const Duration(minutes: 5),
-        );
 
     setState(() => _isLoading = true);
     try {
       JpStatusResult? result;
-      bool success;
       if (forceRefresh) {
         result = await _manager.refreshJp(config.studentId!, password, prefs);
-        success = result != null;
       } else {
-        success = await _manager.loadJp(config.studentId!, password, prefs);
+        await _manager.loadJp(config.studentId!, password, prefs);
         result = _manager.jp;
       }
       if (!mounted) return;
@@ -118,7 +108,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
           _status = result;
           _currentPage = 0;
         }
-        if (requestedRefresh && success) _refreshSucceeded = true;
       });
       if (changed && _pageController.hasClients) {
         _pageController.jumpToPage(0);
@@ -218,7 +207,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
               : () => _loadStatus(forceRefresh: true),
           tooltip: '刷新评价',
           loading: _isLoading,
-          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageBody(

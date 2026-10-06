@@ -35,7 +35,6 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
   late List<NetAuthDevice> _devices;
   String? _unbindingMac;
   bool _isRefreshing = false;
-  bool _refreshSucceeded = false;
 
   @override
   void initState() {
@@ -49,23 +48,15 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
     setState(() => _isRefreshing = true);
     try {
       final manager = ToolsDataManager.instance;
-      final requestedRefresh =
-          forceRefresh ||
-          !PreferencesStorage.isCacheValid(
-            widget.preferencesStorage.getNetauthCacheTime(),
-            const Duration(minutes: 5),
-          );
       NetAuthResult? result;
-      bool success;
       if (forceRefresh) {
         result = await manager.refreshNetAuth(
           widget.account,
           widget.password,
           widget.preferencesStorage,
         );
-        success = result != null;
       } else {
-        success = await manager.loadNetAuth(
+        await manager.loadNetAuth(
           widget.account,
           widget.password,
           widget.preferencesStorage,
@@ -86,7 +77,6 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
           _info = refreshed.info;
           _devices = refreshed.devices;
         }
-        if (requestedRefresh && success) _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('网络管理详情刷新失败', e, stackTrace);
@@ -148,7 +138,6 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
           onPress: _isRefreshing ? null : () => _load(forceRefresh: true),
           tooltip: '刷新网络状态',
           loading: _isRefreshing,
-          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageListView(

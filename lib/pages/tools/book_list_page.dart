@@ -33,7 +33,6 @@ class _BookListPageState extends State<BookListPage> {
 
   BookListResult? _result;
   bool _loading = false;
-  bool _refreshSucceeded = false;
   List<BookListSemesterOption> _semesterOptions = const [];
   BookListSemesterOption? _selectedSemester;
 
@@ -92,7 +91,6 @@ class _BookListPageState extends State<BookListPage> {
       setState(() {
         _selectedSemester = option;
         _result = null;
-        _refreshSucceeded = false;
       });
       await _load();
       return;
@@ -113,7 +111,6 @@ class _BookListPageState extends State<BookListPage> {
 
     setState(() {
       _loading = true;
-      _refreshSucceeded = false;
     });
     try {
       late final BookListResult result;
@@ -140,7 +137,6 @@ class _BookListPageState extends State<BookListPage> {
           _selectedSemester = initial.selectedSemester;
         }
         _result = result;
-        _refreshSucceeded = true;
       });
       await _saveCache();
     } on AuthException catch (error, stackTrace) {
@@ -169,7 +165,6 @@ class _BookListPageState extends State<BookListPage> {
           onPress: _loading ? null : _refresh,
           tooltip: '刷新书单',
           loading: _loading,
-          completed: _refreshSucceeded,
         ),
       ],
       child: result == null || result.isEmpty

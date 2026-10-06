@@ -33,7 +33,6 @@ class ExamQueryPage extends StatefulWidget {
 class _ExamQueryPageState extends State<ExamQueryPage> {
   late ExamResult _result;
   bool _isRefreshing = false;
-  bool _refreshSucceeded = false;
 
   @override
   void initState() {
@@ -64,7 +63,6 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
       }
       setState(() {
         if (!identical(result, _result)) _result = result;
-        _refreshSucceeded = true;
       });
     } on AuthException catch (e, stackTrace) {
       talker.error('考试详情刷新失败', e, stackTrace);
@@ -117,7 +115,6 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
           onPress: _isRefreshing ? null : _refresh,
           tooltip: '刷新考试',
           loading: _isRefreshing,
-          completed: _refreshSucceeded,
         ),
       ],
       child: exams.isEmpty

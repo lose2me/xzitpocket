@@ -36,7 +36,6 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   final _scrollController = ScrollController();
   int _visibleCount = _loadBatchSize;
   bool _isRefreshing = false;
-  bool _refreshSucceeded = false;
   bool _showMoney = false;
   late DateTime _startDate;
   late DateTime _endDate;
@@ -161,7 +160,6 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         if (!isDefault || changed) {
           _updateDisplayUsage(loadedResult.dailyUsage);
         }
-        _refreshSucceeded = true;
       });
     } on PowerQueryException catch (e, stackTrace) {
       talker.error('电费详情刷新失败', e, stackTrace);
@@ -241,7 +239,6 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
           onPress: _isRefreshing || !_canRefresh ? null : () => _refresh(),
           tooltip: '刷新电费',
           loading: _isRefreshing,
-          completed: _refreshSucceeded,
         ),
       ],
       child: AppPageListView(

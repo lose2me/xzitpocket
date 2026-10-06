@@ -35,7 +35,6 @@ class _RepairPageState extends State<RepairPage> {
   late List<RepairRecord> _records;
   late RepairUserInfo _userInfo;
   bool _isRefreshing = false;
-  bool _refreshSucceeded = false;
 
   @override
   void initState() {
@@ -49,23 +48,15 @@ class _RepairPageState extends State<RepairPage> {
     setState(() => _isRefreshing = true);
     try {
       final manager = ToolsDataManager.instance;
-      final requestedRefresh =
-          forceRefresh ||
-          !PreferencesStorage.isCacheValid(
-            widget.preferencesStorage.getRepairCacheTime(),
-            const Duration(minutes: 5),
-          );
       RepairResult? result;
-      bool success;
       if (forceRefresh) {
         result = await manager.refreshRepair(
           widget.studentId,
           widget.password,
           widget.preferencesStorage,
         );
-        success = result != null;
       } else {
-        success = await manager.loadRepair(
+        await manager.loadRepair(
           widget.studentId,
           widget.password,
           widget.preferencesStorage,
@@ -88,7 +79,6 @@ class _RepairPageState extends State<RepairPage> {
           _records = refreshed.records;
           _userInfo = refreshed.userInfo;
         }
-        if (requestedRefresh && success) _refreshSucceeded = true;
       });
       return true;
     } on AuthException catch (e, stackTrace) {
@@ -142,7 +132,6 @@ class _RepairPageState extends State<RepairPage> {
           onPress: _isRefreshing ? null : () => _load(forceRefresh: true),
           tooltip: '刷新报修',
           loading: _isRefreshing,
-          completed: _refreshSucceeded,
         ),
         FHeaderAction(
           icon: const Icon(FLucideIcons.plus),

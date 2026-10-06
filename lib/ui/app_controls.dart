@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
 import 'app_tokens.dart';
-import 'app_colors.dart';
 
 class AppIconButton extends StatelessWidget {
   final IconData icon;
@@ -13,7 +12,6 @@ class AppIconButton extends StatelessWidget {
   final FButtonVariant variant;
   final FButtonSizeVariant size;
   final bool loading;
-  final bool completed;
 
   const AppIconButton({
     super.key,
@@ -24,30 +22,23 @@ class AppIconButton extends StatelessWidget {
     this.variant = FButtonVariant.ghost,
     this.size = FButtonSizeVariant.sm,
     this.loading = false,
-    this.completed = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final button = FButton.icon(
-      onPress: loading || completed ? null : onPress,
+      onPress: loading ? null : onPress,
       variant: variant,
       size: size,
       semanticsLabel: tooltip,
       child: loading
           ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-          : Icon(
-              completed ? FLucideIcons.check : icon,
-              color: completed
-                  ? context.theme.colors.semantic.success
-                  : iconColor,
-            ),
+          : Icon(icon, color: iconColor),
     );
     return ConstrainedBox(
       constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       child: FTooltip(
-        tipBuilder: (context, controller) =>
-            Text(completed ? '$tooltip 已完成' : tooltip),
+        tipBuilder: (context, controller) => Text(tooltip),
         child: button,
       ),
     );
