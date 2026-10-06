@@ -327,6 +327,7 @@ void main() {
     Future<Color?> renderedLabelColor({
       required bool showColorMarkers,
       Color? pageTextColor,
+      DateTime? currentDate,
     }) async {
       await tester.pumpWidget(
         _testApp(
@@ -338,6 +339,7 @@ void main() {
               week: 1,
               calendar: holidayCalendar,
               borderColor: AppTheme.light.colors.border,
+              currentDate: currentDate,
               pageTextColor: pageTextColor,
               showDayColorMarkers: showColorMarkers,
             ),
@@ -373,6 +375,16 @@ void main() {
     expect(
       (await renderedLabelColor(showColorMarkers: false))?.toARGB32(),
       AppTheme.light.colors.mutedForeground.toARGB32(),
+    );
+
+    // Today keeps the theme primary even when it is a holiday whose color
+    // marker is enabled.
+    expect(
+      (await renderedLabelColor(
+        showColorMarkers: true,
+        currentDate: DateTime(2026, 8, 31),
+      ))?.toARGB32(),
+      AppTheme.light.colors.primary.toARGB32(),
     );
   });
 

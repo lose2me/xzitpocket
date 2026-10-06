@@ -781,9 +781,9 @@ class _TimetableGridState extends State<TimetableGrid> {
                 : isToday
                 ? theme.colors.primary.withValues(alpha: 0.24)
                 : isHoliday && widget.showDayColorMarkers
-                ? semantic.holidayBackground.withValues(alpha: 0.92)
+                ? semantic.holidayBackground.withValues(alpha: 0.5)
                 : isMakeupClass && widget.showDayColorMarkers
-                ? semantic.makeupBackground.withValues(alpha: 0.92)
+                ? semantic.makeupBackground.withValues(alpha: 0.5)
                 : null,
           ),
           child: ClipRect(
