@@ -64,6 +64,22 @@ void main() {
       ClassAutomationMode.off,
     );
   });
+
+  testWidgets('wearable compatibility requires course reminders', (
+    tester,
+  ) async {
+    final container = await _pumpPage(tester);
+    addTearDown(container.dispose);
+
+    await tester.tap(find.text('兼容穿戴设备通知'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      container.read(appSettingsProvider).wearableNotificationCompatibility,
+      isFalse,
+    );
+  });
 }
 
 Future<ProviderContainer> _pumpPage(

@@ -23,37 +23,23 @@ class CourseReminderSettingsPage extends ConsumerStatefulWidget {
 
 class _CourseReminderSettingsPageState
     extends ConsumerState<CourseReminderSettingsPage>
-    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+    with WidgetsBindingObserver {
   CourseReminderPermissionStatus? _permissionStatus;
   final _scrollController = ScrollController();
   final _notificationPermissionKey = GlobalKey();
   final _exactAlarmPermissionKey = GlobalKey();
   final _dndPermissionKey = GlobalKey();
-  late final AnimationController _permissionAttentionController;
-  late final Animation<double> _permissionAttention;
-  Timer? _permissionAttentionTimer;
-  Set<_PermissionTarget> _highlightedPermissions = const {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _permissionAttentionController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-    );
-    _permissionAttention = CurvedAnimation(
-      parent: _permissionAttentionController,
-      curve: Curves.easeInOut,
-    );
     unawaited(_loadPermissionStatus());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _permissionAttentionTimer?.cancel();
-    _permissionAttentionController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -86,7 +72,6 @@ class _CourseReminderSettingsPageState
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
-    final notifier = ref.read(appSettingsProvider.notifier);
     return AppPage(
       title: '课程提醒',
       child: AppPageListView(
@@ -118,7 +103,7 @@ class _CourseReminderSettingsPageState
                 icon: FLucideIcons.watch,
                 title: '兼容穿戴设备通知',
                 value: settings.wearableNotificationCompatibility,
-                onChange: notifier.setWearableNotificationCompatibility,
+                onChange: _setWearableCompatibility,
               ),
             ],
           ),
@@ -137,12 +122,6 @@ class _CourseReminderSettingsPageState
                 value: _permissionStatus == null
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.notificationsGranted),
-                attentionAnimation:
-                    _highlightedPermissions.contains(
-                      _PermissionTarget.notifications,
-                    )
-                    ? _permissionAttention
-                    : null,
                 onTap: () async {
                   await NativeAutomationService.openNotificationSettings();
                   await _loadPermissionStatus();
@@ -155,12 +134,6 @@ class _CourseReminderSettingsPageState
                 value: _permissionStatus == null
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.exactAlarmGranted),
-                attentionAnimation:
-                    _highlightedPermissions.contains(
-                      _PermissionTarget.exactAlarm,
-                    )
-                    ? _permissionAttention
-                    : null,
                 onTap: () async {
                   await NativeAutomationService.openExactAlarmSettings();
                   await _loadPermissionStatus();
@@ -173,10 +146,6 @@ class _CourseReminderSettingsPageState
                 value: _permissionStatus == null
                     ? '检查中'
                     : _permissionLabel(_permissionStatus!.dndGranted),
-                attentionAnimation:
-                    _highlightedPermissions.contains(_PermissionTarget.dnd)
-                    ? _permissionAttention
-                    : null,
                 onTap: () async {
                   await NativeAutomationService.openDndSettings();
                   await _loadPermissionStatus();
@@ -185,7 +154,7 @@ class _CourseReminderSettingsPageState
               ProfileSettingsTile(
                 icon: FLucideIcons.smartphone,
                 title: '后台运行和自启',
-                value: '打开系统设置',
+                value: '系统设置',
                 onTap:
                     NativeAutomationService.openBackgroundAndAutostartSettings,
               ),
@@ -238,6 +207,19 @@ class _CourseReminderSettingsPageState
   }
 
   String _permissionLabel(bool granted) => granted ? '已授权' : '未授权';
+
+  Future<void> _setWearableCompatibility(bool enabled) async {
+    final notifier = ref.read(appSettingsProvider.notifier);
+    if (!enabled) {
+      await notifier.setWearableNotificationCompatibility(false);
+      return;
+    }
+    if (!ref.read(appSettingsProvider).courseReminderEnabled) {
+      showAppSnackBar(context, '请先开启课程提醒', severity: ToastSeverity.warning);
+      return;
+    }
+    await notifier.setWearableNotificationCompatibility(true);
+  }
 
   Future<void> _setCourseReminderEnabled(bool enabled) async {
     final notifier = ref.read(appSettingsProvider.notifier);
@@ -299,11 +281,6 @@ class _CourseReminderSettingsPageState
   }
 
   Future<void> _focusPermissions(Set<_PermissionTarget> permissions) async {
-    _permissionAttentionTimer?.cancel();
-    _permissionAttentionController
-      ..stop()
-      ..reset();
-    setState(() => _highlightedPermissions = permissions);
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     final first = [
@@ -325,14 +302,6 @@ class _CourseReminderSettingsPageState
         curve: Curves.easeOutCubic,
       );
     }
-    if (!mounted) return;
-    _permissionAttentionController.repeat(reverse: true);
-    _permissionAttentionTimer = Timer(const Duration(milliseconds: 2400), () {
-      _permissionAttentionController
-        ..stop()
-        ..reset();
-      if (mounted) setState(() => _highlightedPermissions = const {});
-    });
   }
 
   static Future<void> _openMinutesSheet(

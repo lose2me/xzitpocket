@@ -80,7 +80,6 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final VoidCallback? onPointerUp;
-  final Animation<double>? attentionAnimation;
 
   const ProfileSettingsTile({
     super.key,
@@ -90,25 +89,13 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
     this.onTap,
     this.onLongPress,
     this.onPointerUp,
-    this.attentionAnimation,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    Widget tile(double attention) => FTile(
-      style: attention <= 0
-          ? _profileTileStyle
-          : FItemStyleDelta.delta(
-              backgroundColor: FVariantsValueDelta.delta([
-                FVariantValueDeltaOperation.all(
-                  theme.colors.primary.withValues(
-                    alpha: 0.08 + attention * 0.24,
-                  ),
-                ),
-              ]),
-              contentStyle: _profileTileContentStyle,
-            ),
+    final result = FTile(
+      style: _profileTileStyle,
       prefix: Icon(icon, size: 20, color: theme.colors.primary),
       title: Text(title),
       details: value == null ? null : Text(value!),
@@ -118,14 +105,6 @@ class ProfileSettingsTile extends StatelessWidget with FTileMixin {
       onPress: onTap,
       onLongPress: onLongPress,
     );
-
-    final animation = attentionAnimation;
-    Widget result = animation == null
-        ? tile(0)
-        : AnimatedBuilder(
-            animation: animation,
-            builder: (context, _) => tile(animation.value),
-          );
     if (onPointerUp == null) return result;
     return Listener(
       onPointerUp: (_) => onPointerUp!(),
