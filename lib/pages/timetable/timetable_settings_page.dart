@@ -17,6 +17,8 @@ import '../../models/app_settings.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../providers/app_settings_provider.dart';
+import '../../providers/schedule_provider.dart';
+import '../../providers/secondary_schedule_provider.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
@@ -55,6 +57,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
+    final coursesAsync = ref.watch(scheduleProvider);
+    final secondarySchedule = ref.watch(secondaryScheduleProvider);
+    final previewCourses = secondarySchedule.active
+        ? secondarySchedule.courses
+        : (coursesAsync.value ?? const <Course>[]);
     final brightness = Theme.of(context).brightness;
     return AppPage(
       title: '个性化设置',
@@ -95,6 +102,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     2,
                 child: _TimetableGridPreview(
                   settings: settings,
+                  courses: previewCourses,
                   showWeekendColumns: showWeekendColumns,
                 ),
               ),
@@ -1138,182 +1146,18 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
 class _TimetableGridPreview extends StatelessWidget {
   final AppSettings settings;
+  final List<Course> courses;
   final bool showWeekendColumns;
 
   const _TimetableGridPreview({
     required this.settings,
+    required this.courses,
     required this.showWeekendColumns,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    // A fixed, representative week keeps the preview deterministic while
-    // using the same real course names, teachers and locations as the school
-    // schedule. It is intentionally independent from the signed-in user's
-    // data so opening settings never performs a network request.
-    final previewCourses = [
-      Course(
-        title: '概率统计',
-        teacher: '胡江',
-        weekday: 1,
-        sessions: [1, 2],
-        weeks: List.generate(14, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬业F308',
-        colorIndex: 0,
-      ),
-      Course(
-        title: '大学物理B(Ⅱ)',
-        teacher: '陈凯',
-        weekday: 1,
-        sessions: [3, 4],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬本C401',
-        colorIndex: 1,
-      ),
-      Course(
-        title: '大学英语A（Ⅲ）— 英汉互译',
-        teacher: '郝倩',
-        weekday: 1,
-        sessions: [7, 8],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬信405',
-        colorIndex: 2,
-      ),
-      Course(
-        title: '数学分析（Ⅲ）',
-        teacher: '李佳',
-        weekday: 2,
-        sessions: [1, 2],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬本C401',
-        colorIndex: 3,
-      ),
-      Course(
-        title: '离散数学',
-        teacher: '张克军',
-        weekday: 2,
-        sessions: [3, 4],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬本C503',
-        colorIndex: 4,
-      ),
-      Course(
-        title: '体育(Ⅲ)太极拳',
-        teacher: '高成强',
-        weekday: 2,
-        sessions: [7, 8],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '中心校区二期操场东侧跑道或二期北门东侧梧桐树下',
-        colorIndex: 5,
-      ),
-      Course(
-        title: '中国近现代史纲要',
-        teacher: '王娟',
-        weekday: 2,
-        sessions: [9, 10],
-        weeks: [13, 14, 15, 16],
-        campus: '中心校区',
-        place: '敬业F310',
-        colorIndex: 6,
-      ),
-      Course(
-        title: 'Java程序设计',
-        teacher: '梁传威',
-        weekday: 3,
-        sessions: [1, 2],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬知楼502',
-        colorIndex: 7,
-      ),
-      Course(
-        title: 'Java程序设计实验',
-        teacher: '梁传威',
-        weekday: 3,
-        sessions: [3, 4],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬知楼502',
-        colorIndex: 8,
-      ),
-      Course(
-        title: '区块链技术与应用',
-        teacher: '马静宇',
-        weekday: 3,
-        sessions: [12, 13],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '东校区',
-        place: '求真307',
-        colorIndex: 9,
-      ),
-      Course(
-        title: '数学分析（Ⅲ）',
-        teacher: '李佳',
-        weekday: 4,
-        sessions: [1, 2],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬本C401',
-        colorIndex: 3,
-      ),
-      Course(
-        title: '概率统计',
-        teacher: '胡江',
-        weekday: 4,
-        sessions: [3, 4],
-        weeks: List.generate(14, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬业F310',
-        colorIndex: 0,
-      ),
-      Course(
-        title: '大学物理实验B',
-        teacher: '郭星导',
-        weekday: 4,
-        sessions: [7, 8],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '大学物理实验室4',
-        colorIndex: 10,
-      ),
-      Course(
-        title: '离散数学',
-        teacher: '张克军',
-        weekday: 5,
-        sessions: [1, 2],
-        weeks: [9, 10, 11, 12, 13, 14, 15, 16],
-        campus: '中心校区',
-        place: '敬业F310',
-        colorIndex: 4,
-      ),
-      Course(
-        title: '中国近现代史纲要',
-        teacher: '王娟',
-        weekday: 5,
-        sessions: [3, 4],
-        weeks: List.generate(16, (i) => i + 1),
-        campus: '中心校区',
-        place: '敬业F310',
-        colorIndex: 6,
-      ),
-      Course(
-        title: 'Java程序设计',
-        teacher: '梁传威',
-        weekday: 5,
-        sessions: [7, 8],
-        weeks: [9, 10, 11, 12, 13, 14, 15, 16],
-        campus: '中心校区',
-        place: '敬知楼511',
-        colorIndex: 7,
-      ),
-    ];
     final backgroundPath = settings.timetableBackgroundFor(
       Theme.of(context).brightness,
     );
@@ -1340,7 +1184,7 @@ class _TimetableGridPreview extends StatelessWidget {
           else
             ColoredBox(color: theme.colors.background),
           TimetableGrid(
-            courses: previewCourses,
+            courses: courses,
             week: currentWeek,
             showWeekendColumns: showWeekendColumns,
             currentDate: previewCurrentDate,
