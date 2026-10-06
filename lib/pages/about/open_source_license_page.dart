@@ -7,6 +7,7 @@ import 'package:forui/forui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../ui/app_components.dart';
+import '../../utils/error_message.dart';
 
 /// 开源许可证页面：forui 风格，布局与功能参照 Flutter 官方 [LicensePage]
 /// （头部：应用名/版本/版权信息居中；列表：按包分组，副标题显示许可证数量；
@@ -50,7 +51,7 @@ class _OpenSourceLicensePageState extends State<OpenSourceLicensePage> {
               child: AppStateView(
                 icon: FLucideIcons.circleAlert,
                 title: '许可证加载失败',
-                description: '${snapshot.error}',
+                description: describeError(snapshot.error!),
                 destructive: true,
               ),
             );

@@ -14,6 +14,7 @@ import '../../providers/secondary_schedule_provider.dart';
 import '../../services/control_service.dart';
 import '../../services/course_backup.dart';
 import '../../ui/app_components.dart';
+import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 
 class ConfigBackupPage extends ConsumerStatefulWidget {
@@ -87,7 +88,11 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
       );
     } catch (error) {
       if (mounted) {
-        showAppSnackBar(context, '生成失败：$error', severity: ToastSeverity.error);
+        showAppSnackBar(
+          context,
+          '生成失败：${describeError(error)}',
+          severity: ToastSeverity.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -143,7 +148,11 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
       );
     } catch (error) {
       if (mounted) {
-        showAppSnackBar(context, '$error', severity: ToastSeverity.error);
+        showAppSnackBar(
+          context,
+          describeError(error),
+          severity: ToastSeverity.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -154,7 +163,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     try {
       return parseCourseBackup(jsonEncode(value));
     } catch (error) {
-      throw FormatException('备用课表数据格式无效：$error');
+      throw FormatException('备用课表数据格式无效：${describeError(error)}');
     }
   }
 

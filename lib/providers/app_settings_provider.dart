@@ -175,6 +175,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseTextOpacity: _storage.getTimetableCourseTextOpacity(),
       timetableTimeTextSize: _storage.getTimetableTimeTextSize(),
       timetableDateTextSize: _storage.getTimetableDateTextSize(),
+      timetableDayTextMarkerSize: _storage.getTimetableDayTextMarkerSize(),
       timetableCourseBorderWidth: _storage.getTimetableCourseBorderWidth(),
       timetableCourseBorderOpacity: _storage.getTimetableCourseBorderOpacity(),
       showTimetableGridLines: _storage.getShowTimetableGridLines(),
@@ -633,6 +634,12 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     state = state.copyWith(timetableDateTextSize: normalized);
   }
 
+  Future<void> setTimetableDayTextMarkerSize(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 4.0, 16.0);
+    await _storage.setTimetableDayTextMarkerSize(normalized);
+    state = state.copyWith(timetableDayTextMarkerSize: normalized);
+  }
+
   Future<void> setTimetableCourseBorderWidth(double value) async {
     final normalized = _normalizeTimetableDimension(value, 0.5, 3.0);
     state = state.copyWith(timetableCourseBorderWidth: normalized);
@@ -652,7 +659,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.resetTimetableAppearance();
     const defaults = AppSettings();
     state = state.copyWith(
-      themePreference: defaults.themePreference,
+      // 保留用户选择的主题模式，仅重置其他个性化项。
       themeColor: defaults.themeColor,
       customThemeColor: null,
       timetableBackgroundPath: null,
@@ -715,6 +722,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableHideDateUnderDay: defaults.timetableHideDateUnderDay,
       timetableDayColorMarkers: defaults.timetableDayColorMarkers,
       timetableDayTextMarkers: defaults.timetableDayTextMarkers,
+      timetableDayTextMarkerSize: defaults.timetableDayTextMarkerSize,
       timetableShowStartTime: defaults.timetableShowStartTime,
       timetableHideLocation: defaults.timetableHideLocation,
       timetableHideTeacher: defaults.timetableHideTeacher,

@@ -255,6 +255,21 @@ void main() {
       expect(storage.getTimetableTodayLineWidth(), 2.5);
     });
 
+    test(
+      'shares the day text marker size through the personalization snapshot',
+      () async {
+        await storage.setTimetableDayTextMarkerSize(9.5);
+        final snapshot = storage.getPersonalizationSnapshot();
+        expect(snapshot['timetable_day_text_marker_size'], 9.5);
+
+        await storage.resetTimetableAppearance();
+        expect(storage.getTimetableDayTextMarkerSize(), 7.0);
+
+        await storage.restorePersonalizationSnapshot(snapshot);
+        expect(storage.getTimetableDayTextMarkerSize(), 9.5);
+      },
+    );
+
     test('roundtrips hidden service features', () async {
       await storage.setHiddenServiceFeatures([
         AppServiceFeature.power.storageValue,
@@ -376,7 +391,8 @@ void main() {
 
       await storage.resetTimetableAppearance();
 
-      expect(storage.getThemePreference(), isNull);
+      // 主题模式（themePreference）在重置个性化时保留。
+      expect(storage.getThemePreference(), 'dark');
       expect(storage.getThemeColor(), isNull);
       expect(storage.getCustomThemeColor(), isNull);
       expect(storage.getLastCustomThemeColor(), 0xFF203040);

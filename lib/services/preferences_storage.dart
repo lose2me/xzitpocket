@@ -35,6 +35,7 @@ class PreferencesStorage {
     'timetable_hide_date_under_day',
     'timetable_day_color_markers',
     'timetable_day_text_markers',
+    'timetable_day_text_marker_size',
     'timetable_show_start_time',
     'timetable_hide_location',
     'timetable_hide_teacher',
@@ -726,6 +727,17 @@ class PreferencesStorage {
     _clampTimetableDimension(value, min: 8.0, max: 18.0),
   );
 
+  double getTimetableDayTextMarkerSize() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_day_text_marker_size') ?? 7.0,
+    min: 4.0,
+    max: 16.0,
+  );
+
+  Future<void> setTimetableDayTextMarkerSize(double value) => _prefs.setDouble(
+    'timetable_day_text_marker_size',
+    _clampTimetableDimension(value, min: 4.0, max: 16.0),
+  );
+
   double getTimetableCourseBorderWidth() => _clampTimetableDimension(
     _prefs.getDouble('timetable_course_border_width') ?? 0.5,
     min: 0.0,
@@ -782,7 +794,7 @@ class PreferencesStorage {
     );
 
     await Future.wait([
-      _prefs.remove('theme_preference'),
+      // 主题模式（跟随系统/浅色/深色）由用户单独保留，重置个性化时不清理。
       _prefs.remove('theme_color'),
       _prefs.remove('custom_theme_color'),
       _prefs.remove('timetable_background_path'),
@@ -801,6 +813,7 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_text_opacity'),
       _prefs.remove('timetable_time_text_size'),
       _prefs.remove('timetable_date_text_size'),
+      _prefs.remove('timetable_day_text_marker_size'),
       _prefs.remove('timetable_course_border_width'),
       _prefs.remove('timetable_course_border_opacity'),
       _prefs.remove('show_timetable_grid_lines'),

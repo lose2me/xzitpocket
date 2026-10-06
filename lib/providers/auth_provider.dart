@@ -11,6 +11,7 @@ import '../services/cas_service.dart';
 import '../services/control_service.dart';
 import '../services/preferences_storage.dart';
 import '../services/talker.dart';
+import '../utils/error_message.dart';
 
 enum AuthStatus { idle, loading, success, error }
 
@@ -99,7 +100,7 @@ class AuthNotifier extends Notifier<AuthState> {
       return null;
     } catch (e, stackTrace) {
       talker.error('登录异常', e, stackTrace);
-      state = AuthState(status: AuthStatus.error, errorMessage: '登录失败: $e');
+      state = AuthState(status: AuthStatus.error, errorMessage: '登录失败: ${describeError(e)}');
       return null;
     }
   }

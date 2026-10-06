@@ -666,6 +666,19 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableDayTextMarkers(value),
                     ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.type,
+                      title: '课程改动文字大小',
+                      value: settings.timetableDayTextMarkerSize,
+                      min: 4,
+                      max: 16,
+                      divisions: 24,
+                      suffix: ' px',
+                      displayDecimals: 1,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableDayTextMarkerSize(value),
+                    ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,
                       title: '页面文字颜色',
@@ -1199,6 +1212,7 @@ class _TimetableGridPreview extends StatelessWidget {
             courseTextSize: settings.timetableCourseTextSize,
             timeTextSize: settings.timetableTimeTextSize,
             dateTextSize: settings.timetableDateTextSize,
+            dayTextMarkerSize: settings.timetableDayTextMarkerSize,
             gridOpacity: settings.timetableGridOpacity,
             gridLineColor: settings.timetableGridLineColor,
             gridLineWidth: settings.timetableGridLineWidth,

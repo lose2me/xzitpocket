@@ -83,6 +83,7 @@ class TimetableGrid extends StatefulWidget {
   final double courseTextSize;
   final double timeTextSize;
   final double dateTextSize;
+  final double dayTextMarkerSize;
   final double gridOpacity;
   final Color? gridLineColor;
   final double gridLineWidth;
@@ -152,6 +153,7 @@ class TimetableGrid extends StatefulWidget {
     this.courseTextSize = 12.0,
     this.timeTextSize = 11.0,
     this.dateTextSize = 12.0,
+    this.dayTextMarkerSize = 7.0,
     this.gridOpacity = 0.5,
     this.gridLineColor,
     this.gridLineWidth = 0.5,
@@ -781,9 +783,9 @@ class _TimetableGridState extends State<TimetableGrid> {
                 : isToday
                 ? theme.colors.primary.withValues(alpha: 0.24)
                 : isHoliday && widget.showDayColorMarkers
-                ? semantic.holidayBackground.withValues(alpha: 0.5)
+                ? semantic.holidayBackground.withValues(alpha: 0.2)
                 : isMakeupClass && widget.showDayColorMarkers
-                ? semantic.makeupBackground.withValues(alpha: 0.5)
+                ? semantic.makeupBackground.withValues(alpha: 0.2)
                 : null,
           ),
           child: ClipRect(
@@ -818,7 +820,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                     ? semantic.holidayForeground
                                     : semantic.makeupForeground)
                                 .withValues(alpha: 0.78),
-                        fontSize: 7,
+                        fontSize: widget.dayTextMarkerSize,
                         fontWeight: FontWeight.w600,
                       ),
                     ),

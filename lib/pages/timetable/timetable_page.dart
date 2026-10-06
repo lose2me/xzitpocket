@@ -19,6 +19,7 @@ import 'timetable_providers.dart';
 import '../../providers/secondary_schedule_provider.dart';
 import '../../services/widget_service.dart';
 import '../../utils/course_text_parser.dart';
+import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/week_header.dart';
 import '../../ui/app_components.dart';
@@ -593,7 +594,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           if (mounted) {
             showAppSnackBar(
               context,
-              '同步成功，但$e',
+              '同步成功，但${describeError(e)}',
               severity: ToastSeverity.warning,
             );
           }
@@ -821,6 +822,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               settings.timetableTimeTextSize,
                                           dateTextSize:
                                               settings.timetableDateTextSize,
+                                          dayTextMarkerSize: settings
+                                              .timetableDayTextMarkerSize,
                                           gridOpacity:
                                               settings.timetableGridOpacity,
                                           gridLineColor:
@@ -971,7 +974,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                               child: AppStateView(
                                 icon: FLucideIcons.triangleAlert,
                                 title: '加载失败',
-                                description: '$e',
+                                description: describeError(e),
                                 destructive: true,
                               ),
                             ),
@@ -1142,7 +1145,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       if (mounted) {
         showAppSnackBar(
           this.context,
-          '课程已删除，但$e',
+          '课程已删除，但${describeError(e)}',
           severity: ToastSeverity.warning,
         );
       }
@@ -1175,7 +1178,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       if (mounted) {
         showAppSnackBar(
           this.context,
-          '课程已全局删除，但$e',
+          '课程已全局删除，但${describeError(e)}',
           severity: ToastSeverity.warning,
         );
       }
@@ -1218,7 +1221,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       }
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '课程已清空，但$e', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '课程已清空，但${describeError(e)}', severity: ToastSeverity.warning);
       }
     }
   }
@@ -1251,7 +1254,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       );
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '恢复课表失败，但$e', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '恢复课表失败，但${describeError(e)}', severity: ToastSeverity.warning);
       }
     }
   }
@@ -1302,7 +1305,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       }
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '课程已移动，但$e', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '课程已移动，但${describeError(e)}', severity: ToastSeverity.warning);
       }
     }
   }
@@ -1338,7 +1341,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               if (!mounted) return;
               showAppSnackBar(
                 this.context,
-                '课程已保存，但$e',
+                '课程已保存，但${describeError(e)}',
                 severity: ToastSeverity.warning,
               );
             }
@@ -1375,7 +1378,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               if (!mounted) return;
               showAppSnackBar(
                 this.context,
-                '课程已保存，但$e',
+                '课程已保存，但${describeError(e)}',
                 severity: ToastSeverity.warning,
               );
             }

@@ -17,6 +17,7 @@ import '../../services/power_service.dart';
 import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import '../../services/widget_service.dart';
+import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../about/open_source_license_page.dart';
@@ -791,7 +792,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 if (mounted) {
                   showAppSnackBar(
                     context,
-                    '登录成功，但$e',
+                    '登录成功，但${describeError(e)}',
                     severity: ToastSeverity.warning,
                   );
                 }
@@ -951,7 +952,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
       if (!mounted) return;
       showAppSnackBar(
         this.context,
-        '已退出登录，但$e',
+        '已退出登录，但${describeError(e)}',
         severity: ToastSeverity.warning,
       );
     }

@@ -216,6 +216,7 @@ class AppSettings {
   final double timetableCourseTextOpacity;
   final double timetableTimeTextSize;
   final double timetableDateTextSize;
+  final double timetableDayTextMarkerSize;
   final double timetableCourseBorderWidth;
   final double timetableCourseBorderOpacity;
   final bool showTimetableGridLines;
@@ -294,6 +295,7 @@ class AppSettings {
     this.timetableCourseTextOpacity = 1.0,
     this.timetableTimeTextSize = 11.0,
     this.timetableDateTextSize = 12.0,
+    this.timetableDayTextMarkerSize = 7.0,
     this.timetableCourseBorderWidth = 0.5,
     this.timetableCourseBorderOpacity = 0.7,
     this.showTimetableGridLines = true,
@@ -375,6 +377,7 @@ class AppSettings {
     double? timetableCourseTextOpacity,
     double? timetableTimeTextSize,
     double? timetableDateTextSize,
+    double? timetableDayTextMarkerSize,
     double? timetableCourseBorderWidth,
     double? timetableCourseBorderOpacity,
     bool? showTimetableGridLines,
@@ -540,6 +543,8 @@ class AppSettings {
           timetableTimeTextSize ?? this.timetableTimeTextSize,
       timetableDateTextSize:
           timetableDateTextSize ?? this.timetableDateTextSize,
+      timetableDayTextMarkerSize:
+          timetableDayTextMarkerSize ?? this.timetableDayTextMarkerSize,
       timetableCourseBorderWidth:
           timetableCourseBorderWidth ?? this.timetableCourseBorderWidth,
       timetableCourseBorderOpacity:

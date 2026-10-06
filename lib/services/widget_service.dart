@@ -7,6 +7,7 @@ import '../constants/time_slots.dart';
 import '../models/course.dart';
 import '../models/school_calendar.dart';
 import 'talker.dart';
+import '../utils/error_message.dart';
 
 const _appGroupId = 'live.xuda.xzitpocket';
 const _channel = MethodChannel('live.xuda.xzitpocket/widget_bridge');
@@ -42,7 +43,7 @@ class WidgetService {
     } on WidgetSyncException {
       rethrow;
     } catch (e) {
-      throw WidgetSyncException('清除小组件数据失败: $e');
+      throw WidgetSyncException('清除小组件数据失败: ${describeError(e)}');
     }
   }
 
@@ -100,7 +101,7 @@ class WidgetService {
     } on WidgetSyncException {
       rethrow;
     } catch (e) {
-      throw WidgetSyncException('同步小组件和课堂勿扰失败: $e');
+      throw WidgetSyncException('同步小组件和课堂勿扰失败: ${describeError(e)}');
     }
   }
 
@@ -113,7 +114,7 @@ class WidgetService {
     } on PlatformException catch (e) {
       throw WidgetSyncException('$errorContext失败: ${e.message ?? e.code}');
     } catch (e) {
-      throw WidgetSyncException('$errorContext失败: $e');
+      throw WidgetSyncException('$errorContext失败: ${describeError(e)}');
     }
   }
 
