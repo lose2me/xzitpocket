@@ -67,14 +67,8 @@ void main() {
         await tester.pumpWidget(_app(container, const ConfigBackupPage()));
         await tester.pump();
         expect(find.text('分享码'), findsOneWidget);
-        expect(
-          find.byKey(const ValueKey('config_backup_import_code')),
-          findsOneWidget,
-        );
-        expect(
-          find.byKey(const ValueKey('config_backup_generated_code')),
-          findsOneWidget,
-        );
+        expect(find.text('个性化设置'), findsOneWidget);
+        expect(find.text('备用课表'), findsOneWidget);
         expect(find.text('个性化设置 JSON'), findsNothing);
         expect(find.text('当前课程 JSON'), findsNothing);
         expect(find.text('备用课程 JSON'), findsNothing);
@@ -119,7 +113,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       expect(container.read(secondaryScheduleProvider).active, isTrue);
-      expect(find.text('正在预览备用课程'), findsOneWidget);
+      expect(find.text('正在预览备用课表'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(WeekHeader),
@@ -152,7 +146,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pump();
       expect(container.read(secondaryScheduleProvider).active, isFalse);
-      expect(find.text('正在预览备用课程'), findsNothing);
+      expect(find.text('正在预览备用课表'), findsNothing);
       expect(find.byType(PageView), findsOneWidget);
       expect(storage.getCourses().single.title, 'Primary');
       expect(tester.takeException(), isNull);

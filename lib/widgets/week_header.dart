@@ -26,7 +26,7 @@ class WeekHeader extends StatelessWidget {
     this.syncing = false,
     this.onToggleSchedule,
     this.showingSecondarySchedule = false,
-    this.secondaryScheduleTitle = '正在预览备用课程',
+    this.secondaryScheduleTitle = '正在预览备用课表',
   });
 
   @override
@@ -54,17 +54,17 @@ class WeekHeader extends StatelessWidget {
                     color: theme.colors.foreground,
                   ),
                 ),
-                if (!showingSecondarySchedule) ...[
-                  const SizedBox(height: AppSpacing.micro),
-                  Text(
-                    beforeStart ? '未开学' : '第$selectedWeek周',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.caption.copyWith(
-                      color: theme.colors.mutedForeground,
-                    ),
+                const SizedBox(height: AppSpacing.micro),
+                Text(
+                  showingSecondarySchedule
+                      ? ' '
+                      : (beforeStart ? '未开学' : '第$selectedWeek周'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.typography.caption.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
-                ],
+                ),
               ],
             ),
           ),

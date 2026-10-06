@@ -860,6 +860,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               settings.timetableHideSectionTime,
                                           hideDateUnderDay: settings
                                               .timetableHideDateUnderDay,
+                                          showDayColorMarkers:
+                                              settings.timetableDayColorMarkers,
+                                          showDayTextMarkers:
+                                              settings.timetableDayTextMarkers,
                                           showStartTime:
                                               settings.timetableShowStartTime,
                                           hideLocation:

@@ -111,6 +111,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableDashedBorderDensity: _storage.getTimetableDashedBorderDensity(),
       timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
       timetableHideDateUnderDay: _storage.getTimetableHideDateUnderDay(),
+      timetableDayColorMarkers: _storage.getTimetableDayColorMarkers(),
+      timetableDayTextMarkers: _storage.getTimetableDayTextMarkers(),
       timetableShowStartTime: _storage.getTimetableShowStartTime(),
       timetableHideLocation: _storage.getTimetableHideLocation(),
       timetableHideTeacher: _storage.getTimetableHideTeacher(),
@@ -720,6 +722,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableDashedBorderDensity: defaults.timetableDashedBorderDensity,
       timetableHideSectionTime: defaults.timetableHideSectionTime,
       timetableHideDateUnderDay: defaults.timetableHideDateUnderDay,
+      timetableDayColorMarkers: defaults.timetableDayColorMarkers,
+      timetableDayTextMarkers: defaults.timetableDayTextMarkers,
       timetableShowStartTime: defaults.timetableShowStartTime,
       timetableHideLocation: defaults.timetableHideLocation,
       timetableHideTeacher: defaults.timetableHideTeacher,
@@ -754,6 +758,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setShowTodayGridLines(bool value) async {
     state = state.copyWith(showTodayGridLines: value);
     await _storage.setShowTodayGridLines(value);
+  }
+
+  Future<void> setTimetableDayColorMarkers(bool value) async {
+    state = state.copyWith(timetableDayColorMarkers: value);
+    await _storage.setTimetableDayColorMarkers(value);
+  }
+
+  Future<void> setTimetableDayTextMarkers(bool value) async {
+    state = state.copyWith(timetableDayTextMarkers: value);
+    await _storage.setTimetableDayTextMarkers(value);
   }
 
   Future<void> setUseCloudTimetableAdjustments(bool value) async {

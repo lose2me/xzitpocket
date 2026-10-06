@@ -37,6 +37,8 @@ class PreferencesStorage {
     'timetable_dashed_border_density',
     'timetable_hide_section_time',
     'timetable_hide_date_under_day',
+    'timetable_day_color_markers',
+    'timetable_day_text_markers',
     'timetable_show_start_time',
     'timetable_hide_location',
     'timetable_hide_teacher',
@@ -129,15 +131,15 @@ class PreferencesStorage {
 
   String getSecondaryScheduleTitle() {
     final title = _prefs.getString('secondary_schedule_title');
-    if (title == null || title.isEmpty || title == '正在预览备用课表') {
-      return '正在预览备用课程';
+    if (title == null || title.isEmpty || title == '正在预览备用课程') {
+      return '正在预览备用课表';
     }
     return title;
   }
 
   Future<void> setSecondaryScheduleTitle(String value) async {
     final title = value.trim();
-    if (title.isEmpty || title == '正在预览备用课程' || title == '正在预览备用课表') {
+    if (title.isEmpty || title == '正在预览备用课表' || title == '正在预览备用课程') {
       await _prefs.remove('secondary_schedule_title');
     } else {
       await _prefs.setString('secondary_schedule_title', title);
@@ -843,6 +845,8 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_border_opacity'),
       _prefs.remove('show_timetable_grid_lines'),
       _prefs.remove('show_today_grid_lines'),
+      _prefs.remove('timetable_day_color_markers'),
+      _prefs.remove('timetable_day_text_markers'),
       _prefs.remove('widget_theme_preference'),
       _prefs.remove('widget_font_scale'),
       _prefs.remove('widget_background_alpha'),
@@ -893,6 +897,18 @@ class PreferencesStorage {
 
   Future<void> setShowTodayGridLines(bool value) =>
       _prefs.setBool('show_today_grid_lines', value);
+
+  bool getTimetableDayColorMarkers() =>
+      _prefs.getBool('timetable_day_color_markers') ?? true;
+
+  Future<void> setTimetableDayColorMarkers(bool value) =>
+      _prefs.setBool('timetable_day_color_markers', value);
+
+  bool getTimetableDayTextMarkers() =>
+      _prefs.getBool('timetable_day_text_markers') ?? true;
+
+  Future<void> setTimetableDayTextMarkers(bool value) =>
+      _prefs.setBool('timetable_day_text_markers', value);
 
   bool getUseCloudTimetableAdjustments() =>
       _prefs.getBool('use_cloud_timetable_adjustments') ?? true;

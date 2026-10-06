@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart' show Scrollbar;
 import 'package:forui/forui.dart';
 
 import '../../models/book_list.dart';
@@ -233,7 +234,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         maxWidth: AppLayout.contentMaxWidth,
         child: FTabs(
           expands: true,
-          style: appSegmentedTabsStyle(theme),
           children: [
             FTabEntry(label: const Text('学科成绩'), child: _buildGradeTab(theme)),
             FTabEntry(
@@ -810,8 +810,8 @@ class _AcademicCategoryNode extends StatefulWidget {
 }
 
 class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
-  // 顶层平台默认展开，更深层的模块/课程组默认折叠。
-  late bool _expanded = widget.depth == 0;
+  // 课程树默认展开到有课程明细的分支，用户仍可手动收起。
+  late bool _expanded = _academicCategoryHasCourses(widget.category);
 
   @override
   Widget build(BuildContext context) {
@@ -833,7 +833,11 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
               ? () => setState(() => _expanded = !_expanded)
               : null,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: EdgeInsets.only(
+              left: widget.depth * 16.0,
+              top: 6,
+              bottom: 6,
+            ),
             child: Row(
               children: [
                 SizedBox(
@@ -893,112 +897,198 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
           ),
         ),
         if (_expanded && hasChildren)
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Column(
-              children: [
-                for (var i = 0; i < cat.children.length; i++)
-                  _AcademicCategoryNode(
-                    key: ValueKey('${widget.depth}:$i:${cat.children[i].name}'),
-                    category: cat.children[i],
-                    theme: theme,
-                    depth: widget.depth + 1,
-                  ),
-              ],
-            ),
+          Column(
+            children: [
+              for (var i = 0; i < cat.children.length; i++)
+                _AcademicCategoryNode(
+                  key: ValueKey('${widget.depth}:$i:${cat.children[i].name}'),
+                  category: cat.children[i],
+                  theme: theme,
+                  depth: widget.depth + 1,
+                ),
+            ],
           ),
         if (!hasChildren && cat.courses.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(left: 22, top: 2),
-            child: Column(
-              children: [
-                for (final course in cat.courses)
-                  _AcademicCourseDetail(course: course, theme: theme),
-              ],
-            ),
-          ),
+          _AcademicCourseTable(courses: cat.courses, theme: theme),
       ],
     );
   }
 }
 
-class _AcademicCourseDetail extends StatelessWidget {
-  const _AcademicCourseDetail({required this.course, required this.theme});
+bool _academicCategoryHasCourses(AcademicCategory category) =>
+    category.courses.isNotEmpty ||
+    category.children.any(_academicCategoryHasCourses);
 
-  final AcademicCourse course;
+class _AcademicCourseTable extends StatefulWidget {
+  const _AcademicCourseTable({required this.courses, required this.theme});
+
+  final List<AcademicCourse> courses;
   final FThemeData theme;
 
   @override
-  Widget build(BuildContext context) => Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-    padding: const EdgeInsets.fromLTRB(
-      AppSpacing.sm,
-      AppSpacing.sm,
-      AppSpacing.sm,
-      AppSpacing.xs,
-    ),
+  State<_AcademicCourseTable> createState() => _AcademicCourseTableState();
+}
+
+class _AcademicCourseTableState extends State<_AcademicCourseTable> {
+  final _horizontalController = ScrollController();
+
+  static const _columns = <(String, double)>[
+    ('成绩学年', 96),
+    ('学期', 52),
+    ('课程号', 112),
+    ('课程名称', 190),
+    ('学时', 138),
+    ('课程性质', 76),
+    ('学分', 62),
+    ('课程类别', 128),
+    ('最大成绩', 78),
+    ('绩点', 62),
+    ('成绩', 62),
+    ('补考', 76),
+    ('重修', 76),
+    ('建议修读学年', 116),
+    ('学期', 52),
+    ('课程重要性系数', 112),
+  ];
+
+  double get _tableWidth =>
+      _columns.fold<double>(0, (total, column) => total + column.$2);
+
+  @override
+  void dispose() {
+    _horizontalController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      return SizedBox(
+        width: constraints.maxWidth,
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: AppSpacing.sm),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: widget.theme.colors.border.withValues(alpha: 0.7),
+              ),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Scrollbar(
+              controller: _horizontalController,
+              thumbVisibility: true,
+              notificationPredicate: (notification) =>
+                  notification.metrics.axis == Axis.horizontal,
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: _tableWidth,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _AcademicTableRow(
+                        values: [for (final column in _columns) column.$1],
+                        widths: [for (final column in _columns) column.$2],
+                        theme: widget.theme,
+                        header: true,
+                      ),
+                      for (final course in widget.courses)
+                        _AcademicTableRow(
+                          values: _courseValues(course),
+                          widths: [for (final column in _columns) column.$2],
+                          theme: widget.theme,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  List<String> _courseValues(AcademicCourse course) => [
+    course.academicYear,
+    course.term,
+    course.courseCode,
+    course.name,
+    course.hours,
+    course.nature,
+    course.credit,
+    course.category,
+    course.maxScore,
+    course.gradePoint,
+    course.score,
+    course.makeup,
+    course.retake,
+    course.suggestedYear,
+    course.suggestedTerm,
+    course.importance,
+  ];
+}
+
+class _AcademicTableRow extends StatelessWidget {
+  const _AcademicTableRow({
+    required this.values,
+    required this.widths,
+    required this.theme,
+    this.header = false,
+  });
+
+  final List<String> values;
+  final List<double> widths;
+  final FThemeData theme;
+  final bool header;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: theme.colors.muted.withValues(alpha: 0.45),
-      border: Border.all(color: theme.colors.border.withValues(alpha: 0.7)),
-      borderRadius: BorderRadius.circular(6),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          course.name.isEmpty ? '未命名课程' : course.name,
-          style: theme.typography.body.sm.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        _courseDetailLine('成绩学年', course.academicYear, '学期', course.term),
-        _courseDetailLine('课程号', course.courseCode, '学时', course.hours),
-        _courseDetailLine('课程性质', course.nature, '学分', course.credit),
-        _courseDetailLine('课程类别', course.category, '最大成绩', course.maxScore),
-        _courseDetailLine('绩点', course.gradePoint, '成绩', course.score),
-        _courseDetailLine('补考', course.makeup, '重修', course.retake),
-        _courseDetailLine(
-          '建议修读学年',
-          course.suggestedYear,
-          '学期',
-          course.suggestedTerm,
-        ),
-        _courseDetailLine('课程重要性系数', course.importance, '', ''),
-      ],
-    ),
-  );
-
-  Widget _courseDetailLine(
-    String leftLabel,
-    String leftValue,
-    String rightLabel,
-    String rightValue,
-  ) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(child: _courseField(leftLabel, leftValue)),
-        if (rightLabel.isNotEmpty) ...[
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(child: _courseField(rightLabel, rightValue)),
-        ],
-      ],
-    ),
-  );
-
-  Widget _courseField(String label, String value) => RichText(
-    text: TextSpan(
-      style: theme.typography.body.xs.copyWith(
-        color: theme.colors.mutedForeground,
+      color: header
+          ? theme.colors.muted
+          : theme.colors.muted.withValues(alpha: 0.28),
+      border: Border(
+        bottom: BorderSide(color: theme.colors.border.withValues(alpha: 0.7)),
       ),
-      children: [
-        TextSpan(text: '$label：'),
-        TextSpan(
-          text: value.isEmpty ? '暂无' : value,
-          style: TextStyle(color: theme.colors.foreground),
-        ),
-      ],
+    ),
+    child: IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var index = 0; index < values.length; index++)
+            SizedBox(
+              width: widths[index],
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(
+                      color: theme.colors.border.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xs,
+                    vertical: 7,
+                  ),
+                  child: Text(
+                    values[index].isEmpty ? '暂无' : values[index],
+                    textAlign: header ? TextAlign.center : TextAlign.start,
+                    style: theme.typography.body.xs.copyWith(
+                      color: header
+                          ? theme.colors.foreground
+                          : theme.colors.mutedForeground,
+                      fontWeight: header ? FontWeight.w700 : FontWeight.normal,
+                    ),
+                    softWrap: true,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     ),
   );
 }

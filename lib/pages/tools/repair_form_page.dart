@@ -18,16 +18,12 @@ class RepairFormPage extends StatefulWidget {
   final String studentId;
   final String password;
   final RepairUserInfo userInfo;
-  final bool embedded;
-  final VoidCallback? onSubmitted;
 
   const RepairFormPage({
     super.key,
     required this.studentId,
     required this.password,
     required this.userInfo,
-    this.embedded = false,
-    this.onSubmitted,
   });
 
   @override
@@ -265,11 +261,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
         images: imagePaths,
       );
       if (!mounted) return;
-      if (widget.embedded) {
-        widget.onSubmitted?.call();
-      } else {
-        Navigator.of(context).pop(true);
-      }
+      Navigator.of(context).pop(true);
     } on AuthException catch (e, stackTrace) {
       talker.error('报修提交失败', e, stackTrace);
       if (!mounted) return;
@@ -378,7 +370,6 @@ class _RepairFormPageState extends State<RepairFormPage> {
         ],
       ],
     );
-    if (widget.embedded) return content;
     return AppPage(
       title: '新建报修',
       actions: [

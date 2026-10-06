@@ -36,7 +36,6 @@ class _RepairPageState extends State<RepairPage> {
   late RepairUserInfo _userInfo;
   bool _isRefreshing = false;
   bool _refreshSucceeded = false;
-  int _selectedTab = 0;
 
   @override
   void initState() {
@@ -109,18 +108,24 @@ class _RepairPageState extends State<RepairPage> {
     }
   }
 
-  void _onRepairSubmitted() {
+  Future<void> _openForm() async {
+    final submitted = await Navigator.of(context).push<bool>(
+      appRoute(
+        name: AppRouteNames.newRepair,
+        builder: (_) => RepairFormPage(
+          studentId: widget.studentId,
+          password: widget.password,
+          userInfo: _userInfo,
+        ),
+      ),
+    );
+    if (submitted != true || !mounted) return;
+    final refreshed = await _load(forceRefresh: true, showError: false);
     if (!mounted) return;
-    setState(() => _selectedTab = 0);
-    unawaited(
-      _load(forceRefresh: true, showError: false).then((refreshed) {
-        if (!mounted) return;
-        showAppSnackBar(
-          context,
-          refreshed ? '提交成功' : '提交成功，但列表刷新失败',
-          severity: refreshed ? ToastSeverity.success : ToastSeverity.warning,
-        );
-      }),
+    showAppSnackBar(
+      context,
+      refreshed ? '提交成功' : '提交成功，但列表刷新失败',
+      severity: refreshed ? ToastSeverity.success : ToastSeverity.warning,
     );
   }
 
@@ -139,61 +144,37 @@ class _RepairPageState extends State<RepairPage> {
           loading: _isRefreshing,
           completed: _refreshSucceeded,
         ),
-      ],
-      child: AppPageBody(
-        maxWidth: AppLayout.resultMaxWidth,
-        safeArea: false,
-        child: FTabs(
-          control: FTabControl.lifted(
-            index: _selectedTab,
-            onChange: (index) => setState(() => _selectedTab = index),
-          ),
-          expands: true,
-          style: appSegmentedTabsStyle(theme),
-          children: [
-            FTabEntry(
-              label: const Text('报修记录'),
-              child: visible.isEmpty
-                  ? const AppPageBody(
-                      safeArea: false,
-                      child: AppStateView(
-                        icon: FLucideIcons.wrench,
-                        title: '暂无报修记录',
-                      ),
-                    )
-                  : AppPageListView(
-                      maxWidth: AppLayout.resultMaxWidth,
-                      topPadding: AppSpacing.lg,
-                      bottomPadding: AppSpacing.xxl,
-                      safeArea: false,
-                      children: [
-                        Center(
-                          child: Text(
-                            '点击可查看处理进度',
-                            style: theme.typography.body.xs.copyWith(
-                              color: theme.colors.mutedForeground,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        for (final record in visible)
-                          _buildRecordCard(theme, record),
-                      ],
-                    ),
-            ),
-            FTabEntry(
-              label: const Text('新建报修'),
-              child: RepairFormPage(
-                embedded: true,
-                studentId: widget.studentId,
-                password: widget.password,
-                userInfo: _userInfo,
-                onSubmitted: _onRepairSubmitted,
-              ),
-            ),
-          ],
+        FHeaderAction(
+          icon: const Icon(FLucideIcons.plus),
+          semanticsLabel: '新建报修',
+          onPress: _openForm,
         ),
-      ),
+      ],
+      child: visible.isEmpty
+          ? const AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
+              child: AppStateView(
+                icon: FLucideIcons.wrench,
+                title: '暂无报修记录',
+              ),
+            )
+          : AppPageListView(
+              maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.lg,
+              bottomPadding: AppSpacing.xxl,
+              children: [
+                Center(
+                  child: Text(
+                    '点击可查看处理进度',
+                    style: theme.typography.body.xs.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                for (final record in visible) _buildRecordCard(theme, record),
+              ],
+            ),
     );
   }
 

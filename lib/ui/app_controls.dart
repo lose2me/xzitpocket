@@ -5,42 +5,6 @@ import 'package:forui/forui.dart';
 import 'app_tokens.dart';
 import 'app_colors.dart';
 
-/// Shared square segmented-tab styling used by tool pages.
-///
-/// Keep the control deliberately quiet: the surrounding pages already have
-/// cards and section borders, so a solid primary indicator would make the
-/// tabs feel visually heavier than the content they switch.
-FTabsStyleDelta appSegmentedTabsStyle(FThemeData theme) =>
-    FTabsStyleDelta.delta(
-      decoration: DecorationDelta.boxDelta(
-        color: theme.colors.muted.withValues(alpha: 0.52),
-        border: Border.all(color: theme.colors.border.withValues(alpha: 0.72)),
-        borderRadius: BorderRadius.zero,
-      ),
-      padding: const EdgeInsetsGeometryDelta.value(
-        EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-      ),
-      labelTextStyle: FVariantsDelta.delta([
-        FVariantOperation.exact(
-          {FTabVariant.selected},
-          TextStyleDelta.delta(
-            color: theme.colors.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ]),
-      indicatorDecoration: DecorationDelta.boxDelta(
-        color: theme.colors.primary.withValues(alpha: 0.12),
-        border: Border.all(
-          color: theme.colors.primary.withValues(alpha: 0.42),
-        ),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      indicatorSize: FTabBarIndicatorSize.tab,
-      minHeight: 32,
-      spacing: 0,
-    );
-
 class AppIconButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback? onPress;

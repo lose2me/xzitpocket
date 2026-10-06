@@ -244,7 +244,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                 ),
               ),
               ProfileSettingsTile(
-                icon: FLucideIcons.share,
+                icon: FLucideIcons.share2,
                 title: '分享码',
                 onTap: () => Navigator.of(context).push(
                   appRoute(

@@ -402,7 +402,10 @@ class ControlService {
     );
   }
 
-  Future<String> createShareCode(Map<String, dynamic> data) async {
+  Future<String> createShareCode({
+    required String suffix,
+    required Map<String, dynamic> data,
+  }) async {
     if (!isConfigured) {
       throw const ControlApiException(
         'control_not_configured',
@@ -423,7 +426,7 @@ class ControlService {
     final response = await _request(
       'POST',
       '/api/v1/share-codes',
-      data: {'data': data},
+      data: {'suffix': suffix, 'data': data},
       headers: {'Authorization': 'Bearer $token'},
     );
     final code = response['code']?.toString().trim() ?? '';

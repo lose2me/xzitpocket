@@ -14,6 +14,10 @@ const _holidayHeaderBackground = Color(0xFFDDF4E5);
 const _holidayHeaderForeground = Color(0xFF216E3A);
 const _makeupHeaderBackground = Color(0xFFFBE3E3);
 const _makeupHeaderForeground = Color(0xFFB42318);
+// Status backgrounds stay light on the timetable. These darker date colors
+// keep the day number and weekday readable in dark mode as well.
+const _holidayDateForeground = Color(0xFF1E6335);
+const _makeupDateForeground = Color(0xFF941F1F);
 
 class TimetableDayDragData {
   final int week;
@@ -109,6 +113,8 @@ class TimetableGrid extends StatefulWidget {
   final double dashedBorderDensity;
   final bool hideSectionTime;
   final bool hideDateUnderDay;
+  final bool showDayColorMarkers;
+  final bool showDayTextMarkers;
   final bool showStartTime;
   final bool hideLocation;
   final bool hideTeacher;
@@ -177,6 +183,8 @@ class TimetableGrid extends StatefulWidget {
     this.dashedBorderDensity = 1.0,
     this.hideSectionTime = false,
     this.hideDateUnderDay = false,
+    this.showDayColorMarkers = true,
+    this.showDayTextMarkers = true,
     this.showStartTime = false,
     this.hideLocation = false,
     this.hideTeacher = true,
@@ -727,6 +735,15 @@ class _TimetableGridState extends State<TimetableGrid> {
         : isMakeupClass
         ? _makeupHeaderForeground
         : theme.colors.primary;
+    final statusDateColor = widget.pageTextColor != null
+        ? null
+        : isHoliday
+        ? _holidayDateForeground
+        : isMakeupClass
+        ? _makeupDateForeground
+        : adjusted
+        ? theme.colors.primary
+        : null;
     final pending =
         widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true
         ? widget.pendingDayAction
@@ -761,11 +778,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                 ? const Color(0xFF8B5CF6).withValues(alpha: 0.16)
                 : actionColor != null
                 ? actionColor.withValues(alpha: 0.16)
-                : isHoliday
+                : isHoliday && widget.showDayColorMarkers
                 ? _holidayHeaderBackground.withValues(alpha: 0.78)
-                : isMakeupClass
+                : isMakeupClass && widget.showDayColorMarkers
                 ? _makeupHeaderBackground.withValues(alpha: 0.78)
-                : adjusted
+                : adjusted && widget.showDayColorMarkers
                 ? theme.colors.primary.withValues(alpha: 0.05)
                 : isToday
                 ? theme.colors.primary.withValues(alpha: 0.24)
@@ -782,13 +799,16 @@ class _TimetableGridState extends State<TimetableGrid> {
                         weekdayLabel: weekdayLabel,
                         isToday: isToday,
                         hideDate: widget.hideDateUnderDay,
+                        statusDateColor: statusDateColor,
                       )
                     : _buildPendingDayAction(
                         theme,
                         pending,
                         pendingIsMoveSource ? '被移动' : null,
                       ),
-                if (marker != null && pending == null)
+                if (marker != null &&
+                    pending == null &&
+                    widget.showDayTextMarkers)
                   Positioned(
                     top: 2,
                     right: 3,
@@ -880,6 +900,7 @@ class _TimetableGridState extends State<TimetableGrid> {
     required String weekdayLabel,
     required bool isToday,
     required bool hideDate,
+    Color? statusDateColor,
   }) => Center(
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -891,10 +912,11 @@ class _TimetableGridState extends State<TimetableGrid> {
             style: theme.typography.caption.copyWith(
               fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
               color:
-                  (isToday
-                          ? theme.colors.primary
-                          : widget.pageTextColor ??
-                                theme.colors.mutedForeground)
+                  (statusDateColor ??
+                          (isToday
+                              ? theme.colors.primary
+                              : widget.pageTextColor ??
+                                    theme.colors.mutedForeground))
                       .withValues(alpha: widget.pageTextOpacity),
               fontSize: widget.dateTextSize,
             ),
@@ -904,9 +926,11 @@ class _TimetableGridState extends State<TimetableGrid> {
           style: theme.typography.caption.copyWith(
             fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
             color:
-                (isToday
-                        ? theme.colors.primary
-                        : widget.pageTextColor ?? theme.colors.mutedForeground)
+                (statusDateColor ??
+                        (isToday
+                            ? theme.colors.primary
+                            : widget.pageTextColor ??
+                                  theme.colors.mutedForeground))
                     .withValues(alpha: widget.pageTextOpacity),
             fontSize: widget.dateTextSize,
           ),

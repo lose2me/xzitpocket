@@ -242,17 +242,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Widget _buildBankPage(BuildContext context) {
     if (repository.libraryUnavailable) {
-      return const AppPageListView(
+      return const AppPageBody(
         maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.lg,
-        bottomPadding: AppSpacing.xxl,
-        children: [
-          AppStateView(
-            icon: FLucideIcons.shieldAlert,
-            title: '风险控制',
-            description: '您的账户被暂时禁用',
-          ),
-        ],
+        child: AppStateView(
+          icon: FLucideIcons.shieldAlert,
+          title: '风险控制',
+          description: '您的账户被暂时禁用',
+        ),
       );
     }
     final terms = _termGroups();

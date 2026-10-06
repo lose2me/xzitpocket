@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/course.dart';
 import 'config_provider.dart';
 
-const defaultSecondaryScheduleTitle = '正在预览备用课程';
+const defaultSecondaryScheduleTitle = '正在预览备用课表';
 
 class SecondaryScheduleState {
   final List<Course> courses;
@@ -109,8 +109,15 @@ class SecondaryScheduleNotifier extends Notifier<SecondaryScheduleState> {
   }
 
   Future<void> clear() async {
-    await ref.read(preferencesStorageProvider).setSecondaryScheduleJson(null);
-    state = state.copyWith(courses: const [], active: false, imported: false);
+    final prefs = ref.read(preferencesStorageProvider);
+    await prefs.setSecondaryScheduleJson(null);
+    await prefs.setSecondaryScheduleTitle(defaultSecondaryScheduleTitle);
+    state = state.copyWith(
+      courses: const [],
+      active: false,
+      imported: false,
+      title: defaultSecondaryScheduleTitle,
+    );
   }
 
   void toggle() {

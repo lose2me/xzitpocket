@@ -61,7 +61,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       title: '个性化设置',
       actions: [
         AppIconButton(
-          icon: FLucideIcons.rotateCcw,
+          icon: FLucideIcons.trash2,
           onPress: _resetAppearance,
           tooltip: '重置个性化设置',
         ),
@@ -642,6 +642,22 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       onChange: (value) => ref
                           .read(appSettingsProvider.notifier)
                           .setTimetableHideDateUnderDay(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.palette,
+                      title: '显示假期/调休/改动颜色',
+                      value: settings.timetableDayColorMarkers,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableDayColorMarkers(value),
+                    ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.type,
+                      title: '显示假期/调休/改动文字',
+                      value: settings.timetableDayTextMarkers,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableDayTextMarkers(value),
                     ),
                     ProfileSettingsColorTile(
                       icon: FLucideIcons.type,

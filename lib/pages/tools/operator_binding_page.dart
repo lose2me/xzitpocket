@@ -184,16 +184,24 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
   }
 
   Widget _buildSegmentedBar() {
-    return FTabs(
-      control: FTabControl.lifted(
-        index: _selectedIndex,
-        onChange: _switchCarrier,
-      ),
-      style: appSegmentedTabsStyle(context.theme),
-      children: [
-        for (final carrier in _carriers)
-          FTabEntry(label: Text(carrier), child: const SizedBox.shrink()),
-      ],
+    return Row(
+      children: List.generate(_carriers.length, (i) {
+        final selected = i == _selectedIndex;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(
+              right: i == _carriers.length - 1 ? 0 : AppSpacing.sm,
+            ),
+            child: FButton(
+              variant: selected
+                  ? FButtonVariant.primary
+                  : FButtonVariant.outline,
+              onPress: _loading ? null : () => _switchCarrier(i),
+              child: Text(_carriers[i]),
+            ),
+          ),
+        );
+      }),
     );
   }
 }

@@ -188,6 +188,8 @@ class AppSettings {
   final double timetableDashedBorderDensity;
   final bool timetableHideSectionTime;
   final bool timetableHideDateUnderDay;
+  final bool timetableDayColorMarkers;
+  final bool timetableDayTextMarkers;
   final bool timetableShowStartTime;
   final bool timetableHideLocation;
   final bool timetableHideTeacher;
@@ -265,6 +267,8 @@ class AppSettings {
     this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
     this.timetableHideDateUnderDay = false,
+    this.timetableDayColorMarkers = true,
+    this.timetableDayTextMarkers = true,
     this.timetableShowStartTime = false,
     this.timetableHideLocation = false,
     this.timetableHideTeacher = true,
@@ -345,6 +349,8 @@ class AppSettings {
     double? timetableDashedBorderDensity,
     bool? timetableHideSectionTime,
     bool? timetableHideDateUnderDay,
+    bool? timetableDayColorMarkers,
+    bool? timetableDayTextMarkers,
     bool? timetableShowStartTime,
     bool? timetableHideLocation,
     bool? timetableHideTeacher,
@@ -464,6 +470,10 @@ class AppSettings {
           timetableHideSectionTime ?? this.timetableHideSectionTime,
       timetableHideDateUnderDay:
           timetableHideDateUnderDay ?? this.timetableHideDateUnderDay,
+      timetableDayColorMarkers:
+          timetableDayColorMarkers ?? this.timetableDayColorMarkers,
+      timetableDayTextMarkers:
+          timetableDayTextMarkers ?? this.timetableDayTextMarkers,
       timetableShowStartTime:
           timetableShowStartTime ?? this.timetableShowStartTime,
       timetableHideLocation:

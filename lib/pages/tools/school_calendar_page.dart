@@ -60,13 +60,13 @@ class SchoolCalendarPage extends StatelessWidget {
                       const SizedBox(width: AppSpacing.sm),
                       _legendDot(theme, _holidayBackground, '放假'),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, _todayBorder, '今日'),
+                      _legendDot(theme, _todayBorder, '今日', outlined: true),
                     ],
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      '实际安排可能会发生变动',
+                      '可能会发生变动',
                       textAlign: TextAlign.right,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -86,7 +86,12 @@ class SchoolCalendarPage extends StatelessWidget {
     );
   }
 
-  Widget _legendDot(FThemeData theme, Color color, String label) {
+  Widget _legendDot(
+    FThemeData theme,
+    Color color,
+    String label, {
+    bool outlined = false,
+  }) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -94,7 +99,8 @@ class SchoolCalendarPage extends StatelessWidget {
           width: 12,
           height: 12,
           decoration: BoxDecoration(
-            color: color,
+            color: outlined ? null : color,
+            border: outlined ? Border.all(color: color, width: 1.5) : null,
             borderRadius: BorderRadius.circular(4),
           ),
         ),

@@ -172,38 +172,47 @@ class _BookListPageState extends State<BookListPage> {
           completed: _refreshSucceeded,
         ),
       ],
-      child: AppPageListView(
-        maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.xs,
-        bottomPadding: AppSpacing.xxl,
-        children: [
-          if (_selectedSemester != null) ...[
-            _buildSemesterSelector(),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          if (result == null || result.isEmpty)
-            const SizedBox(
-              height: 200,
-              child: AppStateView(
-                icon: FLucideIcons.bookOpen,
-                title: '暂未查询到相关教材',
+      child: result == null || result.isEmpty
+          ? AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
+              child: Column(
+                children: [
+                  if (_selectedSemester != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      child: _buildSemesterSelector(),
+                    ),
+                  const Expanded(
+                    child: AppStateView(
+                      icon: FLucideIcons.bookOpen,
+                      title: '暂未查询到相关教材',
+                    ),
+                  ),
+                ],
               ),
             )
-          else ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: Text(
-                '共 ${result.items.length} 本教材',
-                textAlign: TextAlign.center,
-                style: context.theme.typography.bodySmall.copyWith(
-                  color: context.theme.colors.mutedForeground,
+          : AppPageListView(
+              maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.xs,
+              bottomPadding: AppSpacing.xxl,
+              children: [
+                if (_selectedSemester != null) ...[
+                  _buildSemesterSelector(),
+                  const SizedBox(height: AppSpacing.md),
+                ],
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Text(
+                    '共 ${result.items.length} 本教材',
+                    textAlign: TextAlign.center,
+                    style: context.theme.typography.bodySmall.copyWith(
+                      color: context.theme.colors.mutedForeground,
+                    ),
+                  ),
                 ),
-              ),
+                for (final item in result.items) _buildBookCard(item),
+              ],
             ),
-            for (final item in result.items) _buildBookCard(item),
-          ],
-        ],
-      ),
     );
   }
 
