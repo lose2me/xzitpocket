@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/services/control_service.dart';
+import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 
 void main() {
@@ -143,6 +144,61 @@ void main() {
     await service.track('foreground');
     expect(adapter.registrations, 2);
   });
+
+  for (final rejectedPath in [
+    '/api/v1/question-banks',
+    '/api/v1/question-banks/QB-001',
+  ]) {
+    test('disabled library marks risk state ($rejectedPath)', () async {
+      await service.initialize();
+      await login();
+      final prefs = PreferencesStorage();
+      await prefs.init();
+      final repository = LearningRepository(
+        preferencesStorage: prefs,
+        bankSyncFetcher: service.syncLearningQuestionBanks,
+      );
+      addTearDown(repository.dispose);
+      adapter.handler = (options) {
+        if (options.uri.path == rejectedPath) {
+          return _error(403, 'user_unavailable');
+        }
+        if (options.uri.path == '/api/v1/question-banks') {
+          return _json({
+            'items': [
+              {
+                'id': 'QB-001',
+                'name': '题库',
+                'updated_at': '2026-10-06T00:00:00.001Z',
+              },
+            ],
+            'total': 1,
+            'hidden': [],
+          });
+        }
+        return null;
+      };
+      await expectLater(
+        repository.sync(),
+        throwsA(
+          isA<ControlApiException>().having(
+            (error) => error.code,
+            'code',
+            'user_unavailable',
+          ),
+        ),
+      );
+      expect(repository.libraryUnavailable, isTrue);
+
+      adapter.handler = (options) =>
+          options.uri.path == '/api/v1/question-banks'
+          ? _json({'items': [], 'total': 0, 'hidden': []})
+          : null;
+      await login(force: true);
+      await repository.sync();
+      expect(repository.libraryUnavailable, isFalse);
+    });
+  }
 
   test('bank sync detects updates within the same second', () async {
     await service.initialize();

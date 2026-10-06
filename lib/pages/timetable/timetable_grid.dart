@@ -734,7 +734,10 @@ class _TimetableGridState extends State<TimetableGrid> {
           timetableForeground: Color(0xFF172033),
           timetableMutedForeground: Color(0xFF475569),
         );
-    final statusDateColor = !widget.showDayColorMarkers
+    final statusDateColor =
+        !widget.showDayColorMarkers ||
+            widget.pageTextColor != null ||
+            isToday
         ? null
         : isHoliday
         ? semantic.holidayForeground
@@ -912,7 +915,10 @@ class _TimetableGridState extends State<TimetableGrid> {
               fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
               color:
                   (statusDateColor ??
-                          (widget.pageTextColor ?? theme.colors.foreground))
+                          (isToday
+                              ? theme.colors.primary
+                              : widget.pageTextColor ??
+                                    theme.colors.mutedForeground))
                       .withValues(alpha: widget.pageTextOpacity),
               fontSize: widget.dateTextSize,
             ),
@@ -923,7 +929,10 @@ class _TimetableGridState extends State<TimetableGrid> {
             fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
             color:
                 (statusDateColor ??
-                        (widget.pageTextColor ?? theme.colors.foreground))
+                        (isToday
+                            ? theme.colors.primary
+                            : widget.pageTextColor ??
+                                  theme.colors.mutedForeground))
                     .withValues(alpha: widget.pageTextOpacity),
             fontSize: widget.dateTextSize,
           ),

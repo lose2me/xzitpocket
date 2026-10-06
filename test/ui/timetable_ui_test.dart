@@ -303,7 +303,7 @@ void main() {
     );
 
     final fridayLabel = tester.widget<Text>(find.text('五'));
-    expect(fridayLabel.style?.color, AppTheme.light.colors.foreground);
+    expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
     expect(
       find.byKey(const ValueKey('timetable-today-indicator-5')),
       findsOneWidget,
@@ -324,7 +324,10 @@ void main() {
     // Holiday foreground used by both the light theme and the grid fallback.
     const holidayTextColor = Color(0xFF176B38);
 
-    Future<void> pumpGrid({required bool showColorMarkers}) async {
+    Future<Color?> renderedLabelColor({
+      required bool showColorMarkers,
+      Color? pageTextColor,
+    }) async {
       await tester.pumpWidget(
         _testApp(
           SizedBox(
@@ -341,15 +344,36 @@ void main() {
           ),
         ),
       );
+      return tester.widget<Text>(find.text('一')).style?.color;
     }
 
-    await pumpGrid(showColorMarkers: false);
-    final withoutMarker = tester.widget<Text>(find.text('一'));
-    expect(withoutMarker.style?.color?.toARGB32(), pageTextColor.toARGB32());
+    // Color markers on and no page text override: holiday foreground applies.
+    expect(
+      (await renderedLabelColor(showColorMarkers: true))?.toARGB32(),
+      holidayTextColor.toARGB32(),
+    );
 
-    await pumpGrid(showColorMarkers: true);
-    final withMarker = tester.widget<Text>(find.text('一'));
-    expect(withMarker.style?.color?.toARGB32(), holidayTextColor.toARGB32());
+    // A custom page text color is authoritative over holiday markup.
+    expect(
+      (await renderedLabelColor(
+        showColorMarkers: true,
+        pageTextColor: pageTextColor,
+      ))?.toARGB32(),
+      pageTextColor.toARGB32(),
+    );
+
+    // Markers off: no holiday color, follows the page text color.
+    expect(
+      (await renderedLabelColor(
+        showColorMarkers: false,
+        pageTextColor: pageTextColor,
+      ))?.toARGB32(),
+      pageTextColor.toARGB32(),
+    );
+    expect(
+      (await renderedLabelColor(showColorMarkers: false))?.toARGB32(),
+      AppTheme.light.colors.mutedForeground.toARGB32(),
+    );
   });
 
   testWidgets('today side lines replace grid lines on shared boundaries', (
