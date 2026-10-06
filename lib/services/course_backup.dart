@@ -40,16 +40,12 @@ String formatBackupJson(Object? value) {
 
 List<Course> parseCourseBackup(String source) {
   final decoded = jsonDecode(source);
-  final dynamic raw;
-  if (decoded is List) {
-    raw = decoded;
-  } else if (decoded is Map &&
-      decoded['type'] == 'xzitpocket_courses' &&
-      decoded['version'] == 1) {
-    raw = decoded['courses'];
-  } else {
+  if (decoded is! Map ||
+      decoded['type'] != 'xzitpocket_courses' ||
+      decoded['version'] != 1) {
     throw const FormatException('请选择当前课表 JSON 文件');
   }
+  final raw = decoded['courses'];
   if (raw is! List) throw const FormatException('找不到 courses 数组');
   return [
     for (final value in raw)

@@ -37,8 +37,7 @@ enum AppThemeColor {
 
   const AppThemeColor(this.lightColor, this.darkColor, this.label);
 
-  /// The light color remains the canonical swatch for compatibility with
-  /// places that do not have a brightness context.
+  /// The light color is used when no brightness context is available.
   Color get color => lightColor;
 
   Color resolve(Brightness brightness) =>
@@ -209,7 +208,6 @@ class AppSettings {
   final String? timetableDarkBackgroundPath;
   final bool timetableUseLightBackgroundInDarkMode;
   final AppPageBackgroundColor? pageBackgroundColor;
-  final double timetableComponentOpacity;
   final double timetableGridOpacity;
   final Color? timetableGridLineColor;
   final Color? timetableLastCustomGridLineColor;
@@ -288,7 +286,6 @@ class AppSettings {
     this.timetableDarkBackgroundPath,
     this.timetableUseLightBackgroundInDarkMode = true,
     this.pageBackgroundColor,
-    this.timetableComponentOpacity = 0.7,
     this.timetableGridOpacity = 0.5,
     this.timetableGridLineColor,
     this.timetableLastCustomGridLineColor,
@@ -370,7 +367,6 @@ class AppSettings {
     Object? timetableDarkBackgroundPath = _unset,
     bool? timetableUseLightBackgroundInDarkMode,
     Object? pageBackgroundColor = _unset,
-    double? timetableComponentOpacity,
     double? timetableGridOpacity,
     Object? timetableGridLineColor = _unset,
     Object? timetableLastCustomGridLineColor = _unset,
@@ -526,8 +522,6 @@ class AppSettings {
       pageBackgroundColor: identical(pageBackgroundColor, _unset)
           ? this.pageBackgroundColor
           : pageBackgroundColor as AppPageBackgroundColor?,
-      timetableComponentOpacity:
-          timetableComponentOpacity ?? this.timetableComponentOpacity,
       timetableGridOpacity: timetableGridOpacity ?? this.timetableGridOpacity,
       timetableGridLineColor: identical(timetableGridLineColor, _unset)
           ? this.timetableGridLineColor

@@ -137,7 +137,6 @@ void main() {
       expect(settings.timetableCourseFontScale, 0.95);
       expect(settings.timetableAddBlankLineAfterTitle, isFalse);
       expect(settings.timetableDashedBorderDensity, 1.0);
-      expect(settings.timetableComponentOpacity, 0.7);
       expect(settings.timetableGridOpacity, 0.5);
       expect(settings.timetableGridLineColor, isNull);
       expect(settings.timetableGridLineWidth, 0.5);
@@ -191,7 +190,6 @@ void main() {
         timetableLastCustomCourseTextColor: const Color(0xFF232323),
         timetableCourseBorderColor: const Color(0xFF333333),
         timetableLastCustomCourseBorderColor: const Color(0xFF343434),
-        timetableComponentOpacity: 0.7,
         timetableGridOpacity: 0.45,
         timetableGridLineColor: const Color(0xFF454545),
         timetableLastCustomGridLineColor: const Color(0xFF464646),
@@ -252,7 +250,6 @@ void main() {
         updated.timetableLastCustomCourseBorderColor,
         const Color(0xFF343434),
       );
-      expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.timetableGridOpacity, 0.45);
       expect(updated.timetableGridLineColor, const Color(0xFF454545));
       expect(updated.timetableLastCustomGridLineColor, const Color(0xFF464646));
@@ -290,7 +287,6 @@ void main() {
       expect(updated.themeColor, AppThemeColor.teal);
       expect(updated.classAutomationMode, ClassAutomationMode.dndKeep);
       expect(updated.timetableBackgroundPath, isNull);
-      expect(updated.timetableComponentOpacity, 0.7);
       expect(updated.showTimetableGridLines, isTrue);
     });
 

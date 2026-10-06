@@ -12,10 +12,9 @@ void main() {
     expect(usage.dateValue, DateTime(2025, 9, 12));
   });
 
-  test('daily usage date keeps old localized caches sortable', () {
+  test('daily usage date falls back to the epoch without an ISO date', () {
     const usage = PowerDailyUsage(date: '9月12日 [昨天]', usage: '1.25');
 
-    expect(usage.dateValue.month, 9);
-    expect(usage.dateValue.day, 12);
+    expect(usage.dateValue, DateTime.fromMillisecondsSinceEpoch(0));
   });
 }

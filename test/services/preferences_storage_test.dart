@@ -54,9 +54,7 @@ void main() {
     late PreferencesStorage storage;
 
     setUp(() async {
-      SharedPreferences.setMockInitialValues({
-        'saved_power_cache_date': 'legacy-value',
-      });
+      SharedPreferences.setMockInitialValues({});
       storage = PreferencesStorage();
       await storage.init();
     });
@@ -69,15 +67,13 @@ void main() {
       expect(storage.getPowerCacheTime(), isNotNull);
     });
 
-    test('clears current and legacy metadata', () async {
+    test('clears cached data and metadata', () async {
       await storage.setPowerCache('{"balance":"10"}', roomId: 'A0101');
       await storage.clearPowerCache();
 
       expect(storage.getPowerCache(), isNull);
       expect(storage.getPowerCacheRoomId(), isNull);
       expect(storage.getPowerCacheTime(), isNull);
-      final preferences = await SharedPreferences.getInstance();
-      expect(preferences.getString('saved_power_cache_date'), isNull);
     });
   });
 
@@ -150,7 +146,6 @@ void main() {
       expect(storage.getTimetableCourseFontScale(), 0.95);
       expect(storage.getTimetableAddBlankLineAfterTitle(), isFalse);
       expect(storage.getTimetableDashedBorderDensity(), 1.0);
-      expect(storage.getTimetableComponentOpacity(), 0.7);
       expect(storage.getTimetableGridOpacity(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
     });
@@ -191,7 +186,6 @@ void main() {
       await storage.setTimetableUseLightBackgroundInDarkMode(true);
       await storage.setPageBackgroundColor('teal');
       await storage.setToastOpacity(0.8);
-      await storage.setTimetableComponentOpacity(0.72);
       await storage.setTimetableGridOpacity(0.42);
       await storage.setTimetableGridLineColor(0xFF454545);
       await storage.setTimetableLastCustomGridLineColor(0xFF464646);
@@ -245,7 +239,6 @@ void main() {
       expect(storage.getTimetableUseLightBackgroundInDarkMode(), isTrue);
       expect(storage.getPageBackgroundColor(), 'teal');
       expect(storage.getToastOpacity(), 0.8);
-      expect(storage.getTimetableComponentOpacity(), 0.72);
       expect(storage.getTimetableGridOpacity(), 0.42);
       expect(storage.getTimetableGridLineColor(), 0xFF454545);
       expect(storage.getTimetableLastCustomGridLineColor(), 0xFF464646);
@@ -274,14 +267,6 @@ void main() {
       });
     });
 
-    test('clamps timetable component opacity', () async {
-      await storage.setTimetableComponentOpacity(2);
-      expect(storage.getTimetableComponentOpacity(), 1);
-
-      await storage.setTimetableComponentOpacity(-1);
-      expect(storage.getTimetableComponentOpacity(), 0);
-    });
-
     test('clamps widget style settings', () async {
       await storage.setWidgetFontScale(5);
       await storage.setWidgetBackgroundAlpha(-1);
@@ -299,15 +284,6 @@ void main() {
       expect(storage.getTimetableCourseInnerPadding(), 2.5);
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
     });
-
-    test(
-      'uses the legacy component opacity when border opacity is unset',
-      () async {
-        await storage.setTimetableComponentOpacity(0.28);
-
-        expect(storage.getTimetableCourseBorderOpacity(), 0.28);
-      },
-    );
 
     test('clamps timetable grid opacity', () async {
       await storage.setTimetableGridOpacity(2);
@@ -363,7 +339,6 @@ void main() {
       await storage.setTimetableLastCustomCourseTextColor(0xFF232323);
       await storage.setTimetableCourseBorderColor(0xFF333333);
       await storage.setTimetableLastCustomCourseBorderColor(0xFF343434);
-      await storage.setTimetableComponentOpacity(0.2);
       await storage.setTimetableGridOpacity(0.9);
       await storage.setTimetableGridLineColor(0xFF464646);
       await storage.setTimetableLastCustomGridLineColor(0xFF464646);
@@ -417,7 +392,6 @@ void main() {
       expect(storage.getTimetableLastCustomCourseTextColor(), 0xFF232323);
       expect(storage.getTimetableCourseBorderColor(), isNull);
       expect(storage.getTimetableLastCustomCourseBorderColor(), 0xFF343434);
-      expect(storage.getTimetableComponentOpacity(), 0.7);
       expect(storage.getTimetableGridOpacity(), 0.5);
       expect(storage.getTimetableGridLineColor(), 0xFF464646);
       expect(storage.getTimetableLastCustomGridLineColor(), 0xFF464646);

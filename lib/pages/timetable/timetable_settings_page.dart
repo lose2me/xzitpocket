@@ -17,7 +17,6 @@ import '../../models/app_settings.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../providers/app_settings_provider.dart';
-import '../../providers/schedule_provider.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
@@ -953,261 +952,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     );
   }
 
-  // Kept for compatibility with older callers while rules live on their own page.
-  // ignore: unused_element
-  List<_TimetableAdjustment> _buildAdjustmentRules(List<Course>? courses) {
-    final current = courses ?? const <Course>[];
-    final original = ref.read(scheduleProvider.notifier).originalCourses;
-    if (original.isEmpty && current.isEmpty) return const [];
-
-    final maxWeek = <int>[
-      semesterCalendar.totalWeeks,
-      ...current.expand((course) => course.weeks),
-      ...original.expand((course) => course.weeks),
-    ].fold<int>(1, (maximum, value) => value > maximum ? value : maximum);
-    final snapshots = <String, _TimetableDaySnapshot>{};
-    for (var week = 1; week <= maxWeek; week++) {
-      final dates = semesterCalendar.weekDates(week);
-      for (var weekday = 1; weekday <= 7; weekday++) {
-        final originalCourses = _coursesForDay(original, weekday, week);
-        final currentCourses = _coursesForDay(current, weekday, week);
-        final date = dates[weekday - 1];
-        snapshots[_dateKey(date)] = _TimetableDaySnapshot(
-          date: date,
-          originalCourses: originalCourses,
-          currentCourses: currentCourses,
-        );
-      }
-    }
-
-    final rules = <_TimetableAdjustment>[];
-    final movedSources = <String>{};
-    final cloudSources = {
-      for (final day in semesterCalendar.days)
-        if (day.adjustment != '/' && day.adjustment.isNotEmpty)
-          _dateKey(day.date): day.adjustment,
-    };
-    for (final target in snapshots.values) {
-      final currentSignature = _courseSignatures(target.currentCourses)
-          .join('\u001e');
-      if (currentSignature.isEmpty ||
-          currentSignature ==
-              _courseSignatures(target.originalCourses).join('\u001e')) {
-        continue;
-      }
-      final preferredSourceDate = _parseDateKey(
-        cloudSources[_dateKey(target.date)] ?? '',
-      );
-      final preferredSource = preferredSourceDate == null
-          ? null
-          : snapshots[_dateKey(preferredSourceDate)];
-      final candidates = snapshots.values.where((source) {
-        if (source.date == target.date || source.originalCourses.isEmpty) {
-          return false;
-        }
-        return _courseSignatures(source.originalCourses).join('\u001e') ==
-            currentSignature;
-      }).toList();
-      final source =
-          preferredSource != null &&
-              _courseSignatures(preferredSource.originalCourses)
-                      .join('\u001e') ==
-                  currentSignature
-          ? preferredSource
-          : candidates.length == 1
-          ? candidates.single
-          : null;
-      if (source != null) {
-        rules.add(
-          _TimetableAdjustment(
-            sourceDate: source.date,
-            operation: '移动至',
-            targetDate: target.date,
-          ),
-        );
-        if (source.currentCourses.isEmpty) {
-          movedSources.add(_dateKey(source.date));
-        }
-      } else {
-        rules.add(
-          _TimetableAdjustment(sourceDate: target.date, operation: '调整'),
-        );
-      }
-    }
-
-    for (final day in snapshots.values) {
-      if (day.originalCourses.isEmpty ||
-          day.currentCourses.isNotEmpty ||
-          movedSources.contains(_dateKey(day.date))) {
-        continue;
-      }
-      rules.add(_TimetableAdjustment(sourceDate: day.date, operation: '清空'));
-    }
-    rules.sort((left, right) => left.sourceDate.compareTo(right.sourceDate));
-    return rules;
-  }
-
-  String _dateKey(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';
-
-  DateTime? _parseDateKey(String value) {
-    if (!RegExp(r'^\d{8}$').hasMatch(value)) return null;
-    final date = DateTime(
-      int.parse(value.substring(0, 4)),
-      int.parse(value.substring(4, 6)),
-      int.parse(value.substring(6, 8)),
-    );
-    if (_dateKey(date) != value) return null;
-    return date;
-  }
-
-  List<SchoolDay> get _cloudAdjustments =>
-      semesterCalendar.days.where((day) => day.adjustment.isNotEmpty).toList();
-
-  // ignore: unused_element
-  Future<void> _setCloudAdjustmentsEnabled(bool enabled) async {
-    await ref
-        .read(appSettingsProvider.notifier)
-        .setUseCloudTimetableAdjustments(enabled);
-    if (enabled && mounted) {
-      await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
-    }
-  }
-
-  // ignore: unused_element
-  Widget _buildCloudRuleDetails() {
-    if (_cloudAdjustments.isEmpty) return const SizedBox.shrink();
-    final rows = <_TimetableAdjustment>[];
-    for (final day in _cloudAdjustments) {
-      final value = day.adjustment;
-      if (value == '/') {
-        rows.add(_TimetableAdjustment(sourceDate: day.date, operation: '清空'));
-        continue;
-      }
-      final source = _parseDateKey(value);
-      if (source != null) {
-        rows.add(
-          _TimetableAdjustment(
-            sourceDate: day.date,
-            operation: '按照',
-            targetDate: source,
-          ),
-        );
-      }
-    }
-    if (rows.isEmpty) return const SizedBox.shrink();
-    rows.sort((left, right) => left.sourceDate.compareTo(right.sourceDate));
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var index = 0; index < rows.length; index++) ...[
-          if (index > 0)
-            Divider(height: AppSpacing.lg, color: context.theme.colors.border),
-          _buildAdjustmentRow(rows[index]),
-        ],
-      ],
-    );
-  }
-
-  List<Course> _coursesForDay(List<Course> courses, int weekday, int week) =>
-      [
-        for (final course in courses)
-          if (course.weekday == weekday && course.weeks.contains(week)) course,
-      ]..sort((left, right) {
-        final session = left.startSession.compareTo(right.startSession);
-        if (session != 0) return session;
-        return left.title.compareTo(right.title);
-      });
-
-  List<String> _courseSignatures(List<Course> courses) => [
-    for (final course in courses)
-      [
-        course.title,
-        course.teacher,
-        ([...course.sessions]..sort()).join(','),
-        course.campus,
-        course.place,
-        course.colorIndex,
-        course.courseId,
-      ].join('\u001f'),
-  ]..sort();
-
-  // ignore: unused_element
-  Widget _buildAdjustmentDetails(
-    List<_TimetableAdjustment> adjustments, {
-    required bool hasOriginalBaseline,
-  }) {
-    if (!hasOriginalBaseline || adjustments.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var index = 0; index < adjustments.length; index++) ...[
-          if (index > 0)
-            Divider(height: AppSpacing.lg, color: context.theme.colors.border),
-          _buildAdjustmentRow(adjustments[index]),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildAdjustmentRow(_TimetableAdjustment adjustment) {
-    return Row(
-      children: [
-        Expanded(child: _dateOperationLabel(adjustment.sourceDate)),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-          child: _operationLabel(adjustment.operation),
-        ),
-        Expanded(
-          child: adjustment.targetDate == null
-              ? const SizedBox()
-              : Align(
-                  alignment: Alignment.centerRight,
-                  child: _dateOperationLabel(adjustment.targetDate!),
-                ),
-        ),
-      ],
-    );
-  }
-
-  Widget _operationLabel(String operation) => Column(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        operation,
-        style: context.theme.typography.caption.copyWith(
-          color: operation == '清空'
-              ? context.theme.colors.destructive
-              : context.theme.colors.primary,
-        ),
-      ),
-    ],
-  );
-
-  Widget _dateOperationLabel(DateTime date, [String? subtitle]) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        _visualDateLabel(date),
-        style: context.theme.typography.bodySmall.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      if (subtitle != null)
-        Text(
-          subtitle,
-          style: context.theme.typography.caption.copyWith(
-            color: context.theme.colors.mutedForeground,
-          ),
-        ),
-    ],
-  );
-
-  String _visualDateLabel(DateTime date) =>
-      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
   Future<void> _selectCustomColor(
     Color initialColor,
     Future<void> Function(Color) onSelected,
@@ -1270,7 +1014,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         final oldFile = File(oldPath);
         if (await oldFile.exists()) await oldFile.delete();
       }
-      await _deleteLegacyBackgroundCopies();
       if (mounted) {
         showAppSnackBar(context, '背景图已更新', severity: ToastSeverity.success);
       }
@@ -1351,7 +1094,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         }
       }
     }
-    await _deleteLegacyBackgroundCopies();
     if (mounted) {
       showAppSnackBar(context, '背景图已清除', severity: ToastSeverity.success);
     }
@@ -1387,32 +1129,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         }
       }
     }
-    await _deleteLegacyBackgroundCopies();
     if (mounted) {
       showAppSnackBar(context, '个性化设置已重置', severity: ToastSeverity.success);
     }
   }
 
-  Future<void> _deleteLegacyBackgroundCopies() async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      await for (final entity in directory.list()) {
-        if (entity is! File ||
-            !p
-                .basename(entity.path)
-                .startsWith('timetable_background_original_')) {
-          continue;
-        }
-        try {
-          await entity.delete();
-        } catch (error, stackTrace) {
-          talker.warning('删除旧课表背景图原图失败', error, stackTrace);
-        }
-      }
-    } catch (error, stackTrace) {
-      talker.warning('清理旧课表背景图原图失败', error, stackTrace);
-    }
-  }
 }
 
 class _TimetableGridPreview extends StatelessWidget {
@@ -1678,30 +1399,6 @@ class _TimetableGridPreview extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TimetableAdjustment {
-  final DateTime sourceDate;
-  final String operation;
-  final DateTime? targetDate;
-
-  const _TimetableAdjustment({
-    required this.sourceDate,
-    required this.operation,
-    this.targetDate,
-  });
-}
-
-class _TimetableDaySnapshot {
-  final DateTime date;
-  final List<Course> originalCourses;
-  final List<Course> currentCourses;
-
-  const _TimetableDaySnapshot({
-    required this.date,
-    required this.originalCourses,
-    required this.currentCourses,
-  });
 }
 
 Future<ui.Image> _decodeCropPreview(Uint8List bytes) async {

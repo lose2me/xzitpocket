@@ -116,6 +116,9 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
         );
       }
       if (suffix == _personalizationSuffix) {
+        if (payload['version'] != 1) {
+          throw const FormatException('个性化设置版本无效');
+        }
         final settings = payload['settings'];
         if (settings is! Map) throw const FormatException('个性化设置格式无效');
         await ref

@@ -37,7 +37,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
         pageTextColor != null) {
       unawaited(_storage.setTimetableLastCustomPageTextColor(pageTextColor));
     }
-    unawaited(_storage.clearLegacyTimetableBackgroundSettings());
     unawaited(NativeAutomationService.refreshClassAutomation());
     unawaited(NativeAutomationService.refreshCourseReminders());
     return AppSettings(
@@ -163,7 +162,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       pageBackgroundColor: AppPageBackgroundColor.fromStorage(
         _storage.getPageBackgroundColor(),
       ),
-      timetableComponentOpacity: _storage.getTimetableComponentOpacity(),
       timetableGridOpacity: _storage.getTimetableGridOpacity(),
       timetableGridLineColor: _storage.getTimetableGridLineColor() == null
           ? null
@@ -581,12 +579,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setCustomPageBackgroundColor(null);
   }
 
-  Future<void> setTimetableComponentOpacity(double value) async {
-    final normalized = value.clamp(0.0, 1.0).toDouble();
-    state = state.copyWith(timetableComponentOpacity: normalized);
-    await _storage.setTimetableComponentOpacity(normalized);
-  }
-
   Future<void> setTimetableGridOpacity(double value) async {
     final normalized = value.clamp(0.0, 1.0).toDouble();
     state = state.copyWith(timetableGridOpacity: normalized);
@@ -669,7 +661,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           defaults.timetableUseLightBackgroundInDarkMode,
       pageBackgroundColor: null,
       toastOpacity: defaults.toastOpacity,
-      timetableComponentOpacity: defaults.timetableComponentOpacity,
       timetableGridOpacity: defaults.timetableGridOpacity,
       timetablePageTextOpacity: defaults.timetablePageTextOpacity,
       timetableGridLineColor: activeCustomColor(

@@ -62,6 +62,7 @@ class ControlService {
   Future<void>? _loginFuture;
   Future<bool>? _healthFuture;
   Future<ControlConfigVersions>? _configVersionsFuture;
+  Future<bool>? _schoolCalendarRefreshFuture;
   Future<String?>? _loginBlockFuture;
   PackageInfo? _packageInfo;
 
@@ -613,7 +614,19 @@ class ControlService {
   /// Downloads the school calendar only when control reports a version the
   /// local cache does not have. Returns true when [semesterCalendar] changed;
   /// the caller decides whether to re-apply cloud course adjustments.
-  Future<bool> refreshSchoolCalendarIfChanged(PreferencesStorage prefs) async {
+  Future<bool> refreshSchoolCalendarIfChanged(PreferencesStorage prefs) {
+    final pending = _schoolCalendarRefreshFuture;
+    if (pending != null) return pending;
+    final future = _refreshSchoolCalendarIfChanged(prefs);
+    _schoolCalendarRefreshFuture = future;
+    return future.whenComplete(() {
+      if (identical(_schoolCalendarRefreshFuture, future)) {
+        _schoolCalendarRefreshFuture = null;
+      }
+    });
+  }
+
+  Future<bool> _refreshSchoolCalendarIfChanged(PreferencesStorage prefs) async {
     if (!isConfigured) return false;
     await initialize();
     late final ControlConfigVersions versions;
@@ -623,9 +636,16 @@ class ControlService {
       _serviceAvailable = false;
       return false;
     }
-    if (prefs.getSchoolCalendarCache() != null &&
+    final cachedCalendar = prefs.getSchoolCalendarCache();
+    if (cachedCalendar != null &&
         prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
-      return false;
+      try {
+        schoolCalendarDaysFromJson(cachedCalendar);
+        return false;
+      } on FormatException {
+        // A matching version must still have a valid payload before it can
+        // suppress a refresh.
+      }
     }
     final days = await fetchSchoolCalendar();
     semesterCalendar.replaceDays(days);

@@ -7,25 +7,16 @@ class LearningOption {
 
   const LearningOption({required this.id, required this.text, this.imageUrl});
 
-  factory LearningOption.fromJson(dynamic json, {int index = 0}) {
-    if (json is String) {
-      final text = json.trim();
-      final match = RegExp(r'^([A-Za-z])(?:[.、)）:\s]+)(.*)$').firstMatch(text);
-      if (match != null) {
-        return LearningOption(id: match.group(1)!.toUpperCase(), text: text);
-      }
-      return LearningOption(id: '${index + 1}', text: text);
-    }
-    final map = json as Map<String, dynamic>;
+  factory LearningOption.fromJson(Map<String, dynamic> map, {int index = 0}) {
     return LearningOption(
-      id: map['label']?.toString() ?? map['id']?.toString() ?? '${index + 1}',
+      id: map['label']?.toString() ?? '${index + 1}',
       text: map['text']?.toString() ?? '',
       imageUrl: map['imageUrl'] as String?,
     );
   }
 
   Map<String, dynamic> toJson() => {
-    'id': id,
+    'label': id,
     'text': text,
     if (imageUrl != null) 'imageUrl': imageUrl,
   };
@@ -87,20 +78,21 @@ class LearningQuestion {
         ? rawQuestionNumber.toInt()
         : int.tryParse(rawQuestionNumber?.toString() ?? '');
     final bankId = json['bankId']?.toString() ?? fallbackBankId ?? '';
-    final rawBankOrderId = json['bankOrderId'] ?? json['orderId'];
+    final rawBankOrderId = json['bankOrderId'];
     final bankOrderId = rawBankOrderId is num
         ? rawBankOrderId.toInt()
         : int.tryParse(rawBankOrderId?.toString() ?? '') ?? fallbackBankOrderId;
     final bankIsNew = json['bankNew'] is bool
         ? json['bankNew'] as bool
-        : json['isNew'] is bool
-        ? json['isNew'] as bool
         : fallbackBankIsNew;
     final type = _parseType(rawType);
     final rawOptions = json['options'] as List<dynamic>? ?? const [];
     final options = [
       for (var index = 0; index < rawOptions.length; index++)
-        LearningOption.fromJson(rawOptions[index], index: index),
+        LearningOption.fromJson(
+          rawOptions[index] as Map<String, dynamic>,
+          index: index,
+        ),
     ];
     if (type == LearningQuestionType.trueFalse && options.isEmpty) {
       options.addAll(const [
@@ -124,11 +116,7 @@ class LearningQuestion {
         );
       }
     }
-    final rawCorrectIds = json['correctOptionIds'];
-    final rawCorrectAnswer = json['correctAnswer'];
-    final correctSource = rawCorrectIds is List && rawCorrectIds.isEmpty
-        ? rawCorrectAnswer
-        : rawCorrectIds ?? rawCorrectAnswer;
+    final correctSource = json['correctAnswer'];
     final parsedCorrectOptionIds = _parseCorrectAnswer(correctSource, type);
     final correctOptionIds = _resolveCorrectOptionIds(
       parsedCorrectOptionIds,
@@ -162,7 +150,7 @@ class LearningQuestion {
     if (explanation != null) 'explanation': explanation,
     'type': type.name,
     'options': [for (final option in options) option.toJson()],
-    'correctOptionIds': correctOptionIds.toList(),
+    'correctAnswer': correctOptionIds.toList(),
   };
 
   static LearningQuestionType _parseType(String value) {
@@ -335,8 +323,7 @@ class LearningQuestionBank {
     final requiresCDK = bank['requiresCDK'] == true;
     final locked = bank['locked'] == true;
     final hidden = bank['hidden'] == true;
-    final updatedAt =
-        bank['updatedAt']?.toString() ?? bank['updated_at']?.toString() ?? '';
+    final updatedAt = bank['updatedAt']?.toString() ?? '';
     final rawQuestions = bank['questions'] as List<dynamic>? ?? const [];
     final questions =
         [

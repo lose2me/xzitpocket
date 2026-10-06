@@ -236,7 +236,7 @@ void main() {
                 {'label': 'B', 'text': 'Linux'},
                 {'label': 'C', 'text': 'macOS'},
               ],
-              'correctOptionIds': 'AC',
+              'correctAnswer': 'AC',
             },
             {
               'questionNumber': 3,
@@ -269,7 +269,7 @@ void main() {
     },
   );
 
-  test('parses a comma-separated multiple answer from correctOptionIds', () {
+  test('parses a comma-separated multiple answer from correctAnswer', () {
     final question = LearningQuestion.fromJson({
       'id': 'multi-csv',
       'type': '多选题',
@@ -279,7 +279,7 @@ void main() {
         {'label': 'B', 'text': '乙'},
         {'label': 'C', 'text': '丙'},
       ],
-      'correctOptionIds': 'A,C',
+      'correctAnswer': 'A,C',
     });
 
     expect(question.correctOptionIds, {'A', 'C'});

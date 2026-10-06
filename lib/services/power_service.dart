@@ -48,33 +48,9 @@ class PowerDailyUsage {
       );
 
   /// Stable date key used by sorting and charts.
-  ///
-  /// Older caches only contain the localized label, so keep that format as a
-  /// backwards-compatible fallback while new responses persist [isoDate].
   DateTime get dateValue {
     final iso = isoDate == null ? null : DateTime.tryParse(isoDate!);
-    if (iso != null) return iso;
-
-    final isoMatch = RegExp(r'^(\d{4})[-/](\d{1,2})[-/](\d{1,2})')
-        .firstMatch(date);
-    if (isoMatch != null) {
-      return DateTime(
-        int.parse(isoMatch.group(1)!),
-        int.parse(isoMatch.group(2)!),
-        int.parse(isoMatch.group(3)!),
-      );
-    }
-
-    final chineseMatch = RegExp(r'^(\d{1,2})月(\d{1,2})日').firstMatch(date);
-    if (chineseMatch != null) {
-      final now = DateTime.now();
-      return DateTime(
-        now.year,
-        int.parse(chineseMatch.group(1)!),
-        int.parse(chineseMatch.group(2)!),
-      );
-    }
-    return DateTime.fromMillisecondsSinceEpoch(0);
+    return iso ?? DateTime.fromMillisecondsSinceEpoch(0);
   }
 }
 

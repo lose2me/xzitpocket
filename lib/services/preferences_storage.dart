@@ -4,7 +4,7 @@ class PreferencesStorage {
   late SharedPreferences _prefs;
 
   /// Only preferences exposed on the personalization page. The same allowlist
-  /// applies to imports, including backups made before reminders were separated.
+  /// applies when importing a current personalization snapshot.
   static const _personalizationBackupKeys = <String>{
     'theme_preference',
     'theme_color',
@@ -121,7 +121,7 @@ class PreferencesStorage {
 
   String getSecondaryScheduleTitle() {
     final title = _prefs.getString('secondary_schedule_title');
-    if (title == null || title.isEmpty || title == '正在预览备用课程') {
+    if (title == null || title.isEmpty) {
       return '正在预览备用课表';
     }
     return title;
@@ -129,7 +129,7 @@ class PreferencesStorage {
 
   Future<void> setSecondaryScheduleTitle(String value) async {
     final title = value.trim();
-    if (title.isEmpty || title == '正在预览备用课表' || title == '正在预览备用课程') {
+    if (title.isEmpty || title == '正在预览备用课表') {
       await _prefs.remove('secondary_schedule_title');
     } else {
       await _prefs.setString('secondary_schedule_title', title);
@@ -157,7 +157,6 @@ class PreferencesStorage {
     await _prefs.remove('student_id');
     await _prefs.remove('student_name');
     await _prefs.remove('college_name');
-    await _prefs.remove('major_name');
     await _prefs.remove('class_name');
   }
 
@@ -623,35 +622,14 @@ class PreferencesStorage {
   Future<void> setTimetableUseLightBackgroundInDarkMode(bool value) =>
       _prefs.setBool('timetable_use_light_background_in_dark_mode', value);
 
-  String? getPageBackgroundColor() =>
-      _prefs.getString('page_background_color') ??
-      _prefs.getString('timetable_solid_background');
+  String? getPageBackgroundColor() => _prefs.getString('page_background_color');
   Future<void> setPageBackgroundColor(String? value) async {
     if (value == null || value.isEmpty) {
       await _prefs.remove('page_background_color');
     } else {
       await _prefs.setString('page_background_color', value);
     }
-    await _prefs.remove('timetable_solid_background');
   }
-
-  Future<void> clearLegacyTimetableBackgroundSettings() async {
-    await Future.wait([
-      _prefs.remove('timetable_background_original_path'),
-      _prefs.remove('timetable_background_fullscreen'),
-      _prefs.remove('timetable_background_opacity'),
-    ]);
-  }
-
-  double getTimetableComponentOpacity() =>
-      (_prefs.getDouble('timetable_component_opacity') ?? 0.7)
-          .clamp(0.0, 1.0)
-          .toDouble();
-
-  Future<void> setTimetableComponentOpacity(double value) => _prefs.setDouble(
-    'timetable_component_opacity',
-    value.clamp(0.0, 1.0).toDouble(),
-  );
 
   double getTimetableGridOpacity() =>
       (_prefs.getDouble('timetable_grid_opacity') ?? 0.5)
@@ -760,8 +738,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseBorderOpacity() =>
-      (_prefs.getDouble('timetable_course_border_opacity') ??
-              getTimetableComponentOpacity())
+      (_prefs.getDouble('timetable_course_border_opacity') ?? 0.7)
           .clamp(0.0, 1.0)
           .toDouble();
 
@@ -812,14 +789,7 @@ class PreferencesStorage {
       _prefs.remove('timetable_dark_background_path'),
       _prefs.remove('timetable_use_light_background_in_dark_mode'),
       _prefs.remove('page_background_color'),
-      _prefs.remove('timetable_solid_background'),
       _prefs.remove('toast_opacity'),
-      // Remove settings from versions that supported separate source images,
-      // non-fullscreen backgrounds, and background opacity.
-      _prefs.remove('timetable_background_original_path'),
-      _prefs.remove('timetable_background_fullscreen'),
-      _prefs.remove('timetable_background_opacity'),
-      _prefs.remove('timetable_component_opacity'),
       _prefs.remove('timetable_grid_opacity'),
       _prefs.remove('timetable_page_text_opacity'),
       if (!keepGridLineColor) _prefs.remove('timetable_grid_line_color'),
@@ -913,17 +883,11 @@ class PreferencesStorage {
   String? getSchoolCalendarVersion() =>
       _prefs.getString('school_calendar_version');
 
-  int? getSchoolCalendarCacheTime() =>
-      _prefs.getInt('school_calendar_cache_time');
-
   Future<void> setSchoolCalendarCache(String json) =>
-      _setCache('school_calendar_cache', 'school_calendar_cache_time', json);
+      _prefs.setString('school_calendar_cache', json);
 
   Future<void> setSchoolCalendarVersion(String value) =>
       _prefs.setString('school_calendar_version', value);
-
-  Future<void> clearSchoolCalendarCache() =>
-      _clearCache('school_calendar_cache', 'school_calendar_cache_time');
 
   Set<String> getHiddenServiceFeatures() =>
       (_prefs.getStringList('hidden_service_features') ?? const <String>[])
@@ -969,7 +933,6 @@ class PreferencesStorage {
     await _prefs.remove('saved_power_cache');
     await _prefs.remove('saved_power_cache_room_id');
     await _prefs.remove('saved_power_cache_time');
-    await _prefs.remove('saved_power_cache_date');
   }
 
   // ── Generic cache helpers ──

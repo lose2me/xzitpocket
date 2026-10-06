@@ -1034,10 +1034,6 @@ class _TimetableGridState extends State<TimetableGrid> {
       ) ??
       false;
 
-  // ignore: unused_element
-  bool _hasSession(List<_IndexedCourse>? entries, int session) =>
-      entries?.any((entry) => entry.course.sessions.contains(session)) ?? false;
-
   /// Rebuilds the cached per-weekday slot layout only when the inputs that
   /// determine the grouping change. `rotationTick` is intentionally excluded:
   /// picking a conflict variant from the cache is cheap and done in build.

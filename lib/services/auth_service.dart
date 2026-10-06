@@ -412,16 +412,24 @@ class AcademicStatus {
     'categories': [for (final category in categories) category.toJson()],
   };
 
-  factory AcademicStatus.fromJson(Map<String, dynamic> json) => AcademicStatus(
-    gpa: _asDouble(json['gpa']),
-    totalRequired: _asDouble(json['totalRequired']),
-    totalEarned: _asDouble(json['totalEarned']),
-    parserVersion: (json['parserVersion'] as num?)?.toInt() ?? 1,
-    categories: [
-      for (final raw in (json['categories'] as List<dynamic>? ?? const []))
-        AcademicCategory.fromJson(raw as Map<String, dynamic>),
-    ],
-  );
+  factory AcademicStatus.fromJson(Map<String, dynamic> json) {
+    if (json['parserVersion'] != currentParserVersion) {
+      throw const FormatException('学业缓存版本无效');
+    }
+    final rawCategories = json['categories'];
+    if (rawCategories is! List) {
+      throw const FormatException('学业缓存分类格式无效');
+    }
+    return AcademicStatus(
+      gpa: _asDouble(json['gpa']),
+      totalRequired: _asDouble(json['totalRequired']),
+      totalEarned: _asDouble(json['totalEarned']),
+      categories: [
+        for (final raw in rawCategories)
+          AcademicCategory.fromJson(raw as Map<String, dynamic>),
+      ],
+    );
+  }
 
   static double _asDouble(dynamic value) =>
       value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
