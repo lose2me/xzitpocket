@@ -303,7 +303,7 @@ void main() {
     );
 
     final fridayLabel = tester.widget<Text>(find.text('五'));
-    expect(fridayLabel.style?.color, const Color(0xFFFFFFFF));
+    expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
     expect(
       find.byKey(const ValueKey('timetable-today-indicator-5')),
       findsOneWidget,

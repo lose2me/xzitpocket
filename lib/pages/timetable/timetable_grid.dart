@@ -18,8 +18,6 @@ const _makeupHeaderForeground = Color(0xFFB42318);
 // keep the day number and weekday readable in dark mode as well.
 const _holidayDateForeground = Color(0xFF1E6335);
 const _makeupDateForeground = Color(0xFF941F1F);
-// Today's date bar keeps a fixed white label regardless of theme.
-const _todayHeaderForeground = Color(0xFFFFFFFF);
 
 class TimetableDayDragData {
   final int week;
@@ -890,39 +888,43 @@ class _TimetableGridState extends State<TimetableGrid> {
     required bool isToday,
     required bool hideDate,
     Color? statusDateColor,
-  }) {
-    final textColor =
-        (isToday
-                ? _todayHeaderForeground
-                : statusDateColor ??
-                      (widget.pageTextColor ?? theme.colors.mutedForeground))
-            .withValues(alpha: widget.pageTextOpacity);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (!hideDate)
-            Text(
-              '${date.day}',
-              style: theme.typography.caption.copyWith(
-                fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-                color: textColor,
-                fontSize: widget.dateTextSize,
-              ),
-            ),
+  }) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (!hideDate)
           Text(
-            weekdayLabel,
+            '${date.day}',
             style: theme.typography.caption.copyWith(
               fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
-              color: textColor,
+              color:
+                  (statusDateColor ??
+                          (isToday
+                              ? theme.colors.primary
+                              : widget.pageTextColor ??
+                                    theme.colors.mutedForeground))
+                      .withValues(alpha: widget.pageTextOpacity),
               fontSize: widget.dateTextSize,
             ),
           ),
-        ],
-      ),
-    );
-  }
+        Text(
+          weekdayLabel,
+          style: theme.typography.caption.copyWith(
+            fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
+            color:
+                (statusDateColor ??
+                        (isToday
+                            ? theme.colors.primary
+                            : widget.pageTextColor ??
+                                  theme.colors.mutedForeground))
+                    .withValues(alpha: widget.pageTextOpacity),
+            fontSize: widget.dateTextSize,
+          ),
+        ),
+      ],
+    ),
+  );
 
   Color? _actionColor(FThemeData theme, TimetableDayActionType? type) =>
       switch (type) {
