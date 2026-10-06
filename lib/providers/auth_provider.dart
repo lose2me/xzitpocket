@@ -40,20 +40,22 @@ class AuthNotifier extends Notifier<AuthState> {
 
   Future<(LoginResult, ExamResult?, GradeResult?, AcademicStatus?)?> login(
     String studentId,
-    String password,
-  ) async {
+    String password, {
+    Future<void> Function(LoginResult schedule)? onScheduleReady,
+  }) async {
     state = const AuthState(status: AuthStatus.loading);
     try {
       final authService = AuthService();
       final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;
       bool enabled(AppServiceFeature feature) => !hidden.contains(feature);
-      final (login, exams, grades, academic) = await authService
+      final (login, exams, grades, academic, bookPage) = await authService
           .loginAndFetchAll(
             studentId,
             password,
             fetchExams: enabled(AppServiceFeature.exams),
             fetchGrades: enabled(AppServiceFeature.academic),
             fetchAcademic: enabled(AppServiceFeature.academic),
+            onScheduleReady: onScheduleReady,
           );
       final cacheWrites = <Future<void>>[];
       if (exams != null) {
@@ -66,6 +68,9 @@ class AuthNotifier extends Notifier<AuthState> {
         cacheWrites.add(
           _storage.setAcademicCache(jsonEncode(academic.toJson())),
         );
+      }
+      if (bookPage != null) {
+        cacheWrites.add(_storage.setBookCache(jsonEncode(bookPage.toJson())));
       }
       await Future.wait(cacheWrites);
       state = AuthState(

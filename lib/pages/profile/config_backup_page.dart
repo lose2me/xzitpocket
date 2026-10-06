@@ -79,6 +79,12 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
         }
       });
       showAppSnackBar(context, '分享码已生成并复制', severity: ToastSeverity.success);
+      unawaited(
+        ControlService.instance.track(
+          'share_code',
+          properties: const {'source': 'create'},
+        ),
+      );
     } catch (error) {
       if (mounted) {
         showAppSnackBar(context, '生成失败：$error', severity: ToastSeverity.error);
@@ -126,6 +132,12 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
         controller.clear();
         showAppSnackBar(context, '配置已导入', severity: ToastSeverity.success);
       }
+      unawaited(
+        ControlService.instance.track(
+          'share_code',
+          properties: const {'source': 'import'},
+        ),
+      );
     } catch (error) {
       if (mounted) {
         showAppSnackBar(context, '$error', severity: ToastSeverity.error);

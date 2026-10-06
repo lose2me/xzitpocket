@@ -11,6 +11,7 @@ import '../models/book_list.dart';
 import '../utils/course_text_parser.dart';
 import '../utils/week_calculator.dart';
 import 'cas_service.dart';
+import 'talker.dart';
 
 class LoginResult {
   final String? studentId;
@@ -790,34 +791,75 @@ class AuthService {
     }
   }
 
-  Future<(LoginResult, ExamResult?, GradeResult?, AcademicStatus?)>
+  Future<
+    (
+      LoginResult,
+      ExamResult?,
+      GradeResult?,
+      AcademicStatus?,
+      BookListPageResult?,
+    )
+  >
   loginAndFetchAll(
     String studentId,
     String password, {
     bool fetchExams = true,
     bool fetchGrades = true,
     bool fetchAcademic = true,
+    bool fetchBookList = true,
+    Future<void> Function(LoginResult schedule)? onScheduleReady,
   }) async {
     final session = await _casService.loginJw(studentId, password);
     try {
-      final results = await Future.wait<Object?>([
-        _fetchSchedule(session.dio),
-        fetchExams ? _fetchExams(session.dio) : Future<ExamResult?>.value(null),
-        fetchGrades
-            ? _fetchGrades(session.dio)
-            : Future<GradeResult?>.value(null),
-        fetchAcademic
-            ? _fetchAcademicStatus(session.dio)
-            : Future<AcademicStatus?>.value(null),
-      ]);
-      return (
-        results[0] as LoginResult,
-        results[1] as ExamResult?,
-        results[2] as GradeResult?,
-        results[3] as AcademicStatus?,
-      );
+      // Schedule first: a successful schedule read defines login success so the
+      // caller can navigate immediately. The remaining data is background
+      // enrichment that must not turn a successful schedule login into a
+      // failure.
+      final schedule = await _fetchSchedule(session.dio);
+      if (onScheduleReady != null) await onScheduleReady(schedule);
+
+      final exams = fetchExams
+          ? await _tryFetch(() => _fetchExams(session.dio))
+          : null;
+      final grades = fetchGrades
+          ? await _tryFetch(() => _fetchGrades(session.dio))
+          : null;
+      final academic = fetchAcademic
+          ? await _tryFetch(() => _fetchAcademicStatus(session.dio))
+          : null;
+      BookListPageResult? bookPage;
+      if (fetchBookList && grades != null) {
+        bookPage = await _tryFetch<BookListPageResult>(() async {
+          final catalog = buildBookListSemesterCatalog(grades, studentId);
+          final selected = catalog.current;
+          if (selected == null) {
+            throw AuthException('未获取到可查询的书单学期');
+          }
+          return BookListPageResult(
+            semesters: catalog.options,
+            selectedSemester: selected,
+            books: await _fetchBookList(
+              session.dio,
+              academicYear: selected.academicYear,
+              termCode: selected.termCode,
+            ),
+          );
+        });
+      }
+      return (schedule, exams, grades, academic, bookPage);
     } finally {
       session.close();
+    }
+  }
+
+  /// Runs an optional OA fetch, returning null on failure so the login result
+  /// stays valid when a single enrichment request fails.
+  Future<T?> _tryFetch<T>(Future<T> Function() fetch) async {
+    try {
+      return await fetch();
+    } catch (error, stackTrace) {
+      talker.warning('教务附加数据加载失败', error, stackTrace);
+      return null;
     }
   }
 

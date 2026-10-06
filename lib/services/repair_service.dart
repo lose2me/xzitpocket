@@ -105,6 +105,8 @@ class RepairAttachment {
     final path = '${json['imgurl'] ?? ''}';
     return RepairAttachment(url: url, thumbnailUrl: path);
   }
+
+  Map<String, dynamic> toJson() => {'lookpath': url, 'imgurl': thumbnailUrl};
 }
 
 class RepairProcessStep {
@@ -123,6 +125,15 @@ class RepairProcessStep {
     required this.current,
     this.attachments = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+    'nodename': name,
+    'time': time,
+    'operatorname': operatorName,
+    'nodecontent': note,
+    'current': current,
+    'imgs': [for (final attachment in attachments) attachment.toJson()],
+  };
 }
 
 class RepairDetail {
@@ -163,6 +174,28 @@ class RepairDetail {
     required this.steps,
     required this.raw,
   });
+
+  /// Flat representation understood by [RepairDetail.fromJson], used for the
+  /// short-lived per-form cache. The platform-specific [raw] envelope is not
+  /// preserved; only the parsed fields the detail page renders are needed.
+  Map<String, dynamic> toJson() => {
+    'uuid': formUuid,
+    'orderid': orderId,
+    'content': content,
+    'areaname': areaName,
+    'itemname': itemName,
+    'address': address,
+    'nodename': status,
+    'createtime': createTime,
+    'jdrq': acceptTime,
+    'repairer': repairer,
+    'teamname': teamName,
+    'maintainunit': repairUnit,
+    'remark': remark,
+    'rvcontent': result,
+    'imgs': [for (final attachment in attachments) attachment.toJson()],
+    'processList': [for (final step in steps) step.toJson()],
+  };
 
   factory RepairDetail.fromJson(
     Map<String, dynamic> json, {

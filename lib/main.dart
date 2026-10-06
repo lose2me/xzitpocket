@@ -74,6 +74,7 @@ void _handleWidgetLaunch(Uri? uri) {
   }
   _lastWidgetLaunchAt = now;
   WidgetsBinding.instance.addPostFrameCallback((_) {
+    unawaited(ToolsDataManager.instance.checkCampusNetwork(force: true));
     HomePage.globalKey.currentState?.switchToTimetable();
   });
 }
@@ -93,33 +94,20 @@ Future<void> _finishStartup(
 ) async {
   ToolsDataManager.instance.initialize(preferencesStorage);
   await ControlService.instance.initialize();
-  final controlAvailable = await ControlService.instance.checkHealth();
-  if (controlAvailable) {
-    try {
-      final versions = await ControlService.instance.fetchConfigVersions();
-      final cached = preferencesStorage.getSchoolCalendarCache();
-      if (cached == null ||
-          preferencesStorage.getSchoolCalendarVersion() !=
-              versions.schoolCalendar) {
-        final days = await ControlService.instance.fetchSchoolCalendar();
-        semesterCalendar.replaceDays(days);
-        if (preferencesStorage.getUseCloudTimetableAdjustments()) {
-          await courseStorage.applyCloudAdjustments(
-            days: days,
-            semesterStart: semesterStartDate,
-          );
-        }
-        await preferencesStorage.setSchoolCalendarCache(
-          schoolCalendarDaysToJson(days),
-        );
-        await preferencesStorage.setSchoolCalendarVersion(
-          versions.schoolCalendar,
-        );
-      }
-    } catch (error, stackTrace) {
-      talker.warning('读取在线校历失败，继续使用本地校历', error, stackTrace);
+  try {
+    final calendarChanged = await ControlService.instance
+        .refreshSchoolCalendarIfChanged(preferencesStorage);
+    if (calendarChanged &&
+        preferencesStorage.getUseCloudTimetableAdjustments()) {
+      await courseStorage.applyCloudAdjustments(
+        days: semesterCalendar.days,
+        semesterStart: semesterStartDate,
+      );
     }
+  } catch (error, stackTrace) {
+    talker.warning('读取在线校历失败，继续使用本地校历', error, stackTrace);
   }
+  final controlAvailable = ControlService.instance.serviceAvailable;
   final studentId = preferencesStorage.getStudentId();
   if (controlAvailable && studentId != null && studentId.isNotEmpty) {
     unawaited(

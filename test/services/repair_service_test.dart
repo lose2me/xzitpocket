@@ -40,4 +40,39 @@ void main() {
     expect(detail.steps.first.name, '已完工');
     expect(detail.steps.first.current, isTrue);
   });
+
+  test('repair detail toJson round-trips through fromJson', () {
+    final detail = RepairDetail.fromJson({
+      'uuid': 'FORM-1',
+      'content': '水池堵塞',
+      'nodename': '已完工',
+      'createtime': '2026-09-15 22:23',
+      'rvcontent': '已疏通',
+      'remark': '请保持畅通',
+      'imgs': [
+        {'lookpath': 'http://example.test/photo.jpg', 'imgurl': 'upload/a.jpg'},
+      ],
+      'processList': [
+        {'nodename': '已提交', 'time': '2026-09-15 22:23', 'operatorname': '学生'},
+        {
+          'nodename': '已完工',
+          'time': '2026-09-16 06:53',
+          'operatorname': '吴**',
+          'nodecontent': '已疏通',
+          'current': true,
+        },
+      ],
+    });
+
+    final restored = RepairDetail.fromJson(detail.toJson());
+
+    expect(restored.formUuid, 'FORM-1');
+    expect(restored.content, '水池堵塞');
+    expect(restored.status, '已完工');
+    expect(restored.result, '已疏通');
+    expect(restored.remark, '请保持畅通');
+    expect(restored.attachments.single.url, 'http://example.test/photo.jpg');
+    expect(restored.steps.map((step) => step.name), ['已完工', '已提交']);
+    expect(restored.steps.first.current, isTrue);
+  });
 }

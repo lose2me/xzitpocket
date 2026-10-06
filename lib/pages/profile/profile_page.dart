@@ -10,6 +10,7 @@ import 'package:talker_flutter/talker_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../providers/secondary_schedule_provider.dart';
 import '../../services/credential_storage.dart';
 import '../../services/password_reset_service.dart';
 import '../../services/power_service.dart';
@@ -752,49 +753,71 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     final pwd = _pwdCtrl.text;
 
     setState(() => _isLoggingIn = true);
+    final prefs = ref.read(preferencesStorageProvider);
 
-    final result = await ref.read(authProvider.notifier).login(sid, pwd);
+    // 1. Register with control and refresh the school calendar before the OA
+    //    login so cloud course adjustments use the latest calendar.
+    try {
+      await ControlService.instance.refreshSchoolCalendarIfChanged(prefs);
+    } catch (error, stackTrace) {
+      talker.warning('登录前刷新校历失败', error, stackTrace);
+    }
+
+    // 2. OA login. The schedule read defines success, so local persistence and
+    //    navigation happen as soon as it returns; exams/grades/book list keep
+    //    loading in the background.
+    final result = await ref
+        .read(authProvider.notifier)
+        .login(
+          sid,
+          pwd,
+          onScheduleReady: (loginResult) async {
+            try {
+              await CredentialStorage.setSavedPassword(pwd);
+              try {
+                await ref
+                    .read(scheduleProvider.notifier)
+                    .updateFromLoginResult(
+                      courses: loginResult.courses,
+                      studentId: loginResult.studentId ?? sid,
+                      studentName: loginResult.studentName ?? '',
+                      collegeName: loginResult.collegeName ?? '',
+                      className: loginResult.className ?? '',
+                    );
+              } on WidgetSyncException catch (e) {
+                if (mounted) {
+                  showAppSnackBar(
+                    context,
+                    '登录成功，但$e',
+                    severity: ToastSeverity.warning,
+                  );
+                }
+              }
+              if (!mounted) return;
+              _pwdCtrl.clear();
+              setState(() => _isLoggingIn = false);
+              showAppSnackBar(context, '登录成功', severity: ToastSeverity.success);
+              HomePage.globalKey.currentState?.switchToTimetable();
+            } catch (error, stackTrace) {
+              talker.warning('登录后本地保存失败', error, stackTrace);
+            }
+          },
+        );
+
     if (result != null) {
-      _pwdCtrl.clear();
-      final loginResult = result.$1;
+      // 3/4. Portal (一卡通/校园网/电费) and control (题库/上报) data continue
+      //      in the background after the OA login completes.
       final examResult = result.$2;
-      await CredentialStorage.setSavedPassword(pwd);
-
-      try {
-        await ref
-            .read(scheduleProvider.notifier)
-            .updateFromLoginResult(
-              courses: loginResult.courses,
-              studentId: loginResult.studentId ?? sid,
-              studentName: loginResult.studentName ?? '',
-              collegeName: loginResult.collegeName ?? '',
-              className: loginResult.className ?? '',
-            );
-      } on WidgetSyncException catch (e) {
-        if (mounted) {
-          setState(() => _isLoggingIn = false);
-          showAppSnackBar(context, '登录成功，但$e', severity: ToastSeverity.warning);
-        }
-        return;
-      }
-
-      final prefs = ref.read(preferencesStorageProvider);
       if (examResult != null) {
         await ToolsDataManager.instance.setExams(examResult, prefs);
       }
-      if (mounted) {
-        setState(() => _isLoggingIn = false);
-        showAppSnackBar(context, '登录成功', severity: ToastSeverity.success);
-        HomePage.globalKey.currentState?.switchToTimetable();
-      }
-
       unawaited(
         ToolsDataManager.instance.startBackgroundLoading(
           studentId: sid,
           password: pwd,
           prefs: prefs,
           roomId: prefs.getSavedPowerRoomId(),
-          displayName: loginResult.studentName ?? '',
+          displayName: result.$1.studentName ?? '',
         ),
       );
     } else if (mounted) {
@@ -929,6 +952,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         severity: ToastSeverity.warning,
       );
     }
+    await ref.read(secondaryScheduleProvider.notifier).clear();
     await ref.read(configProvider.notifier).logout();
     ref.read(authProvider.notifier).reset();
   }

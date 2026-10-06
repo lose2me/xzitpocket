@@ -6,7 +6,6 @@ import 'package:forui/forui.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import 'constants/semester_config.dart';
-import 'models/school_calendar.dart';
 import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
@@ -15,6 +14,7 @@ import 'providers/schedule_provider.dart';
 import 'services/course_storage.dart';
 import 'services/control_service.dart';
 import 'services/talker.dart';
+import 'services/tools_data_manager.dart';
 import 'services/widget_service.dart';
 import 'ui/app_theme.dart';
 import 'utils/snackbar_helper.dart';
@@ -29,21 +29,16 @@ class App extends ConsumerStatefulWidget {
 }
 
 class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
-  Timer? _heartbeatTimer;
   double? _toastOpacity;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _heartbeatTimer = Timer.periodic(const Duration(minutes: 10), (_) {
-      unawaited(ControlService.instance.track('heartbeat'));
-    });
   }
 
   @override
   void dispose() {
-    _heartbeatTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -72,6 +67,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     );
     if (state == AppLifecycleState.resumed) {
       TimetablePage.globalKey.currentState?.refreshForResume();
+      unawaited(ToolsDataManager.instance.checkCampusNetwork(force: true));
       unawaited(_refreshSchoolCalendarAndWidget());
       unawaited(ControlService.instance.track('foreground'));
     }
@@ -79,18 +75,12 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
 
   Future<void> _refreshSchoolCalendarAndWidget() async {
     try {
-      if (await ControlService.instance.checkHealth()) {
-        final prefs = ref.read(preferencesStorageProvider);
-        final versions = await ControlService.instance.fetchConfigVersions();
-        if (prefs.getSchoolCalendarCache() == null ||
-            prefs.getSchoolCalendarVersion() != versions.schoolCalendar) {
-          final days = await ControlService.instance.fetchSchoolCalendar();
-          if (!mounted) return;
-          semesterCalendar.replaceDays(days);
-          await prefs.setSchoolCalendarCache(schoolCalendarDaysToJson(days));
-          await prefs.setSchoolCalendarVersion(versions.schoolCalendar);
-          await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
-        }
+      final prefs = ref.read(preferencesStorageProvider);
+      final changed = await ControlService.instance
+          .refreshSchoolCalendarIfChanged(prefs);
+      if (changed) {
+        if (!mounted) return;
+        await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
       }
     } catch (error, stackTrace) {
       talker.debug('回到前台时刷新校历失败，继续使用当前校历', error, stackTrace);

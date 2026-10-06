@@ -181,6 +181,7 @@ class _RepairPageState extends State<RepairPage> {
                     record: record,
                     studentId: widget.studentId,
                     password: widget.password,
+                    preferencesStorage: widget.preferencesStorage,
                   ),
                 ),
               ),

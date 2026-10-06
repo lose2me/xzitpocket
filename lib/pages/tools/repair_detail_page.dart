@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import 'package:forui/forui.dart';
 import 'package:image_gallery_saver_plus/image_gallery_saver_plus.dart';
 
 import '../../services/cas_service.dart';
+import '../../services/preferences_storage.dart';
 import '../../services/repair_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
@@ -16,12 +18,14 @@ class RepairDetailPage extends StatefulWidget {
   final RepairRecord record;
   final String studentId;
   final String password;
+  final PreferencesStorage preferencesStorage;
 
   const RepairDetailPage({
     super.key,
     required this.record,
     required this.studentId,
     required this.password,
+    required this.preferencesStorage,
   });
 
   @override
@@ -29,6 +33,8 @@ class RepairDetailPage extends StatefulWidget {
 }
 
 class _RepairDetailPageState extends State<RepairDetailPage> {
+  static const _cacheTtl = Duration(minutes: 5);
+
   final _service = RepairService();
   RepairDetail? _detail;
   String? _error;
@@ -38,7 +44,29 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
   @override
   void initState() {
     super.initState();
-    unawaited(_load());
+    if (!_restoreCache()) unawaited(_load());
+  }
+
+  bool _restoreCache() {
+    final formUuid = widget.record.formUuid;
+    if (formUuid.isEmpty) return false;
+    if (!PreferencesStorage.isCacheValid(
+      widget.preferencesStorage.getRepairDetailCacheTime(formUuid),
+      _cacheTtl,
+    )) {
+      return false;
+    }
+    final cached = widget.preferencesStorage.getRepairDetailCache(formUuid);
+    if (cached == null || cached.isEmpty) return false;
+    try {
+      _detail = RepairDetail.fromJson(
+        jsonDecode(cached) as Map<String, dynamic>,
+      );
+      return true;
+    } catch (error, stackTrace) {
+      talker.warning('报修详情缓存解析失败', error, stackTrace);
+      return false;
+    }
   }
 
   @override
@@ -66,6 +94,10 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
         return;
       }
       final previousSession = _session;
+      await widget.preferencesStorage.setRepairDetailCache(
+        widget.record.formUuid,
+        jsonEncode(detail.toJson()),
+      );
       setState(() {
         _session = session;
         _detail = detail;

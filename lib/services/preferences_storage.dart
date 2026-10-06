@@ -1067,6 +1067,14 @@ class PreferencesStorage {
     json,
   );
 
+  /// Server-side question-bank version (max `updated_at`). A cached library is
+  /// only reused while this value is unchanged.
+  String? getLearningQuestionBankVersion() =>
+      _prefs.getString('learning_question_bank_version');
+
+  Future<void> setLearningQuestionBankVersion(String value) =>
+      _prefs.setString('learning_question_bank_version', value);
+
   String? getLearningStateCache() => _prefs.getString('learning_state_cache');
 
   Future<void> setLearningStateCache(String json) =>
@@ -1078,6 +1086,7 @@ class PreferencesStorage {
         'learning_question_bank_cache',
         'learning_question_bank_cache_time',
       ),
+      _prefs.remove('learning_question_bank_version'),
       _prefs.remove('learning_state_cache'),
     ]);
   }
@@ -1086,6 +1095,28 @@ class PreferencesStorage {
     'learning_question_bank_cache',
     'learning_question_bank_cache_time',
   );
+
+  // ── Repair detail cache (per repair form, 5min) ──
+
+  String? getRepairDetailCache(String formUuid) =>
+      _prefs.getString('repair_detail_cache_$formUuid');
+  int? getRepairDetailCacheTime(String formUuid) =>
+      _prefs.getInt('repair_detail_cache_time_$formUuid');
+  Future<void> setRepairDetailCache(String formUuid, String json) => _setCache(
+    'repair_detail_cache_$formUuid',
+    'repair_detail_cache_time_$formUuid',
+    json,
+  );
+
+  Future<void> _clearRepairDetailCaches() async {
+    final keys = _prefs
+        .getKeys()
+        .where((key) => key.startsWith('repair_detail_cache'))
+        .toList();
+    for (final key in keys) {
+      await _prefs.remove(key);
+    }
+  }
 
   Future<void> clearUserToolCaches() async {
     await Future.wait([
@@ -1097,6 +1128,7 @@ class PreferencesStorage {
       _clearCache('academic_cache', 'academic_cache_time'),
       _clearCache('ykt_cache', 'ykt_cache_time'),
       _clearCache('netauth_cache', 'netauth_cache_time'),
+      _clearRepairDetailCaches(),
       clearLearningCache(),
     ]);
   }

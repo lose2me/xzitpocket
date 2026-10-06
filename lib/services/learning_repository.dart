@@ -13,20 +13,24 @@ typedef LearningCdkRedeemer = Future<void> Function(
   String code,
   String questionBankId,
 );
+typedef LearningVersionFetcher = Future<String> Function();
 
 class LearningRepository extends ChangeNotifier {
-  static const _libraryCacheTtl = Duration(minutes: 5);
-
   final PreferencesStorage preferencesStorage;
   final LearningQuestionFetcher? fetcher;
   final LearningQuestionBankFetcher? bankFetcher;
   final LearningCdkRedeemer? cdkRedeemer;
+
+  /// Returns the control-side question-bank version (max `updated_at`). The
+  /// cached library is reused while this value is unchanged.
+  final LearningVersionFetcher? versionFetcher;
 
   LearningRepository({
     required this.preferencesStorage,
     this.fetcher,
     this.bankFetcher,
     this.cdkRedeemer,
+    this.versionFetcher,
   });
 
   List<LearningQuestion> _questions = const [];
@@ -55,10 +59,23 @@ class LearningRepository extends ChangeNotifier {
   bool get canRedeemCdk => cdkRedeemer != null;
   bool get loadedFromCache => _loadedFromCache;
   bool get loadedFromNetwork => _loadedFromNetwork;
-  bool get isLibraryCacheFresh => PreferencesStorage.isCacheValid(
-    preferencesStorage.getLearningQuestionBankCacheTime(),
-    _libraryCacheTtl,
-  );
+
+  /// True when control reports a newer question-bank version than the cached
+  /// one. Returns false when no version source is configured or on failure, so
+  /// a transient network error keeps the cached library visible.
+  Future<bool> hasUpdate() async {
+    final fetchVersion = versionFetcher;
+    if (fetchVersion == null) return false;
+    try {
+      final version = await fetchVersion();
+      if (version.isEmpty) return false;
+      final cached = preferencesStorage.getLearningQuestionBankVersion();
+      return cached == null || cached.isEmpty || cached != version;
+    } catch (_) {
+      return false;
+    }
+  }
+
   int get answeredCount =>
       _questions.where((question) => _judgedIds.contains(question.id)).length;
 
@@ -259,7 +276,7 @@ class LearningRepository extends ChangeNotifier {
       for (final bank in _banks) bank.toJson(),
     ]);
     if (currentEncoded == encoded) {
-      await preferencesStorage.setLearningQuestionBankCache(encoded);
+      await _saveBankCache();
       _loadedFromNetwork = true;
       _loaded = true;
       _libraryRevision++;
@@ -342,10 +359,25 @@ class LearningRepository extends ChangeNotifier {
     return changed;
   }
 
-  Future<void> _saveBankCache() =>
-      preferencesStorage.setLearningQuestionBankCache(
-        jsonEncode([for (final bank in _banks) bank.toJson()]),
-      );
+  Future<void> _saveBankCache() async {
+    await preferencesStorage.setLearningQuestionBankCache(
+      jsonEncode([for (final bank in _banks) bank.toJson()]),
+    );
+    await _saveBankVersion();
+  }
+
+  Future<void> _saveBankVersion() async {
+    final fetchVersion = versionFetcher;
+    if (fetchVersion == null) return;
+    try {
+      final version = await fetchVersion();
+      if (version.isNotEmpty) {
+        await preferencesStorage.setLearningQuestionBankVersion(version);
+      }
+    } catch (_) {
+      // The version only skips redundant downloads; a failure is harmless.
+    }
+  }
 
   static List<LearningQuestionBank>? _decodeBanks(String raw) {
     try {

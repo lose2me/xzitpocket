@@ -10,6 +10,7 @@ import '../constants/control_config.dart';
 import '../models/learning_question.dart';
 import '../models/school_calendar.dart';
 import 'control_crypto.dart';
+import 'preferences_storage.dart';
 import 'talker.dart';
 
 class ControlRelease {
@@ -25,10 +26,12 @@ class ControlRelease {
 class ControlConfigVersions {
   final String appRelease;
   final String schoolCalendar;
+  final String questionBanks;
 
   const ControlConfigVersions({
     required this.appRelease,
     required this.schoolCalendar,
+    required this.questionBanks,
   });
 }
 
@@ -494,7 +497,34 @@ class ControlService {
     return ControlConfigVersions(
       appRelease: response['appRelease']?.toString() ?? '',
       schoolCalendar: response['schoolCalendar']?.toString() ?? '',
+      questionBanks: response['questionBanks']?.toString() ?? '',
     );
+  }
+
+  /// Current control-side question-bank version, compared by clients against
+  /// the cached library to avoid redundant downloads.
+  Future<String> fetchQuestionBankVersion() async {
+    final versions = await fetchConfigVersions();
+    return versions.questionBanks;
+  }
+
+  /// Downloads the school calendar only when control reports a version the
+  /// local cache does not have. Returns true when [semesterCalendar] changed;
+  /// the caller decides whether to re-apply cloud course adjustments.
+  Future<bool> refreshSchoolCalendarIfChanged(PreferencesStorage prefs) async {
+    if (!isConfigured) return false;
+    await initialize();
+    if (!await checkHealth()) return false;
+    final versions = await fetchConfigVersions();
+    if (prefs.getSchoolCalendarCache() != null &&
+        prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
+      return false;
+    }
+    final days = await fetchSchoolCalendar();
+    semesterCalendar.replaceDays(days);
+    await prefs.setSchoolCalendarCache(schoolCalendarDaysToJson(days));
+    await prefs.setSchoolCalendarVersion(versions.schoolCalendar);
+    return true;
   }
 
   /// Loads the administrator-managed school calendar. This endpoint is public

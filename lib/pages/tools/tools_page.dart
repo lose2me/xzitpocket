@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
 import '../../providers/config_provider.dart';
+import '../../providers/schedule_provider.dart';
 import '../../models/app_settings.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/auth_service.dart';
@@ -105,10 +106,20 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     return (studentId: config.studentId!, password: password);
   }
 
+  void _trackServiceOpen(String screen) {
+    unawaited(
+      ControlService.instance.track(
+        'service_open',
+        properties: {'screen': screen},
+      ),
+    );
+  }
+
   Future<void> _openTool<T>({
     required bool loading,
     required String logLabel,
     required String routeName,
+    required String screen,
     required T? Function() getData,
     required Future<bool> Function(
       String sid,
@@ -149,6 +160,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       await load(creds.studentId, creds.password, prefs);
       if (!mounted || getData() == null) return;
     }
+    _trackServiceOpen(screen);
     Navigator.of(context).push(
       appRoute(
         name: routeName,
@@ -162,6 +174,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     loading: _manager.examLoading,
     logLabel: '打开考试安排',
     routeName: AppRouteNames.exams,
+    screen: 'exams',
     getData: () => _manager.exams,
     load: _manager.loadExam,
     buildPage: (data, sid, pwd) => ExamQueryPage(
@@ -176,6 +189,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     loading: _manager.yktLoading,
     logLabel: '打开一卡通查询',
     routeName: AppRouteNames.campusCard,
+    screen: 'campus_card',
     getData: () => _manager.ykt,
     load: _manager.loadYkt,
     buildPage: (data, sid, pwd) => CampusCardPage(
@@ -190,6 +204,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     loading: _manager.repairLoading,
     logLabel: '打开极速报修',
     routeName: AppRouteNames.repair,
+    screen: 'repair',
     getData: () => _manager.repair,
     load: _manager.loadRepair,
     buildPage: (data, sid, pwd) => RepairPage(
@@ -214,6 +229,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           ? control.fetchLearningQuestionBanks
           : null,
       cdkRedeemer: control.isConfigured ? control.redeemLibraryCdk : null,
+      versionFetcher: control.isConfigured
+          ? control.fetchQuestionBankVersion
+          : null,
     );
     if (!mounted) return;
     unawaited(
@@ -234,6 +252,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     loading: _manager.netAuthLoading,
     logLabel: '打开网络管理',
     routeName: AppRouteNames.networkManagement,
+    screen: 'network',
     getData: () => _manager.netAuth,
     load: _manager.loadNetAuth,
     buildPage: (data, sid, pwd) => NetworkManagementPage(
@@ -245,6 +264,18 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   );
 
   Future<void> _openSchoolCalendar() async {
+    final prefs = ref.read(preferencesStorageProvider);
+    try {
+      final changed = await ControlService.instance
+          .refreshSchoolCalendarIfChanged(prefs);
+      if (changed) {
+        await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
+      }
+    } catch (error, stackTrace) {
+      talker.warning('打开校历时刷新失败', error, stackTrace);
+    }
+    if (!mounted) return;
+    _trackServiceOpen('school_calendar');
     await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.schoolCalendar,
@@ -263,6 +294,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     }
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
+    _trackServiceOpen('book_list');
     await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.bookList,
@@ -282,6 +314,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       loading: _manager.jpLoading,
       logLabel: '打开教师评价',
       routeName: AppRouteNames.teacherEvaluation,
+      screen: 'teacher_evaluation',
       getData: () => _manager.jp,
       load: _manager.loadJp,
       requiresCampus: true,
@@ -299,6 +332,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     }
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
+    _trackServiceOpen('academic');
     Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.academic,
@@ -769,17 +803,20 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         vertical: AppSpacing.md,
       ),
       onPress: hasRoom && data != null
-          ? () => Navigator.of(context).push(
-              appRoute(
-                name: AppRouteNames.electricity,
-                builder: (_) => PowerQueryPage(
-                  result: data,
-                  roomId: roomId,
-                  studentId: studentId,
-                  preferencesStorage: ref.read(preferencesStorageProvider),
+          ? () {
+              _trackServiceOpen('power');
+              Navigator.of(context).push(
+                appRoute(
+                  name: AppRouteNames.electricity,
+                  builder: (_) => PowerQueryPage(
+                    result: data,
+                    roomId: roomId,
+                    studentId: studentId,
+                    preferencesStorage: ref.read(preferencesStorageProvider),
+                  ),
                 ),
-              ),
-            )
+              );
+            }
           : hasRoom && campusAvailable && !_manager.powerLoading
           ? _refreshPower
           : null,

@@ -167,14 +167,8 @@ class ToolsDataManager extends ChangeNotifier {
     final campusOk = await checkCampusNetwork();
     if (generation != _dataGeneration) return;
 
-    await ControlService.instance.syncAfterOaLogin(
-      studentId: studentId,
-      displayName: displayName,
-      collegeName: prefs.getCollegeName() ?? '',
-      className: prefs.getClassName() ?? '',
-      forceProfileUpdate: true,
-    );
-    if (generation != _dataGeneration) return;
+    // Portal/service data first, then control question banks and the user
+    // report. This ordering mirrors the app's login sequence.
     await _loadBackgroundData(
       studentId: studentId,
       password: password,
@@ -188,6 +182,20 @@ class ToolsDataManager extends ChangeNotifier {
       loadNetAuthData: loadNetAuthData,
       loadJpData: loadJpData,
     );
+    if (generation != _dataGeneration) return;
+
+    await ControlService.instance.syncAfterOaLogin(
+      studentId: studentId,
+      displayName: displayName,
+      collegeName: prefs.getCollegeName() ?? '',
+      className: prefs.getClassName() ?? '',
+      forceProfileUpdate: true,
+    );
+    if (generation != _dataGeneration) return;
+    if (_featureEnabled(AppServiceFeature.learning, prefs) &&
+        ControlService.instance.isConfigured) {
+      await _loadLearningBanks();
+    }
 
     talker.info('[ACTION] 后台数据加载\n完成');
   }
@@ -1032,11 +1040,6 @@ class ToolsDataManager extends ChangeNotifier {
       futures.add(loadJp(studentId, password, prefs));
     }
 
-    if (_featureEnabled(AppServiceFeature.learning, prefs) &&
-        ControlService.instance.isConfigured) {
-      futures.add(_loadLearningBanks());
-    }
-
     await Future.wait(futures);
   }
 
@@ -1045,18 +1048,20 @@ class ToolsDataManager extends ChangeNotifier {
 
   Future<void> _loadLearningBanks() async {
     final prefs = _savedPrefs;
-    if (prefs == null ||
-        PreferencesStorage.isCacheValid(
-          prefs.getLearningQuestionBankCacheTime(),
-          _dataCacheTtl,
-        )) {
-      return;
-    }
+    if (prefs == null) return;
     try {
+      final version = await ControlService.instance.fetchQuestionBankVersion();
+      if (version.isNotEmpty &&
+          prefs.getLearningQuestionBankVersion() == version) {
+        return;
+      }
       final banks = await ControlService.instance.fetchLearningQuestionBanks();
       await prefs.setLearningQuestionBankCache(
         jsonEncode([for (final bank in banks) bank.toJson()]),
       );
+      if (version.isNotEmpty) {
+        await prefs.setLearningQuestionBankVersion(version);
+      }
     } catch (error, stackTrace) {
       talker.warning('学习中心后台加载失败', error, stackTrace);
     }

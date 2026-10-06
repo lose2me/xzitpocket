@@ -284,6 +284,22 @@ void main() {
 
     expect(question.correctOptionIds, {'A', 'C'});
   });
+
+  test('hasUpdate compares the cached question-bank version', () async {
+    var version = 'v1';
+    final value = LearningRepository(
+      preferencesStorage: storage,
+      bankFetcher: () async => [_fixtureBank('QB-1', '题库', 'q-1')],
+      versionFetcher: () async => version,
+    );
+
+    await value.load();
+    expect(await value.hasUpdate(), isFalse);
+    expect(storage.getLearningQuestionBankVersion(), 'v1');
+
+    version = 'v2';
+    expect(await value.hasUpdate(), isTrue);
+  });
 }
 
 LearningQuestionBank _fixtureBank(String id, String name, String questionId) =>

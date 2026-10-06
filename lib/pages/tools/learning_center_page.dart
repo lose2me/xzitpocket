@@ -36,14 +36,16 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   void initState() {
     super.initState();
     repository.addListener(_onRepositoryUpdate);
-    unawaited(
-      repository.load().then((_) {
-        if (!mounted) return;
-        if (repository.loadedFromCache && !repository.isLibraryCacheFresh) {
-          unawaited(_refreshLibrary(showToast: false));
-        }
-      }),
-    );
+    unawaited(_loadInitial());
+  }
+
+  Future<void> _loadInitial() async {
+    await repository.load();
+    if (!mounted) return;
+    if (repository.loadedFromCache && await repository.hasUpdate()) {
+      if (!mounted) return;
+      unawaited(_refreshLibrary(showToast: false));
+    }
   }
 
   @override
