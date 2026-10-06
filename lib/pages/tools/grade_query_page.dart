@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:flutter/material.dart' show Scrollbar;
 import 'package:forui/forui.dart';
+import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 
 import '../../models/book_list.dart';
 import '../../services/auth_service.dart';
@@ -42,6 +43,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   String? _selectedSemesterKey;
   GradeResult? _semesterOptionsSource;
   BookListSemesterCatalog? _semesterCatalogCache;
+  final Set<int> _collapsedRoots = {};
 
   @override
   void initState() {
@@ -656,6 +658,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                     category: status.categories[i],
                     theme: theme,
                     depth: 0,
+                    expanded: !_collapsedRoots.contains(i),
+                    onToggle: () => setState(() {
+                      if (!_collapsedRoots.remove(i)) {
+                        _collapsedRoots.add(i);
+                      }
+                    }),
                   ),
                 ),
               ],
@@ -799,30 +807,116 @@ class _AcademicCategoryNode extends StatefulWidget {
     required this.category,
     required this.theme,
     this.depth = 0,
+    this.isLast = true,
+    this.expanded = false,
+    this.hideRing = false,
+    this.onToggle,
   });
 
   final AcademicCategory category;
   final FThemeData theme;
   final int depth;
+  final bool isLast;
+  final bool expanded;
+  final bool hideRing;
+  final VoidCallback? onToggle;
 
   @override
   State<_AcademicCategoryNode> createState() => _AcademicCategoryNodeState();
 }
 
 class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
-  // 课程树默认展开到有课程明细的分支，用户仍可手动收起。
-  late bool _expanded = _academicCategoryHasCourses(widget.category);
+  static const _treeGutter = 16.0;
+
+  // 同级只允许展开一个子分类。
+  int? _expandedChild;
 
   @override
   Widget build(BuildContext context) {
     final cat = widget.category;
     final theme = widget.theme;
     final hasChildren = cat.children.isNotEmpty;
+    final hasCourses = cat.courses.isNotEmpty;
     final noRequirement = cat.reqCredits <= 0;
     final progress = cat.reqCredits > 0
         ? (cat.earnedCredits / cat.reqCredits).clamp(0.0, 1.0)
         : 0.0;
     final pct = (progress * 100).toInt();
+    final rooted = widget.depth > 0;
+    final expanded = widget.expanded;
+
+    final header = Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 18,
+            child: hasChildren
+                ? AnimatedRotation(
+                    turns: expanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    child: Icon(
+                      FLucideIcons.chevronRight,
+                      size: 18,
+                      color: theme.colors.mutedForeground,
+                    ),
+                  )
+                : hasCourses
+                ? Center(
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: theme.colors.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  noRequirement && !hasCourses
+                      ? '${cat.name}[无需]'
+                      : cat.name,
+                  style: theme.typography.body.md.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!noRequirement) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    '已${_fmtNum(cat.earnedCredits)} / 需${_fmtNum(cat.reqCredits)}',
+                    style: theme.typography.body.xs.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (!noRequirement && !widget.hideRing)
+            _RingProgress(
+              progress: progress,
+              size: 30,
+              trackColor: theme.colors.border,
+              color: theme.colors.primary,
+              center: Text(
+                '$pct%',
+                style: theme.typography.body.xs.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 8,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -830,94 +924,161 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: hasChildren
-              ? () => setState(() => _expanded = !_expanded)
+              ? widget.onToggle
+              : hasCourses
+              ? () => _showAcademicCourseSheet(context, cat)
               : null,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: widget.depth * 16.0,
-              top: 6,
-              bottom: 6,
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 18,
-                  child: hasChildren
-                      ? AnimatedRotation(
-                          turns: _expanded ? 0.25 : 0,
-                          duration: const Duration(milliseconds: 150),
-                          curve: Curves.easeOut,
-                          child: Icon(
-                            FLucideIcons.chevronRight,
-                            size: 18,
-                            color: theme.colors.mutedForeground,
+          child: rooted
+              ? IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: _treeGutter,
+                        child: CustomPaint(
+                          painter: _AcademicTreeElbowPainter(
+                            color: theme.colors.border,
+                            isLast: widget.isLast,
+                            branch: hasChildren && expanded,
                           ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 4),
+                        ),
+                      ),
+                      Expanded(child: header),
+                    ],
+                  ),
+                )
+              : header,
+        ),
+        if (expanded && hasChildren)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (rooted)
+                  SizedBox(
+                    width: _treeGutter,
+                    child: widget.isLast
+                        ? null
+                        : CustomPaint(
+                            painter: _AcademicTreeLinePainter(
+                              theme.colors.border,
+                            ),
+                          ),
+                  ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        noRequirement ? '${cat.name}[无需]' : cat.name,
-                        style: theme.typography.body.md.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (!noRequirement) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          '已${_fmtNum(cat.earnedCredits)} / 需${_fmtNum(cat.reqCredits)}',
-                          style: theme.typography.body.xs.copyWith(
-                            color: theme.colors.mutedForeground,
+                      for (var i = 0; i < cat.children.length; i++)
+                        _AcademicCategoryNode(
+                          key: ValueKey(
+                            '${widget.depth}:$i:${cat.children[i].name}',
+                          ),
+                          category: cat.children[i],
+                          theme: theme,
+                          depth: widget.depth + 1,
+                          isLast: i == cat.children.length - 1,
+                          expanded: _expandedChild == i,
+                          hideRing:
+                              _expandedChild != null && _expandedChild != i,
+                          onToggle: () => setState(
+                            () => _expandedChild = _expandedChild == i
+                                ? null
+                                : i,
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
-                if (!noRequirement)
-                  _RingProgress(
-                    progress: progress,
-                    size: 30,
-                    trackColor: theme.colors.border,
-                    color: theme.colors.primary,
-                    center: Text(
-                      '$pct%',
-                      style: theme.typography.body.xs.copyWith(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 8,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
-        ),
-        if (_expanded && hasChildren)
-          Column(
-            children: [
-              for (var i = 0; i < cat.children.length; i++)
-                _AcademicCategoryNode(
-                  key: ValueKey('${widget.depth}:$i:${cat.children[i].name}'),
-                  category: cat.children[i],
-                  theme: theme,
-                  depth: widget.depth + 1,
-                ),
-            ],
-          ),
-        if (!hasChildren && cat.courses.isNotEmpty)
-          _AcademicCourseTable(courses: cat.courses, theme: theme),
       ],
     );
   }
 }
 
-bool _academicCategoryHasCourses(AcademicCategory category) =>
-    category.courses.isNotEmpty ||
-    category.children.any(_academicCategoryHasCourses);
+/// 经典目录树的「├ / └」拐角：竖线靠左，横线指向节点内容。
+class _AcademicTreeElbowPainter extends CustomPainter {
+  const _AcademicTreeElbowPainter({
+    required this.color,
+    required this.isLast,
+    required this.branch,
+  });
+
+  final Color color;
+  final bool isLast;
+  final bool branch;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    const x = 0.5;
+    final midY = size.height / 2;
+    canvas.drawLine(
+      const Offset(x, 0),
+      Offset(x, isLast ? midY : size.height),
+      paint,
+    );
+    // 横向线延伸进节点头部，与下拉箭头/圆点的位置对齐。
+    canvas.drawLine(Offset(x, midY), Offset(size.width + 7, midY), paint);
+    if (branch) {
+      canvas.drawLine(
+        Offset(size.width + 0.5, midY),
+        Offset(size.width + 0.5, size.height),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_AcademicTreeElbowPainter old) =>
+      old.color != color || old.isLast != isLast || old.branch != branch;
+}
+
+/// 目录树的连续竖线，为后续兄弟节点保留连接。
+class _AcademicTreeLinePainter extends CustomPainter {
+  const _AcademicTreeLinePainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(0.5, 0), Offset(0.5, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(_AcademicTreeLinePainter old) => old.color != color;
+}
+
+Future<void> _showAcademicCourseSheet(
+  BuildContext context,
+  AcademicCategory category,
+) => showAppSheet<void>(
+  context: context,
+  maxHeightRatio: 0.75,
+  builder: (context) => SafeArea(
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: MediaQuery.sizeOf(context).height * 0.5,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: _AcademicCourseTable(
+          courses: category.courses,
+          theme: context.theme,
+        ),
+      ),
+    ),
+  ),
+);
 
 class _AcademicCourseTable extends StatefulWidget {
   const _AcademicCourseTable({required this.courses, required this.theme});
@@ -930,7 +1091,10 @@ class _AcademicCourseTable extends StatefulWidget {
 }
 
 class _AcademicCourseTableState extends State<_AcademicCourseTable> {
+  static const _rowHeight = 44.0;
+
   final _horizontalController = ScrollController();
+  final _verticalController = ScrollController();
 
   static const _columns = <(String, double)>[
     ('成绩学年', 96),
@@ -951,64 +1115,86 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
     ('课程重要性系数', 112),
   ];
 
-  double get _tableWidth =>
-      _columns.fold<double>(0, (total, column) => total + column.$2);
-
   @override
   void dispose() {
     _horizontalController.dispose();
+    _verticalController.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      return SizedBox(
-        width: constraints.maxWidth,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8, bottom: AppSpacing.sm),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: widget.theme.colors.border.withValues(alpha: 0.7),
-              ),
-              borderRadius: BorderRadius.circular(6),
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final cellBorder = theme.colors.border.withValues(alpha: 0.55);
+    final rowBorder = theme.colors.border.withValues(alpha: 0.7);
+    return Scrollbar(
+      controller: _horizontalController,
+      thumbVisibility: true,
+      scrollbarOrientation: ScrollbarOrientation.bottom,
+      child: Scrollbar(
+        controller: _verticalController,
+        thumbVisibility: true,
+        scrollbarOrientation: ScrollbarOrientation.right,
+        child: TableView.builder(
+          verticalDetails: ScrollableDetails.vertical(
+            controller: _verticalController,
+          ),
+          horizontalDetails: ScrollableDetails.horizontal(
+            controller: _horizontalController,
+          ),
+          pinnedRowCount: 1,
+          rowCount: widget.courses.length + 1,
+          columnCount: _columns.length,
+          columnBuilder: (index) => TableSpan(
+            extent: FixedTableSpanExtent(_columns[index].$2),
+            foregroundDecoration: TableSpanDecoration(
+              border: TableSpanBorder(trailing: BorderSide(color: cellBorder)),
             ),
-            child: Scrollbar(
-              controller: _horizontalController,
-              thumbVisibility: true,
-              notificationPredicate: (notification) =>
-                  notification.metrics.axis == Axis.horizontal,
-              child: SingleChildScrollView(
-                controller: _horizontalController,
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: _tableWidth,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _AcademicTableRow(
-                        values: [for (final column in _columns) column.$1],
-                        widths: [for (final column in _columns) column.$2],
-                        theme: widget.theme,
-                        header: true,
-                      ),
-                      for (final course in widget.courses)
-                        _AcademicTableRow(
-                          values: _courseValues(course),
-                          widths: [for (final column in _columns) column.$2],
-                          theme: widget.theme,
-                        ),
-                    ],
+          ),
+          rowBuilder: (index) => TableSpan(
+            extent: const FixedTableSpanExtent(_rowHeight),
+            backgroundDecoration: TableSpanDecoration(
+              color: index == 0
+                  ? theme.colors.muted
+                  : theme.colors.muted.withValues(alpha: 0.28),
+            ),
+            foregroundDecoration: TableSpanDecoration(
+              border: TableSpanBorder(trailing: BorderSide(color: rowBorder)),
+            ),
+          ),
+          cellBuilder: (context, vicinity) {
+            final header = vicinity.row == 0;
+            final text = header
+                ? _columns[vicinity.column].$1
+                : _courseValues(widget.courses[vicinity.row - 1])[vicinity
+                      .column];
+            return TableViewCell(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+                child: Align(
+                  alignment: header ? Alignment.center : Alignment.centerLeft,
+                  child: Text(
+                    text.isEmpty ? '暂无' : text,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: header ? TextAlign.center : TextAlign.start,
+                    style: theme.typography.body.xs.copyWith(
+                      color: header
+                          ? theme.colors.foreground
+                          : theme.colors.mutedForeground,
+                      fontWeight: header
+                          ? FontWeight.w700
+                          : FontWeight.normal,
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
 
   List<String> _courseValues(AcademicCourse course) => [
     course.academicYear,
@@ -1028,69 +1214,6 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
     course.suggestedTerm,
     course.importance,
   ];
-}
-
-class _AcademicTableRow extends StatelessWidget {
-  const _AcademicTableRow({
-    required this.values,
-    required this.widths,
-    required this.theme,
-    this.header = false,
-  });
-
-  final List<String> values;
-  final List<double> widths;
-  final FThemeData theme;
-  final bool header;
-
-  @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
-      color: header
-          ? theme.colors.muted
-          : theme.colors.muted.withValues(alpha: 0.28),
-      border: Border(
-        bottom: BorderSide(color: theme.colors.border.withValues(alpha: 0.7)),
-      ),
-    ),
-    child: IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var index = 0; index < values.length; index++)
-            SizedBox(
-              width: widths[index],
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border(
-                    right: BorderSide(
-                      color: theme.colors.border.withValues(alpha: 0.55),
-                    ),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.xs,
-                    vertical: 7,
-                  ),
-                  child: Text(
-                    values[index].isEmpty ? '暂无' : values[index],
-                    textAlign: header ? TextAlign.center : TextAlign.start,
-                    style: theme.typography.body.xs.copyWith(
-                      color: header
-                          ? theme.colors.foreground
-                          : theme.colors.mutedForeground,
-                      fontWeight: header ? FontWeight.w700 : FontWeight.normal,
-                    ),
-                    softWrap: true,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
 }
 
 /// Maps numeric and common textual grades to the four display bands.

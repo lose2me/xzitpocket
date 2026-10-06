@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
 import '../ui/app_colors.dart';
+import '../ui/app_theme.dart';
 
 /// toast 的语义分级，颜色取自主题令牌（见 `lib/ui/app_theme.dart`）。
 enum ToastSeverity {
@@ -235,7 +236,8 @@ class _ToastItemState extends State<_ToastItem> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final palette = _palette(context.theme, widget.data.severity);
+    // Toast 颜色固定使用浅色主题，不受暗色模式/主题色等设置影响。
+    final palette = _palette(AppTheme.light, widget.data.severity);
     final surface = _buildSurface(palette);
     return AnimatedBuilder(
       animation: Listenable.merge([_enter, _exit, _appToastOpacity]),

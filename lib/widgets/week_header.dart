@@ -43,22 +43,19 @@ class WeekHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
+            flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  showingSecondarySchedule
-                      ? secondaryScheduleTitle
-                      : '${today.year}/${today.month}/${today.day}',
+                  '${today.year}/${today.month}/${today.day}',
                   style: theme.typography.pageTitle.copyWith(
                     color: theme.colors.foreground,
                   ),
                 ),
                 const SizedBox(height: AppSpacing.micro),
                 Text(
-                  showingSecondarySchedule
-                      ? ' '
-                      : (beforeStart ? '未开学' : '第$selectedWeek周'),
+                  beforeStart ? '未开学' : '第$selectedWeek周',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.typography.caption.copyWith(
@@ -68,6 +65,21 @@ class WeekHeader extends StatelessWidget {
               ],
             ),
           ),
+          if (showingSecondarySchedule) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              flex: 2,
+              child: Text(
+                secondaryScheduleTitle,
+                textAlign: TextAlign.right,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.typography.bodySmall.copyWith(
+                  color: theme.colors.mutedForeground,
+                ),
+              ),
+            ),
+          ],
           if (currentWeek != null &&
               currentWeek != selectedWeek &&
               onJumpToCurrentWeek != null)

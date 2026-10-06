@@ -645,7 +645,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.palette,
-                      title: '显示假期/调休/改动颜色',
+                      title: '显示课程改动颜色标识',
                       value: settings.timetableDayColorMarkers,
                       onChange: (value) => ref
                           .read(appSettingsProvider.notifier)
@@ -653,7 +653,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     ),
                     ProfileSettingsCheckboxTile(
                       icon: FLucideIcons.type,
-                      title: '显示假期/调休/改动文字',
+                      title: '显示课程改动文字标识',
                       value: settings.timetableDayTextMarkers,
                       onChange: (value) => ref
                           .read(appSettingsProvider.notifier)
@@ -1360,6 +1360,15 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   Future<void> _resetAppearance() async {
     if (!mounted) return;
 
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '清空个性化设置',
+      message: '将把所有个性化设置恢复为默认值，确定继续吗？',
+      confirmLabel: '清空',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
     final settings = ref.read(appSettingsProvider);
     final backgroundPaths = {
       settings.timetableBackgroundPath,
@@ -1647,6 +1656,8 @@ class _TimetableGridPreview extends StatelessWidget {
             dashedBorderDensity: settings.timetableDashedBorderDensity,
             hideSectionTime: settings.timetableHideSectionTime,
             hideDateUnderDay: settings.timetableHideDateUnderDay,
+            showDayColorMarkers: settings.timetableDayColorMarkers,
+            showDayTextMarkers: settings.timetableDayTextMarkers,
             showStartTime: settings.timetableShowStartTime,
             hideLocation: settings.timetableHideLocation,
             hideTeacher: settings.timetableHideTeacher,

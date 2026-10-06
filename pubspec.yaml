@@ -36,6 +36,7 @@ dependencies:
   forui: 0.25.0
   path_provider: ^2.1.6
   image_gallery_saver_plus: ^5.1.1
+  two_dimensional_scrollables: ^0.5.5
 
 dev_dependencies:
   flutter_test:
