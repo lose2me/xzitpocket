@@ -226,7 +226,7 @@ void main() {
       expect(storage.getTimetableAddBlankLineAfterTitle(), isTrue);
       expect(storage.getTimetableDashedBorderDensity(), 1.5);
       expect(storage.getTimetablePageTextColor(), 0xFF111111);
-      expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
+      expect(storage.getTimetableLastCustomPageTextColor(), isNull);
       expect(storage.getTimetableCourseTextColor(), 0xFF222222);
       expect(storage.getTimetableLastCustomCourseTextColor(), 0xFF232323);
       expect(storage.getTimetableCourseBorderColor(), 0xFF333333);

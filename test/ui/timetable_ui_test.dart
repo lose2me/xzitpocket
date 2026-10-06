@@ -303,7 +303,7 @@ void main() {
     );
 
     final fridayLabel = tester.widget<Text>(find.text('五'));
-    expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
+    expect(fridayLabel.style?.color, AppTheme.light.colors.foreground);
     expect(
       find.byKey(const ValueKey('timetable-today-indicator-5')),
       findsOneWidget,
@@ -312,6 +312,44 @@ void main() {
       find.byKey(const ValueKey('timetable-today-indicator-1')),
       findsNothing,
     );
+  });
+
+  testWidgets('day color markers gate the holiday date text color', (
+    tester,
+  ) async {
+    final holidayCalendar = SemesterCalendar([
+      SchoolDay(date: DateTime(2026, 8, 31), adjustment: '/'),
+    ]);
+    const pageTextColor = Color(0xFF123456);
+    // Holiday foreground used by both the light theme and the grid fallback.
+    const holidayTextColor = Color(0xFF176B38);
+
+    Future<void> pumpGrid({required bool showColorMarkers}) async {
+      await tester.pumpWidget(
+        _testApp(
+          SizedBox(
+            width: 390,
+            height: 260,
+            child: TimetableGrid(
+              courses: const [],
+              week: 1,
+              calendar: holidayCalendar,
+              borderColor: AppTheme.light.colors.border,
+              pageTextColor: pageTextColor,
+              showDayColorMarkers: showColorMarkers,
+            ),
+          ),
+        ),
+      );
+    }
+
+    await pumpGrid(showColorMarkers: false);
+    final withoutMarker = tester.widget<Text>(find.text('一'));
+    expect(withoutMarker.style?.color?.toARGB32(), pageTextColor.toARGB32());
+
+    await pumpGrid(showColorMarkers: true);
+    final withMarker = tester.widget<Text>(find.text('一'));
+    expect(withMarker.style?.color?.toARGB32(), holidayTextColor.toARGB32());
   });
 
   testWidgets('today side lines replace grid lines on shared boundaries', (

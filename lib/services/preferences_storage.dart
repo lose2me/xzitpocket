@@ -768,10 +768,6 @@ class PreferencesStorage {
       getTimetableTodayLineColor(),
       getTimetableLastCustomTodayLineColor(),
     );
-    final keepPageTextColor = isActiveCustomColor(
-      getTimetablePageTextColor(),
-      getTimetableLastCustomPageTextColor(),
-    );
     final keepCourseTextColor = isActiveCustomColor(
       getTimetableCourseTextColor(),
       getTimetableLastCustomCourseTextColor(),
@@ -839,7 +835,8 @@ class PreferencesStorage {
       _prefs.remove('timetable_text_align_center_horizontal'),
       _prefs.remove('timetable_text_align_center_vertical'),
       _prefs.remove('timetable_border_type'),
-      if (!keepPageTextColor) _prefs.remove('timetable_page_text_color'),
+      _prefs.remove('timetable_page_text_color'),
+      _prefs.remove('timetable_last_custom_page_text_color'),
       if (!keepCourseTextColor) _prefs.remove('timetable_course_text_color'),
       if (!keepCourseBorderColor)
         _prefs.remove('timetable_course_border_color'),

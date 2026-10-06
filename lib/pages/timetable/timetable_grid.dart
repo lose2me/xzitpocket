@@ -7,17 +7,9 @@ import 'package:forui/forui.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../ui/app_tokens.dart';
+import '../../ui/app_colors.dart';
 import 'course_card.dart';
 import 'time_column.dart';
-
-const _holidayHeaderBackground = Color(0xFFDDF4E5);
-const _holidayHeaderForeground = Color(0xFF216E3A);
-const _makeupHeaderBackground = Color(0xFFFBE3E3);
-const _makeupHeaderForeground = Color(0xFFB42318);
-// Status backgrounds stay light on the timetable. These darker date colors
-// keep the day number and weekday readable in dark mode as well.
-const _holidayDateForeground = Color(0xFF1E6335);
-const _makeupDateForeground = Color(0xFF941F1F);
 
 class TimetableDayDragData {
   final int week;
@@ -722,12 +714,32 @@ class _TimetableGridState extends State<TimetableGrid> {
         : isMakeupClass
         ? '调'
         : null;
-    final statusDateColor = widget.pageTextColor != null
+    final semantic =
+        theme.extensions.whereType<AppSemanticColors>().firstOrNull ??
+        const AppSemanticColors(
+          controlBorder: Color(0xFFCBD5E1),
+          success: Color(0xFF15803D),
+          successContainer: Color(0xFFE8F7ED),
+          onSuccessContainer: Color(0xFF176B38),
+          warning: Color(0xFFC2410C),
+          warningContainer: Color(0xFFFFF1E6),
+          onWarningContainer: Color(0xFF9A3412),
+          info: Color(0xFF2563EB),
+          infoContainer: Color(0xFFE0ECFF),
+          onInfoContainer: Color(0xFF173B7A),
+          holidayBackground: Color(0xFFE8F7ED),
+          holidayForeground: Color(0xFF176B38),
+          makeupBackground: Color(0xFFFFF1E6),
+          makeupForeground: Color(0xFF9A3412),
+          timetableForeground: Color(0xFF172033),
+          timetableMutedForeground: Color(0xFF475569),
+        );
+    final statusDateColor = !widget.showDayColorMarkers
         ? null
         : isHoliday
-        ? _holidayDateForeground
+        ? semantic.holidayForeground
         : isMakeupClass
-        ? _makeupDateForeground
+        ? semantic.makeupForeground
         : null;
     final pending =
         widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true
@@ -766,9 +778,9 @@ class _TimetableGridState extends State<TimetableGrid> {
                 : isToday
                 ? theme.colors.primary.withValues(alpha: 0.24)
                 : isHoliday && widget.showDayColorMarkers
-                ? _holidayHeaderBackground.withValues(alpha: 0.78)
+                ? semantic.holidayBackground.withValues(alpha: 0.92)
                 : isMakeupClass && widget.showDayColorMarkers
-                ? _makeupHeaderBackground.withValues(alpha: 0.78)
+                ? semantic.makeupBackground.withValues(alpha: 0.92)
                 : null,
           ),
           child: ClipRect(
@@ -800,8 +812,8 @@ class _TimetableGridState extends State<TimetableGrid> {
                       style: theme.typography.caption.copyWith(
                         color:
                             (isHoliday
-                                    ? _holidayHeaderForeground
-                                    : _makeupHeaderForeground)
+                                    ? semantic.holidayForeground
+                                    : semantic.makeupForeground)
                                 .withValues(alpha: 0.78),
                         fontSize: 7,
                         fontWeight: FontWeight.w600,
@@ -900,10 +912,7 @@ class _TimetableGridState extends State<TimetableGrid> {
               fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
               color:
                   (statusDateColor ??
-                          (isToday
-                              ? theme.colors.primary
-                              : widget.pageTextColor ??
-                                    theme.colors.mutedForeground))
+                          (widget.pageTextColor ?? theme.colors.foreground))
                       .withValues(alpha: widget.pageTextOpacity),
               fontSize: widget.dateTextSize,
             ),
@@ -914,10 +923,7 @@ class _TimetableGridState extends State<TimetableGrid> {
             fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
             color:
                 (statusDateColor ??
-                        (isToday
-                            ? theme.colors.primary
-                            : widget.pageTextColor ??
-                                  theme.colors.mutedForeground))
+                        (widget.pageTextColor ?? theme.colors.foreground))
                     .withValues(alpha: widget.pageTextOpacity),
             fontSize: widget.dateTextSize,
           ),

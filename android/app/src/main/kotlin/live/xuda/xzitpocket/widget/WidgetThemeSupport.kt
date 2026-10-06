@@ -56,12 +56,12 @@ internal object WidgetThemeSupport {
         (prefs.all[KEY_CUSTOM_THEME_COLOR] as? Number)?.let { return it.toLong().toInt() }
         val dark = resolveThemeMode(context) == WidgetThemeMode.DARK
         return when (prefs.getString(KEY_THEME_COLOR, "rose")) {
-            "blue" -> if (dark) 0xFFAAC7FF.toInt() else 0xFF415F91.toInt()
-            "green" -> if (dark) 0xFFA4D88A.toInt() else 0xFF3F682E.toInt()
-            "orange" -> if (dark) 0xFFFFB86D.toInt() else 0xFF8B5000.toInt()
-            "purple" -> if (dark) 0xFFE0B6F2.toInt() else 0xFF735085.toInt()
-            "teal" -> if (dark) 0xFF4FD8D8.toInt() else 0xFF006A6A.toInt()
-            else -> if (dark) 0xFFFFB3B3.toInt() else 0xFF904A4A.toInt()
+            "blue" -> if (dark) 0xFF8AB4FF.toInt() else 0xFF2563EB.toInt()
+            "green" -> if (dark) 0xFF7BE495.toInt() else 0xFF15803D.toInt()
+            "orange" -> if (dark) 0xFFFFB36B.toInt() else 0xFFC2410C.toInt()
+            "purple" -> if (dark) 0xFFC4A1FF.toInt() else 0xFF7C3AED.toInt()
+            "teal" -> if (dark) 0xFF5EEAD4.toInt() else 0xFF0F766E.toInt()
+            else -> if (dark) 0xFFFF8DB7.toInt() else 0xFFBE185D.toInt()
         }
     }
 

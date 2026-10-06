@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -77,7 +78,11 @@ class ControlService {
   DateTime? _accessExpiresAt;
   DateTime? _refreshExpiresAt;
 
-  ControlService._()
+  @visibleForTesting
+  ControlService.forTesting({required HttpClientAdapter adapter})
+    : this._(adapter: adapter);
+
+  ControlService._({HttpClientAdapter? adapter})
     : baseUrl = configuredControlBaseUrl.trim().replaceFirst(
         RegExp(r'/$'),
         '',
@@ -94,6 +99,7 @@ class ControlService {
           validateStatus: (status) => status != null,
         ),
       );
+      if (adapter != null) _dio.httpClientAdapter = adapter;
     }
   }
 
@@ -970,8 +976,18 @@ class ControlService {
       final error = rawError is Map
           ? _stringMap(rawError)
           : const <String, dynamic>{};
+      final errorCode = error['code']?.toString() ?? 'control_request_failed';
+      final authorization = headers?['Authorization'];
+      if (_accessToken != null &&
+          authorization == 'Bearer $_accessToken' &&
+          (status == 401 || errorCode == 'account_disabled')) {
+        // Control can revoke a session before its local expiry. Discard only
+        // the rejected session so the next login sync can create a new one.
+        _clearSession();
+        await _persistState();
+      }
       throw ControlApiException(
-        error['code']?.toString() ?? 'control_request_failed',
+        errorCode,
         error['message']?.toString() ?? 'Control 请求失败',
         status,
       );
@@ -1075,7 +1091,6 @@ bool isAllowedControlDownloadUrl(Uri controlUri, Uri downloadUri) =>
 
 bool _isDeviceInvalid(ControlApiException error) =>
     error.code == 'invalid_device_token' ||
-    error.code == 'device_revoked' ||
     error.code == 'installation_mismatch' ||
     error.code == 'device_mismatch';
 

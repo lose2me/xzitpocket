@@ -725,10 +725,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTextAlignCenterVertical:
           defaults.timetableTextAlignCenterVertical,
       timetableBorderType: defaults.timetableBorderType,
-      timetablePageTextColor: activeCustomColor(
-        state.timetablePageTextColor,
-        state.timetableLastCustomPageTextColor,
-      ),
+      timetablePageTextColor: null,
+      timetableLastCustomPageTextColor: null,
       timetableCourseTextColor: activeCustomColor(
         state.timetableCourseTextColor,
         state.timetableLastCustomCourseTextColor,

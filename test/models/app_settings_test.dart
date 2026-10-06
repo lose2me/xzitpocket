@@ -52,7 +52,7 @@ void main() {
 
     test('built-in timetable text colors follow the active brightness', () {
       const settings = AppSettings(
-        timetablePageTextColor: Color(0xFF006A6A),
+        timetablePageTextColor: Color(0xFF0F766E),
       );
 
       expect(

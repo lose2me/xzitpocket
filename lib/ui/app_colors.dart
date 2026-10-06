@@ -13,6 +13,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
   final Color info;
   final Color infoContainer;
   final Color onInfoContainer;
+  final Color holidayBackground;
+  final Color holidayForeground;
+  final Color makeupBackground;
+  final Color makeupForeground;
   final Color timetableForeground;
   final Color timetableMutedForeground;
 
@@ -27,6 +31,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     required this.info,
     required this.infoContainer,
     required this.onInfoContainer,
+    required this.holidayBackground,
+    required this.holidayForeground,
+    required this.makeupBackground,
+    required this.makeupForeground,
     required this.timetableForeground,
     required this.timetableMutedForeground,
   });
@@ -43,6 +51,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     Color? info,
     Color? infoContainer,
     Color? onInfoContainer,
+    Color? holidayBackground,
+    Color? holidayForeground,
+    Color? makeupBackground,
+    Color? makeupForeground,
     Color? timetableForeground,
     Color? timetableMutedForeground,
   }) => AppSemanticColors(
@@ -56,6 +68,10 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
     info: info ?? this.info,
     infoContainer: infoContainer ?? this.infoContainer,
     onInfoContainer: onInfoContainer ?? this.onInfoContainer,
+    holidayBackground: holidayBackground ?? this.holidayBackground,
+    holidayForeground: holidayForeground ?? this.holidayForeground,
+    makeupBackground: makeupBackground ?? this.makeupBackground,
+    makeupForeground: makeupForeground ?? this.makeupForeground,
     timetableForeground: timetableForeground ?? this.timetableForeground,
     timetableMutedForeground:
         timetableMutedForeground ?? this.timetableMutedForeground,
@@ -91,6 +107,26 @@ class AppSemanticColors extends ThemeExtension<AppSemanticColors> {
       info: Color.lerp(info, other.info, t)!,
       infoContainer: Color.lerp(infoContainer, other.infoContainer, t)!,
       onInfoContainer: Color.lerp(onInfoContainer, other.onInfoContainer, t)!,
+      holidayBackground: Color.lerp(
+        holidayBackground,
+        other.holidayBackground,
+        t,
+      )!,
+      holidayForeground: Color.lerp(
+        holidayForeground,
+        other.holidayForeground,
+        t,
+      )!,
+      makeupBackground: Color.lerp(
+        makeupBackground,
+        other.makeupBackground,
+        t,
+      )!,
+      makeupForeground: Color.lerp(
+        makeupForeground,
+        other.makeupForeground,
+        t,
+      )!,
       timetableForeground: Color.lerp(
         timetableForeground,
         other.timetableForeground,

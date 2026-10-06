@@ -1129,20 +1129,53 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
     super.dispose();
   }
 
+  double get _contentHeight =>
+      (widget.courses.length + 1) * _rowHeight + _scrollbarInset;
+
+  double _tableHeight(BoxConstraints constraints) =>
+      math.min(_contentHeight, constraints.maxHeight);
+
+  double _blankHeight(BoxConstraints constraints) =>
+      math.max(0.0, constraints.minHeight - _tableHeight(constraints));
+
+  void _nudgeHorizontal(double delta) {
+    final position = _horizontalController.position;
+    if (!position.hasContentDimensions) return;
+    position.jumpTo(
+      (position.pixels + delta).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+    );
+  }
+
+  void _flingHorizontal(DragEndDetails details) {
+    final velocity = -details.velocity.pixelsPerSecond.dx;
+    if (velocity.abs() < 50) return;
+    final position = _horizontalController.position;
+    if (!position.hasContentDimensions) return;
+    _horizontalController.animateTo(
+      (position.pixels + velocity * 0.15).clamp(
+        position.minScrollExtent,
+        position.maxScrollExtent,
+      ),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.decelerate,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = widget.theme;
     final cellBorder = theme.colors.border.withValues(alpha: 0.55);
     final rowBorder = theme.colors.border.withValues(alpha: 0.7);
-    final contentHeight =
-        (widget.courses.length + 1) * _rowHeight + _scrollbarInset;
     return LayoutBuilder(
       builder: (context, constraints) => Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: math.min(contentHeight, constraints.maxHeight),
+            height: _tableHeight(constraints),
             child: Scrollbar(
               controller: _horizontalController,
               thumbVisibility: true,
@@ -1211,6 +1244,16 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
               ),
             ),
           ),
+          if (_blankHeight(constraints) > 0)
+            SizedBox(
+              height: _blankHeight(constraints),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragUpdate: (details) =>
+                    _nudgeHorizontal(-details.delta.dx),
+                onHorizontalDragEnd: _flingHorizontal,
+              ),
+            ),
         ],
       ),
     );

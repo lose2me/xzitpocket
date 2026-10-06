@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 import 'package:xzitpocket/pages/tools/grade_query_page.dart';
 import 'package:xzitpocket/services/auth_service.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
@@ -89,6 +90,85 @@ void main() {
     expect(find.text('成绩学年'), findsOneWidget);
     expect(find.text('课程名称'), findsOneWidget);
     expect(find.text('大学体育(II)'), findsOneWidget);
+  });
+
+  testWidgets('blank area below a short course table scrolls horizontally', (
+    tester,
+  ) async {
+    final academic = AcademicStatus(
+      gpa: 2.4,
+      totalRequired: 160,
+      totalEarned: 48.5,
+      categories: const [
+        AcademicCategory(
+          name: '通识必修课',
+          reqCredits: 30,
+          earnedCredits: 15,
+          missingCredits: 15,
+          courses: [
+            AcademicCourse(
+              academicYear: '2025-2026',
+              term: '2',
+              courseCode: '3003G0002',
+              name: '大学体育(II)',
+              hours: '实践(2.0)',
+              nature: '必修',
+              credit: '1.0',
+              category: '通识必修课',
+              maxScore: '100',
+              gradePoint: '4.0',
+              score: '90',
+            ),
+          ],
+        ),
+      ],
+    );
+    final now = DateTime.now().millisecondsSinceEpoch;
+    SharedPreferences.setMockInitialValues({
+      'grade_cache': jsonEncode({
+        'grades': <Object>[],
+        'years': <Object>[],
+        'termsByYear': <String, Object>{},
+      }),
+      'grade_cache_time': now,
+      'academic_cache': jsonEncode(academic.toJson()),
+      'academic_cache_time': now,
+    });
+    final storage = PreferencesStorage();
+    await storage.init();
+
+    await tester.pumpWidget(
+      _testApp(
+        GradeQueryPage(
+          studentId: 'test',
+          password: 'test',
+          preferencesStorage: storage,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('学业总览'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('通识必修课'));
+    await tester.pumpAndSettle();
+
+    final bottomBar = find.byWidgetPredicate(
+      (widget) =>
+          widget is Scrollbar &&
+          widget.scrollbarOrientation == ScrollbarOrientation.bottom,
+    );
+    final controller = tester.widget<Scrollbar>(bottomBar).controller!;
+    expect(controller.position.pixels, 0);
+
+    final tableRect = tester.getRect(find.byType(TableView));
+    expect(tableRect.bottom, lessThan(600));
+    await tester.dragFrom(
+      Offset(tableRect.center.dx, tableRect.bottom + 40),
+      const Offset(-200, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(controller.position.pixels, greaterThan(0));
   });
 }
 

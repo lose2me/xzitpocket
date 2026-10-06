@@ -24,12 +24,12 @@ enum AppThemePreference {
 }
 
 enum AppThemeColor {
-  blue(Color(0xFF415F91), Color(0xFFAAC7FF), '海蓝'),
-  rose(Color(0xFF904A4A), Color(0xFFFFB3B3), '玫红'),
-  green(Color(0xFF3F682E), Color(0xFFA4D88A), '翠绿'),
-  orange(Color(0xFF8B5000), Color(0xFFFFB86D), '暖橙'),
-  purple(Color(0xFF735085), Color(0xFFE0B6F2), '罗兰紫'),
-  teal(Color(0xFF006A6A), Color(0xFF4FD8D8), '青碧');
+  blue(Color(0xFF2563EB), Color(0xFF8AB4FF), '海蓝'),
+  rose(Color(0xFFBE185D), Color(0xFFFF8DB7), '玫红'),
+  green(Color(0xFF15803D), Color(0xFF7BE495), '翠绿'),
+  orange(Color(0xFFC2410C), Color(0xFFFFB36B), '暖橙'),
+  purple(Color(0xFF7C3AED), Color(0xFFC4A1FF), '罗兰紫'),
+  teal(Color(0xFF0F766E), Color(0xFF5EEAD4), '青碧');
 
   final Color lightColor;
   final Color darkColor;
@@ -84,12 +84,12 @@ enum TimetableBorderType {
 }
 
 enum AppPageBackgroundColor {
-  neutral(Color(0xFFEEF2F6), Color(0xFF1B1F24), '雾灰'),
-  blue(Color(0xFFE7EFFA), Color(0xFF172A46), '浅蓝'),
-  teal(Color(0xFFDDEFEF), Color(0xFF123636), '青绿'),
-  green(Color(0xFFE5F0E0), Color(0xFF1D3420), '浅绿'),
-  rose(Color(0xFFF6E7E7), Color(0xFF3D2325), '浅红'),
-  purple(Color(0xFFF0E7F4), Color(0xFF33263A), '淡紫');
+  neutral(Color(0xFFF4F6F8), Color(0xFF12171C), '雾灰'),
+  blue(Color(0xFFF1F5FF), Color(0xFF111D33), '浅蓝'),
+  teal(Color(0xFFEDF9F7), Color(0xFF0D2927), '青绿'),
+  green(Color(0xFFF1FAF3), Color(0xFF132619), '浅绿'),
+  rose(Color(0xFFFFF3F7), Color(0xFF321522), '浅红'),
+  purple(Color(0xFFF7F3FF), Color(0xFF211735), '淡紫');
 
   final Color lightColor;
   final Color darkColor;
