@@ -136,24 +136,37 @@ class AppPageBody extends StatelessWidget {
   final double maxWidth;
   final bool safeArea;
 
+  /// Whether to reserve the same horizontal page gutter as [AppPageListView].
+  ///
+  /// Empty states that share a full-width element (e.g. a header or filter)
+  /// with the populated list should enable this so the content width stays the
+  /// same across the two states.
+  final bool pageGutter;
+
   const AppPageBody({
     super.key,
     required this.child,
     this.maxWidth = AppLayout.contentMaxWidth,
     this.safeArea = true,
+    this.pageGutter = false,
   });
 
   @override
   Widget build(BuildContext context) {
     Widget content = LayoutBuilder(
-      builder: (context, constraints) => Align(
-        alignment: Alignment.topCenter,
-        child: SizedBox(
-          width: constraints.maxWidth.clamp(0.0, maxWidth).toDouble(),
-          height: constraints.maxHeight,
-          child: child,
-        ),
-      ),
+      builder: (context, constraints) {
+        final inset = pageGutter ? AppLayout.pageGutter(context) * 2 : 0.0;
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: (constraints.maxWidth - inset)
+                .clamp(0.0, maxWidth)
+                .toDouble(),
+            height: constraints.maxHeight,
+            child: child,
+          ),
+        );
+      },
     );
     if (safeArea) content = SafeArea(child: content);
     return content;

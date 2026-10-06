@@ -252,9 +252,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
   Widget _buildGradeTab(FThemeData theme) {
     final grades = _filtered;
-    if (_loading && _result == null) {
-      return const Center(child: FCircularProgress());
-    }
     if (grades.isEmpty) {
       return AppPageBody(
         maxWidth: AppLayout.resultMaxWidth,
@@ -469,27 +466,36 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     );
   }
 
-  Widget _buildEmptyGradeState(FThemeData theme) => Center(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          _hideSemesterSelector
-              ? FLucideIcons.clock3
-              : FLucideIcons.graduationCap,
-          size: 48,
-          color: theme.colors.mutedForeground,
-        ),
-        const SizedBox(height: 12),
-        Text(
-          _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
-          style: theme.typography.tileTitle.copyWith(
+  Widget _buildEmptyGradeState(FThemeData theme) {
+    final loading = _loading && _result == null;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            loading
+                ? FLucideIcons.hourglass
+                : _hideSemesterSelector
+                ? FLucideIcons.clock3
+                : FLucideIcons.graduationCap,
+            size: 48,
             color: theme.colors.mutedForeground,
           ),
-        ),
-      ],
-    ),
-  );
+          const SizedBox(height: 12),
+          Text(
+            loading
+                ? '正在加载成绩'
+                : _hideSemesterSelector
+                ? '暂未开始考试'
+                : '暂无成绩',
+            style: theme.typography.tileTitle.copyWith(
+              color: theme.colors.mutedForeground,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildGradeTile(FThemeData theme, GradeItem grade) {
     final details = [
@@ -585,12 +591,15 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   // ── Academic Tab ──
 
   Widget _buildAcademicTab(FThemeData theme) {
-    if (_loading && _academic == null) {
-      return const Center(child: FCircularProgress());
-    }
     final status = _academic;
     if (status == null) {
-      return const Center(child: Text('点击刷新加载'));
+      return _loading
+          ? const AppStateView(icon: FLucideIcons.hourglass, title: '正在加载学业总览')
+          : const AppStateView(
+              icon: FLucideIcons.chartColumn,
+              title: '暂无学业数据',
+              description: '点击右上角刷新',
+            );
     }
 
     final progress = status.totalRequired > 0

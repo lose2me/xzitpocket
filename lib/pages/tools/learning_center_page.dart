@@ -165,7 +165,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _LearningTab.favorite => '收藏集',
       },
       actions: loading
-          ? const []
+          ? const [
+              AppIconButton(
+                icon: FLucideIcons.refreshCw,
+                onPress: null,
+                tooltip: '正在加载题库',
+                loading: true,
+              ),
+            ]
           : _tab == _LearningTab.bank
           ? _bankSelectionMode
                 ? [
@@ -195,9 +202,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ],
       footer: _buildBottomNavigation(),
       child: loading
-          ? const Center(
-              child: FCircularProgress(size: FCircularProgressSizeVariant.md),
-            )
+          ? const AppStateView(icon: FLucideIcons.library, title: '正在加载题库')
           : switch (_tab) {
               _LearningTab.bank => _buildBankPage(context),
               _LearningTab.wrong => _buildQuestionPage(

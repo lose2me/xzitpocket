@@ -38,8 +38,9 @@ class _OpenSourceLicensePageState extends State<OpenSourceLicensePage> {
           if (snapshot.connectionState != ConnectionState.done) {
             return const AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
-              child: Center(
-                child: FCircularProgress(size: FCircularProgressSizeVariant.md),
+              child: AppStateView(
+                icon: FLucideIcons.scrollText,
+                title: '正在加载许可证',
               ),
             );
           }

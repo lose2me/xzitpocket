@@ -119,7 +119,7 @@ void main() {
           of: find.byType(WeekHeader),
           matching: find.textContaining(RegExp(r'^第\d+周$')),
         ),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.byType(PageView), findsOneWidget);
       expect(

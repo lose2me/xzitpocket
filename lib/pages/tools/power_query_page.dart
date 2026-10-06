@@ -308,12 +308,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                   const Spacer(),
                 ],
               ),
-              if (_isRefreshing)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: FCircularProgress()),
-                )
-              else if (_displayUsage.isNotEmpty) ...[
+              if (_displayUsage.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
                 ..._displayUsage
                     .take(_visibleCount)

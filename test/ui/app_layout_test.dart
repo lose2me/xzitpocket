@@ -30,6 +30,20 @@ void main() {
     });
   });
 
+  group('AppPageBody', () {
+    testWidgets('reserves the page gutter when requested', (tester) async {
+      await _pumpBody(tester, width: 390, pageGutter: true);
+
+      expect(tester.getSize(find.byKey(_bodyChildKey)).width, 390 - 16 * 2);
+    });
+
+    testWidgets('skips the page gutter by default', (tester) async {
+      await _pumpBody(tester, width: 390, pageGutter: false);
+
+      expect(tester.getSize(find.byKey(_bodyChildKey)).width, 390);
+    });
+  });
+
   test('appRoute stores a stable route name', () {
     final route = appRoute<void>(
       name: AppRouteNames.campusCard,
@@ -91,6 +105,32 @@ Future<void> _pumpList(WidgetTester tester, {required double width}) async {
       child: const Directionality(
         textDirection: TextDirection.ltr,
         child: AppPageListView(children: [SizedBox(height: 1)]),
+      ),
+    ),
+  );
+}
+
+const _bodyChildKey = ValueKey('app-page-body-child');
+
+Future<void> _pumpBody(
+  WidgetTester tester, {
+  required double width,
+  required bool pageGutter,
+}) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = Size(width, 800);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+
+  await tester.pumpWidget(
+    MediaQuery(
+      data: MediaQueryData(size: Size(width, 800)),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: AppPageBody(
+          pageGutter: pageGutter,
+          child: const SizedBox.expand(key: _bodyChildKey),
+        ),
       ),
     ),
   );

@@ -175,6 +175,7 @@ class _BookListPageState extends State<BookListPage> {
       child: result == null || result.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
+              pageGutter: true,
               child: Column(
                 children: [
                   if (_selectedSemester != null)

@@ -33,6 +33,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
   RepairDetail? _detail;
   String? _error;
   CasSession? _session;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -47,10 +48,12 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
   }
 
   Future<void> _load() async {
+    if (_isRefreshing) return;
     if (widget.record.formUuid.isEmpty) {
       setState(() => _error = '缺少报修单详情标识');
       return;
     }
+    setState(() => _isRefreshing = true);
     CasSession? session;
     try {
       session = await _service.login(widget.studentId, widget.password);
@@ -62,10 +65,13 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
         session.close();
         return;
       }
+      final previousSession = _session;
       setState(() {
         _session = session;
         _detail = detail;
+        _error = null;
       });
+      if (previousSession != null) previousSession.close();
     } on AuthException catch (e, stackTrace) {
       session?.close();
       talker.error('报修详情加载失败', e, stackTrace);
@@ -74,27 +80,29 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
       session?.close();
       talker.error('报修详情加载异常', e, stackTrace);
       if (mounted) setState(() => _error = '详情加载失败');
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
     return AppPage(
       title: _title,
       actions: [
-        if (_detail == null && _error == null)
-          const FHeaderAction(
-            icon: FCircularProgress(size: FCircularProgressSizeVariant.sm),
-            onPress: null,
-          ),
+        AppIconButton(
+          icon: FLucideIcons.refreshCw,
+          onPress: _isRefreshing ? null : _load,
+          tooltip: '刷新处理进度',
+          loading: _isRefreshing,
+        ),
       ],
       child: _detail == null
           ? AppPageBody(
               safeArea: false,
               child: _error == null
                   ? const AppStateView(
-                      icon: FLucideIcons.loaderCircle,
+                      icon: FLucideIcons.hourglass,
                       title: '正在加载详情',
                     )
                   : AppStateView(
@@ -103,7 +111,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
                       destructive: true,
                     ),
             )
-          : _buildContent(theme, _detail!),
+          : _buildContent(_detail!),
     );
   }
 
@@ -113,27 +121,24 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
     return content.length > 16 ? '${content.substring(0, 16)}...' : content;
   }
 
-  Widget _buildContent(FThemeData theme, RepairDetail detail) {
+  Widget _buildContent(RepairDetail detail) {
+    if (detail.steps.isEmpty) {
+      return const AppPageBody(
+        safeArea: false,
+        child: AppStateView(icon: FLucideIcons.listChecks, title: '暂无流程记录'),
+      );
+    }
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
       topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
-      children: detail.steps.isEmpty
-          ? [
-              Text(
-                '暂无流程记录',
-                style: theme.typography.body.sm.copyWith(
-                  color: theme.colors.mutedForeground,
-                ),
-              ),
-            ]
-          : [
-              for (var i = 0; i < detail.steps.length; i++)
-                _ProcessStepTile(
-                  step: detail.steps[i],
-                  isLast: i == detail.steps.length - 1,
-                ),
-            ],
+      children: [
+        for (var i = 0; i < detail.steps.length; i++)
+          _ProcessStepTile(
+            step: detail.steps[i],
+            isLast: i == detail.steps.length - 1,
+          ),
+      ],
     );
   }
 }
@@ -297,13 +302,7 @@ class _RepairImageThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return FTappable(
-      onPress: () => Navigator.of(context).push(
-        appRoute<void>(
-          name: '/tools/repair/image-preview',
-          fullscreenDialog: true,
-          builder: (_) => _RepairImageViewerPage(url: url),
-        ),
-      ),
+      onPress: () => _showRepairImage(context, url),
       child: Image.network(
         url,
         width: 96,
@@ -322,16 +321,22 @@ class _RepairImageThumbnail extends StatelessWidget {
   }
 }
 
-class _RepairImageViewerPage extends StatefulWidget {
+Future<void> _showRepairImage(BuildContext context, String url) =>
+    showFDialog<void>(
+      context: context,
+      builder: (context, style, animation) => _RepairImageOverlay(url: url),
+    );
+
+class _RepairImageOverlay extends StatefulWidget {
   final String url;
 
-  const _RepairImageViewerPage({required this.url});
+  const _RepairImageOverlay({required this.url});
 
   @override
-  State<_RepairImageViewerPage> createState() => _RepairImageViewerPageState();
+  State<_RepairImageOverlay> createState() => _RepairImageOverlayState();
 }
 
-class _RepairImageViewerPageState extends State<_RepairImageViewerPage> {
+class _RepairImageOverlayState extends State<_RepairImageOverlay> {
   bool _saving = false;
 
   Future<void> _save() async {
@@ -369,30 +374,52 @@ class _RepairImageViewerPageState extends State<_RepairImageViewerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return AppPage(
-      title: '图片预览',
-      transparentBackground: true,
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.download,
-          tooltip: '保存到相册',
-          onPress: _save,
-          loading: _saving,
-        ),
-      ],
-      child: Center(
-        child: InteractiveViewer(
-          minScale: 0.5,
-          maxScale: 5,
-          child: Image.network(
-            widget.url,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => const AppStateView(
-              icon: FLucideIcons.imageOff,
-              title: '图片加载失败',
+    return SizedBox.expand(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).maybePop(),
             ),
           ),
-        ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xxl,
+                vertical: AppSpacing.page,
+              ),
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 5,
+                child: Image.network(
+                  widget.url,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const AppStateView(
+                    icon: FLucideIcons.imageOff,
+                    title: '图片加载失败',
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: AppIconButton(
+                  icon: FLucideIcons.download,
+                  tooltip: '保存到相册',
+                  iconColor: const Color(0xFFFFFFFF),
+                  onPress: _save,
+                  loading: _saving,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
