@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:home_widget/home_widget.dart';
 
@@ -49,7 +48,6 @@ class WidgetService {
 
   static Future<void> updateWidget({
     required List<Course> courses,
-    required List<Course> originalCourses,
     required DateTime semesterStart,
   }) async {
     final payloadCourses = <Map<String, dynamic>>[];
@@ -127,39 +125,6 @@ class WidgetService {
   }
 }
 
-Set<String> adjustedCourseDates({
-  required List<Course> courses,
-  required List<Course> originalCourses,
-  required DateTime semesterStart,
-}) {
-  if (originalCourses.isEmpty) return const {};
-  final occurrences = <(int, int)>{};
-  for (final course in [...courses, ...originalCourses]) {
-    for (final week in course.weeks) {
-      occurrences.add((week, course.weekday));
-    }
-  }
-
-  final monday = DateTime(
-    semesterStart.year,
-    semesterStart.month,
-    semesterStart.day,
-  ).subtract(Duration(days: semesterStart.weekday - 1));
-  final result = <String>{};
-  for (final (week, weekday) in occurrences) {
-    final current = _courseDaySignatures(courses, week, weekday);
-    final baseline = _courseDaySignatures(originalCourses, week, weekday);
-    if (listEquals(current, baseline)) continue;
-    final date = monday.add(
-      Duration(days: (week - 1) * DateTime.daysPerWeek + weekday - 1),
-    );
-    result.add(
-      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
-    );
-  }
-  return result;
-}
-
 Set<String> schoolCalendarDates(
   Iterable<SchoolDay> days,
   bool Function(SchoolDay day) predicate,
@@ -170,21 +135,3 @@ Set<String> schoolCalendarDates(
 
 String _calendarDateKey(DateTime date) =>
     '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-List<String> _courseDaySignatures(
-  List<Course> courses,
-  int week,
-  int weekday,
-) => [
-  for (final course in courses)
-    if (course.weekday == weekday && course.weeks.contains(week))
-      [
-        course.title,
-        course.teacher,
-        ([...course.sessions]..sort()).join(','),
-        course.campus,
-        course.place,
-        course.colorIndex,
-        course.courseId,
-      ].join('\u001f'),
-]..sort();

@@ -103,7 +103,6 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     try {
       await WidgetService.updateWidget(
         courses: widget.courseStorage.getCourses(),
-        originalCourses: widget.courseStorage.getOriginalCourses(),
         semesterStart: semesterStartDate,
       );
     } on WidgetSyncException catch (e) {

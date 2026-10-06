@@ -1092,6 +1092,7 @@ class _AcademicCourseTable extends StatefulWidget {
 
 class _AcademicCourseTableState extends State<_AcademicCourseTable> {
   static const _rowHeight = 44.0;
+  static const _scrollbarInset = 10.0;
 
   final _horizontalController = ScrollController();
   final _verticalController = ScrollController();
@@ -1127,15 +1128,24 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
     final theme = widget.theme;
     final cellBorder = theme.colors.border.withValues(alpha: 0.55);
     final rowBorder = theme.colors.border.withValues(alpha: 0.7);
-    return Scrollbar(
-      controller: _horizontalController,
-      thumbVisibility: true,
-      scrollbarOrientation: ScrollbarOrientation.bottom,
-      child: Scrollbar(
-        controller: _verticalController,
-        thumbVisibility: true,
-        scrollbarOrientation: ScrollbarOrientation.right,
-        child: TableView.builder(
+    final contentHeight =
+        (widget.courses.length + 1) * _rowHeight + _scrollbarInset;
+    return LayoutBuilder(
+      builder: (context, constraints) => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: math.min(contentHeight, constraints.maxHeight),
+            child: Scrollbar(
+              controller: _horizontalController,
+              thumbVisibility: true,
+              scrollbarOrientation: ScrollbarOrientation.bottom,
+              child: Scrollbar(
+                controller: _verticalController,
+                thumbVisibility: true,
+                scrollbarOrientation: ScrollbarOrientation.right,
+                child: TableView.builder(
           verticalDetails: ScrollableDetails.vertical(
             controller: _verticalController,
           ),
@@ -1191,7 +1201,11 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
               ),
             );
           },
-        ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

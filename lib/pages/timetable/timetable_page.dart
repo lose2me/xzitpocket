@@ -950,12 +950,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               : pendingDayAction,
                                           onPendingDayActionCancel:
                                               _cancelDayAction,
-                                          adjustedWeekdays: showingSecondary
-                                              ? const {}
-                                              : _adjustedWeekdays(
-                                                  displayedCourses,
-                                                  week,
-                                                ),
                                           suppressDayDrop:
                                               showingSecondary ||
                                               _edgeTriggerSide != null,

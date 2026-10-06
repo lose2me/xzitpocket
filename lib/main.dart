@@ -135,7 +135,6 @@ Future<void> _finishStartup(
   try {
     await WidgetService.updateWidget(
       courses: courseStorage.getCourses(),
-      originalCourses: courseStorage.getOriginalCourses(),
       semesterStart: semesterStartDate,
     );
   } on WidgetSyncException catch (e) {

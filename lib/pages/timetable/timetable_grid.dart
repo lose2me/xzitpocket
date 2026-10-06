@@ -80,7 +80,6 @@ class TimetableGrid extends StatefulWidget {
   final VoidCallback? onDayDragEnd;
   final TimetableDayActionIndicator? pendingDayAction;
   final ValueChanged<int>? onPendingDayActionCancel;
-  final Set<int> adjustedWeekdays;
   final bool suppressDayDrop;
   final Animation<double>? dayActionAnimation;
   final Animation<double>? countdownAnimation;
@@ -150,7 +149,6 @@ class TimetableGrid extends StatefulWidget {
     this.onDayDragEnd,
     this.pendingDayAction,
     this.onPendingDayActionCancel,
-    this.adjustedWeekdays = const {},
     this.suppressDayDrop = false,
     this.dayActionAnimation,
     this.countdownAnimation,
@@ -719,30 +717,17 @@ class _TimetableGridState extends State<TimetableGrid> {
     final highlighted = !widget.suppressDayDrop && _dragHoverWeekday == weekday;
     final isHoliday = calendarDay?.isHoliday == true;
     final isMakeupClass = calendarDay?.isMakeupClass == true;
-    final adjusted =
-        widget.adjustedWeekdays.contains(weekday) &&
-        !isHoliday &&
-        !isMakeupClass;
     final marker = isHoliday
         ? '假'
         : isMakeupClass
         ? '调'
-        : adjusted
-        ? '改'
         : null;
-    final markerColor = isHoliday
-        ? _holidayHeaderForeground
-        : isMakeupClass
-        ? _makeupHeaderForeground
-        : theme.colors.primary;
     final statusDateColor = widget.pageTextColor != null
         ? null
         : isHoliday
         ? _holidayDateForeground
         : isMakeupClass
         ? _makeupDateForeground
-        : adjusted
-        ? theme.colors.primary
         : null;
     final pending =
         widget.pendingDayAction?.affectedWeekdays.contains(weekday) == true
@@ -778,14 +763,12 @@ class _TimetableGridState extends State<TimetableGrid> {
                 ? const Color(0xFF8B5CF6).withValues(alpha: 0.16)
                 : actionColor != null
                 ? actionColor.withValues(alpha: 0.16)
+                : isToday
+                ? theme.colors.primary.withValues(alpha: 0.24)
                 : isHoliday && widget.showDayColorMarkers
                 ? _holidayHeaderBackground.withValues(alpha: 0.78)
                 : isMakeupClass && widget.showDayColorMarkers
                 ? _makeupHeaderBackground.withValues(alpha: 0.78)
-                : adjusted && widget.showDayColorMarkers
-                ? theme.colors.primary.withValues(alpha: 0.05)
-                : isToday
-                ? theme.colors.primary.withValues(alpha: 0.24)
                 : null,
           ),
           child: ClipRect(
@@ -815,7 +798,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                     child: Text(
                       marker,
                       style: theme.typography.caption.copyWith(
-                        color: markerColor.withValues(alpha: 0.78),
+                        color:
+                            (isHoliday
+                                    ? _holidayHeaderForeground
+                                    : _makeupHeaderForeground)
+                                .withValues(alpha: 0.78),
                         fontSize: 7,
                         fontWeight: FontWeight.w600,
                       ),
