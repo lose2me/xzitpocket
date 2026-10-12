@@ -189,6 +189,19 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           : Color(_storage.getTimetableLastCustomTodayLineColor()!),
       timetableTodayLineWidth: _storage.getTimetableTodayLineWidth(),
       timetableTodayLineOpacity: _storage.getTimetableTodayLineOpacity(),
+      showTodayHorizontalGridLines: _storage.getShowTodayHorizontalGridLines(),
+      timetableTodayHorizontalLineColor:
+          _storage.getTimetableTodayHorizontalLineColor() == null
+          ? null
+          : Color(_storage.getTimetableTodayHorizontalLineColor()!),
+      timetableLastCustomTodayHorizontalLineColor:
+          _storage.getTimetableLastCustomTodayHorizontalLineColor() == null
+          ? null
+          : Color(_storage.getTimetableLastCustomTodayHorizontalLineColor()!),
+      timetableTodayHorizontalLineWidth: _storage
+          .getTimetableTodayHorizontalLineWidth(),
+      timetableTodayHorizontalLineOpacity: _storage
+          .getTimetableTodayHorizontalLineOpacity(),
       useCloudTimetableAdjustments: _storage.getUseCloudTimetableAdjustments(),
       hiddenServiceFeatures: {
         for (final value in _storage.getHiddenServiceFeatures())
@@ -616,6 +629,39 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableTodayLineOpacity(normalized);
   }
 
+  Future<void> setShowTodayHorizontalGridLines(bool value) async {
+    state = state.copyWith(showTodayHorizontalGridLines: value);
+    await _storage.setShowTodayHorizontalGridLines(value);
+  }
+
+  Future<void> setTimetableTodayHorizontalLineColor(Color? value) async {
+    state = state.copyWith(timetableTodayHorizontalLineColor: value);
+    await _storage.setTimetableTodayHorizontalLineColor(value?.toARGB32());
+  }
+
+  Future<void> setCustomTimetableTodayHorizontalLineColor(Color value) async {
+    state = state.copyWith(
+      timetableTodayHorizontalLineColor: value,
+      timetableLastCustomTodayHorizontalLineColor: value,
+    );
+    await _storage.setTimetableTodayHorizontalLineColor(value.toARGB32());
+    await _storage.setTimetableLastCustomTodayHorizontalLineColor(
+      value.toARGB32(),
+    );
+  }
+
+  Future<void> setTimetableTodayHorizontalLineWidth(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 0.5, 4.0);
+    state = state.copyWith(timetableTodayHorizontalLineWidth: normalized);
+    await _storage.setTimetableTodayHorizontalLineWidth(normalized);
+  }
+
+  Future<void> setTimetableTodayHorizontalLineOpacity(double value) async {
+    final normalized = value.clamp(0.0, 1.0).toDouble();
+    state = state.copyWith(timetableTodayHorizontalLineOpacity: normalized);
+    await _storage.setTimetableTodayHorizontalLineOpacity(normalized);
+  }
+
   Future<void> setTimetableCourseTextSize(double value) async {
     final normalized = _normalizeTimetableDimension(value, 8.0, 18.0);
     await _storage.setTimetableCourseTextSize(normalized);
@@ -689,6 +735,15 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       ),
       timetableTodayLineWidth: defaults.timetableTodayLineWidth,
       timetableTodayLineOpacity: defaults.timetableTodayLineOpacity,
+      showTodayHorizontalGridLines: defaults.showTodayHorizontalGridLines,
+      timetableTodayHorizontalLineColor: activeCustomColor(
+        state.timetableTodayHorizontalLineColor,
+        state.timetableLastCustomTodayHorizontalLineColor,
+      ),
+      timetableTodayHorizontalLineWidth:
+          defaults.timetableTodayHorizontalLineWidth,
+      timetableTodayHorizontalLineOpacity:
+          defaults.timetableTodayHorizontalLineOpacity,
       widgetThemePreference: defaults.widgetThemePreference,
       widgetFontScale: defaults.widgetFontScale,
       widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,

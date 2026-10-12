@@ -149,28 +149,34 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     setState(() {});
   }
 
-  void jumpToCurrentWeek() {
+  /// 定位到当前周。[animate] 为 false 时直接跳页（小组件入口使用，无动画）。
+  /// PageController 未 attach（冷启动）时仍会更新 selectedWeekProvider，
+  /// initState 的 initialPage 也基于当前周，保证最终定位一致。
+  void jumpToCurrentWeek({bool animate = true}) {
     final maxWeek = _maxDisplayWeek();
     final week = semesterCalendar.weekOf(DateTime.now()).clamp(1, maxWeek);
     if (_pageController.hasClients) {
       final current =
           _pageController.page?.round() ?? ref.read(selectedWeekProvider) - 1;
       if (current != week - 1) {
-        unawaited(
-          _pageController.animateToPage(
-            week - 1,
-            duration: Duration(
-              milliseconds: (260 + (current - (week - 1)).abs() * 70).clamp(
-                260,
-                700,
+        if (animate) {
+          unawaited(
+            _pageController.animateToPage(
+              week - 1,
+              duration: Duration(
+                milliseconds: (260 + (current - (week - 1)).abs() * 70).clamp(
+                  260,
+                  700,
+                ),
               ),
+              curve: Curves.easeInOutCubic,
             ),
-            curve: Curves.easeInOutCubic,
-          ),
-        );
-      } else {
-        ref.read(selectedWeekProvider.notifier).set(week);
+          );
+        } else {
+          _pageController.jumpToPage(week - 1);
+        }
       }
+      ref.read(selectedWeekProvider.notifier).set(week);
     } else {
       ref.read(selectedWeekProvider.notifier).set(week);
     }
@@ -548,6 +554,18 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     return max;
   }
 
+  /// 刷新按钮先弹确认，取消则不发起任何请求（需求 6）。
+  Future<void> _confirmSync() async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '同步课表',
+      message: '将重新从教务系统获取课表数据，确定继续吗？',
+      confirmLabel: '同步',
+    );
+    if (!confirmed || !mounted) return;
+    await _onSync();
+  }
+
   Future<void> _onSync() async {
     if (_isSyncing) return;
     setState(() => _isSyncing = true);
@@ -756,7 +774,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     calendar: semesterCalendar,
                     selectedWeek: ref.watch(selectedWeekProvider),
                     currentWeek: currentWeek,
-                    onSync: _isSyncing ? null : _onSync,
+                    onSync: _isSyncing ? null : _confirmSync,
                     syncing: _isSyncing,
                     onJumpToCurrentWeek: jumpToCurrentWeek,
                     onToggleSchedule: secondarySchedule.hasSchedule
@@ -865,6 +883,14 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               settings.timetableTodayLineWidth,
                                           todayLineOpacity: settings
                                               .timetableTodayLineOpacity,
+                                          showTodayHorizontalGridLines: settings
+                                              .showTodayHorizontalGridLines,
+                                          todayHorizontalLineColor: settings
+                                              .timetableTodayHorizontalLineColor,
+                                          todayHorizontalLineWidth: settings
+                                              .timetableTodayHorizontalLineWidth,
+                                          todayHorizontalLineOpacity: settings
+                                              .timetableTodayHorizontalLineOpacity,
                                           sectionHeight:
                                               settings.timetableSectionHeight,
                                           timeColumnWidth:

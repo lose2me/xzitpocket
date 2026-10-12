@@ -407,6 +407,64 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           .read(appSettingsProvider.notifier)
                           .setTimetableTodayLineOpacity(value),
                     ),
+                    ProfileSettingsCheckboxTile(
+                      icon: FLucideIcons.alignJustify,
+                      title: '显示今日横向边线',
+                      value: settings.showTodayHorizontalGridLines,
+                      onChange: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setShowTodayHorizontalGridLines(value),
+                    ),
+                    ProfileSettingsColorTile(
+                      icon: FLucideIcons.palette,
+                      title: '今日横向边线颜色',
+                      value: settings.timetableTodayHorizontalLineColor,
+                      colors: _styleColors,
+                      lastCustomColor:
+                          settings.timetableLastCustomTodayHorizontalLineColor,
+                      onChanged: (color) => unawaited(
+                        ref
+                            .read(appSettingsProvider.notifier)
+                            .setTimetableTodayHorizontalLineColor(color),
+                      ),
+                      onCustomColorPressed: () => unawaited(
+                        _selectCustomColor(
+                          settings.timetableLastCustomTodayHorizontalLineColor ??
+                              settings.timetableTodayHorizontalLineColor ??
+                              context.theme.colors.primary,
+                          ref
+                              .read(appSettingsProvider.notifier)
+                              .setCustomTimetableTodayHorizontalLineColor,
+                        ),
+                      ),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.moveHorizontal,
+                      title: '今日横向边线粗细',
+                      value: settings.timetableTodayHorizontalLineWidth,
+                      min: 0.5,
+                      max: 4,
+                      divisions: 35,
+                      suffix: ' px',
+                      displayDecimals: 1,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTodayHorizontalLineWidth(value),
+                    ),
+                    ProfileSettingsSliderTile(
+                      icon: FLucideIcons.layers,
+                      title: '今日横向边线不透明度',
+                      value: settings.timetableTodayHorizontalLineOpacity,
+                      min: 0,
+                      max: 1,
+                      divisions: 20,
+                      suffix: '%',
+                      displayMultiplier: 100,
+                      displayDecimals: 0,
+                      onChanged: (value) => ref
+                          .read(appSettingsProvider.notifier)
+                          .setTimetableTodayHorizontalLineOpacity(value),
+                    ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -1226,6 +1284,13 @@ class _TimetableGridPreview extends StatelessWidget {
             todayLineColor: settings.timetableTodayLineColor,
             todayLineWidth: settings.timetableTodayLineWidth,
             todayLineOpacity: settings.timetableTodayLineOpacity,
+            showTodayHorizontalGridLines: settings.showTodayHorizontalGridLines,
+            todayHorizontalLineColor:
+                settings.timetableTodayHorizontalLineColor,
+            todayHorizontalLineWidth:
+                settings.timetableTodayHorizontalLineWidth,
+            todayHorizontalLineOpacity:
+                settings.timetableTodayHorizontalLineOpacity,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
             suppressDayDrop: true,

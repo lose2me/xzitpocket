@@ -388,7 +388,7 @@ void main() {
     );
   });
 
-  testWidgets('today side lines replace grid lines on shared boundaries', (
+  testWidgets('today lines are painted above the grid, cells keep grid lines', (
     tester,
   ) async {
     final tuesday = semesterCalendar.weekDates(1)[1];
@@ -424,10 +424,72 @@ void main() {
       return (cell.decoration! as BoxDecoration).border! as Border;
     }
 
-    expect(borderFor(0).right, BorderSide.none);
-    expect(borderFor(1).left, const BorderSide(color: todayColor, width: 2));
-    expect(borderFor(1).right, const BorderSide(color: todayColor, width: 2));
+    // 今日边线改为覆盖层后，网格 cell 的边框在每一列保持一致。
+    expect(borderFor(0).right, const BorderSide(color: gridColor, width: 1));
+    expect(borderFor(1).left, BorderSide.none);
+    expect(borderFor(1).right, const BorderSide(color: gridColor, width: 1));
     expect(borderFor(2).right, const BorderSide(color: gridColor, width: 1));
+
+    // 仅今日列绘制覆盖层（位于课程卡之后、IgnorePointer 内）。
+    final overlay = find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.painter.runtimeType.toString() == '_TodayGridLinesPainter',
+    );
+    expect(overlay, findsOneWidget);
+    expect(
+      find.ancestor(of: overlay, matching: find.byType(IgnorePointer)),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('today horizontal lines toggle independently from vertical', (
+    tester,
+  ) async {
+    final tuesday = semesterCalendar.weekDates(1)[1];
+
+    Finder overlay() => find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.painter.runtimeType.toString() == '_TodayGridLinesPainter',
+    );
+
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 390,
+          height: 260,
+          child: TimetableGrid(
+            courses: const [],
+            week: 1,
+            calendar: semesterCalendar,
+            currentDate: tuesday,
+            borderColor: AppTheme.light.colors.border,
+            showTodayHorizontalGridLines: true,
+          ),
+        ),
+      ),
+    );
+    // 仅开启横线：竖线关闭时也绘制覆盖层。
+    expect(overlay(), findsOneWidget);
+
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 390,
+          height: 260,
+          child: TimetableGrid(
+            courses: const [],
+            week: 1,
+            calendar: semesterCalendar,
+            currentDate: tuesday,
+            borderColor: AppTheme.light.colors.border,
+          ),
+        ),
+      ),
+    );
+    // 两者都关闭：无覆盖层。
+    expect(overlay(), findsNothing);
   });
 
   testWidgets('hiding dates preserves the configured day header height', (

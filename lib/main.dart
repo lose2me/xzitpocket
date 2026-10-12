@@ -93,7 +93,8 @@ void _handleWidgetLaunch(Uri? uri) {
   _lastWidgetLaunchAt = now;
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(ToolsDataManager.instance.checkCampusNetwork(force: true));
-    HomePage.globalKey.currentState?.switchToTimetable();
+    // 小组件入口：直接跳到主课表当前周，不播放翻页动画。
+    HomePage.globalKey.currentState?.switchToTimetable(animate: false);
   });
 }
 

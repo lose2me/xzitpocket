@@ -81,7 +81,10 @@ class _CourseRulesSettingsPageState
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          const ProfileSettingsHint('课程规则会直接作用于课表数据，小组件和课堂提醒会随课表同步更新。'),
+          const ProfileSettingsHint(
+            '课程规则会直接作用于课表数据，小组件和课堂提醒会随课表同步更新。'
+            '云端课程规则开关切换后不会自动刷新，需手动刷新课表后生效。',
+          ),
         ],
       ),
     );
@@ -179,12 +182,10 @@ class _CourseRulesSettingsPageState
       semesterCalendar.days.where((day) => day.adjustment.isNotEmpty).toList();
 
   Future<void> _setCloudAdjustmentsEnabled(bool enabled) async {
+    // 切换开关不再自动刷新课表（需求 7），需用户手动刷新后生效。
     await ref
         .read(appSettingsProvider.notifier)
         .setUseCloudTimetableAdjustments(enabled);
-    if (enabled && mounted) {
-      await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
-    }
   }
 
   List<Course> _coursesForDay(List<Course> courses, int weekday, int week) =>

@@ -193,6 +193,16 @@ class _SmoothThemeTransitionState extends State<_SmoothThemeTransition>
       parent: _controller,
       curve: Curves.easeInOutCubicEmphasized,
     );
+    // Snap the lerp state when a transition finishes so repeated theme
+    // changes cannot accumulate stale begin/end pairs (defensive fix for
+    // the blank-screen regression reported after leaving settings).
+    _controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed &&
+          mounted &&
+          !identical(_beginTheme, _endTheme)) {
+        setState(() => _beginTheme = _endTheme);
+      }
+    });
   }
 
   @override

@@ -373,26 +373,32 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
           height: 16,
           child: Transform.translate(
             offset: const Offset(0, 2),
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 2,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                overlayShape: SliderComponentShape.noOverlay,
-                tickMarkShape: const RoundSliderTickMarkShape(
-                  tickMarkRadius: 0.35,
+            // Slider 需要 Material 祖先；forui 的 FScaffold 不提供 Material，
+            // 缺少它会在 debug 构建触发断言（个性化设置白屏的诱因之一）。
+            child: Material(
+              color: Colors.transparent,
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 2,
+                  thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 6,
+                  ),
+                  overlayShape: SliderComponentShape.noOverlay,
+                  tickMarkShape: const RoundSliderTickMarkShape(
+                    tickMarkRadius: 0.35,
+                  ),
+                  activeTickMarkColor: context.theme.colors.background
+                      .withValues(alpha: 0.9),
+                  inactiveTickMarkColor: context.theme.colors.foreground
+                      .withValues(alpha: 0.5),
                 ),
-                activeTickMarkColor: context.theme.colors.background.withValues(
-                  alpha: 0.9,
+                child: Slider(
+                  value: value,
+                  min: min,
+                  max: max,
+                  divisions: divisions,
+                  onChanged: onChanged,
                 ),
-                inactiveTickMarkColor: context.theme.colors.foreground
-                    .withValues(alpha: 0.5),
-              ),
-              child: Slider(
-                value: value,
-                min: min,
-                max: max,
-                divisions: divisions,
-                onChanged: onChanged,
               ),
             ),
           ),

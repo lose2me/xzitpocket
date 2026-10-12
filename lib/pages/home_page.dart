@@ -76,7 +76,7 @@ class HomePageState extends ConsumerState<HomePage> {
     super.dispose();
   }
 
-  void switchToTimetable() {
+  void switchToTimetable({bool animate = true}) {
     if (!mounted) return;
     if (_currentIndex != 0) {
       setState(() => _currentIndex = 0);
@@ -90,7 +90,7 @@ class HomePageState extends ConsumerState<HomePage> {
           _backgroundPageController.page?.round() != 0) {
         _backgroundPageController.jumpToPage(0);
       }
-      TimetablePage.globalKey.currentState?.jumpToCurrentWeek();
+      TimetablePage.globalKey.currentState?.jumpToCurrentWeek(animate: animate);
     });
   }
 
@@ -244,8 +244,10 @@ class HomePageState extends ConsumerState<HomePage> {
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
                   filterQuality: FilterQuality.high,
+                  // 背景加载失败时必须回退到主题背景色：透明 scaffold +
+                  // 透明占位会让整屏变成白屏（个性化设置返回白屏的路径之一）。
                   errorBuilder: (context, error, stackTrace) =>
-                      const SizedBox(),
+                      ColoredBox(color: context.theme.colors.background),
                 );
               },
             ),

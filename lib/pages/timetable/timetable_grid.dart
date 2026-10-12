@@ -92,6 +92,10 @@ class TimetableGrid extends StatefulWidget {
   final Color? todayLineColor;
   final double todayLineWidth;
   final double todayLineOpacity;
+  final bool showTodayHorizontalGridLines;
+  final Color? todayHorizontalLineColor;
+  final double todayHorizontalLineWidth;
+  final double todayHorizontalLineOpacity;
   final bool showGridLines;
   final bool showBelowFoldIndicator;
   final double sectionHeight;
@@ -162,6 +166,10 @@ class TimetableGrid extends StatefulWidget {
     this.todayLineColor,
     this.todayLineWidth = 1.0,
     this.todayLineOpacity = 0.5,
+    this.showTodayHorizontalGridLines = false,
+    this.todayHorizontalLineColor,
+    this.todayHorizontalLineWidth = 1.0,
+    this.todayHorizontalLineOpacity = 0.5,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
     this.sectionHeight = 60.0,
@@ -340,6 +348,10 @@ class _TimetableGridState extends State<TimetableGrid> {
         .withValues(alpha: widget.gridOpacity);
     final todayLineColor = (widget.todayLineColor ?? theme.colors.primary)
         .withValues(alpha: widget.todayLineOpacity);
+    final todayHorizontalLineColor =
+        (widget.todayHorizontalLineColor ?? theme.colors.primary).withValues(
+          alpha: widget.todayHorizontalLineOpacity,
+        );
 
     // Cheap pre-compute: only the variant selection happens here (from the
     // cached day slots), never the grouping/backtracking.
@@ -457,14 +469,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                             date.year == today.year &&
                             date.month == today.month &&
                             date.day == today.day;
-                        final nextDate = dayIndex + 1 < dayCount
-                            ? dates[dayIndex + 1]
-                            : null;
-                        final nextDayIsToday =
-                            nextDate != null &&
-                            nextDate.year == today.year &&
-                            nextDate.month == today.month &&
-                            nextDate.day == today.day;
                         final allDayCourses = <_IndexedCourse>[
                           ...(currentByWeekday[weekday] ??
                               const <_IndexedCourse>[]),
@@ -493,8 +497,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                               },
                               child: Stack(
                                 children: [
-                                  if (widget.showGridLines ||
-                                      (isToday && widget.showTodayGridLines))
+                                  if (widget.showGridLines)
                                     Column(
                                       children: List.generate(
                                         effectiveSlotCount,
@@ -506,40 +509,14 @@ class _TimetableGridState extends State<TimetableGrid> {
                                             height: cellHeight,
                                             decoration: BoxDecoration(
                                               border: Border(
-                                                left:
-                                                    isToday &&
-                                                        widget
-                                                            .showTodayGridLines
-                                                    ? BorderSide(
-                                                        color: todayLineColor,
-                                                        width: widget
-                                                            .todayLineWidth,
-                                                      )
-                                                    : BorderSide.none,
-                                                bottom: widget.showGridLines
-                                                    ? BorderSide(
-                                                        color: gridLineColor,
-                                                        width: widget
-                                                            .gridLineWidth,
-                                                      )
-                                                    : BorderSide.none,
-                                                right:
-                                                    isToday &&
-                                                        widget
-                                                            .showTodayGridLines
-                                                    ? BorderSide(
-                                                        color: todayLineColor,
-                                                        width: widget
-                                                            .todayLineWidth,
-                                                      )
-                                                    : widget.showGridLines &&
-                                                          !nextDayIsToday
-                                                    ? BorderSide(
-                                                        color: gridLineColor,
-                                                        width: widget
-                                                            .gridLineWidth,
-                                                      )
-                                                    : BorderSide.none,
+                                                bottom: BorderSide(
+                                                  color: gridLineColor,
+                                                  width: widget.gridLineWidth,
+                                                ),
+                                                right: BorderSide(
+                                                  color: gridLineColor,
+                                                  width: widget.gridLineWidth,
+                                                ),
                                               ),
                                             ),
                                           );
@@ -618,6 +595,33 @@ class _TimetableGridState extends State<TimetableGrid> {
                                       ),
                                     );
                                   }),
+                                  // 今日边线绘制在课程块之上（需求 27）：
+                                  // IgnorePointer 保证不干扰点击与拖动，
+                                  // 不透明度 100% 时完全遮挡下方课程块。
+                                  if (isToday &&
+                                      (widget.showTodayGridLines ||
+                                          widget.showTodayHorizontalGridLines))
+                                    Positioned.fill(
+                                      child: IgnorePointer(
+                                        child: CustomPaint(
+                                          painter: _TodayGridLinesPainter(
+                                            cellHeight: cellHeight,
+                                            rowCount: effectiveSlotCount,
+                                            drawVertical:
+                                                widget.showTodayGridLines,
+                                            verticalColor: todayLineColor,
+                                            verticalWidth:
+                                                widget.todayLineWidth,
+                                            drawHorizontal: widget
+                                                .showTodayHorizontalGridLines,
+                                            horizontalColor:
+                                                todayHorizontalLineColor,
+                                            horizontalWidth:
+                                                widget.todayHorizontalLineWidth,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   if (widget.showBelowFoldIndicator &&
                                       _showBelowFoldIndicator &&
                                       visibleSessions.isNotEmpty &&
@@ -1086,6 +1090,74 @@ class _TimetableGridState extends State<TimetableGrid> {
     }
     _daySlots = daySlots;
   }
+}
+
+/// Paints today's column highlight lines ON TOP of the course cards.
+/// Vertical lines cover the left/right edges of the column; horizontal lines
+/// cover every cell boundary (top and bottom of each slot).
+class _TodayGridLinesPainter extends CustomPainter {
+  final double cellHeight;
+  final int rowCount;
+  final bool drawVertical;
+  final Color verticalColor;
+  final double verticalWidth;
+  final bool drawHorizontal;
+  final Color horizontalColor;
+  final double horizontalWidth;
+
+  const _TodayGridLinesPainter({
+    required this.cellHeight,
+    required this.rowCount,
+    required this.drawVertical,
+    required this.verticalColor,
+    required this.verticalWidth,
+    required this.drawHorizontal,
+    required this.horizontalColor,
+    required this.horizontalWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (drawVertical && verticalWidth > 0) {
+      final paint = Paint()..color = verticalColor;
+      canvas.drawRect(Rect.fromLTWH(0, 0, verticalWidth, size.height), paint);
+      canvas.drawRect(
+        Rect.fromLTWH(
+          size.width - verticalWidth,
+          0,
+          verticalWidth,
+          size.height,
+        ),
+        paint,
+      );
+    }
+    if (drawHorizontal && horizontalWidth > 0) {
+      final paint = Paint()..color = horizontalColor;
+      for (var row = 0; row <= rowCount; row++) {
+        final y = (row * cellHeight).clamp(0.0, size.height);
+        canvas.drawRect(
+          Rect.fromLTWH(
+            0,
+            y - horizontalWidth / 2,
+            size.width,
+            horizontalWidth,
+          ),
+          paint,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TodayGridLinesPainter oldDelegate) =>
+      oldDelegate.cellHeight != cellHeight ||
+      oldDelegate.rowCount != rowCount ||
+      oldDelegate.drawVertical != drawVertical ||
+      oldDelegate.verticalColor != verticalColor ||
+      oldDelegate.verticalWidth != verticalWidth ||
+      oldDelegate.drawHorizontal != drawHorizontal ||
+      oldDelegate.horizontalColor != horizontalColor ||
+      oldDelegate.horizontalWidth != horizontalWidth;
 }
 
 String _dateKey(DateTime date) =>
