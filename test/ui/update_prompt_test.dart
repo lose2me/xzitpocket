@@ -29,9 +29,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('发现新版本'), findsOneWidget);
-    // 上方下载模块。
-    expect(find.text('新版本 2.0.4'), findsOneWidget);
+    // 上方下载模块：只有一个「下载并安装」按钮，无标题卡片。
     expect(find.text('下载并安装'), findsOneWidget);
+    expect(find.text('新版本 2.0.4'), findsNothing);
     // 下方更新日志模块（统一 Markdown 组件渲染）。
     expect(find.text('更新日志'), findsOneWidget);
     expect(find.textContaining('新增更新日志页面'), findsOneWidget);

@@ -43,8 +43,11 @@ class HomePageState extends ConsumerState<HomePage> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
-    _backgroundPageController = PageController();
+    // 未登录时（冷启动/小组件进入）直接落在登录页（「我的」标签）。
+    final studentId = ref.read(preferencesStorageProvider).getStudentId();
+    _currentIndex = (studentId == null || studentId.isEmpty) ? 2 : 0;
+    _pageController = PageController(initialPage: _currentIndex);
+    _backgroundPageController = PageController(initialPage: _currentIndex);
     _timetablePage = TimetablePage(key: TimetablePage.globalKey);
     _toolsPage = ToolsPage(key: ToolsPage.globalKey);
     _profilePage = ProfilePage(key: ProfilePage.globalKey);

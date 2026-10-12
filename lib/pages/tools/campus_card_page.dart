@@ -59,7 +59,8 @@ class _CampusCardPageState extends State<CampusCardPage> {
     _result = widget.result;
     _txns = sortYktTransactionsNewestFirst(_result.transactions);
     _endDate = DateTime.now();
-    _startDate = _endDate.subtract(const Duration(days: 30));
+    // 后台默认已按「选择全部」范围拉取，页面显示的默认范围与之一致。
+    _startDate = studentHistoryStartDate(widget.studentId, today: _endDate);
     _rangeCtrl.text = _rangeText();
     _scrollController.addListener(_onScroll);
     if (!PreferencesStorage.isCacheValid(
@@ -241,15 +242,22 @@ class _CampusCardPageState extends State<CampusCardPage> {
             children: [
               _buildMetricCell(theme, '卡号', bal.cardNo),
               _buildMetricCell(theme, '余额', '${bal.balance} 元'),
-              _buildMetricCell(
-                theme,
-                '未圈存金额',
-                yktUncommittedAmount(bal.balance, _txns),
-              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          Text('交易明细', style: theme.typography.tileTitle),
+          Row(
+            children: [
+              Text('交易明细', style: theme.typography.tileTitle),
+              const Spacer(),
+              // 未圈存金额放在「交易明细」行右侧，不再单独占一块。
+              Text(
+                '未圈存金额 ${yktUncommittedAmount(bal.balance, _txns)}',
+                style: theme.typography.bodySmall.copyWith(
+                  color: theme.colors.mutedForeground,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.md),
           _buildRangeField(theme),
           const SizedBox(height: AppSpacing.lg),

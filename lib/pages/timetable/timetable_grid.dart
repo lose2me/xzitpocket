@@ -100,6 +100,9 @@ class TimetableGrid extends StatefulWidget {
   /// 并在该课上下边界绘制贯通整行的横线（与今日竖线同色同粗细）。
   final bool showTodayHorizontalGridLines;
 
+  /// 「点到为止」：今日竖线只画到当天最后一节课底部，横线只画到今日列右缘。
+  final bool todayLineStopAtCourse;
+
   /// 仅用于「当前/下一节课」计算，默认取系统时间；测试可注入固定值。
   final DateTime? now;
   final bool showGridLines;
@@ -172,6 +175,7 @@ class TimetableGrid extends StatefulWidget {
     this.todayLineWidth = 1.0,
     this.todayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
+    this.todayLineStopAtCourse = false,
     this.now,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
@@ -334,6 +338,25 @@ class _TimetableGridState extends State<TimetableGrid> {
     };
     final today = widget.currentDate ?? DateTime.now();
     const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+    final todayIndex = dates.indexWhere(
+      (date) =>
+          date.year == today.year &&
+          date.month == today.month &&
+          date.day == today.day,
+    );
+
+    // 「点到为止」：找到今日最后一节课的结束节次；当天无课则不绘制边线。
+    int? todayLastEndSession;
+    if (widget.todayLineStopAtCourse && todayIndex >= 0) {
+      for (final course in courses) {
+        if (course.weekday == todayIndex + 1 && course.isInWeek(week)) {
+          if (todayLastEndSession == null ||
+              course.endSession > todayLastEndSession) {
+            todayLastEndSession = course.endSession;
+          }
+        }
+      }
+    }
     final courseOpacity = widget.courseOpacity;
     final courseBorderOpacity = widget.courseBorderOpacity;
     final nonCurrentCourseOpacity = (courseOpacity * 0.38)
@@ -497,6 +520,28 @@ class _TimetableGridState extends State<TimetableGrid> {
                   activeTopY = startRow * cellHeight;
                   activeBottomY = (endRow + 1) * cellHeight;
                 }
+              }
+
+              // 「点到为止」竖线终点：今日最后一节课的下边界；无课则不绘制。
+              double? todayStopY;
+              if (widget.todayLineStopAtCourse) {
+                final endSession = todayLastEndSession;
+                if (endSession != null) {
+                  final endRow = sessionToRow[endSession];
+                  todayStopY = endRow == null
+                      ? totalHeight
+                      : (endRow + 1) * cellHeight;
+                }
+              }
+              // 「点到为止」横线右端：今日列的右缘。
+              double? todayStopX;
+              if (widget.todayLineStopAtCourse && todayIndex >= 0) {
+                final dayColumnWidth =
+                    (constraints.maxWidth - effectiveTimeColumnWidth) /
+                    dayCount;
+                todayStopX =
+                    effectiveTimeColumnWidth +
+                    (todayIndex + 1) * dayColumnWidth;
               }
 
               return SingleChildScrollView(
@@ -671,17 +716,41 @@ class _TimetableGridState extends State<TimetableGrid> {
                                       // 今日竖边线绘制在课程块之上（需求 27）：
                                       // IgnorePointer 保证不干扰点击与拖动，
                                       // 不透明度 100% 时完全遮挡下方课程块。
-                                      if (isToday && widget.showTodayGridLines)
-                                        Positioned.fill(
-                                          child: IgnorePointer(
-                                            child: CustomPaint(
-                                              painter: _TodayGridLinesPainter(
-                                                color: todayLineColor,
-                                                width: widget.todayLineWidth,
+                                      // 「点到为止」开启时只画到今日最后一节
+                                      // 课的下边界；当天无课则不绘制。
+                                      if (isToday &&
+                                          widget.showTodayGridLines &&
+                                          (!widget.todayLineStopAtCourse ||
+                                              todayStopY != null))
+                                        widget.todayLineStopAtCourse
+                                            ? Positioned(
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: todayStopY,
+                                                child: IgnorePointer(
+                                                  child: CustomPaint(
+                                                    painter:
+                                                        _TodayGridLinesPainter(
+                                                          color: todayLineColor,
+                                                          width: widget
+                                                              .todayLineWidth,
+                                                        ),
+                                                  ),
+                                                ),
+                                              )
+                                            : Positioned.fill(
+                                                child: IgnorePointer(
+                                                  child: CustomPaint(
+                                                    painter:
+                                                        _TodayGridLinesPainter(
+                                                          color: todayLineColor,
+                                                          width: widget
+                                                              .todayLineWidth,
+                                                        ),
+                                                  ),
+                                                ),
                                               ),
-                                            ),
-                                          ),
-                                        ),
                                       if (widget.showBelowFoldIndicator &&
                                           _showBelowFoldIndicator &&
                                           visibleSessions.isNotEmpty &&
@@ -755,19 +824,37 @@ class _TimetableGridState extends State<TimetableGrid> {
                       ),
                       // 今日当前/下一节课的贯通横线：横跨全部列（含时间列），
                       // 绘制在课程块之上，与今日竖线同色同粗细。
+                      // 「点到为止」开启时只画到今日列右缘。
                       if (activeTopY != null && activeBottomY != null)
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: CustomPaint(
-                              painter: _ActiveCourseLinesPainter(
-                                topY: activeTopY,
-                                bottomY: activeBottomY,
-                                color: todayLineColor,
-                                width: widget.todayLineWidth,
+                        widget.todayLineStopAtCourse && todayStopX != null
+                            ? Positioned(
+                                left: 0,
+                                top: 0,
+                                width: todayStopX,
+                                height: totalHeight,
+                                child: IgnorePointer(
+                                  child: CustomPaint(
+                                    painter: _ActiveCourseLinesPainter(
+                                      topY: activeTopY,
+                                      bottomY: activeBottomY,
+                                      color: todayLineColor,
+                                      width: widget.todayLineWidth,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Positioned.fill(
+                                child: IgnorePointer(
+                                  child: CustomPaint(
+                                    painter: _ActiveCourseLinesPainter(
+                                      topY: activeTopY,
+                                      bottomY: activeBottomY,
+                                      color: todayLineColor,
+                                      width: widget.todayLineWidth,
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
                     ],
                   ),
                 ),
@@ -908,17 +995,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                         fontSize: widget.dayTextMarkerSize,
                         fontWeight: FontWeight.w600,
                       ),
-                    ),
-                  ),
-                if (isToday)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      key: ValueKey('timetable-today-indicator-$weekday'),
-                      height: 3,
-                      color: theme.colors.primary,
                     ),
                   ),
               ],

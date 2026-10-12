@@ -324,12 +324,9 @@ void main() {
 
     final fridayLabel = tester.widget<Text>(find.text('五'));
     expect(fridayLabel.style?.color, AppTheme.light.colors.primary);
+    // 今日日期格底部的深色小指示条已按需求移除。
     expect(
       find.byKey(const ValueKey('timetable-today-indicator-5')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('timetable-today-indicator-1')),
       findsNothing,
     );
   });
@@ -629,6 +626,54 @@ void main() {
     // 今天没有课：不标注。
     await pumpGrid(now: todayAt(10, 20));
     expect(activeLines(), findsNothing);
+  });
+
+  testWidgets('stop-at-course drops today lines when today has no course', (
+    tester,
+  ) async {
+    final tuesday = semesterCalendar.weekDates(1)[1];
+    final course = Course(
+      title: '高等数学',
+      teacher: '',
+      weekday: 2,
+      sessions: const [3, 4],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+
+    Finder verticalLines() => find.byWidgetPredicate(
+      (widget) =>
+          widget is CustomPaint &&
+          widget.painter.runtimeType.toString() == '_TodayGridLinesPainter',
+    );
+
+    Future<void> pumpGrid(List<Course> courses) => tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 390,
+          height: 400,
+          child: TimetableGrid(
+            courses: courses,
+            week: 1,
+            calendar: semesterCalendar,
+            currentDate: tuesday,
+            borderColor: AppTheme.light.colors.border,
+            showTodayGridLines: true,
+            todayLineStopAtCourse: true,
+          ),
+        ),
+      ),
+    );
+
+    // 今日无课：点到为止模式下不绘制今日竖线。
+    await pumpGrid(const []);
+    expect(verticalLines(), findsNothing);
+
+    // 今日有课：竖线绘制（止于最后一节课底部）。
+    await pumpGrid([course]);
+    expect(verticalLines(), findsOneWidget);
   });
 
   testWidgets('hiding dates preserves the configured day header height', (

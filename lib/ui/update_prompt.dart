@@ -32,6 +32,16 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
 
   Future<void> _download() async {
     if (_downloading) return;
+    setState(() => _error = null);
+    // 先确认「安装未知应用」权限；未授权时打开系统设置，不展开下载界面，
+    // 授权后回来再次点击即开始下载。
+    if (!await UpdateService.ensureInstallPermission()) {
+      if (mounted) {
+        setState(() => _error = '请允许本应用安装未知应用后重试');
+      }
+      return;
+    }
+    if (!mounted) return;
     final cancelToken = CancelToken();
     setState(() {
       _downloading = true;
@@ -83,74 +93,60 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
+        showScrollbar: true,
         children: [
-          // ── 下载模块 ──
-          AppCard(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '新版本 ${release.latestVersion}',
-                  style: theme.typography.tileTitle.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+          // ── 下载模块：仅一个「下载并安装」按钮，拿到安装权限后才展开进度 ──
+          Row(
+            children: [
+              Expanded(
+                child: FButton(
+                  onPress: _downloading ? null : _download,
+                  prefix: _downloading
+                      ? const FCircularProgress(
+                          size: FCircularProgressSizeVariant.sm,
+                        )
+                      : const Icon(FLucideIcons.download),
+                  child: Text(_downloading ? '下载中…' : '下载并安装'),
                 ),
-                if (_downloading || progress != null) ...[
-                  const SizedBox(height: AppSpacing.md),
-                  if (progress?.progress case final value?)
-                    FDeterminateProgress(value: value)
-                  else
-                    const FProgress(),
-                  if (progress != null) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(progress.message, style: theme.typography.bodySmall),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      _progressLine(progress),
-                      style: theme.typography.caption.copyWith(
-                        color: theme.colors.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    _error!,
-                    style: theme.typography.bodySmall.copyWith(
-                      color: theme.colors.destructive,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: AppSpacing.md),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FButton(
-                        onPress: _downloading ? null : _download,
-                        prefix: _downloading
-                            ? const FCircularProgress(
-                                size: FCircularProgressSizeVariant.sm,
-                              )
-                            : const Icon(FLucideIcons.download),
-                        child: Text(_downloading ? '下载中…' : '下载并安装'),
-                      ),
-                    ),
-                    if (_downloading) ...[
-                      const SizedBox(width: AppSpacing.sm),
-                      FButton(
-                        variant: FButtonVariant.outline,
-                        mainAxisSize: MainAxisSize.min,
-                        onPress: _cancelDownload,
-                        child: const Text('取消'),
-                      ),
-                    ],
-                  ],
+              ),
+              if (_downloading) ...[
+                const SizedBox(width: AppSpacing.sm),
+                FButton(
+                  variant: FButtonVariant.outline,
+                  mainAxisSize: MainAxisSize.min,
+                  onPress: _cancelDownload,
+                  child: const Text('取消'),
                 ),
               ],
-            ),
+            ],
           ),
+          if (_downloading || progress != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            if (progress?.progress case final value?)
+              FDeterminateProgress(value: value)
+            else
+              const FProgress(),
+            if (progress != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(progress.message, style: theme.typography.bodySmall),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _progressLine(progress),
+                style: theme.typography.caption.copyWith(
+                  color: theme.colors.mutedForeground,
+                ),
+              ),
+            ],
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              _error!,
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.destructive,
+              ),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           // ── 更新日志模块 ──
           Text('更新日志', style: theme.typography.tileTitle),

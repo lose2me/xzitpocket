@@ -1,5 +1,5 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
 import 'app_tokens.dart';
@@ -226,6 +226,9 @@ class AppPageListView extends StatelessWidget {
   final bool primary;
   final bool safeArea;
 
+  /// 显示右侧滚动指示条（长文页面使用）。
+  final bool showScrollbar;
+
   const AppPageListView({
     super.key,
     required this.children,
@@ -237,6 +240,7 @@ class AppPageListView extends StatelessWidget {
     this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
     this.primary = true,
     this.safeArea = true,
+    this.showScrollbar = false,
   });
 
   @override
@@ -248,7 +252,7 @@ class AppPageListView extends StatelessWidget {
             .clamp(0.0, maxWidth)
             .toDouble();
         final horizontal = (constraints.maxWidth - contentWidth) / 2;
-        return ListView(
+        final list = ListView(
           controller: controller,
           physics: physics,
           primary: controller == null ? primary : false,
@@ -261,6 +265,9 @@ class AppPageListView extends StatelessWidget {
           ),
           children: children,
         );
+        return showScrollbar
+            ? Scrollbar(controller: controller, child: list)
+            : list;
       },
     );
     if (safeArea) content = SafeArea(child: content);

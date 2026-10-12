@@ -1054,20 +1054,40 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = context.theme;
     final release = _release;
     if (_loading || release == null) return const SizedBox.shrink();
+    // 按钮样式入口：左侧下载图标 +「发现新版本」，右侧「当前 → 最新」。
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: FTappable(
         onPress: _openUpdatePage,
         behavior: HitTestBehavior.opaque,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-          child: Center(
-            child: Text(
-              '发现新版本 $_currentVersion → ${release.latestVersion}',
-              style: context.theme.typography.bodyText,
-            ),
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: theme.colors.primary.withValues(alpha: 0.08),
+            border: Border.all(color: theme.colors.border),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                FLucideIcons.download,
+                size: 18,
+                color: theme.colors.primary,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text('发现新版本', style: theme.typography.bodyText),
+              const Spacer(),
+              Text(
+                '$_currentVersion → ${release.latestVersion}',
+                style: theme.typography.bodySmall.copyWith(
+                  color: theme.colors.mutedForeground,
+                ),
+              ),
+            ],
           ),
         ),
       ),

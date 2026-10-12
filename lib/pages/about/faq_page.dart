@@ -14,6 +14,7 @@ class FaqPage extends StatelessWidget {
     return AppPage(
       title: '常见问题',
       child: AppPageListView(
+        showScrollbar: true,
         children: [
           _buildEntry(
             theme,

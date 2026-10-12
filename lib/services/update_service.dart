@@ -203,6 +203,13 @@ class UpdateService {
 
   static File _completionMarker(File target) => File('${target.path}.ready');
 
+  /// 检查「安装未知应用」权限；缺失时打开系统设置并返回 false。
+  /// 更新页在展开下载界面之前先调用它，拿到权限后才开始下载。
+  static Future<bool> ensureInstallPermission() async {
+    if (!Platform.isAndroid) return true;
+    return _ensurePackageInstallPermission();
+  }
+
   static Future<bool> _canRequestPackageInstalls() async {
     try {
       return await _channel.invokeMethod<bool>('canRequestPackageInstalls') ??

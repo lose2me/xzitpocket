@@ -26,6 +26,7 @@ class DisclaimerPage extends ConsumerWidget {
         title: '免责声明',
         showBackButton: false,
         child: AppPageListView(
+          showScrollbar: true,
           children: [
             Text(
               '欢迎使用掌上徐工。在使用本应用前，请仔细阅读以下条款：',

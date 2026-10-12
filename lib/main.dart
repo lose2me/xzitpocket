@@ -60,7 +60,9 @@ void main() async {
   // Defer widget navigation until the first frame. A cold launch can deliver
   // the widget intent before HomePage has mounted, which otherwise drops the
   // navigation request or competes with the initial PageView layout.
-  HomeWidget.widgetClicked.listen(_handleWidgetLaunch);
+  HomeWidget.widgetClicked.listen(
+    (uri) => _handleWidgetLaunch(uri, preferencesStorage),
+  );
 
   runApp(
     ProviderScope(
@@ -73,7 +75,7 @@ void main() async {
   );
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    unawaited(_handleInitialWidgetLaunch());
+    unawaited(_handleInitialWidgetLaunch(preferencesStorage));
     unawaited(
       _finishStartup(courseStorage, preferencesStorage, settingsMigrated),
     );
@@ -82,7 +84,7 @@ void main() async {
 
 DateTime? _lastWidgetLaunchAt;
 
-void _handleWidgetLaunch(Uri? uri) {
+void _handleWidgetLaunch(Uri? uri, PreferencesStorage prefs) {
   if (uri == null) return;
   final now = DateTime.now();
   if (_lastWidgetLaunchAt != null &&
@@ -92,16 +94,22 @@ void _handleWidgetLaunch(Uri? uri) {
   }
   _lastWidgetLaunchAt = now;
   WidgetsBinding.instance.addPostFrameCallback((_) {
+    final studentId = prefs.getStudentId();
+    if (studentId == null || studentId.isEmpty) {
+      // 未登录：小组件进入直接落在登录页，不做校园网探测。
+      HomePage.globalKey.currentState?.switchToProfile();
+      return;
+    }
     unawaited(ToolsDataManager.instance.checkCampusNetwork(force: true));
     // 小组件入口：直接跳到主课表当前周，不播放翻页动画。
     HomePage.globalKey.currentState?.switchToTimetable(animate: false);
   });
 }
 
-Future<void> _handleInitialWidgetLaunch() async {
+Future<void> _handleInitialWidgetLaunch(PreferencesStorage prefs) async {
   try {
     final uri = await HomeWidget.initiallyLaunchedFromHomeWidget();
-    _handleWidgetLaunch(uri);
+    _handleWidgetLaunch(uri, prefs);
   } catch (error, stackTrace) {
     talker.debug('读取小组件启动参数失败', error, stackTrace);
   }

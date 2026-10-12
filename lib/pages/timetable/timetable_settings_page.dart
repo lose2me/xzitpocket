@@ -494,6 +494,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setShowTodayHorizontalGridLines(value),
                         ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.moveVertical,
+                          title: '今日边线点到为止',
+                          value: settings.timetableTodayLineStopAtCourse,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableTodayLineStopAtCourse(value),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -1380,6 +1388,7 @@ class _TimetableGridPreview extends StatelessWidget {
             todayLineWidth: settings.timetableTodayLineWidth,
             todayLineOpacity: settings.timetableTodayLineOpacity,
             showTodayHorizontalGridLines: settings.showTodayHorizontalGridLines,
+            todayLineStopAtCourse: settings.timetableTodayLineStopAtCourse,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
             suppressDayDrop: true,

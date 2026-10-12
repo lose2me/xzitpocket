@@ -41,6 +41,8 @@ class TimeColumn extends StatelessWidget {
     return SizedBox(
       width: width,
       child: Column(
+        // 让每个节次格占满列宽，高亮背景才能填满整格（左右无空缺）。
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: List.generate(slotCount, (i) {
           if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
           final slot = kTimeSlots[i];

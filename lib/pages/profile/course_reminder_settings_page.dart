@@ -278,7 +278,10 @@ class _CourseReminderSettingsPageState
     WidgetRef ref,
     int current,
   ) async {
-    const minutesOptions = [5, 10, 15, 20, 30, 45, 60];
+    // 5-60 分钟的任意整数。
+    final minutesOptions = [
+      for (var minutes = 5; minutes <= 60; minutes++) minutes,
+    ];
     final choices = [
       for (final minutes in minutesOptions)
         WheelChoice(label: '$minutes 分钟', value: minutes),

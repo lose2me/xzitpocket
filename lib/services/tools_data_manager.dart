@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/app_settings.dart';
 import '../models/learning_question.dart';
+import '../ui/date_range_calendar_sheet.dart' show studentHistoryStartDate;
 import '../utils/in_flight_operation.dart';
 import 'auth_service.dart';
 import 'cas_service.dart';
@@ -565,7 +566,16 @@ class ToolsDataManager extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await YktService().getDetail(studentId, password);
+      // 默认按「选择全部」范围拉取：入学年份 6 月 1 日至今天。
+      String fmt(DateTime d) =>
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final now = DateTime.now();
+      final result = await YktService().getDetail(
+        studentId,
+        password,
+        start: fmt(studentHistoryStartDate(studentId, today: now)),
+        end: fmt(now),
+      );
       if (generation != _dataGeneration) return false;
       final encoded = jsonEncode(result.toJson());
       final unchanged = _matchesJson(ykt?.toJson(), encoded);
