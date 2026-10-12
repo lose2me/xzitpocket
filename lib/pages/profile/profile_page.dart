@@ -23,7 +23,6 @@ import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../../ui/update_prompt.dart';
-import '../about/disclaimer_page.dart';
 import '../about/faq_page.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
@@ -341,16 +340,11 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                   },
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                // 登录页底部的低调入口：免责声明 / 常见问题 / 调试模式。
+                // 登录页底部的低调入口：常见问题 / 调试模式。
+                // 免责声明仅在首次安装时弹出，不提供常设入口。
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildSubtleEntry(
-                      theme,
-                      icon: FLucideIcons.scrollText,
-                      label: '免责声明',
-                      onTap: _openDisclaimer,
-                    ),
                     _buildSubtleEntry(
                       theme,
                       icon: FLucideIcons.circleHelp,
@@ -405,18 +399,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _openDisclaimer() {
-    unawaited(
-      Navigator.of(context).push(
-        appRoute(
-          name: AppRouteNames.disclaimer,
-          fullscreenDialog: true,
-          builder: (_) => const DisclaimerPage(),
         ),
       ),
     );
