@@ -519,6 +519,10 @@ class _TimetableGridState extends State<TimetableGrid> {
                             textOpacity: widget.pageTextOpacity,
                             highlightedSlots: highlightedSessions,
                             highlightColor: todayHighlightColor,
+                            // 与今日日期格背景一致（见 _buildDayHeader 的
+                            // isToday 分支）。
+                            highlightBackground: theme.colors.primary
+                                .withValues(alpha: 0.24),
                           ),
                           ...List.generate(dayCount, (dayIndex) {
                             final weekday = dayIndex + 1;

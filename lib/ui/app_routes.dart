@@ -7,6 +7,7 @@ abstract final class AppRouteNames {
   static const licenses = '/about/licenses';
   static const disclaimer = '/about/disclaimer';
   static const faq = '/about/faq';
+  static const appUpdate = '/about/app-update';
   static const teacherEvaluation = '/tools/teacher-evaluation';
   static const schoolCalendar = '/tools/school-calendar';
   static const bookList = '/tools/book-list';

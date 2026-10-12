@@ -754,18 +754,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                       ),
                     ],
                   )
-                // 未登录/无数据分支保持与有数据分支一致的图标+文案结构。
-                : Row(
-                    children: [
-                      Icon(
-                        FLucideIcons.creditCard,
-                        color: theme.colors.primary,
-                        size: 22,
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Text('一卡通查询', style: theme.typography.tileTitle),
-                    ],
-                  ),
+                : Text('一卡通查询', style: theme.typography.tileTitle),
           ),
           if (_manager.yktLoading)
             const SizedBox(

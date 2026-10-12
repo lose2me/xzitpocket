@@ -199,31 +199,6 @@ void main() {
     });
   });
 
-  group('ignored release version', () {
-    test('round-trips and can be cleared', () async {
-      await initStorage({});
-      expect(storage.getIgnoredReleaseVersion(), isNull);
-
-      await storage.setIgnoredReleaseVersion('2.0.4');
-      expect(storage.getIgnoredReleaseVersion(), '2.0.4');
-
-      await storage.setIgnoredReleaseVersion('');
-      expect(storage.getIgnoredReleaseVersion(), isNull);
-    });
-
-    test('survives migrations so an ignored version stays ignored', () async {
-      await initStorage({
-        'installed_version_code': '2000',
-        'settings_schema_version': PreferencesStorage.settingsSchemaVersion,
-        'ignored_release_version': '2.0.4',
-      });
-
-      await storage.migrateForVersionCode('2100');
-
-      expect(storage.getIgnoredReleaseVersion(), '2.0.4');
-    });
-  });
-
   group('legacy personalization snapshots', () {
     test('are rejected with the unsupported toast message', () async {
       await initStorage({'timetable_course_text_size': 12.0});

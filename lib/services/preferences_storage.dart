@@ -54,7 +54,6 @@ class PreferencesStorage {
     'settings_schema_version': int,
     'installed_version_code': String,
     'disclaimer_accepted': bool,
-    'ignored_release_version': String,
     // 主题外观
     'theme_preference': String,
     'theme_color': String,
@@ -399,20 +398,6 @@ class PreferencesStorage {
       await _prefs.remove('secondary_schedule_title');
     } else {
       await _prefs.setString('secondary_schedule_title', title);
-    }
-  }
-
-  // ── Update prompt ──
-
-  /// 「我知道了」忽略的更新版本；出现更新版本时会再次提醒。
-  String? getIgnoredReleaseVersion() =>
-      _prefs.getString('ignored_release_version');
-
-  Future<void> setIgnoredReleaseVersion(String? value) async {
-    if (value == null || value.isEmpty) {
-      await _prefs.remove('ignored_release_version');
-    } else {
-      await _prefs.setString('ignored_release_version', value);
     }
   }
 

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
@@ -27,7 +26,6 @@ import '../about/faq_page.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
 import '../../services/control_service.dart';
-import '../../services/update_service.dart';
 import '../home_page.dart';
 import 'profile_components.dart';
 import 'appearance_settings_page.dart';
@@ -404,12 +402,12 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     );
   }
 
-  void _openFaq() {
-    unawaited(
-      Navigator.of(context).push(
-        appRoute(name: AppRouteNames.faq, builder: (_) => const FaqPage()),
-      ),
-    );
+  Future<void> _openFaq() async {
+    await Navigator.of(
+      context,
+    ).push(appRoute(name: AppRouteNames.faq, builder: (_) => const FaqPage()));
+    // 返回登录页后不聚焦任何输入框，避免键盘自动弹出。
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
   }
 
   Future<void> _openDebugLogs() async {
@@ -424,6 +422,8 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         ),
       ),
     );
+    // 返回登录页后不聚焦任何输入框，避免键盘自动弹出。
+    if (mounted) FocusManager.instance.primaryFocus?.unfocus();
     if (mounted) setState(() {});
   }
 
@@ -1008,21 +1008,19 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   }
 }
 
-class _ProfileUpdateCard extends ConsumerStatefulWidget {
+/// 「发现新版本 x → y」入口：点击进入版本更新二级页面
+/// （上方下载模块，下方更新日志模块）。不自动弹出任何通知。
+class _ProfileUpdateCard extends StatefulWidget {
   const _ProfileUpdateCard();
 
   @override
-  ConsumerState<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
+  State<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
 }
 
-class _ProfileUpdateCardState extends ConsumerState<_ProfileUpdateCard> {
+class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
   bool _loading = true;
   ControlRelease? _release;
   String _currentVersion = '';
-  UpdateDownloadProgress? _progress;
-  CancelToken? _cancelToken;
-  String? _error;
-  bool _downloading = false;
 
   @override
   void initState() {
@@ -1039,181 +1037,40 @@ class _ProfileUpdateCardState extends ConsumerState<_ProfileUpdateCard> {
       _currentVersion = info.version;
       _loading = false;
     });
-    // 更新页提醒：「我知道了」持久化已忽略版本；发布更新版本后再次提醒。
-    if (release != null) {
-      final prefs = ref.read(preferencesStorageProvider);
-      if (prefs.getIgnoredReleaseVersion() != release.latestVersion) {
-        unawaited(
-          showAppUpdatePrompt(
-            context: context,
-            release: release,
-            onAcknowledged: () => unawaited(
-              prefs.setIgnoredReleaseVersion(release.latestVersion),
-            ),
-          ),
-        );
-      }
-    }
   }
 
-  @override
-  void dispose() {
-    _cancelToken?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _download() async {
+  void _openUpdatePage() {
     final release = _release;
-    if (release == null || _downloading) return;
-    final cancelToken = CancelToken();
-    setState(() {
-      _downloading = true;
-      _cancelToken = cancelToken;
-      _error = null;
-      _progress = const UpdateDownloadProgress(
-        stage: UpdateDownloadStage.preparing,
-        message: '准备下载更新包',
-      );
-    });
-    try {
-      await UpdateService.downloadAndInstall(
-        release,
-        cancelToken: cancelToken,
-        onProgress: (progress) {
-          if (mounted) setState(() => _progress = progress);
-        },
-      );
-      if (mounted) setState(() => _progress = null);
-    } on UpdateException catch (error) {
-      if (mounted && error.message != '已取消下载') {
-        setState(() => _error = error.message);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _error = '下载更新失败，请稍后重试');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _downloading = false;
-          _cancelToken = null;
-        });
-      }
-    }
+    if (release == null) return;
+    unawaited(
+      Navigator.of(context).push(
+        appRoute(
+          name: AppRouteNames.appUpdate,
+          builder: (_) => AppUpdatePage(release: release),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final release = _release;
     if (_loading || release == null) return const SizedBox.shrink();
-    if (!_downloading && _progress == null && _error == null) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.md),
-        child: FTappable(
-          onPress: _download,
-          behavior: HitTestBehavior.opaque,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Center(
-              child: Text(
-                '发现新版本 $_currentVersion → ${release.latestVersion}',
-                style: context.theme.typography.bodyText,
-              ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: FTappable(
+        onPress: _openUpdatePage,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+          child: Center(
+            child: Text(
+              '发现新版本 $_currentVersion → ${release.latestVersion}',
+              style: context.theme.typography.bodyText,
             ),
           ),
         ),
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: AppCard(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        onPress: _downloading ? null : _download,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Text(
-                    _error == null
-                        ? '发现新版本 $_currentVersion → ${release.latestVersion}'
-                        : '更新失败，点击重试',
-                    textAlign: TextAlign.center,
-                    style: context.theme.typography.bodyText.copyWith(
-                      fontWeight: FontWeight.normal,
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Icon(
-                      _downloading
-                          ? FLucideIcons.loaderCircle
-                          : FLucideIcons.download,
-                      color: context.theme.colors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (_downloading || _progress != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              if (_progress?.progress case final value?)
-                FDeterminateProgress(value: value)
-              else
-                const FProgress(),
-              if (_progress != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  _progress!.message,
-                  style: context.theme.typography.bodySmall,
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  _progressLine,
-                  style: context.theme.typography.caption.copyWith(
-                    color: context.theme.colors.mutedForeground,
-                  ),
-                ),
-              ],
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                _error!,
-                style: context.theme.typography.bodySmall.copyWith(
-                  color: context.theme.colors.destructive,
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
-  }
-
-  String get _progressLine {
-    final progress = _progress;
-    if (progress == null) return '';
-    final received = _formatBytes(progress.receivedBytes);
-    if (progress.totalBytes <= 0) return received;
-    final total = _formatBytes(progress.totalBytes);
-    final percent = ((progress.progress ?? 0) * 100).toStringAsFixed(1);
-    final speed = progress.stage == UpdateDownloadStage.downloading
-        ? ' · ${_formatBytes(progress.bytesPerSecond.round())}/s'
-        : '';
-    return '$received / $total ($percent%)$speed';
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    var value = bytes.toDouble();
-    var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit++;
-    }
-    return '${value.toStringAsFixed(unit == 0 ? 0 : 1)} ${units[unit]}';
   }
 }

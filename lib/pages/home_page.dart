@@ -48,25 +48,45 @@ class HomePageState extends ConsumerState<HomePage> {
     _timetablePage = TimetablePage(key: TimetablePage.globalKey);
     _toolsPage = ToolsPage(key: ToolsPage.globalKey);
     _profilePage = ProfilePage(key: ProfilePage.globalKey);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowDisclaimer());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybeShowDisclaimer());
+    });
   }
 
   /// First-install compliance gate: the disclaimer route cannot be dismissed
   /// by back navigation, only by its own buttons. Accepting persists the flag
   /// permanently, so this is a no-op on every later launch.
-  void _maybeShowDisclaimer() {
+  Future<void> _maybeShowDisclaimer() async {
     if (!mounted) return;
     final prefs = ref.read(preferencesStorageProvider);
     if (prefs.getDisclaimerAccepted()) return;
-    unawaited(
-      Navigator.of(context).push(
-        appRoute(
-          name: AppRouteNames.disclaimer,
-          fullscreenDialog: true,
-          builder: (_) => const DisclaimerPage(),
-        ),
+    final accepted = await Navigator.of(context).push<bool>(
+      appRoute(
+        name: AppRouteNames.disclaimer,
+        fullscreenDialog: true,
+        builder: (_) => const DisclaimerPage(),
       ),
     );
+    // 同意后直接进入登录页（「我的」标签）。
+    if (accepted == true) switchToProfile();
+  }
+
+  /// 切换到「我的」标签（登录页 / 个人中心）。
+  void switchToProfile() {
+    if (!mounted) return;
+    if (_currentIndex != 2) {
+      setState(() => _currentIndex = 2);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_pageController.hasClients && _pageController.page?.round() != 2) {
+        _pageController.jumpToPage(2);
+      }
+      if (_backgroundPageController.hasClients &&
+          _backgroundPageController.page?.round() != 2) {
+        _backgroundPageController.jumpToPage(2);
+      }
+    });
   }
 
   @override
@@ -148,7 +168,12 @@ class HomePageState extends ConsumerState<HomePage> {
                   FVariantValueDeltaOperation.all(false),
                 ]),
               )
+            // forui 默认给导航栏加顶部细边框，课表页（透明 footer）看不到，
+            // 服务/我的页却有一条白线；统一去掉，保持三个标签一致。
             : FBottomNavigationBarStyleDelta.delta(
+                decoration: DecorationDelta.boxDelta(
+                  border: const Border.fromBorderSide(BorderSide.none),
+                ),
                 slideableItems: FVariantsValueDelta.delta([
                   FVariantValueDeltaOperation.all(false),
                 ]),

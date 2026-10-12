@@ -9,6 +9,7 @@ import '../../providers/app_settings_provider.dart';
 import '../../services/native_automation_service.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
+import '../tools/repair_picker_sheet.dart';
 import 'profile_components.dart';
 
 enum _PermissionTarget { notifications, exactAlarm, dnd }
@@ -271,32 +272,27 @@ class _CourseReminderSettingsPageState
     return labels.join('和');
   }
 
+  /// 与「新建报修 → 选择报修区域」一致的上弹滚轮选择器样式。
   static Future<void> _openMinutesSheet(
     BuildContext context,
     WidgetRef ref,
     int current,
   ) async {
-    final selected = await showAppSheet<int>(
+    final selected = await showAppSheet<WheelChoice<int>>(
       context: context,
-      builder: (context) => AppOptionSheet<int>(
+      maxHeightRatio: 0.5,
+      builder: (context) => SingleWheelSheet<int>(
         title: '提前提醒时间',
-        value: current,
-        options: [
+        choices: [
           for (final minutes in const [5, 10, 15, 20, 30, 45, 60])
-            AppOption(
-              value: minutes,
-              title: '$minutes 分钟',
-              icon: minutes == current
-                  ? FLucideIcons.circleCheck
-                  : FLucideIcons.clock3,
-            ),
+            WheelChoice(label: '$minutes 分钟', value: minutes),
         ],
       ),
     );
-    if (selected != null && selected != current) {
+    if (selected != null && selected.value != current) {
       await ref
           .read(appSettingsProvider.notifier)
-          .setCourseReminderMinutes(selected);
+          .setCourseReminderMinutes(selected.value);
     }
   }
 }

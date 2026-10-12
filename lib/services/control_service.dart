@@ -590,7 +590,7 @@ class ControlService {
     if (!_communicationAllowed) return null;
     try {
       final info = await _getPackageInfo();
-      final response = await _request('GET', '/api/v1/app/release');
+      final response = await _request('GET', '/api/v1/app/release-test');
       final latestVersion = response['latestVersion']?.toString().trim() ?? '';
       final downloadUrl = Uri.tryParse(
         response['downloadUrl']?.toString().trim() ?? '',

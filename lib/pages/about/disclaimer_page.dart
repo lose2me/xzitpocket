@@ -72,6 +72,7 @@ class DisclaimerPage extends ConsumerWidget {
   Future<void> _accept(BuildContext context, WidgetRef ref) async {
     final navigator = Navigator.of(context);
     await ref.read(preferencesStorageProvider).setDisclaimerAccepted(true);
-    navigator.pop();
+    // 返回 true，首页据此跳转到登录页（「我的」标签）。
+    navigator.pop(true);
   }
 }

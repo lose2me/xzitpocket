@@ -14,9 +14,11 @@ class TimeColumn extends StatelessWidget {
   final Color? textColor;
   final double textOpacity;
 
-  /// 今日将要/正在上课的节次：文字用 [highlightColor] 标注（同日期标颜色）。
+  /// 今日将要/正在上课的节次：文字用 [highlightColor] 标注（同日期标颜色），
+  /// 背景用 [highlightBackground]（与今日日期格背景一致）。
   final Set<int> highlightedSlots;
   final Color? highlightColor;
+  final Color? highlightBackground;
 
   const TimeColumn({
     super.key,
@@ -30,6 +32,7 @@ class TimeColumn extends StatelessWidget {
     this.textOpacity = 1.0,
     this.highlightedSlots = const {},
     this.highlightColor,
+    this.highlightBackground,
   });
 
   @override
@@ -48,44 +51,50 @@ class TimeColumn extends StatelessWidget {
               : (textColor ?? theme.colors.mutedForeground).withValues(
                   alpha: textOpacity,
                 );
-          return SizedBox(
-            height: cellHeight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${slot.index}',
-                    style: theme.typography.caption.copyWith(
-                      fontSize: textSize,
-                      height: 4 / 3,
-                      fontWeight: highlighted
-                          ? FontWeight.w700
-                          : FontWeight.w600,
-                      color: color,
-                    ),
-                  ),
-                  if (!hideSectionTime) ...[
+          return DecoratedBox(
+            // 高亮节次的背景与今日日期格背景一致。
+            decoration: BoxDecoration(
+              color: highlighted ? highlightBackground : null,
+            ),
+            child: SizedBox(
+              height: cellHeight,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                     Text(
-                      slot.start,
+                      '${slot.index}',
                       style: theme.typography.caption.copyWith(
                         fontSize: textSize,
-                        height: 14 / 11,
+                        height: 4 / 3,
+                        fontWeight: highlighted
+                            ? FontWeight.w700
+                            : FontWeight.w600,
                         color: color,
                       ),
                     ),
-                    Text(
-                      slot.end,
-                      style: theme.typography.caption.copyWith(
-                        fontSize: textSize,
-                        height: 14 / 11,
-                        color: color,
+                    if (!hideSectionTime) ...[
+                      Text(
+                        slot.start,
+                        style: theme.typography.caption.copyWith(
+                          fontSize: textSize,
+                          height: 14 / 11,
+                          color: color,
+                        ),
                       ),
-                    ),
+                      Text(
+                        slot.end,
+                        style: theme.typography.caption.copyWith(
+                          fontSize: textSize,
+                          height: 14 / 11,
+                          color: color,
+                        ),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           );
