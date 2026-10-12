@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:forui/forui.dart';
 
@@ -12,6 +11,7 @@ import '../../services/repair_service.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../../ui/app_markdown.dart';
 import 'repair_picker_sheet.dart';
 
 class RepairFormPage extends StatefulWidget {
@@ -341,32 +341,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
           const SizedBox(height: 28),
           const FDivider(),
           const SizedBox(height: 16),
-          MarkdownBody(
-            data: _tutorial!,
-            selectable: true,
-            styleSheet: MarkdownStyleSheet(
-              p: theme.typography.bodyText.copyWith(
-                color: theme.colors.foreground,
-              ),
-              h1: theme.typography.pageTitle.copyWith(
-                color: theme.colors.foreground,
-                fontWeight: FontWeight.w700,
-              ),
-              h2: theme.typography.tileTitle.copyWith(
-                color: theme.colors.foreground,
-                fontWeight: FontWeight.w700,
-              ),
-              h3: theme.typography.sectionTitle.copyWith(
-                color: theme.colors.foreground,
-                fontWeight: FontWeight.w600,
-              ),
-              code: theme.typography.body.sm.copyWith(
-                color: theme.colors.foreground,
-                fontFamily: 'monospace',
-                backgroundColor: theme.colors.muted,
-              ),
-            ),
-          ),
+          AppMarkdown(data: _tutorial!),
         ],
       ],
     );

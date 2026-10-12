@@ -1,182 +1,72 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
 import '../services/control_service.dart';
-import '../services/update_service.dart';
-import 'app_tokens.dart';
+import 'app_components.dart';
+import 'app_markdown.dart';
 
+/// 打开更新页：展示发布更新日志，仅一个「我知道了」按钮。
+/// 点击 = 忽略本次更新并关闭（由 [onAcknowledged] 持久化已忽略版本）；
+/// 出现更新版本时会再次提醒。下载/安装仍由「我的 → 发现新版本」承担，
+/// 更新页不包含任何下载逻辑。
 Future<void> showAppUpdatePrompt({
   required BuildContext context,
   required ControlRelease release,
-}) => showFDialog<void>(
-  context: context,
-  builder: (context, style, animation) => FDialog(
-    animation: animation,
-    builder: (context, style) => _AppUpdatePrompt(release: release),
+  VoidCallback? onAcknowledged,
+}) => Navigator.of(context).push(
+  appRoute(
+    name: '/about/app-update',
+    fullscreenDialog: true,
+    builder: (_) =>
+        AppUpdatePage(release: release, onAcknowledged: onAcknowledged),
   ),
 );
 
-class _AppUpdatePrompt extends StatefulWidget {
+class AppUpdatePage extends StatelessWidget {
   final ControlRelease release;
+  final VoidCallback? onAcknowledged;
 
-  const _AppUpdatePrompt({required this.release});
-
-  @override
-  State<_AppUpdatePrompt> createState() => _AppUpdatePromptState();
-}
-
-class _AppUpdatePromptState extends State<_AppUpdatePrompt> {
-  UpdateDownloadProgress? _progress;
-  CancelToken? _cancelToken;
-  String? _error;
-  bool _downloading = false;
-
-  @override
-  void dispose() {
-    _cancelToken?.cancel('update prompt closed');
-    super.dispose();
-  }
-
-  Future<void> _download() async {
-    if (_downloading) return;
-    final cancelToken = CancelToken();
-    setState(() {
-      _downloading = true;
-      _cancelToken = cancelToken;
-      _error = null;
-      _progress = const UpdateDownloadProgress(
-        stage: UpdateDownloadStage.preparing,
-        message: '准备下载更新包',
-      );
-    });
-    try {
-      await UpdateService.downloadAndInstall(
-        widget.release,
-        cancelToken: cancelToken,
-        onProgress: (progress) {
-          if (mounted) setState(() => _progress = progress);
-        },
-      );
-      if (mounted) Navigator.pop(context);
-    } on UpdateException catch (error) {
-      if (mounted && error.message != '已取消下载') {
-        setState(() => _error = error.message);
-      }
-    } catch (_) {
-      if (mounted) setState(() => _error = '下载更新失败，请稍后重试');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _downloading = false;
-          _cancelToken = null;
-        });
-      }
-    }
-  }
-
-  void _dismiss() {
-    _cancelToken?.cancel('user cancelled');
-    Navigator.pop(context);
-  }
+  const AppUpdatePage({super.key, required this.release, this.onAcknowledged});
 
   @override
   Widget build(BuildContext context) {
-    final progress = _progress;
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xxl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
+    final theme = context.theme;
+    final changelog = release.changelog.trim();
+    return AppPage(
+      title: '发现新版本',
+      footer: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: SizedBox(
             width: double.infinity,
-            child: Text(
-              '发现新版本',
-              textAlign: TextAlign.center,
-              style: context.theme.typography.pageTitle,
+            child: FButton(
+              onPress: () {
+                onAcknowledged?.call();
+                Navigator.of(context).pop();
+              },
+              child: const Text('我知道了'),
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+        ),
+      ),
+      child: AppPageListView(
+        children: [
           Text(
-            '版本 ${widget.release.latestVersion} 已发布，是否立即下载并安装？',
-            style: context.theme.typography.bodySmall.copyWith(
-              color: context.theme.colors.mutedForeground,
-            ),
+            '版本 ${release.latestVersion} 已发布',
+            style: theme.typography.pageTitle,
           ),
-          if (_downloading || progress != null) ...[
-            const SizedBox(height: AppSpacing.lg),
-            if (progress?.progress case final value?)
-              FDeterminateProgress(value: value)
-            else
-              const FProgress(),
-            if (progress != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(progress.message, style: context.theme.typography.bodySmall),
-              if (progress.totalBytes > 0) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  _progressLine(progress),
-                  style: context.theme.typography.caption.copyWith(
-                    color: context.theme.colors.mutedForeground,
-                  ),
-                ),
-              ],
-            ],
-          ],
-          if (_error != null) ...[
-            const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.lg),
+          if (changelog.isEmpty)
             Text(
-              _error!,
-              style: context.theme.typography.bodySmall.copyWith(
-                color: context.theme.colors.destructive,
+              '暂无更新日志',
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.mutedForeground,
               ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.xxl),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              FButton(
-                variant: FButtonVariant.ghost,
-                size: FButtonSizeVariant.sm,
-                mainAxisSize: MainAxisSize.min,
-                onPress: _dismiss,
-                child: Text(_downloading ? '取消下载' : '稍后'),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              FButton(
-                size: FButtonSizeVariant.sm,
-                mainAxisSize: MainAxisSize.min,
-                onPress: _downloading ? null : _download,
-                child: Text(_error == null ? '立即更新' : '重试'),
-              ),
-            ],
-          ),
+            )
+          else
+            AppMarkdown(data: changelog),
         ],
       ),
     );
-  }
-
-  String _progressLine(UpdateDownloadProgress progress) {
-    final received = _formatBytes(progress.receivedBytes);
-    final total = _formatBytes(progress.totalBytes);
-    final percent = ((progress.progress ?? 0) * 100).toStringAsFixed(1);
-    final speed = progress.stage == UpdateDownloadStage.downloading
-        ? ' · ${_formatBytes(progress.bytesPerSecond.round())}/s'
-        : '';
-    return '$received / $total ($percent%)$speed';
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    var value = bytes.toDouble();
-    var unit = 0;
-    while (value >= 1024 && unit < units.length - 1) {
-      value /= 1024;
-      unit++;
-    }
-    return '${value.toStringAsFixed(unit == 0 ? 0 : 1)} ${units[unit]}';
   }
 }

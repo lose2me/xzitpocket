@@ -18,9 +18,13 @@ class ControlRelease {
   final String latestVersion;
   final Uri downloadUrl;
 
+  /// Markdown 更新日志，由 APP 端统一 Markdown 组件渲染（需求 20）。
+  final String changelog;
+
   const ControlRelease({
     required this.latestVersion,
     required this.downloadUrl,
+    this.changelog = '',
   });
 }
 
@@ -601,6 +605,7 @@ class ControlService {
       return ControlRelease(
         latestVersion: latestVersion,
         downloadUrl: downloadUrl,
+        changelog: response['changelog']?.toString() ?? '',
       );
     } catch (error, stackTrace) {
       talker.warning('检查新版本失败', error, stackTrace);

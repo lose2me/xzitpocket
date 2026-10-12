@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:forui/forui.dart';
 
 import '../../services/cas_service.dart';
@@ -10,6 +9,7 @@ import '../../services/netauth_service.dart';
 import '../../services/talker.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../../ui/app_markdown.dart';
 
 class OperatorBindingPage extends StatefulWidget {
   final String account;
@@ -126,7 +126,6 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
   }
 
   Widget _buildCarrierForm(int index) {
-    final theme = context.theme;
     final tutorial = _tutorials[index];
     return AppPageListView(
       maxWidth: AppLayout.formMaxWidth,
@@ -166,32 +165,7 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
           const SizedBox(height: 28),
           const FDivider(),
           const SizedBox(height: 16),
-          MarkdownBody(
-            data: tutorial,
-            selectable: true,
-            styleSheet: MarkdownStyleSheet(
-              p: theme.typography.bodyText.copyWith(
-                color: theme.colors.foreground,
-              ),
-              h1: theme.typography.pageTitle.copyWith(
-                color: theme.colors.foreground,
-                fontWeight: FontWeight.w700,
-              ),
-              h2: theme.typography.tileTitle.copyWith(
-                color: theme.colors.foreground,
-                fontWeight: FontWeight.w700,
-              ),
-              h3: theme.typography.sectionTitle.copyWith(
-                color: theme.colors.foreground,
-                fontWeight: FontWeight.w600,
-              ),
-              code: theme.typography.body.sm.copyWith(
-                color: theme.colors.foreground,
-                fontFamily: 'monospace',
-                backgroundColor: theme.colors.muted,
-              ),
-            ),
-          ),
+          AppMarkdown(data: tutorial),
         ],
       ],
     );

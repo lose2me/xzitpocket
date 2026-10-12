@@ -22,6 +22,7 @@ import '../../services/widget_service.dart';
 import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../../ui/update_prompt.dart';
 import '../about/disclaimer_page.dart';
 import '../about/faq_page.dart';
 import '../about/open_source_license_page.dart';
@@ -1025,14 +1026,14 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   }
 }
 
-class _ProfileUpdateCard extends StatefulWidget {
+class _ProfileUpdateCard extends ConsumerStatefulWidget {
   const _ProfileUpdateCard();
 
   @override
-  State<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
+  ConsumerState<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
 }
 
-class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
+class _ProfileUpdateCardState extends ConsumerState<_ProfileUpdateCard> {
   bool _loading = true;
   ControlRelease? _release;
   String _currentVersion = '';
@@ -1056,6 +1057,21 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
       _currentVersion = info.version;
       _loading = false;
     });
+    // 更新页提醒：「我知道了」持久化已忽略版本；发布更新版本后再次提醒。
+    if (release != null) {
+      final prefs = ref.read(preferencesStorageProvider);
+      if (prefs.getIgnoredReleaseVersion() != release.latestVersion) {
+        unawaited(
+          showAppUpdatePrompt(
+            context: context,
+            release: release,
+            onAcknowledged: () => unawaited(
+              prefs.setIgnoredReleaseVersion(release.latestVersion),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   @override
