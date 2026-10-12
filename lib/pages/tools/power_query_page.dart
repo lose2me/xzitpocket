@@ -48,6 +48,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   void initState() {
     super.initState();
     _manager.addListener(_onCampusNetworkChanged);
+    _showMoney = widget.preferencesStorage.getPowerUnitShowMoney();
     _baseResult = widget.result;
     final today = _today;
     _endDate = today;
@@ -221,7 +222,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         _showMoney ? '剩余金额' : '剩余电量',
         '${_formatAmount(_baseResult.available)} ${_showMoney ? '元' : '度'}',
       ),
-      _MetricItem('电价(点击改变单位)', _formatPrice(), interactive: true),
+      _MetricItem('电价(改变单位)', _formatPrice(), interactive: true),
       if (_baseResult.monthUsage != null)
         _MetricItem(
           _showMoney ? '本月电费' : '本月用电',
@@ -248,25 +249,18 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
         bottomPadding: AppSpacing.xxl,
         children: [
           if (!_canRefresh) ...[
-            Row(
-              children: [
-                Icon(
-                  FLucideIcons.wifiOff,
-                  size: 18,
+            // 居中一行小字，无图标（样式对齐 ProfileSettingsHint，需求 8）。
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+              child: Text(
+                _manager.campusNetworkStatus == CampusNetworkStatus.checking
+                    ? '正在检测校园网，当前显示缓存数据'
+                    : '未连接校园网，当前显示缓存数据',
+                textAlign: TextAlign.center,
+                style: theme.typography.caption.copyWith(
                   color: theme.colors.mutedForeground,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _manager.campusNetworkStatus == CampusNetworkStatus.checking
-                        ? '正在检测校园网，当前显示缓存数据'
-                        : '未连接校园网，当前显示缓存数据',
-                    style: theme.typography.body.sm.copyWith(
-                      color: theme.colors.mutedForeground,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
             const SizedBox(height: 16),
           ],
@@ -341,10 +335,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
   String _formatAmount(String value) {
     if (!_showMoney) return value;
-    final amount = double.tryParse(value);
-    final price = double.tryParse(_baseResult.price);
-    if (amount == null || price == null) return '-';
-    return (amount * price).toStringAsFixed(2);
+    return powerAmountAsMoney(value, _baseResult.price);
   }
 
   String _formatPrice() {
@@ -353,9 +344,8 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
     final price = double.tryParse(raw);
     if (price == null || price == 0) return '- 度/元';
-    final reciprocal = (1 / price).toStringAsFixed(4);
-    final formatted = reciprocal.replaceFirst(RegExp(r'\.?0+$'), '');
-    return '$formatted 度/元';
+    // 度/元 单位固定保留 2 位小数。
+    return '${(1 / price).toStringAsFixed(2)} 度/元';
   }
 
   Widget _buildMetricCell(FThemeData theme, _MetricItem item) {
@@ -380,12 +370,18 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     );
     if (item.interactive) {
       card = FTappable(
-        onPress: () => setState(() => _showMoney = !_showMoney),
+        onPress: _toggleUnit,
         behavior: HitTestBehavior.opaque,
         child: card,
       );
     }
     return card;
+  }
+
+  /// 单位切换持久化，服务页电费卡随之同步（需求 3）。
+  Future<void> _toggleUnit() async {
+    setState(() => _showMoney = !_showMoney);
+    await widget.preferencesStorage.setPowerUnitShowMoney(_showMoney);
   }
 
   Widget _buildUsageRow(FThemeData theme, PowerDailyUsage item) {
@@ -418,4 +414,13 @@ class _MetricItem {
   final bool interactive;
 
   const _MetricItem(this.label, this.value, {this.interactive = false});
+}
+
+/// 电量 → 金额换算（度 × 电价，保留 2 位小数）；无法解析时返回 `-`。
+/// 电费页与服务页电费卡共用，保证两处单位数值一致。
+String powerAmountAsMoney(String amount, String price) {
+  final parsedAmount = double.tryParse(amount);
+  final parsedPrice = double.tryParse(price);
+  if (parsedAmount == null || parsedPrice == null) return '-';
+  return (parsedAmount * parsedPrice).toStringAsFixed(2);
 }

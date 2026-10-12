@@ -12,6 +12,16 @@ import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../../ui/date_range_calendar_sheet.dart';
 
+/// 未圈存金额 = 卡内余额 − 最后一笔交易的「余」（需求 4）。
+/// [txns] 需按时间倒序（最新在前）。无交易或数值不可解析时返回占位 `--`。
+String yktUncommittedAmount(String balance, List<YktTransaction> txns) {
+  if (txns.isEmpty) return '--';
+  final balanceValue = double.tryParse(balance.trim());
+  final lastRemainder = double.tryParse(txns.first.balance.trim());
+  if (balanceValue == null || lastRemainder == null) return '--';
+  return '${(balanceValue - lastRemainder).toStringAsFixed(2)} 元';
+}
+
 class CampusCardPage extends StatefulWidget {
   final YktDetailResult result;
   final String studentId;
@@ -231,6 +241,11 @@ class _CampusCardPageState extends State<CampusCardPage> {
             children: [
               _buildMetricCell(theme, '卡号', bal.cardNo),
               _buildMetricCell(theme, '余额', '${bal.balance} 元'),
+              _buildMetricCell(
+                theme,
+                '未圈存金额',
+                yktUncommittedAmount(bal.balance, _txns),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),

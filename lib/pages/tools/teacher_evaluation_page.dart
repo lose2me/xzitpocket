@@ -235,6 +235,27 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
               )
             : Column(
                 children: [
+                  // 离线但有缓存任务时正常展示缓存，并给出居中小字提示
+                  //（样式与电费页一致，需求 9）。
+                  if (!_campusAvailable)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.sm,
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                        0,
+                      ),
+                      child: Text(
+                        _manager.campusNetworkStatus ==
+                                CampusNetworkStatus.checking
+                            ? '正在检测校园网，当前显示缓存数据'
+                            : '未连接校园网，当前显示缓存数据',
+                        textAlign: TextAlign.center,
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,

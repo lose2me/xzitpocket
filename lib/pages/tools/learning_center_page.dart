@@ -160,7 +160,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final loading = !repository.isLoaded;
     return AppPage(
       title: switch (_tab) {
-        _LearningTab.bank => '题库中心',
+        _LearningTab.bank => '练习中心',
         _LearningTab.wrong => '错题集',
         _LearningTab.favorite => '收藏集',
       },

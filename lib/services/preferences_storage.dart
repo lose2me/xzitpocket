@@ -144,6 +144,7 @@ class PreferencesStorage {
     'secondary_schedule_json': String,
     'secondary_schedule_title': String,
     // 宿舍与缓存
+    'power_unit_show_money': bool,
     'saved_power_room_id': String,
     'saved_power_cache': String,
     'saved_power_cache_room_id': String,
@@ -1294,6 +1295,15 @@ class PreferencesStorage {
 
   Future<void> setHiddenServiceFeatures(Iterable<String> values) =>
       _prefs.setStringList('hidden_service_features', values.toSet().toList());
+
+  // ── Power unit ──
+
+  /// 电费金额单位：false = 度（电量），true = 元（金额）。持久化并同步到服务页。
+  bool getPowerUnitShowMoney() =>
+      _prefs.getBool('power_unit_show_money') ?? false;
+
+  Future<void> setPowerUnitShowMoney(bool value) =>
+      _prefs.setBool('power_unit_show_money', value);
 
   // ── Power room ──
 

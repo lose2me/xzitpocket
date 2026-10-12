@@ -105,103 +105,95 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-    final tutorial = _tutorials[_selectedIndex];
-
+    // 与「学业情况」一致的 FTabs 样式（需求 22）；提交中不允许切换。
     return AppPage(
       title: '绑定运营商',
-      child: AppPageListView(
-        maxWidth: AppLayout.formMaxWidth,
-        topPadding: AppSpacing.lg,
-        bottomPadding: AppSpacing.section,
+      child: FTabs(
+        expands: true,
+        control: FTabControl.lifted(
+          index: _selectedIndex,
+          onChange: _loading ? (_) {} : _switchCarrier,
+        ),
         children: [
-          _buildSegmentedBar(),
-          const SizedBox(height: 20),
-          AppTextField(
-            controller: _acctCtrl,
-            label: '宽带账号',
-            prefix: const Icon(FLucideIcons.userRound),
-            textInputAction: TextInputAction.next,
-          ),
-          const SizedBox(height: 16),
-          AppTextField(
-            controller: _pwdCtrl,
-            label: '宽带密码',
-            prefix: const Icon(FLucideIcons.lockKeyhole),
-            obscureText: true,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) {
-              if (!_loading) unawaited(_submit());
-            },
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 48,
-            child: FButton(
-              onPress: _loading ? null : _submit,
-              prefix: _loading
-                  ? const FCircularProgress(
-                      size: FCircularProgressSizeVariant.sm,
-                    )
-                  : null,
-              child: const Text('绑定'),
+          for (var index = 0; index < _carriers.length; index++)
+            FTabEntry(
+              label: Text(_carriers[index]),
+              child: _buildCarrierForm(index),
             ),
-          ),
-          if (tutorial != null && tutorial.trim().isNotEmpty) ...[
-            const SizedBox(height: 28),
-            const FDivider(),
-            const SizedBox(height: 16),
-            MarkdownBody(
-              data: tutorial,
-              selectable: true,
-              styleSheet: MarkdownStyleSheet(
-                p: theme.typography.bodyText.copyWith(
-                  color: theme.colors.foreground,
-                ),
-                h1: theme.typography.pageTitle.copyWith(
-                  color: theme.colors.foreground,
-                  fontWeight: FontWeight.w700,
-                ),
-                h2: theme.typography.tileTitle.copyWith(
-                  color: theme.colors.foreground,
-                  fontWeight: FontWeight.w700,
-                ),
-                h3: theme.typography.sectionTitle.copyWith(
-                  color: theme.colors.foreground,
-                  fontWeight: FontWeight.w600,
-                ),
-                code: theme.typography.body.sm.copyWith(
-                  color: theme.colors.foreground,
-                  fontFamily: 'monospace',
-                  backgroundColor: theme.colors.muted,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildSegmentedBar() {
-    return Row(
-      children: List.generate(_carriers.length, (i) {
-        final selected = i == _selectedIndex;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(
-              right: i == _carriers.length - 1 ? 0 : AppSpacing.sm,
-            ),
-            child: FButton(
-              variant: selected
-                  ? FButtonVariant.primary
-                  : FButtonVariant.outline,
-              onPress: _loading ? null : () => _switchCarrier(i),
-              child: Text(_carriers[i]),
+  Widget _buildCarrierForm(int index) {
+    final theme = context.theme;
+    final tutorial = _tutorials[index];
+    return AppPageListView(
+      maxWidth: AppLayout.formMaxWidth,
+      topPadding: AppSpacing.lg,
+      bottomPadding: AppSpacing.section,
+      safeArea: false,
+      children: [
+        AppTextField(
+          controller: _acctCtrl,
+          label: '宽带账号',
+          prefix: const Icon(FLucideIcons.userRound),
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: 16),
+        AppTextField(
+          controller: _pwdCtrl,
+          label: '宽带密码',
+          prefix: const Icon(FLucideIcons.lockKeyhole),
+          obscureText: true,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) {
+            if (!_loading) unawaited(_submit());
+          },
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          height: 48,
+          child: FButton(
+            onPress: _loading ? null : _submit,
+            prefix: _loading
+                ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+                : null,
+            child: const Text('绑定'),
+          ),
+        ),
+        if (tutorial != null && tutorial.trim().isNotEmpty) ...[
+          const SizedBox(height: 28),
+          const FDivider(),
+          const SizedBox(height: 16),
+          MarkdownBody(
+            data: tutorial,
+            selectable: true,
+            styleSheet: MarkdownStyleSheet(
+              p: theme.typography.bodyText.copyWith(
+                color: theme.colors.foreground,
+              ),
+              h1: theme.typography.pageTitle.copyWith(
+                color: theme.colors.foreground,
+                fontWeight: FontWeight.w700,
+              ),
+              h2: theme.typography.tileTitle.copyWith(
+                color: theme.colors.foreground,
+                fontWeight: FontWeight.w700,
+              ),
+              h3: theme.typography.sectionTitle.copyWith(
+                color: theme.colors.foreground,
+                fontWeight: FontWeight.w600,
+              ),
+              code: theme.typography.body.sm.copyWith(
+                color: theme.colors.foreground,
+                fontFamily: 'monospace',
+                backgroundColor: theme.colors.muted,
+              ),
             ),
           ),
-        );
-      }),
+        ],
+      ],
     );
   }
 }

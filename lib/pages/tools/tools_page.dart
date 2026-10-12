@@ -231,7 +231,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final control = ControlService.instance;
     if (!control.isConfigured) {
       if (mounted) {
-        showAppSnackBar(context, '题库中心服务未配置', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '练习中心服务未配置', severity: ToastSeverity.warning);
       }
       return;
     }
@@ -485,7 +485,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         _buildSimpleCard(
           theme,
           icon: FLucideIcons.graduationCap,
-          title: '题库中心',
+          title: '练习中心',
           // 未登录也要有可见提示，不再静默禁用。
           onTap: learningLoggedIn ? _openLearningCenter : _requireLogin,
         ),
@@ -793,6 +793,10 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final campusAvailable = _manager.isCampusNetworkAvailable;
     final campusChecking =
         _manager.campusNetworkStatus == CampusNetworkStatus.checking;
+    // 电费单位与电费页联动（持久化，需求 3）。
+    final showMoney = ref
+        .read(preferencesStorageProvider)
+        .getPowerUnitShowMoney();
 
     String statusText;
     TextStyle? statusStyle;
@@ -808,7 +812,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         color: theme.colors.mutedForeground,
       );
     } else if (data != null) {
-      statusText = '${data.available} 度';
+      statusText = showMoney
+          ? '${powerAmountAsMoney(data.available, data.price)} 元'
+          : '${data.available} 度';
       statusStyle = theme.typography.metric;
     } else if (_manager.powerLoading) {
       statusText = '';
@@ -828,9 +834,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       onPress: (studentId == null || studentId.isEmpty)
           ? _requireLogin
           : hasRoom && data != null
-          ? () {
+          ? () async {
               _trackServiceOpen('power');
-              Navigator.of(context).push(
+              await Navigator.of(context).push(
                 appRoute(
                   name: AppRouteNames.electricity,
                   builder: (_) => PowerQueryPage(
@@ -841,6 +847,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                   ),
                 ),
               );
+              // 返回后刷新卡片，使电费页内切换的单位立即同步。
+              if (mounted) setState(() {});
             }
           : hasRoom && campusAvailable && !_manager.powerLoading
           ? _refreshPower
