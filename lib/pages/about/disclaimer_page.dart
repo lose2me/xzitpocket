@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
@@ -10,7 +11,9 @@ import '../../ui/app_components.dart';
 /// First-run disclaimer. Shown only while `disclaimer_accepted` is unset.
 /// Accepting persists the flag permanently; it is never cleared by
 /// personalization resets, version migrations, or logout. Declining does not
-/// persist anything, so the page reappears on the next launch.
+/// persist anything and force-closes the app; on the next launch the page
+/// reappears. There is no back button and no system-back escape: the user
+/// must pick one of the two buttons.
 class DisclaimerPage extends ConsumerWidget {
   const DisclaimerPage({super.key});
 
@@ -21,29 +24,7 @@ class DisclaimerPage extends ConsumerWidget {
       canPop: false,
       child: AppPage(
         title: '免责声明',
-        footer: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: FButton(
-                    variant: FButtonVariant.secondary,
-                    onPress: () => Navigator.of(context).pop(),
-                    child: const Text('拒绝'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FButton(
-                    onPress: () => unawaited(_accept(context, ref)),
-                    child: const Text('同意并继续'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        showBackButton: false,
         child: AppPageListView(
           children: [
             Text(
@@ -61,6 +42,26 @@ class DisclaimerPage extends ConsumerWidget {
               style: theme.typography.bodyText.copyWith(
                 color: theme.colors.mutedForeground,
               ),
+            ),
+            // 按钮紧跟文章最下面（非固定底栏），不加额外样式。
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: FButton(
+                    variant: FButtonVariant.secondary,
+                    onPress: () => SystemNavigator.pop(),
+                    child: const Text('拒绝'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FButton(
+                    onPress: () => unawaited(_accept(context, ref)),
+                    child: const Text('同意并继续'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

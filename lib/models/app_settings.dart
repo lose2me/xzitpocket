@@ -249,10 +249,6 @@ class AppSettings {
   final double timetableTodayLineWidth;
   final double timetableTodayLineOpacity;
   final bool showTodayHorizontalGridLines;
-  final Color? timetableTodayHorizontalLineColor;
-  final Color? timetableLastCustomTodayHorizontalLineColor;
-  final double timetableTodayHorizontalLineWidth;
-  final double timetableTodayHorizontalLineOpacity;
   final bool useCloudTimetableAdjustments;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
@@ -334,10 +330,6 @@ class AppSettings {
     this.timetableTodayLineWidth = 2.0,
     this.timetableTodayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
-    this.timetableTodayHorizontalLineColor,
-    this.timetableLastCustomTodayHorizontalLineColor,
-    this.timetableTodayHorizontalLineWidth = 1.0,
-    this.timetableTodayHorizontalLineOpacity = 0.5,
     this.useCloudTimetableAdjustments = true,
     this.hiddenServiceFeatures = const {},
   });
@@ -422,10 +414,6 @@ class AppSettings {
     double? timetableTodayLineWidth,
     double? timetableTodayLineOpacity,
     bool? showTodayHorizontalGridLines,
-    Object? timetableTodayHorizontalLineColor = _unset,
-    Object? timetableLastCustomTodayHorizontalLineColor = _unset,
-    double? timetableTodayHorizontalLineWidth,
-    double? timetableTodayHorizontalLineOpacity,
     bool? useCloudTimetableAdjustments,
     Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
@@ -608,20 +596,6 @@ class AppSettings {
           timetableTodayLineOpacity ?? this.timetableTodayLineOpacity,
       showTodayHorizontalGridLines:
           showTodayHorizontalGridLines ?? this.showTodayHorizontalGridLines,
-      timetableTodayHorizontalLineColor:
-          identical(timetableTodayHorizontalLineColor, _unset)
-          ? this.timetableTodayHorizontalLineColor
-          : timetableTodayHorizontalLineColor as Color?,
-      timetableLastCustomTodayHorizontalLineColor:
-          identical(timetableLastCustomTodayHorizontalLineColor, _unset)
-          ? this.timetableLastCustomTodayHorizontalLineColor
-          : timetableLastCustomTodayHorizontalLineColor as Color?,
-      timetableTodayHorizontalLineWidth:
-          timetableTodayHorizontalLineWidth ??
-          this.timetableTodayHorizontalLineWidth,
-      timetableTodayHorizontalLineOpacity:
-          timetableTodayHorizontalLineOpacity ??
-          this.timetableTodayHorizontalLineOpacity,
       useCloudTimetableAdjustments:
           useCloudTimetableAdjustments ?? this.useCloudTimetableAdjustments,
       hiddenServiceFeatures:

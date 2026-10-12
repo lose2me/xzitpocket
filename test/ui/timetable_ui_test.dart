@@ -545,53 +545,90 @@ void main() {
     );
   });
 
-  testWidgets('today horizontal lines toggle independently from vertical', (
+  testWidgets('ongoing course marks the time column and full-width lines', (
     tester,
   ) async {
     final tuesday = semesterCalendar.weekDates(1)[1];
+    final course = Course(
+      title: '高等数学',
+      teacher: '',
+      weekday: 2,
+      sessions: const [3, 4],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
 
-    Finder overlay() => find.byWidgetPredicate(
+    Finder activeLines() => find.byWidgetPredicate(
       (widget) =>
           widget is CustomPaint &&
-          widget.painter.runtimeType.toString() == '_TodayGridLinesPainter',
+          widget.painter.runtimeType.toString() == '_ActiveCourseLinesPainter',
     );
 
-    await tester.pumpWidget(
+    Future<void> pumpGrid({
+      required DateTime now,
+      bool showHorizontal = true,
+      List<Course> courses = const [],
+    }) => tester.pumpWidget(
       _testApp(
         SizedBox(
           width: 390,
-          height: 260,
+          height: 400,
           child: TimetableGrid(
-            courses: const [],
+            courses: courses,
             week: 1,
             calendar: semesterCalendar,
             currentDate: tuesday,
+            now: now,
             borderColor: AppTheme.light.colors.border,
-            showTodayHorizontalGridLines: true,
+            showTodayHorizontalGridLines: showHorizontal,
           ),
         ),
       ),
     );
-    // 仅开启横线：竖线关闭时也绘制覆盖层。
-    expect(overlay(), findsOneWidget);
 
-    await tester.pumpWidget(
-      _testApp(
-        SizedBox(
-          width: 390,
-          height: 260,
-          child: TimetableGrid(
-            courses: const [],
-            week: 1,
-            calendar: semesterCalendar,
-            currentDate: tuesday,
-            borderColor: AppTheme.light.colors.border,
-          ),
-        ),
-      ),
+    DateTime todayAt(int hour, int minute) =>
+        DateTime(tuesday.year, tuesday.month, tuesday.day, hour, minute);
+
+    // 正在上课（第 3 节 10:05-10:50 进行中）。
+    await pumpGrid(now: todayAt(10, 20), courses: [course]);
+    expect(activeLines(), findsOneWidget);
+    final timeColumn = tester.widget<TimeColumn>(find.byType(TimeColumn));
+    expect(timeColumn.highlightedSlots, {3, 4});
+    expect(timeColumn.highlightColor, isNotNull);
+
+    // 将要上课（尚未开始，取今天最近的一节）。
+    await pumpGrid(now: todayAt(9, 30), courses: [course]);
+    expect(activeLines(), findsOneWidget);
+    expect(
+      tester.widget<TimeColumn>(find.byType(TimeColumn)).highlightedSlots,
+      {3, 4},
     );
-    // 两者都关闭：无覆盖层。
-    expect(overlay(), findsNothing);
+
+    // 当天课程已全部结束：不绘制横线、不高亮。
+    await pumpGrid(now: todayAt(12, 0), courses: [course]);
+    expect(activeLines(), findsNothing);
+    expect(
+      tester.widget<TimeColumn>(find.byType(TimeColumn)).highlightedSlots,
+      isEmpty,
+    );
+
+    // 开关关闭：即使有进行中的课也不标注。
+    await pumpGrid(
+      now: todayAt(10, 20),
+      courses: [course],
+      showHorizontal: false,
+    );
+    expect(activeLines(), findsNothing);
+    expect(
+      tester.widget<TimeColumn>(find.byType(TimeColumn)).highlightedSlots,
+      isEmpty,
+    );
+
+    // 今天没有课：不标注。
+    await pumpGrid(now: todayAt(10, 20));
+    expect(activeLines(), findsNothing);
   });
 
   testWidgets('hiding dates preserves the configured day header height', (

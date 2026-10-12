@@ -15,6 +15,9 @@ class AppPage extends StatelessWidget {
   final bool? resizeToAvoidBottomInset;
   final SystemUiOverlayStyle? systemOverlayStyle;
 
+  /// 嵌套页左上角返回按钮开关（免责声明页等强制选择场景使用）。
+  final bool showBackButton;
+
   /// 自定义标题栏样式（默认跟随主题）。
   final FHeaderStyleDelta? headerStyle;
 
@@ -30,6 +33,7 @@ class AppPage extends StatelessWidget {
     this.resizeToAvoidBottomInset,
     this.systemOverlayStyle,
     this.headerStyle,
+    this.showBackButton = true,
   });
 
   @override
@@ -46,9 +50,13 @@ class AppPage extends StatelessWidget {
         : FHeader.nested(
             title: Text(title!),
             titleAlignment: Alignment.center,
-            prefixes: [
-              FHeaderAction.back(onPress: () => Navigator.maybePop(context)),
-            ],
+            prefixes: showBackButton
+                ? [
+                    FHeaderAction.back(
+                      onPress: () => Navigator.maybePop(context),
+                    ),
+                  ]
+                : const [],
             suffixes: actions,
           );
 

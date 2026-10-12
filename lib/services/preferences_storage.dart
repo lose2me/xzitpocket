@@ -23,6 +23,11 @@ class PreferencesStorage {
     'school_calendar_cache_time',
     // 课程块文字改为模板后废弃的布尔开关（升级时先合成模板再删除）。
     ...legacyCourseTextKeys,
+    // 今日横线改为跟随竖线样式后废弃的独立配置。
+    'timetable_today_horizontal_line_color',
+    'timetable_last_custom_today_horizontal_line_color',
+    'timetable_today_horizontal_line_width',
+    'timetable_today_horizontal_line_opacity',
   };
 
   /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
@@ -76,10 +81,6 @@ class PreferencesStorage {
     'timetable_today_line_width': double,
     'timetable_today_line_opacity': double,
     'show_today_horizontal_grid_lines': bool,
-    'timetable_today_horizontal_line_color': int,
-    'timetable_last_custom_today_horizontal_line_color': int,
-    'timetable_today_horizontal_line_width': double,
-    'timetable_today_horizontal_line_opacity': double,
     // 课程块
     'timetable_course_corner_radius': double,
     'timetable_course_inner_padding': double,
@@ -325,10 +326,6 @@ class PreferencesStorage {
     'timetable_today_line_width',
     'timetable_today_line_opacity',
     'show_today_horizontal_grid_lines',
-    'timetable_today_horizontal_line_color',
-    'timetable_last_custom_today_horizontal_line_color',
-    'timetable_today_horizontal_line_width',
-    'timetable_today_horizontal_line_opacity',
   };
 
   Future<void> init() async {
@@ -939,55 +936,6 @@ class PreferencesStorage {
   Future<void> setShowTodayHorizontalGridLines(bool value) =>
       _prefs.setBool('show_today_horizontal_grid_lines', value);
 
-  int? getTimetableTodayHorizontalLineColor() =>
-      _prefs.getInt('timetable_today_horizontal_line_color');
-  int? getTimetableLastCustomTodayHorizontalLineColor() =>
-      _prefs.getInt('timetable_last_custom_today_horizontal_line_color');
-
-  Future<void> setTimetableTodayHorizontalLineColor(int? value) async {
-    if (value == null) {
-      await _prefs.remove('timetable_today_horizontal_line_color');
-    } else {
-      await _prefs.setInt('timetable_today_horizontal_line_color', value);
-    }
-  }
-
-  Future<void> setTimetableLastCustomTodayHorizontalLineColor(
-    int? value,
-  ) async {
-    if (value == null) {
-      await _prefs.remove('timetable_last_custom_today_horizontal_line_color');
-    } else {
-      await _prefs.setInt(
-        'timetable_last_custom_today_horizontal_line_color',
-        value,
-      );
-    }
-  }
-
-  double getTimetableTodayHorizontalLineWidth() => _clampTimetableDimension(
-    _prefs.getDouble('timetable_today_horizontal_line_width') ?? 1.0,
-    min: 0.5,
-    max: 4.0,
-  );
-
-  Future<void> setTimetableTodayHorizontalLineWidth(double value) =>
-      _prefs.setDouble(
-        'timetable_today_horizontal_line_width',
-        _clampTimetableDimension(value, min: 0.5, max: 4.0),
-      );
-
-  double getTimetableTodayHorizontalLineOpacity() =>
-      (_prefs.getDouble('timetable_today_horizontal_line_opacity') ?? 0.5)
-          .clamp(0.0, 1.0)
-          .toDouble();
-
-  Future<void> setTimetableTodayHorizontalLineOpacity(double value) =>
-      _prefs.setDouble(
-        'timetable_today_horizontal_line_opacity',
-        value.clamp(0.0, 1.0).toDouble(),
-      );
-
   String? getTimetableBackgroundPath() =>
       _prefs.getString('timetable_background_path');
 
@@ -1173,10 +1121,6 @@ class PreferencesStorage {
       getTimetableTodayLineColor(),
       getTimetableLastCustomTodayLineColor(),
     );
-    final keepTodayHorizontalLineColor = isActiveCustomColor(
-      getTimetableTodayHorizontalLineColor(),
-      getTimetableLastCustomTodayHorizontalLineColor(),
-    );
     final keepPageTextColor = isActiveCustomColor(
       getTimetablePageTextColor(),
       getTimetableLastCustomPageTextColor(),
@@ -1207,10 +1151,6 @@ class PreferencesStorage {
       _prefs.remove('timetable_today_line_width'),
       _prefs.remove('timetable_today_line_opacity'),
       _prefs.remove('show_today_horizontal_grid_lines'),
-      if (!keepTodayHorizontalLineColor)
-        _prefs.remove('timetable_today_horizontal_line_color'),
-      _prefs.remove('timetable_today_horizontal_line_width'),
-      _prefs.remove('timetable_today_horizontal_line_opacity'),
       _prefs.remove('timetable_course_text_size'),
       _prefs.remove('timetable_course_text_opacity'),
       _prefs.remove('timetable_time_text_size'),

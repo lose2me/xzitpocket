@@ -14,6 +14,10 @@ class TimeColumn extends StatelessWidget {
   final Color? textColor;
   final double textOpacity;
 
+  /// 今日将要/正在上课的节次：文字用 [highlightColor] 标注（同日期标颜色）。
+  final Set<int> highlightedSlots;
+  final Color? highlightColor;
+
   const TimeColumn({
     super.key,
     required this.cellHeight,
@@ -24,6 +28,8 @@ class TimeColumn extends StatelessWidget {
     this.hideSectionTime = false,
     this.textColor,
     this.textOpacity = 1.0,
+    this.highlightedSlots = const {},
+    this.highlightColor,
   });
 
   @override
@@ -35,6 +41,13 @@ class TimeColumn extends StatelessWidget {
         children: List.generate(slotCount, (i) {
           if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
           final slot = kTimeSlots[i];
+          final highlighted =
+              highlightColor != null && highlightedSlots.contains(slot.index);
+          final color = highlighted
+              ? highlightColor!
+              : (textColor ?? theme.colors.mutedForeground).withValues(
+                  alpha: textOpacity,
+                );
           return SizedBox(
             height: cellHeight,
             child: FittedBox(
@@ -48,9 +61,10 @@ class TimeColumn extends StatelessWidget {
                     style: theme.typography.caption.copyWith(
                       fontSize: textSize,
                       height: 4 / 3,
-                      fontWeight: FontWeight.w600,
-                      color: (textColor ?? theme.colors.mutedForeground)
-                          .withValues(alpha: textOpacity),
+                      fontWeight: highlighted
+                          ? FontWeight.w700
+                          : FontWeight.w600,
+                      color: color,
                     ),
                   ),
                   if (!hideSectionTime) ...[
@@ -59,8 +73,7 @@ class TimeColumn extends StatelessWidget {
                       style: theme.typography.caption.copyWith(
                         fontSize: textSize,
                         height: 14 / 11,
-                        color: (textColor ?? theme.colors.mutedForeground)
-                            .withValues(alpha: textOpacity),
+                        color: color,
                       ),
                     ),
                     Text(
@@ -68,8 +81,7 @@ class TimeColumn extends StatelessWidget {
                       style: theme.typography.caption.copyWith(
                         fontSize: textSize,
                         height: 14 / 11,
-                        color: (textColor ?? theme.colors.mutedForeground)
-                            .withValues(alpha: textOpacity),
+                        color: color,
                       ),
                     ),
                   ],

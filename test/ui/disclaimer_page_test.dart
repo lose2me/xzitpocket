@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
@@ -31,6 +32,8 @@ void main() {
   ) async {
     await tester.pumpWidget(host(const DisclaimerPage()));
     expect(find.text('免责声明'), findsOneWidget);
+    // 左上角没有返回按钮。
+    expect(find.byType(FHeaderAction), findsNothing);
 
     await tester.tap(find.text('同意并继续'));
     await tester.pumpAndSettle();
@@ -38,30 +41,26 @@ void main() {
     expect(prefs.getDisclaimerAccepted(), isTrue);
   });
 
-  testWidgets('declining does not persist anything', (tester) async {
-    await tester.pumpWidget(
-      host(
-        Builder(
-          builder: (context) => Column(
-            children: [
-              TextButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const DisclaimerPage()),
-                ),
-                child: const Text('打开'),
-              ),
-            ],
-          ),
-        ),
-      ),
+  testWidgets('declining force-closes the app and persists nothing', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+          calls.add(call.method);
+          return null;
+        });
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null),
     );
 
-    await tester.tap(find.text('打开'));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(host(const DisclaimerPage()));
+
     await tester.tap(find.text('拒绝'));
     await tester.pumpAndSettle();
 
-    expect(find.text('打开'), findsOneWidget);
+    expect(calls, contains('SystemNavigator.pop'));
     expect(prefs.getDisclaimerAccepted(), isFalse);
   });
 

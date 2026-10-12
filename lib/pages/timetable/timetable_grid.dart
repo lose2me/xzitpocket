@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
+import '../../constants/time_slots.dart';
 import '../../models/app_settings.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
@@ -94,10 +95,13 @@ class TimetableGrid extends StatefulWidget {
   final Color? todayLineColor;
   final double todayLineWidth;
   final double todayLineOpacity;
+
+  /// 开启后：今日将要（或正在）上的课，其节次在左侧时间列用今日颜色标注，
+  /// 并在该课上下边界绘制贯通整行的横线（与今日竖线同色同粗细）。
   final bool showTodayHorizontalGridLines;
-  final Color? todayHorizontalLineColor;
-  final double todayHorizontalLineWidth;
-  final double todayHorizontalLineOpacity;
+
+  /// 仅用于「当前/下一节课」计算，默认取系统时间；测试可注入固定值。
+  final DateTime? now;
   final bool showGridLines;
   final bool showBelowFoldIndicator;
   final double sectionHeight;
@@ -168,9 +172,7 @@ class TimetableGrid extends StatefulWidget {
     this.todayLineWidth = 1.0,
     this.todayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
-    this.todayHorizontalLineColor,
-    this.todayHorizontalLineWidth = 1.0,
-    this.todayHorizontalLineOpacity = 0.5,
+    this.now,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
     this.sectionHeight = 60.0,
@@ -348,10 +350,49 @@ class _TimetableGridState extends State<TimetableGrid> {
         .withValues(alpha: widget.gridOpacity);
     final todayLineColor = (widget.todayLineColor ?? theme.colors.primary)
         .withValues(alpha: widget.todayLineOpacity);
-    final todayHorizontalLineColor =
-        (widget.todayHorizontalLineColor ?? theme.colors.primary).withValues(
-          alpha: widget.todayHorizontalLineOpacity,
-        );
+    // 时间列高亮使用不带线透明度的今日颜色，与日期标一致。
+    final todayHighlightColor = widget.todayLineColor ?? theme.colors.primary;
+
+    // 今日将要（或正在）上的课：高亮其节次并绘制贯通横线。
+    var highlightedSessions = const <int>{};
+    (int, int)? activeSessionRange;
+    if (widget.showTodayHorizontalGridLines) {
+      final now = widget.now ?? DateTime.now();
+      final todayIndex = dates.indexWhere(
+        (date) =>
+            date.year == today.year &&
+            date.month == today.month &&
+            date.day == today.day,
+      );
+      if (todayIndex >= 0) {
+        final todayWeekday = todayIndex + 1;
+        Course? ongoing;
+        Course? upcoming;
+        DateTime? upcomingStart;
+        for (final course in courses) {
+          if (course.weekday != todayWeekday || !course.isInWeek(week)) {
+            continue;
+          }
+          final start = _slotTimeAt(today, course.startSession, end: false);
+          final end = _slotTimeAt(today, course.endSession, end: true);
+          if (start == null || end == null) continue;
+          if (!now.isBefore(start) && now.isBefore(end)) {
+            ongoing ??= course;
+          } else if (now.isBefore(start) &&
+              (upcomingStart == null || start.isBefore(upcomingStart))) {
+            upcoming = course;
+            upcomingStart = start;
+          }
+        }
+        final target = ongoing ?? upcoming;
+        if (target != null) {
+          highlightedSessions = {
+            for (int s = target.startSession; s <= target.endSession; s++) s,
+          };
+          activeSessionRange = (target.startSession, target.endSession);
+        }
+      }
+    }
 
     // Cheap pre-compute: only the variant selection happens here (from the
     // cached day slots), never the grouping/backtracking.
@@ -446,245 +487,283 @@ class _TimetableGridState extends State<TimetableGrid> {
                   .toInt();
               final totalHeight = cellHeight * effectiveSlotCount;
 
+              // 贯通横线的位置：当前/下一节课的上下边界。
+              double? activeTopY;
+              double? activeBottomY;
+              if (activeSessionRange != null) {
+                final startRow = sessionToRow[activeSessionRange.$1];
+                final endRow = sessionToRow[activeSessionRange.$2];
+                if (startRow != null && endRow != null) {
+                  activeTopY = startRow * cellHeight;
+                  activeBottomY = (endRow + 1) * cellHeight;
+                }
+              }
+
               return SingleChildScrollView(
                 controller: _scrollController,
                 child: SizedBox(
                   height: totalHeight,
-                  child: Row(
+                  child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      TimeColumn(
-                        cellHeight: cellHeight,
-                        width: effectiveTimeColumnWidth,
-                        slotCount: widget.slotCount,
-                        hiddenSlots: widget.hiddenSlots,
-                        textSize: widget.timeTextSize,
-                        hideSectionTime: widget.hideSectionTime,
-                        textColor: widget.pageTextColor,
-                        textOpacity: widget.pageTextOpacity,
-                      ),
-                      ...List.generate(dayCount, (dayIndex) {
-                        final weekday = dayIndex + 1;
-                        final date = dates[dayIndex];
-                        final isToday =
-                            date.year == today.year &&
-                            date.month == today.month &&
-                            date.day == today.day;
-                        final allDayCourses = <_IndexedCourse>[
-                          ...(currentByWeekday[weekday] ??
-                              const <_IndexedCourse>[]),
-                          ...(otherByWeekday[weekday] ??
-                              const <_IndexedCourse>[]),
-                        ];
-                        final allDisplayCourses = dayDisplayData[dayIndex];
-                        return Expanded(
-                          child: _wrapColumnDropTarget(
-                            weekday: weekday,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onTapUp: (details) {
-                                final row =
-                                    (details.localPosition.dy / cellHeight)
-                                        .floor()
-                                        .clamp(0, visibleSessions.length - 1);
-                                final session = visibleSessions[row];
-                                final hasHit = allDayCourses.any(
-                                  (entry) =>
-                                      _indexedCourseHitsSession(entry, session),
-                                );
-                                if (!hasHit && widget.onEmptyTap != null) {
-                                  widget.onEmptyTap!(weekday, session);
-                                }
-                              },
-                              child: Stack(
-                                children: [
-                                  if (widget.showGridLines)
-                                    Column(
-                                      children: List.generate(
-                                        effectiveSlotCount,
-                                        (i) {
-                                          return Container(
-                                            key: ValueKey(
-                                              'timetable-grid-cell-$dayIndex-$i',
+                      Row(
+                        children: [
+                          TimeColumn(
+                            cellHeight: cellHeight,
+                            width: effectiveTimeColumnWidth,
+                            slotCount: widget.slotCount,
+                            hiddenSlots: widget.hiddenSlots,
+                            textSize: widget.timeTextSize,
+                            hideSectionTime: widget.hideSectionTime,
+                            textColor: widget.pageTextColor,
+                            textOpacity: widget.pageTextOpacity,
+                            highlightedSlots: highlightedSessions,
+                            highlightColor: todayHighlightColor,
+                          ),
+                          ...List.generate(dayCount, (dayIndex) {
+                            final weekday = dayIndex + 1;
+                            final date = dates[dayIndex];
+                            final isToday =
+                                date.year == today.year &&
+                                date.month == today.month &&
+                                date.day == today.day;
+                            final allDayCourses = <_IndexedCourse>[
+                              ...(currentByWeekday[weekday] ??
+                                  const <_IndexedCourse>[]),
+                              ...(otherByWeekday[weekday] ??
+                                  const <_IndexedCourse>[]),
+                            ];
+                            final allDisplayCourses = dayDisplayData[dayIndex];
+                            return Expanded(
+                              child: _wrapColumnDropTarget(
+                                weekday: weekday,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.translucent,
+                                  onTapUp: (details) {
+                                    final row =
+                                        (details.localPosition.dy / cellHeight)
+                                            .floor()
+                                            .clamp(
+                                              0,
+                                              visibleSessions.length - 1,
+                                            );
+                                    final session = visibleSessions[row];
+                                    final hasHit = allDayCourses.any(
+                                      (entry) => _indexedCourseHitsSession(
+                                        entry,
+                                        session,
+                                      ),
+                                    );
+                                    if (!hasHit && widget.onEmptyTap != null) {
+                                      widget.onEmptyTap!(weekday, session);
+                                    }
+                                  },
+                                  child: Stack(
+                                    children: [
+                                      if (widget.showGridLines)
+                                        Column(
+                                          children: List.generate(
+                                            effectiveSlotCount,
+                                            (i) {
+                                              return Container(
+                                                key: ValueKey(
+                                                  'timetable-grid-cell-$dayIndex-$i',
+                                                ),
+                                                height: cellHeight,
+                                                decoration: BoxDecoration(
+                                                  border: Border(
+                                                    bottom: BorderSide(
+                                                      color: gridLineColor,
+                                                      width:
+                                                          widget.gridLineWidth,
+                                                    ),
+                                                    right: BorderSide(
+                                                      color: gridLineColor,
+                                                      width:
+                                                          widget.gridLineWidth,
+                                                    ),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                      // Course cards
+                                      ...allDisplayCourses.map((display) {
+                                        final course = display.course;
+                                        final isCurrentWeek = course.isInWeek(
+                                          week,
+                                        );
+                                        final startRow =
+                                            sessionToRow[course.startSession] ??
+                                            (course.startSession - 1);
+                                        final endRow =
+                                            sessionToRow[course.endSession] ??
+                                            (course.endSession - 1);
+                                        final top = startRow * cellHeight;
+                                        final height =
+                                            (endRow - startRow + 1) *
+                                            cellHeight;
+                                        return Positioned(
+                                          key: ValueKey(display.animationKey),
+                                          top: top,
+                                          left: 0,
+                                          right: 0,
+                                          height: height,
+                                          // Each card gets its own compositing layer so
+                                          // the continuously-running conflict countdown
+                                          // bar only repaints this card instead of the
+                                          // whole week grid on every frame.
+                                          child: RepaintBoundary(
+                                            child: CourseCard(
+                                              key: ValueKey(
+                                                display.animationKey,
+                                              ),
+                                              course: course,
+                                              countdownAnimation:
+                                                  display.isConflict
+                                                  ? widget.countdownAnimation
+                                                  : null,
+                                              muted: !isCurrentWeek,
+                                              courseOpacity: isCurrentWeek
+                                                  ? courseOpacity
+                                                  : nonCurrentCourseOpacity,
+                                              courseBorderOpacity: isCurrentWeek
+                                                  ? courseBorderOpacity
+                                                  : nonCurrentCourseBorderOpacity,
+                                              borderColor:
+                                                  widget.courseBorderColor ??
+                                                  widget.borderColor,
+                                              borderWidth: widget.borderWidth,
+                                              textSize:
+                                                  widget.courseTextSize *
+                                                  widget.courseFontScale,
+                                              textColor: widget.courseTextColor,
+                                              textOpacity:
+                                                  widget.courseTextOpacity,
+                                              cornerRadius:
+                                                  widget.courseCornerRadius,
+                                              innerPadding:
+                                                  widget.courseInnerPadding,
+                                              outerPadding:
+                                                  widget.courseOuterPadding,
+                                              textTemplate:
+                                                  widget.courseTextTemplate,
+                                              countdownBarLengthRatio: widget
+                                                  .countdownBarLengthRatio,
+                                              countdownBarRounded:
+                                                  widget.countdownBarRounded,
+                                              dashedBorderDensity:
+                                                  widget.dashedBorderDensity,
+                                              centerHorizontal: widget
+                                                  .textAlignCenterHorizontal,
+                                              centerVertical: widget
+                                                  .textAlignCenterVertical,
+                                              borderType: widget.borderType,
                                             ),
-                                            height: cellHeight,
-                                            decoration: BoxDecoration(
-                                              border: Border(
-                                                bottom: BorderSide(
-                                                  color: gridLineColor,
-                                                  width: widget.gridLineWidth,
-                                                ),
-                                                right: BorderSide(
-                                                  color: gridLineColor,
-                                                  width: widget.gridLineWidth,
-                                                ),
+                                          ),
+                                        );
+                                      }),
+                                      // 今日竖边线绘制在课程块之上（需求 27）：
+                                      // IgnorePointer 保证不干扰点击与拖动，
+                                      // 不透明度 100% 时完全遮挡下方课程块。
+                                      if (isToday && widget.showTodayGridLines)
+                                        Positioned.fill(
+                                          child: IgnorePointer(
+                                            child: CustomPaint(
+                                              painter: _TodayGridLinesPainter(
+                                                color: todayLineColor,
+                                                width: widget.todayLineWidth,
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  // Course cards
-                                  ...allDisplayCourses.map((display) {
-                                    final course = display.course;
-                                    final isCurrentWeek = course.isInWeek(week);
-                                    final startRow =
-                                        sessionToRow[course.startSession] ??
-                                        (course.startSession - 1);
-                                    final endRow =
-                                        sessionToRow[course.endSession] ??
-                                        (course.endSession - 1);
-                                    final top = startRow * cellHeight;
-                                    final height =
-                                        (endRow - startRow + 1) * cellHeight;
-                                    return Positioned(
-                                      key: ValueKey(display.animationKey),
-                                      top: top,
-                                      left: 0,
-                                      right: 0,
-                                      height: height,
-                                      // Each card gets its own compositing layer so
-                                      // the continuously-running conflict countdown
-                                      // bar only repaints this card instead of the
-                                      // whole week grid on every frame.
-                                      child: RepaintBoundary(
-                                        child: CourseCard(
-                                          key: ValueKey(display.animationKey),
-                                          course: course,
-                                          countdownAnimation: display.isConflict
-                                              ? widget.countdownAnimation
-                                              : null,
-                                          muted: !isCurrentWeek,
-                                          courseOpacity: isCurrentWeek
-                                              ? courseOpacity
-                                              : nonCurrentCourseOpacity,
-                                          courseBorderOpacity: isCurrentWeek
-                                              ? courseBorderOpacity
-                                              : nonCurrentCourseBorderOpacity,
-                                          borderColor:
-                                              widget.courseBorderColor ??
-                                              widget.borderColor,
-                                          borderWidth: widget.borderWidth,
-                                          textSize:
-                                              widget.courseTextSize *
-                                              widget.courseFontScale,
-                                          textColor: widget.courseTextColor,
-                                          textOpacity: widget.courseTextOpacity,
-                                          cornerRadius:
-                                              widget.courseCornerRadius,
-                                          innerPadding:
-                                              widget.courseInnerPadding,
-                                          outerPadding:
-                                              widget.courseOuterPadding,
-                                          textTemplate:
-                                              widget.courseTextTemplate,
-                                          countdownBarLengthRatio:
-                                              widget.countdownBarLengthRatio,
-                                          countdownBarRounded:
-                                              widget.countdownBarRounded,
-                                          dashedBorderDensity:
-                                              widget.dashedBorderDensity,
-                                          centerHorizontal:
-                                              widget.textAlignCenterHorizontal,
-                                          centerVertical:
-                                              widget.textAlignCenterVertical,
-                                          borderType: widget.borderType,
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                  // 今日边线绘制在课程块之上（需求 27）：
-                                  // IgnorePointer 保证不干扰点击与拖动，
-                                  // 不透明度 100% 时完全遮挡下方课程块。
-                                  if (isToday &&
-                                      (widget.showTodayGridLines ||
-                                          widget.showTodayHorizontalGridLines))
-                                    Positioned.fill(
-                                      child: IgnorePointer(
-                                        child: CustomPaint(
-                                          painter: _TodayGridLinesPainter(
-                                            cellHeight: cellHeight,
-                                            rowCount: effectiveSlotCount,
-                                            drawVertical:
-                                                widget.showTodayGridLines,
-                                            verticalColor: todayLineColor,
-                                            verticalWidth:
-                                                widget.todayLineWidth,
-                                            drawHorizontal: widget
-                                                .showTodayHorizontalGridLines,
-                                            horizontalColor:
-                                                todayHorizontalLineColor,
-                                            horizontalWidth:
-                                                widget.todayHorizontalLineWidth,
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  if (widget.showBelowFoldIndicator &&
-                                      _showBelowFoldIndicator &&
-                                      visibleSessions.isNotEmpty &&
-                                      _hasLaterCourse(
-                                        currentByWeekday[weekday],
-                                        visibleSessions,
-                                        visibleSlots,
-                                      ))
-                                    Positioned(
-                                      top:
-                                          (visibleSlots - 1).clamp(
-                                            0,
-                                            visibleSessions.length - 1,
-                                          ) *
-                                          cellHeight,
-                                      left: 0,
-                                      right: 0,
-                                      height: cellHeight,
-                                      child: IgnorePointer(
-                                        child: Center(
-                                          child: Icon(
-                                            FLucideIcons.chevronsDown,
-                                            size: 18,
-                                            color: theme.colors.primary,
+                                      if (widget.showBelowFoldIndicator &&
+                                          _showBelowFoldIndicator &&
+                                          visibleSessions.isNotEmpty &&
+                                          _hasLaterCourse(
+                                            currentByWeekday[weekday],
+                                            visibleSessions,
+                                            visibleSlots,
+                                          ))
+                                        Positioned(
+                                          top:
+                                              (visibleSlots - 1).clamp(
+                                                0,
+                                                visibleSessions.length - 1,
+                                              ) *
+                                              cellHeight,
+                                          left: 0,
+                                          right: 0,
+                                          height: cellHeight,
+                                          child: IgnorePointer(
+                                            child: Center(
+                                              child: Icon(
+                                                FLucideIcons.chevronsDown,
+                                                size: 18,
+                                                color: theme.colors.primary,
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  ...allDisplayCourses.map((display) {
-                                    final tapStartRow =
-                                        sessionToRow[display.tapStartSession] ??
-                                        (display.tapStartSession - 1);
-                                    final tapEndRow =
-                                        sessionToRow[display.tapStartSession +
-                                            display.tapSessionSpan -
-                                            1] ??
-                                        (display.tapStartSession +
-                                            display.tapSessionSpan -
-                                            2);
-                                    final top = tapStartRow * cellHeight;
-                                    final height =
-                                        (tapEndRow - tapStartRow + 1) *
-                                        cellHeight;
-                                    return Positioned(
-                                      top: top,
-                                      left: 0,
-                                      right: 0,
-                                      height: height,
-                                      child: GestureDetector(
-                                        behavior: HitTestBehavior.translucent,
-                                        onTap: widget.onCourseTap != null
-                                            ? () => widget.onCourseTap!(
-                                                display.course,
-                                                display.sourceIndex,
-                                              )
-                                            : null,
-                                        child: const SizedBox.expand(),
-                                      ),
-                                    );
-                                  }),
-                                ],
+                                      ...allDisplayCourses.map((display) {
+                                        final tapStartRow =
+                                            sessionToRow[display
+                                                .tapStartSession] ??
+                                            (display.tapStartSession - 1);
+                                        final tapEndRow =
+                                            sessionToRow[display
+                                                    .tapStartSession +
+                                                display.tapSessionSpan -
+                                                1] ??
+                                            (display.tapStartSession +
+                                                display.tapSessionSpan -
+                                                2);
+                                        final top = tapStartRow * cellHeight;
+                                        final height =
+                                            (tapEndRow - tapStartRow + 1) *
+                                            cellHeight;
+                                        return Positioned(
+                                          top: top,
+                                          left: 0,
+                                          right: 0,
+                                          height: height,
+                                          child: GestureDetector(
+                                            behavior:
+                                                HitTestBehavior.translucent,
+                                            onTap: widget.onCourseTap != null
+                                                ? () => widget.onCourseTap!(
+                                                    display.course,
+                                                    display.sourceIndex,
+                                                  )
+                                                : null,
+                                            child: const SizedBox.expand(),
+                                          ),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
+                      // 今日当前/下一节课的贯通横线：横跨全部列（含时间列），
+                      // 绘制在课程块之上，与今日竖线同色同粗细。
+                      if (activeTopY != null && activeBottomY != null)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: _ActiveCourseLinesPainter(
+                                topY: activeTopY,
+                                bottomY: activeBottomY,
+                                color: todayLineColor,
+                                width: widget.todayLineWidth,
                               ),
                             ),
                           ),
-                        );
-                      }),
+                        ),
                     ],
                   ),
                 ),
@@ -1100,72 +1179,81 @@ class _TimetableGridState extends State<TimetableGrid> {
   }
 }
 
-/// Paints today's column highlight lines ON TOP of the course cards.
-/// Vertical lines cover the left/right edges of the column; horizontal lines
-/// cover every cell boundary (top and bottom of each slot).
+/// Paints today's column vertical highlight lines ON TOP of the course cards.
+/// The lines cover the left/right edges of today's column.
 class _TodayGridLinesPainter extends CustomPainter {
-  final double cellHeight;
-  final int rowCount;
-  final bool drawVertical;
-  final Color verticalColor;
-  final double verticalWidth;
-  final bool drawHorizontal;
-  final Color horizontalColor;
-  final double horizontalWidth;
+  final Color color;
+  final double width;
 
-  const _TodayGridLinesPainter({
-    required this.cellHeight,
-    required this.rowCount,
-    required this.drawVertical,
-    required this.verticalColor,
-    required this.verticalWidth,
-    required this.drawHorizontal,
-    required this.horizontalColor,
-    required this.horizontalWidth,
-  });
+  const _TodayGridLinesPainter({required this.color, required this.width});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (drawVertical && verticalWidth > 0) {
-      final paint = Paint()..color = verticalColor;
-      canvas.drawRect(Rect.fromLTWH(0, 0, verticalWidth, size.height), paint);
-      canvas.drawRect(
-        Rect.fromLTWH(
-          size.width - verticalWidth,
-          0,
-          verticalWidth,
-          size.height,
-        ),
-        paint,
-      );
-    }
-    if (drawHorizontal && horizontalWidth > 0) {
-      final paint = Paint()..color = horizontalColor;
-      for (var row = 0; row <= rowCount; row++) {
-        final y = (row * cellHeight).clamp(0.0, size.height);
-        canvas.drawRect(
-          Rect.fromLTWH(
-            0,
-            y - horizontalWidth / 2,
-            size.width,
-            horizontalWidth,
-          ),
-          paint,
-        );
-      }
-    }
+    if (width <= 0) return;
+    final paint = Paint()..color = color;
+    canvas.drawRect(Rect.fromLTWH(0, 0, width, size.height), paint);
+    canvas.drawRect(
+      Rect.fromLTWH(size.width - width, 0, width, size.height),
+      paint,
+    );
   }
 
   @override
   bool shouldRepaint(covariant _TodayGridLinesPainter oldDelegate) =>
-      oldDelegate.cellHeight != cellHeight ||
-      oldDelegate.rowCount != rowCount ||
-      oldDelegate.drawVertical != drawVertical ||
-      oldDelegate.verticalColor != verticalColor ||
-      oldDelegate.verticalWidth != verticalWidth ||
-      oldDelegate.drawHorizontal != drawHorizontal ||
-      oldDelegate.horizontalColor != horizontalColor ||
-      oldDelegate.horizontalWidth != horizontalWidth;
+      oldDelegate.color != color || oldDelegate.width != width;
+}
+
+/// Paints the two full-width horizontal lines around today's ongoing or next
+/// course, ON TOP of every column (贯通整行，而不是只在今日列).
+class _ActiveCourseLinesPainter extends CustomPainter {
+  final double topY;
+  final double bottomY;
+  final Color color;
+  final double width;
+
+  const _ActiveCourseLinesPainter({
+    required this.topY,
+    required this.bottomY,
+    required this.color,
+    required this.width,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (width <= 0) return;
+    final paint = Paint()..color = color;
+    final top = topY.clamp(0.0, size.height);
+    final bottom = bottomY.clamp(0.0, size.height);
+    canvas.drawRect(
+      Rect.fromLTWH(0, top - width / 2, size.width, width),
+      paint,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(0, bottom - width / 2, size.width, width),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ActiveCourseLinesPainter oldDelegate) =>
+      oldDelegate.topY != topY ||
+      oldDelegate.bottomY != bottomY ||
+      oldDelegate.color != color ||
+      oldDelegate.width != width;
+}
+
+/// 节次在指定日期的开始/结束时刻；节次号无效时返回 null。
+DateTime? _slotTimeAt(DateTime day, int session, {required bool end}) {
+  for (final slot in kTimeSlots) {
+    if (slot.index != session) continue;
+    final value = end ? slot.end : slot.start;
+    final parts = value.split(':');
+    final hour = int.tryParse(parts[0]);
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) : 0;
+    if (hour == null || minute == null) return null;
+    return DateTime(day.year, day.month, day.day, hour, minute);
+  }
+  return null;
 }
 
 String _dateKey(DateTime date) =>

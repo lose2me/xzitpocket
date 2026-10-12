@@ -488,63 +488,18 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                         ),
                         ProfileSettingsCheckboxTile(
                           icon: FLucideIcons.alignJustify,
-                          title: '显示今日横向边线',
+                          title: '今日课程横线标注',
                           value: settings.showTodayHorizontalGridLines,
                           onChange: (value) => ref
                               .read(appSettingsProvider.notifier)
                               .setShowTodayHorizontalGridLines(value),
                         ),
-                        ProfileSettingsColorTile(
-                          icon: FLucideIcons.palette,
-                          title: '今日横向边线颜色',
-                          value: settings.timetableTodayHorizontalLineColor,
-                          colors: _styleColors,
-                          lastCustomColor: settings
-                              .timetableLastCustomTodayHorizontalLineColor,
-                          onChanged: (color) => unawaited(
-                            ref
-                                .read(appSettingsProvider.notifier)
-                                .setTimetableTodayHorizontalLineColor(color),
-                          ),
-                          onCustomColorPressed: () => unawaited(
-                            _selectCustomColor(
-                              settings.timetableLastCustomTodayHorizontalLineColor ??
-                                  settings.timetableTodayHorizontalLineColor ??
-                                  context.theme.colors.primary,
-                              ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setCustomTimetableTodayHorizontalLineColor,
-                            ),
-                          ),
-                        ),
-                        ProfileSettingsSliderTile(
-                          icon: FLucideIcons.moveHorizontal,
-                          title: '今日横向边线粗细',
-                          value: settings.timetableTodayHorizontalLineWidth,
-                          min: 0.5,
-                          max: 4,
-                          divisions: 35,
-                          suffix: ' px',
-                          displayDecimals: 1,
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableTodayHorizontalLineWidth(value),
-                        ),
-                        ProfileSettingsSliderTile(
-                          icon: FLucideIcons.layers,
-                          title: '今日横向边线不透明度',
-                          value: settings.timetableTodayHorizontalLineOpacity,
-                          min: 0,
-                          max: 1,
-                          divisions: 20,
-                          suffix: '%',
-                          displayMultiplier: 100,
-                          displayDecimals: 0,
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableTodayHorizontalLineOpacity(value),
-                        ),
                       ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    const ProfileSettingsHint(
+                      '开启后，今日将要或正在上的课：左侧时间列对应节次以今日颜色标注，'
+                      '并在该课上下边界绘制贯通整行的横线（颜色与粗细跟随今日课程边线设置）。',
                     ),
                   ]),
                 ),
@@ -1425,12 +1380,6 @@ class _TimetableGridPreview extends StatelessWidget {
             todayLineWidth: settings.timetableTodayLineWidth,
             todayLineOpacity: settings.timetableTodayLineOpacity,
             showTodayHorizontalGridLines: settings.showTodayHorizontalGridLines,
-            todayHorizontalLineColor:
-                settings.timetableTodayHorizontalLineColor,
-            todayHorizontalLineWidth:
-                settings.timetableTodayHorizontalLineWidth,
-            todayHorizontalLineOpacity:
-                settings.timetableTodayHorizontalLineOpacity,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
             suppressDayDrop: true,
