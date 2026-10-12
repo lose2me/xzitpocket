@@ -4,6 +4,7 @@ import 'package:forui/forui.dart';
 import '../../constants/time_slots.dart';
 import '../../models/course.dart';
 import '../../ui/app_components.dart';
+import '../../utils/course_text_template.dart';
 
 class CourseCard extends StatelessWidget {
   final Course course;
@@ -18,17 +19,14 @@ class CourseCard extends StatelessWidget {
   final double cornerRadius;
   final double innerPadding;
   final double outerPadding;
-  final bool addBlankLineAfterTitle;
+  final String textTemplate;
   final double dashedBorderDensity;
   final Color? textColor;
-  final bool showStartTime;
-  final bool hideLocation;
-  final bool hideTeacher;
-  final bool hideTeacherBrackets;
-  final bool removeLocationAt;
   final bool centerHorizontal;
   final bool centerVertical;
   final String borderType;
+  final double countdownBarLengthRatio;
+  final bool countdownBarRounded;
 
   const CourseCard({
     super.key,
@@ -44,17 +42,14 @@ class CourseCard extends StatelessWidget {
     this.cornerRadius = 6,
     this.innerPadding = 2,
     this.outerPadding = 1.5,
-    this.addBlankLineAfterTitle = false,
+    this.textTemplate = kDefaultCourseTextTemplate,
     this.dashedBorderDensity = 1.0,
     this.textColor,
-    this.showStartTime = false,
-    this.hideLocation = false,
-    this.hideTeacher = true,
-    this.hideTeacherBrackets = true,
-    this.removeLocationAt = false,
     this.centerHorizontal = false,
     this.centerVertical = false,
     this.borderType = 'solid',
+    this.countdownBarLengthRatio = 0.75,
+    this.countdownBarRounded = true,
   });
 
   @override
@@ -77,6 +72,32 @@ class CourseCard extends StatelessWidget {
       (255 * courseBorderOpacity).round(),
     );
 
+    final templateLines = parseCourseTemplate(textTemplate, {
+      '课程': course.title,
+      '教师': course.teacher,
+      '地点': [
+        course.place.trim(),
+        course.campus.trim(),
+      ].where((part) => part.isNotEmpty).join('\n'),
+      '时间': _startTime(course.startSession),
+    }).where((line) => !line.skip).toList();
+    final brightness = context.theme.colors.brightness;
+    // 加粗片段使用“标题”观感，普通片段使用旧版明细行观感，
+    // 保证默认模板与旧默认展示一致。
+    final boldStyle = TextStyle(
+      fontSize: textSize,
+      fontWeight: FontWeight.w600,
+      color: effectiveTextColor,
+      height: 4 / 3,
+      letterSpacing: 0,
+    );
+    final detailStyle = TextStyle(
+      fontSize: textSize * 11 / 12,
+      color: secondaryTextColor,
+      height: 14 / 11,
+      letterSpacing: 0,
+    );
+
     final card = Container(
       padding: EdgeInsets.all(innerPadding),
       decoration: BoxDecoration(color: bgColor, borderRadius: borderRadius),
@@ -93,61 +114,19 @@ class CourseCard extends StatelessWidget {
                     : MainAxisAlignment.start,
                 mainAxisSize: MainAxisSize.max,
                 children: [
-                  _line(
-                    course.title,
-                    TextStyle(
-                      fontSize: textSize,
-                      fontWeight: FontWeight.w600,
-                      color: effectiveTextColor,
-                      height: 4 / 3,
-                      letterSpacing: 0,
+                  for (
+                    var index = 0;
+                    index < templateLines.length;
+                    index++
+                  ) ...[
+                    if (index > 0) const SizedBox(height: 2),
+                    _buildTemplateLine(
+                      templateLines[index],
+                      boldStyle,
+                      detailStyle,
+                      brightness,
                     ),
-                  ),
-                  if (addBlankLineAfterTitle)
-                    SizedBox(height: textSize * 4 / 3),
-                  if (!addBlankLineAfterTitle) const SizedBox(height: 2),
-                  if (showStartTime)
-                    _line(
-                      _startTime(course.startSession),
-                      TextStyle(
-                        fontSize: textSize * 11 / 12,
-                        color: secondaryTextColor,
-                        height: 14 / 11,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  if (!hideLocation && course.place.isNotEmpty)
-                    _line(
-                      '${removeLocationAt ? '' : '@'}${course.place}',
-                      TextStyle(
-                        fontSize: textSize * 11 / 12,
-                        color: secondaryTextColor,
-                        height: 14 / 11,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  if (!hideLocation && course.campus.isNotEmpty)
-                    _line(
-                      course.campus,
-                      TextStyle(
-                        fontSize: textSize * 11 / 12,
-                        color: secondaryTextColor,
-                        height: 14 / 11,
-                        letterSpacing: 0,
-                      ),
-                    ),
-                  if (!hideTeacher && course.teacher.isNotEmpty)
-                    _line(
-                      hideTeacherBrackets
-                          ? course.teacher
-                          : '【${course.teacher}】',
-                      TextStyle(
-                        fontSize: textSize * 11 / 12,
-                        color: secondaryTextColor,
-                        height: 14 / 11,
-                        letterSpacing: 0,
-                      ),
-                    ),
+                  ],
                 ],
               ),
             ),
@@ -158,25 +137,32 @@ class CourseCard extends StatelessWidget {
               right: 0,
               top: 0,
               child: Center(
-                child: SizedBox(
-                  width: 48,
-                  height: 3,
-                  child: IgnorePointer(
-                    child: AnimatedBuilder(
-                      animation: countdownAnimation!,
-                      builder: (context, child) {
-                        final remaining = (1 - countdownAnimation!.value)
-                            .clamp(0.0, 1.0)
-                            .toDouble();
-                        return CustomPaint(
-                          painter: _CountdownBarPainter(
-                            progress: remaining,
-                            backgroundColor:
-                                context.theme.colors.semantic.warningContainer,
-                            progressColor: context.theme.colors.destructive,
-                          ),
-                        );
-                      },
+                // 胶囊长度按卡片宽度比例绘制（默认 3/4）。
+                child: FractionallySizedBox(
+                  widthFactor: countdownBarLengthRatio.clamp(0.1, 1.0),
+                  child: SizedBox(
+                    height: 3,
+                    child: IgnorePointer(
+                      child: AnimatedBuilder(
+                        animation: countdownAnimation!,
+                        builder: (context, child) {
+                          final remaining = (1 - countdownAnimation!.value)
+                              .clamp(0.0, 1.0)
+                              .toDouble();
+                          return CustomPaint(
+                            painter: _CountdownBarPainter(
+                              progress: remaining,
+                              rounded: countdownBarRounded,
+                              backgroundColor: context
+                                  .theme
+                                  .colors
+                                  .semantic
+                                  .warningContainer,
+                              progressColor: context.theme.colors.destructive,
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -200,14 +186,41 @@ class CourseCard extends StatelessWidget {
     return Container(margin: EdgeInsets.all(outerPadding), child: decorated);
   }
 
-  Widget _line(String text, TextStyle style) => SizedBox(
-    width: double.infinity,
-    child: Text(
-      text,
-      textAlign: centerHorizontal ? TextAlign.center : TextAlign.start,
-      style: style,
-    ),
-  );
+  Widget _buildTemplateLine(
+    CourseTemplateLine line,
+    TextStyle boldStyle,
+    TextStyle detailStyle,
+    Brightness brightness,
+  ) {
+    // 模板中的空行（\n\n）渲染为固定高度的空白，等价旧版「课程名称后加空行」。
+    if (line.spans.every((span) => span.text.isEmpty)) {
+      return SizedBox(width: double.infinity, height: textSize * 4 / 3);
+    }
+    final align = switch (line.align ??
+        (centerHorizontal ? CourseTemplateAlign.center : null)) {
+      CourseTemplateAlign.center => TextAlign.center,
+      CourseTemplateAlign.right => TextAlign.right,
+      _ => TextAlign.start,
+    };
+    return SizedBox(
+      width: double.infinity,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            for (final span in line.spans)
+              TextSpan(
+                text: span.text,
+                style: (span.bold ? boldStyle : detailStyle).copyWith(
+                  fontSize: span.fontSize,
+                  color: span.colorFor(brightness),
+                ),
+              ),
+          ],
+        ),
+        textAlign: align,
+      ),
+    );
+  }
 
   String _startTime(int session) {
     final start = kTimeSlots
@@ -284,11 +297,13 @@ class _CourseBorderPainter extends CustomPainter {
 
 class _CountdownBarPainter extends CustomPainter {
   final double progress;
+  final bool rounded;
   final Color backgroundColor;
   final Color progressColor;
 
   const _CountdownBarPainter({
     required this.progress,
+    required this.rounded,
     required this.backgroundColor,
     required this.progressColor,
   });
@@ -296,15 +311,17 @@ class _CountdownBarPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final centerY = size.height / 2;
-    final radius = size.height / 2;
-    final startX = radius;
-    final endX = size.width - radius;
+    final cap = rounded ? StrokeCap.round : StrokeCap.butt;
+    // 圆弧端点会向两侧外扩半个线宽，绘制区间需向内收。
+    final inset = rounded ? size.height / 2 : 0.0;
+    final startX = inset;
+    final endX = size.width - inset;
     if (endX <= startX) return;
 
     final backgroundPaint = Paint()
       ..color = backgroundColor
       ..strokeWidth = size.height
-      ..strokeCap = StrokeCap.round
+      ..strokeCap = cap
       ..style = PaintingStyle.stroke;
 
     canvas.drawLine(
@@ -318,7 +335,7 @@ class _CountdownBarPainter extends CustomPainter {
     final progressPaint = Paint()
       ..color = progressColor
       ..strokeWidth = size.height
-      ..strokeCap = StrokeCap.round
+      ..strokeCap = cap
       ..style = PaintingStyle.stroke;
 
     final progressEndX = startX + (endX - startX) * progress;
@@ -332,6 +349,7 @@ class _CountdownBarPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CountdownBarPainter oldDelegate) {
     return oldDelegate.progress != progress ||
+        oldDelegate.rounded != rounded ||
         oldDelegate.backgroundColor != backgroundColor ||
         oldDelegate.progressColor != progressColor;
   }

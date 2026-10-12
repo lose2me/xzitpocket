@@ -1,5 +1,24 @@
 import 'package:flutter/material.dart';
 
+import '../utils/course_text_template.dart';
+
+/// 课程改动（假/调）文字标记在日期栏内的位置。
+enum TimetableDayMarkerPosition {
+  topRight,
+  bottomRight,
+  topLeft,
+  bottomLeft;
+
+  String get storageValue => name;
+
+  static TimetableDayMarkerPosition fromStorage(String? value) {
+    return TimetableDayMarkerPosition.values.firstWhere(
+      (item) => item.storageValue == value,
+      orElse: () => TimetableDayMarkerPosition.topRight,
+    );
+  }
+}
+
 enum AppThemePreference {
   system,
   light,
@@ -176,6 +195,10 @@ class AppSettings {
   final bool widgetHideLocation;
   final bool widgetHideDate;
   final double timetableSectionHeight;
+
+  /// 用户是否显式设置过课节高度。未设置时课表按可用高度自适应，
+  /// 保证一页正好显示 11 节（见 timetable_page 的布局逻辑）。
+  final bool timetableSectionHeightIsCustom;
   final double timetableTimeColumnWidth;
   final double timetableDayHeaderHeight;
   final double timetableCourseCornerRadius;
@@ -183,17 +206,17 @@ class AppSettings {
   final double timetableCourseOuterPadding;
   final double timetableCourseAlpha;
   final double timetableCourseFontScale;
-  final bool timetableAddBlankLineAfterTitle;
+  final String timetableCourseTextTemplate;
   final double timetableDashedBorderDensity;
   final bool timetableHideSectionTime;
   final bool timetableHideDateUnderDay;
   final bool timetableDayColorMarkers;
   final bool timetableDayTextMarkers;
-  final bool timetableShowStartTime;
-  final bool timetableHideLocation;
-  final bool timetableHideTeacher;
-  final bool timetableHideTeacherBrackets;
-  final bool timetableRemoveLocationAt;
+  final TimetableDayMarkerPosition timetableDayTextMarkerPosition;
+  final double timetableDayTextMarkerPadding;
+  final double timetableCountdownBarLengthRatio;
+  final bool timetableCountdownBarRounded;
+  final bool ignoreSystemTextScale;
   final bool timetableTextAlignCenterHorizontal;
   final bool timetableTextAlignCenterVertical;
   final TimetableBorderType timetableBorderType;
@@ -260,6 +283,7 @@ class AppSettings {
     this.widgetHideLocation = false,
     this.widgetHideDate = false,
     this.timetableSectionHeight = 60.0,
+    this.timetableSectionHeightIsCustom = false,
     this.timetableTimeColumnWidth = 40.0,
     this.timetableDayHeaderHeight = 40.0,
     this.timetableCourseCornerRadius = 6.0,
@@ -267,17 +291,17 @@ class AppSettings {
     this.timetableCourseOuterPadding = 1.5,
     this.timetableCourseAlpha = 1.0,
     this.timetableCourseFontScale = 0.95,
-    this.timetableAddBlankLineAfterTitle = false,
+    this.timetableCourseTextTemplate = kDefaultCourseTextTemplate,
     this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
     this.timetableHideDateUnderDay = false,
     this.timetableDayColorMarkers = true,
     this.timetableDayTextMarkers = true,
-    this.timetableShowStartTime = false,
-    this.timetableHideLocation = false,
-    this.timetableHideTeacher = true,
-    this.timetableHideTeacherBrackets = true,
-    this.timetableRemoveLocationAt = false,
+    this.timetableDayTextMarkerPosition = TimetableDayMarkerPosition.topRight,
+    this.timetableDayTextMarkerPadding = 2.0,
+    this.timetableCountdownBarLengthRatio = 0.75,
+    this.timetableCountdownBarRounded = true,
+    this.ignoreSystemTextScale = true,
     this.timetableTextAlignCenterHorizontal = false,
     this.timetableTextAlignCenterVertical = false,
     this.timetableBorderType = TimetableBorderType.solid,
@@ -304,10 +328,10 @@ class AppSettings {
     this.timetableCourseBorderWidth = 0.5,
     this.timetableCourseBorderOpacity = 0.7,
     this.showTimetableGridLines = true,
-    this.showTodayGridLines = false,
+    this.showTodayGridLines = true,
     this.timetableTodayLineColor,
     this.timetableLastCustomTodayLineColor,
-    this.timetableTodayLineWidth = 1.0,
+    this.timetableTodayLineWidth = 2.0,
     this.timetableTodayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
     this.timetableTodayHorizontalLineColor,
@@ -347,6 +371,7 @@ class AppSettings {
     bool? widgetHideLocation,
     bool? widgetHideDate,
     double? timetableSectionHeight,
+    bool? timetableSectionHeightIsCustom,
     double? timetableTimeColumnWidth,
     double? timetableDayHeaderHeight,
     double? timetableCourseCornerRadius,
@@ -354,17 +379,17 @@ class AppSettings {
     double? timetableCourseOuterPadding,
     double? timetableCourseAlpha,
     double? timetableCourseFontScale,
-    bool? timetableAddBlankLineAfterTitle,
+    String? timetableCourseTextTemplate,
     double? timetableDashedBorderDensity,
     bool? timetableHideSectionTime,
     bool? timetableHideDateUnderDay,
     bool? timetableDayColorMarkers,
     bool? timetableDayTextMarkers,
-    bool? timetableShowStartTime,
-    bool? timetableHideLocation,
-    bool? timetableHideTeacher,
-    bool? timetableHideTeacherBrackets,
-    bool? timetableRemoveLocationAt,
+    TimetableDayMarkerPosition? timetableDayTextMarkerPosition,
+    double? timetableDayTextMarkerPadding,
+    double? timetableCountdownBarLengthRatio,
+    bool? timetableCountdownBarRounded,
+    bool? ignoreSystemTextScale,
     bool? timetableTextAlignCenterHorizontal,
     bool? timetableTextAlignCenterVertical,
     TimetableBorderType? timetableBorderType,
@@ -462,6 +487,8 @@ class AppSettings {
       widgetHideDate: widgetHideDate ?? this.widgetHideDate,
       timetableSectionHeight:
           timetableSectionHeight ?? this.timetableSectionHeight,
+      timetableSectionHeightIsCustom:
+          timetableSectionHeightIsCustom ?? this.timetableSectionHeightIsCustom,
       timetableTimeColumnWidth:
           timetableTimeColumnWidth ?? this.timetableTimeColumnWidth,
       timetableDayHeaderHeight:
@@ -475,9 +502,8 @@ class AppSettings {
       timetableCourseAlpha: timetableCourseAlpha ?? this.timetableCourseAlpha,
       timetableCourseFontScale:
           timetableCourseFontScale ?? this.timetableCourseFontScale,
-      timetableAddBlankLineAfterTitle:
-          timetableAddBlankLineAfterTitle ??
-          this.timetableAddBlankLineAfterTitle,
+      timetableCourseTextTemplate:
+          timetableCourseTextTemplate ?? this.timetableCourseTextTemplate,
       timetableDashedBorderDensity:
           timetableDashedBorderDensity ?? this.timetableDashedBorderDensity,
       timetableHideSectionTime:
@@ -488,15 +514,17 @@ class AppSettings {
           timetableDayColorMarkers ?? this.timetableDayColorMarkers,
       timetableDayTextMarkers:
           timetableDayTextMarkers ?? this.timetableDayTextMarkers,
-      timetableShowStartTime:
-          timetableShowStartTime ?? this.timetableShowStartTime,
-      timetableHideLocation:
-          timetableHideLocation ?? this.timetableHideLocation,
-      timetableHideTeacher: timetableHideTeacher ?? this.timetableHideTeacher,
-      timetableHideTeacherBrackets:
-          timetableHideTeacherBrackets ?? this.timetableHideTeacherBrackets,
-      timetableRemoveLocationAt:
-          timetableRemoveLocationAt ?? this.timetableRemoveLocationAt,
+      timetableDayTextMarkerPosition:
+          timetableDayTextMarkerPosition ?? this.timetableDayTextMarkerPosition,
+      timetableDayTextMarkerPadding:
+          timetableDayTextMarkerPadding ?? this.timetableDayTextMarkerPadding,
+      timetableCountdownBarLengthRatio:
+          timetableCountdownBarLengthRatio ??
+          this.timetableCountdownBarLengthRatio,
+      timetableCountdownBarRounded:
+          timetableCountdownBarRounded ?? this.timetableCountdownBarRounded,
+      ignoreSystemTextScale:
+          ignoreSystemTextScale ?? this.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:
           timetableTextAlignCenterHorizontal ??
           this.timetableTextAlignCenterHorizontal,
@@ -630,5 +658,31 @@ class AppSettings {
       }
     }
     return value;
+  }
+}
+
+/// 每页正好显示的节次数（自适应课节高度的分母）。
+const kAdaptiveSectionCount = 11;
+
+/// 估算的自适应课节高度：可用高度 / 11。用于设置页滑杆展示与重置后的
+/// 状态值；课表实际渲染时由布局约束精确计算（sectionHeight 传 0）。
+double estimateAdaptiveSectionHeight() {
+  try {
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view == null) return 60.0;
+    final scale = view.devicePixelRatio;
+    final size = view.physicalSize / scale;
+    final padding = view.viewPadding;
+    // 周头部、日期栏与底部导航的近似占位（与 timetable 布局保持一致的量级）。
+    const chromeHeight = 50.0 + 40.0 + 62.0;
+    final available =
+        size.height -
+        padding.top / scale -
+        padding.bottom / scale -
+        chromeHeight;
+    if (!available.isFinite || available <= 0) return 60.0;
+    return (available / kAdaptiveSectionCount).clamp(40.0, 140.0).toDouble();
+  } catch (_) {
+    return 60.0;
   }
 }

@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
+import '../utils/course_text_template.dart';
 
 class PreferencesStorage {
   late SharedPreferences _prefs;
@@ -20,6 +21,18 @@ class PreferencesStorage {
     'timetable_background_opacity',
     'timetable_component_opacity',
     'school_calendar_cache_time',
+    // 课程块文字改为模板后废弃的布尔开关（升级时先合成模板再删除）。
+    ...legacyCourseTextKeys,
+  };
+
+  /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
+  static const legacyCourseTextKeys = <String>{
+    'timetable_add_blank_line_after_title',
+    'timetable_show_start_time',
+    'timetable_hide_location',
+    'timetable_hide_teacher',
+    'timetable_hide_teacher_brackets',
+    'timetable_remove_location_at',
   };
 
   /// Known preference keys and their expected stored types. A key whose value
@@ -72,7 +85,7 @@ class PreferencesStorage {
     'timetable_course_outer_padding': double,
     'timetable_course_alpha': double,
     'timetable_course_font_scale': double,
-    'timetable_add_blank_line_after_title': bool,
+    'timetable_course_text_template': String,
     'timetable_dashed_border_density': double,
     'timetable_border_type': String,
     'timetable_course_border_color': int,
@@ -83,19 +96,19 @@ class PreferencesStorage {
     'timetable_last_custom_course_text_color': int,
     'timetable_course_text_size': double,
     'timetable_course_text_opacity': double,
-    'timetable_show_start_time': bool,
-    'timetable_hide_location': bool,
-    'timetable_hide_teacher': bool,
-    'timetable_hide_teacher_brackets': bool,
-    'timetable_remove_location_at': bool,
     'timetable_text_align_center_horizontal': bool,
     'timetable_text_align_center_vertical': bool,
+    'timetable_countdown_bar_length_ratio': double,
+    'timetable_countdown_bar_rounded': bool,
+    'ignore_system_text_scale': bool,
     // 页面与文字
     'timetable_hide_section_time': bool,
     'timetable_hide_date_under_day': bool,
     'timetable_day_color_markers': bool,
     'timetable_day_text_markers': bool,
     'timetable_day_text_marker_size': double,
+    'timetable_day_text_marker_position': String,
+    'timetable_day_text_marker_padding': double,
     'timetable_page_text_color': int,
     'timetable_last_custom_page_text_color': int,
     'timetable_page_text_opacity': double,
@@ -175,6 +188,16 @@ class PreferencesStorage {
 
     var cleaned = false;
     if (versionChanged) {
+      // 旧课程块布尔开关在删除前先合成等价模板，保留用户观感。
+      final legacyTemplate = composeLegacyCourseTextTemplate();
+      if (legacyTemplate != null &&
+          !_prefs.containsKey('timetable_course_text_template')) {
+        await _prefs.setString(
+          'timetable_course_text_template',
+          legacyTemplate,
+        );
+        cleaned = true;
+      }
       for (final key in _deprecatedKeys) {
         if (_prefs.containsKey(key)) {
           await _prefs.remove(key);
@@ -260,18 +283,18 @@ class PreferencesStorage {
     'timetable_course_outer_padding',
     'timetable_course_alpha',
     'timetable_course_font_scale',
-    'timetable_add_blank_line_after_title',
+    'timetable_course_text_template',
     'timetable_dashed_border_density',
     'timetable_hide_section_time',
     'timetable_hide_date_under_day',
     'timetable_day_color_markers',
     'timetable_day_text_markers',
     'timetable_day_text_marker_size',
-    'timetable_show_start_time',
-    'timetable_hide_location',
-    'timetable_hide_teacher',
-    'timetable_hide_teacher_brackets',
-    'timetable_remove_location_at',
+    'timetable_day_text_marker_position',
+    'timetable_day_text_marker_padding',
+    'timetable_countdown_bar_length_ratio',
+    'timetable_countdown_bar_rounded',
+    'ignore_system_text_scale',
     'timetable_text_align_center_horizontal',
     'timetable_text_align_center_vertical',
     'timetable_border_type',
@@ -318,9 +341,16 @@ class PreferencesStorage {
     return result;
   }
 
+  /// 旧 schema（课程块文字仍用布尔开关）的快照不做转换，直接判定不兼容。
+  bool isLegacyPersonalizationSnapshot(Map<String, dynamic> values) =>
+      values.keys.any(legacyCourseTextKeys.contains);
+
   Future<void> restorePersonalizationSnapshot(
     Map<String, dynamic> values,
   ) async {
+    if (isLegacyPersonalizationSnapshot(values)) {
+      throw const FormatException('旧版分享码不支持');
+    }
     for (final entry in values.entries) {
       if (!_personalizationBackupKeys.contains(entry.key)) continue;
       final value = entry.value;
@@ -650,11 +680,77 @@ class PreferencesStorage {
     value.clamp(0.5, 2.0).toDouble(),
   );
 
-  bool getTimetableAddBlankLineAfterTitle() =>
-      _prefs.getBool('timetable_add_blank_line_after_title') ?? false;
+  String? getTimetableCourseTextTemplate() =>
+      _prefs.getString('timetable_course_text_template');
 
-  Future<void> setTimetableAddBlankLineAfterTitle(bool value) =>
-      _prefs.setBool('timetable_add_blank_line_after_title', value);
+  Future<void> setTimetableCourseTextTemplate(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _prefs.remove('timetable_course_text_template');
+    } else {
+      await _prefs.setString('timetable_course_text_template', value);
+    }
+  }
+
+  /// 由旧版布尔开关合成等价模板；没有任何旧键时返回 null。
+  /// 供升级迁移与未迁移安装（versionCode 未变）派生显示使用。
+  String? composeLegacyCourseTextTemplate() {
+    final hasLegacy = legacyCourseTextKeys.any(_prefs.containsKey);
+    if (!hasLegacy) return null;
+    return composeLegacyTemplate(
+      showStartTime: _prefs.getBool('timetable_show_start_time') ?? false,
+      hideLocation: _prefs.getBool('timetable_hide_location') ?? false,
+      hideTeacher: _prefs.getBool('timetable_hide_teacher') ?? true,
+      hideTeacherBrackets:
+          _prefs.getBool('timetable_hide_teacher_brackets') ?? true,
+      removeLocationAt: _prefs.getBool('timetable_remove_location_at') ?? false,
+      addBlankLineAfterTitle:
+          _prefs.getBool('timetable_add_blank_line_after_title') ?? false,
+    );
+  }
+
+  bool hasTimetableSectionHeight() =>
+      _prefs.containsKey('timetable_section_height');
+
+  String? getTimetableDayTextMarkerPosition() =>
+      _prefs.getString('timetable_day_text_marker_position');
+
+  Future<void> setTimetableDayTextMarkerPosition(String value) =>
+      _prefs.setString('timetable_day_text_marker_position', value);
+
+  double getTimetableDayTextMarkerPadding() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_day_text_marker_padding') ?? 2.0,
+    min: 0.0,
+    max: 8.0,
+  );
+
+  Future<void> setTimetableDayTextMarkerPadding(double value) =>
+      _prefs.setDouble(
+        'timetable_day_text_marker_padding',
+        _clampTimetableDimension(value, min: 0.0, max: 8.0),
+      );
+
+  double getTimetableCountdownBarLengthRatio() =>
+      (_prefs.getDouble('timetable_countdown_bar_length_ratio') ?? 0.75)
+          .clamp(0.1, 1.0)
+          .toDouble();
+
+  Future<void> setTimetableCountdownBarLengthRatio(double value) =>
+      _prefs.setDouble(
+        'timetable_countdown_bar_length_ratio',
+        value.clamp(0.1, 1.0).toDouble(),
+      );
+
+  bool getTimetableCountdownBarRounded() =>
+      _prefs.getBool('timetable_countdown_bar_rounded') ?? true;
+
+  Future<void> setTimetableCountdownBarRounded(bool value) =>
+      _prefs.setBool('timetable_countdown_bar_rounded', value);
+
+  bool getIgnoreSystemTextScale() =>
+      _prefs.getBool('ignore_system_text_scale') ?? true;
+
+  Future<void> setIgnoreSystemTextScale(bool value) =>
+      _prefs.setBool('ignore_system_text_scale', value);
 
   double getTimetableDashedBorderDensity() =>
       (_prefs.getDouble('timetable_dashed_border_density') ?? 1.0)
@@ -675,26 +771,6 @@ class PreferencesStorage {
       _prefs.getBool('timetable_hide_date_under_day') ?? false;
   Future<void> setTimetableHideDateUnderDay(bool value) =>
       _prefs.setBool('timetable_hide_date_under_day', value);
-  bool getTimetableShowStartTime() =>
-      _prefs.getBool('timetable_show_start_time') ?? false;
-  Future<void> setTimetableShowStartTime(bool value) =>
-      _prefs.setBool('timetable_show_start_time', value);
-  bool getTimetableHideLocation() =>
-      _prefs.getBool('timetable_hide_location') ?? false;
-  Future<void> setTimetableHideLocation(bool value) =>
-      _prefs.setBool('timetable_hide_location', value);
-  bool getTimetableHideTeacher() =>
-      _prefs.getBool('timetable_hide_teacher') ?? true;
-  Future<void> setTimetableHideTeacher(bool value) =>
-      _prefs.setBool('timetable_hide_teacher', value);
-  bool getTimetableHideTeacherBrackets() =>
-      _prefs.getBool('timetable_hide_teacher_brackets') ?? true;
-  Future<void> setTimetableHideTeacherBrackets(bool value) =>
-      _prefs.setBool('timetable_hide_teacher_brackets', value);
-  bool getTimetableRemoveLocationAt() =>
-      _prefs.getBool('timetable_remove_location_at') ?? false;
-  Future<void> setTimetableRemoveLocationAt(bool value) =>
-      _prefs.setBool('timetable_remove_location_at', value);
   bool getTimetableTextAlignCenterHorizontal() =>
       _prefs.getBool('timetable_text_align_center_horizontal') ?? false;
   Future<void> setTimetableTextAlignCenterHorizontal(bool value) =>
@@ -965,7 +1041,7 @@ class PreferencesStorage {
   );
 
   double getTimetableTodayLineWidth() => _clampTimetableDimension(
-    _prefs.getDouble('timetable_today_line_width') ?? 1.0,
+    _prefs.getDouble('timetable_today_line_width') ?? 2.0,
     min: 0.5,
     max: 4.0,
   );
@@ -1150,15 +1226,15 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_outer_padding'),
       _prefs.remove('timetable_course_alpha'),
       _prefs.remove('timetable_course_font_scale'),
-      _prefs.remove('timetable_add_blank_line_after_title'),
+      _prefs.remove('timetable_course_text_template'),
       _prefs.remove('timetable_dashed_border_density'),
       _prefs.remove('timetable_hide_section_time'),
       _prefs.remove('timetable_hide_date_under_day'),
-      _prefs.remove('timetable_show_start_time'),
-      _prefs.remove('timetable_hide_location'),
-      _prefs.remove('timetable_hide_teacher'),
-      _prefs.remove('timetable_hide_teacher_brackets'),
-      _prefs.remove('timetable_remove_location_at'),
+      _prefs.remove('timetable_day_text_marker_position'),
+      _prefs.remove('timetable_day_text_marker_padding'),
+      _prefs.remove('timetable_countdown_bar_length_ratio'),
+      _prefs.remove('timetable_countdown_bar_rounded'),
+      _prefs.remove('ignore_system_text_scale'),
       _prefs.remove('timetable_text_align_center_horizontal'),
       _prefs.remove('timetable_text_align_center_vertical'),
       _prefs.remove('timetable_border_type'),
@@ -1176,7 +1252,7 @@ class PreferencesStorage {
       _prefs.setBool('show_timetable_grid_lines', value);
 
   bool getShowTodayGridLines() =>
-      _prefs.getBool('show_today_grid_lines') ?? false;
+      _prefs.getBool('show_today_grid_lines') ?? true;
 
   Future<void> setShowTodayGridLines(bool value) =>
       _prefs.setBool('show_today_grid_lines', value);

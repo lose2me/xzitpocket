@@ -34,8 +34,6 @@ void main() {
             course: course,
             borderColor: Colors.black,
             centerVertical: true,
-            hideLocation: true,
-            hideTeacher: true,
           ),
         ),
       ),
@@ -46,9 +44,7 @@ void main() {
     expect(titleRect.center.dy, closeTo(cardRect.center.dy, 5));
   });
 
-  testWidgets('course teacher brackets follow the appearance setting', (
-    tester,
-  ) async {
+  testWidgets('course teacher text follows the template', (tester) async {
     final course = Course(
       title: '高等数学',
       teacher: '张老师',
@@ -60,7 +56,7 @@ void main() {
       colorIndex: 0,
     );
 
-    Future<void> pumpCard({required bool hideBrackets}) => tester.pumpWidget(
+    Future<void> pumpCard({required String template}) => tester.pumpWidget(
       _testApp(
         SizedBox(
           width: 140,
@@ -68,20 +64,44 @@ void main() {
           child: CourseCard(
             course: course,
             borderColor: Colors.black,
-            hideTeacher: false,
-            hideTeacherBrackets: hideBrackets,
+            textTemplate: template,
           ),
         ),
       ),
     );
 
-    await pumpCard(hideBrackets: false);
+    await pumpCard(template: r'[b]{课程}[/]\n【{教师}】');
     expect(find.text('【张老师】'), findsOneWidget);
-    expect(find.text('张老师'), findsNothing);
 
-    await pumpCard(hideBrackets: true);
+    await pumpCard(template: r'[b]{课程}[/]\n{教师}');
     expect(find.text('【张老师】'), findsNothing);
     expect(find.text('张老师'), findsOneWidget);
+
+    // 教师为空时整行省略（含变量的行全部变量为空 → 跳过）。
+    final noTeacher = Course(
+      title: '高等数学',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1, 2],
+      weeks: const [1],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+    await tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 140,
+          height: 120,
+          child: CourseCard(
+            course: noTeacher,
+            borderColor: Colors.black,
+            textTemplate: r'[b]{课程}[/]\n【{教师}】',
+          ),
+        ),
+      ),
+    );
+    expect(find.text('【】'), findsNothing);
   });
 
   testWidgets('course start time omits the session number and leading zero', (
@@ -106,7 +126,7 @@ void main() {
           child: CourseCard(
             course: course,
             borderColor: Colors.black,
-            showStartTime: true,
+            textTemplate: r'{时间}',
           ),
         ),
       ),
@@ -116,9 +136,7 @@ void main() {
     expect(find.text('1 08:00'), findsNothing);
   });
 
-  testWidgets('course title blank line increases detail spacing', (
-    tester,
-  ) async {
+  testWidgets('template blank line increases detail spacing', (tester) async {
     final course = Course(
       title: '课程名称',
       teacher: '',
@@ -130,7 +148,7 @@ void main() {
       colorIndex: 0,
     );
 
-    Future<double> placeTop({required bool addBlankLine}) async {
+    Future<double> placeTop({required String template}) async {
       await tester.pumpWidget(
         _testApp(
           SizedBox(
@@ -139,7 +157,7 @@ void main() {
             child: CourseCard(
               course: course,
               borderColor: Colors.black,
-              addBlankLineAfterTitle: addBlankLine,
+              textTemplate: template,
             ),
           ),
         ),
@@ -147,8 +165,8 @@ void main() {
       return tester.getTopLeft(find.text('@教室')).dy;
     }
 
-    final normalTop = await placeTop(addBlankLine: false);
-    final blankLineTop = await placeTop(addBlankLine: true);
+    final normalTop = await placeTop(template: r'[b]{课程}[/]\n@{地点}');
+    final blankLineTop = await placeTop(template: r'[b]{课程}[/]\n\n@{地点}');
 
     expect(blankLineTop, greaterThan(normalTop + 8));
   });
@@ -176,14 +194,14 @@ void main() {
             course: course,
             borderColor: Colors.black,
             centerHorizontal: true,
-            showStartTime: true,
-            hideTeacher: false,
+            textTemplate: r'[b]{课程}[/]\n{时间}\n@{地点}\n{教师}',
           ),
         ),
       ),
     );
 
-    for (final label in ['课程名称很长需要换行', '8:00', '@教室101', '中心校区', '张老师']) {
+    // {地点} 将地点与校区合并为同一样式段（内部换行）。
+    for (final label in ['课程名称很长需要换行', '8:00', '@教室101\n中心校区', '张老师']) {
       expect(tester.widget<Text>(find.text(label)).textAlign, TextAlign.center);
     }
   });

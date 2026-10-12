@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_settings.dart';
+import '../utils/course_text_template.dart';
 import '../services/native_automation_service.dart';
 import '../services/preferences_storage.dart';
 import '../services/widget_service.dart';
@@ -97,7 +98,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideTeacher: _storage.getWidgetHideTeacher(),
       widgetHideLocation: _storage.getWidgetHideLocation(),
       widgetHideDate: _storage.getWidgetHideDate(),
-      timetableSectionHeight: _storage.getTimetableSectionHeight(),
+      // 无用户设置时使用自适应默认值（可用高度 / 11，见 estimateAdaptive…）。
+      timetableSectionHeight: _storage.hasTimetableSectionHeight()
+          ? _storage.getTimetableSectionHeight()
+          : estimateAdaptiveSectionHeight(),
+      timetableSectionHeightIsCustom: _storage.hasTimetableSectionHeight(),
       timetableTimeColumnWidth: _storage.getTimetableTimeColumnWidth(),
       timetableDayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
       timetableCourseCornerRadius: _storage.getTimetableCourseCornerRadius(),
@@ -105,18 +110,25 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseOuterPadding: _storage.getTimetableCourseOuterPadding(),
       timetableCourseAlpha: _storage.getTimetableCourseAlpha(),
       timetableCourseFontScale: _storage.getTimetableCourseFontScale(),
-      timetableAddBlankLineAfterTitle: _storage
-          .getTimetableAddBlankLineAfterTitle(),
+      // 模板缺失时优先由旧布尔开关派生（未迁移安装），否则用默认模板。
+      timetableCourseTextTemplate:
+          _storage.getTimetableCourseTextTemplate() ??
+          _storage.composeLegacyCourseTextTemplate() ??
+          kDefaultCourseTextTemplate,
       timetableDashedBorderDensity: _storage.getTimetableDashedBorderDensity(),
       timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
       timetableHideDateUnderDay: _storage.getTimetableHideDateUnderDay(),
       timetableDayColorMarkers: _storage.getTimetableDayColorMarkers(),
       timetableDayTextMarkers: _storage.getTimetableDayTextMarkers(),
-      timetableShowStartTime: _storage.getTimetableShowStartTime(),
-      timetableHideLocation: _storage.getTimetableHideLocation(),
-      timetableHideTeacher: _storage.getTimetableHideTeacher(),
-      timetableHideTeacherBrackets: _storage.getTimetableHideTeacherBrackets(),
-      timetableRemoveLocationAt: _storage.getTimetableRemoveLocationAt(),
+      timetableDayTextMarkerPosition: TimetableDayMarkerPosition.fromStorage(
+        _storage.getTimetableDayTextMarkerPosition(),
+      ),
+      timetableDayTextMarkerPadding: _storage
+          .getTimetableDayTextMarkerPadding(),
+      timetableCountdownBarLengthRatio: _storage
+          .getTimetableCountdownBarLengthRatio(),
+      timetableCountdownBarRounded: _storage.getTimetableCountdownBarRounded(),
+      ignoreSystemTextScale: _storage.getIgnoreSystemTextScale(),
       timetableTextAlignCenterHorizontal: _storage
           .getTimetableTextAlignCenterHorizontal(),
       timetableTextAlignCenterVertical: _storage
@@ -369,7 +381,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   Future<void> setTimetableSectionHeight(double value) async {
     final normalized = value.clamp(40.0, 140.0).toDouble();
-    state = state.copyWith(timetableSectionHeight: normalized);
+    state = state.copyWith(
+      timetableSectionHeight: normalized,
+      timetableSectionHeightIsCustom: true,
+    );
     await _storage.setTimetableSectionHeight(normalized);
   }
 
@@ -415,9 +430,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableCourseFontScale(normalized);
   }
 
-  Future<void> setTimetableAddBlankLineAfterTitle(bool value) async {
-    state = state.copyWith(timetableAddBlankLineAfterTitle: value);
-    await _storage.setTimetableAddBlankLineAfterTitle(value);
+  Future<void> setTimetableCourseTextTemplate(String value) async {
+    final normalized = value.trim();
+    state = state.copyWith(
+      timetableCourseTextTemplate: normalized.isEmpty
+          ? kDefaultCourseTextTemplate
+          : normalized,
+    );
+    await _storage.setTimetableCourseTextTemplate(
+      normalized.isEmpty ? null : normalized,
+    );
   }
 
   Future<void> setTimetableDashedBorderDensity(double value) async {
@@ -436,29 +458,33 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableHideDateUnderDay(value);
   }
 
-  Future<void> setTimetableShowStartTime(bool value) async {
-    state = state.copyWith(timetableShowStartTime: value);
-    await _storage.setTimetableShowStartTime(value);
+  Future<void> setTimetableDayTextMarkerPosition(
+    TimetableDayMarkerPosition value,
+  ) async {
+    state = state.copyWith(timetableDayTextMarkerPosition: value);
+    await _storage.setTimetableDayTextMarkerPosition(value.storageValue);
   }
 
-  Future<void> setTimetableHideLocation(bool value) async {
-    state = state.copyWith(timetableHideLocation: value);
-    await _storage.setTimetableHideLocation(value);
+  Future<void> setTimetableDayTextMarkerPadding(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 0.0, 8.0);
+    state = state.copyWith(timetableDayTextMarkerPadding: normalized);
+    await _storage.setTimetableDayTextMarkerPadding(normalized);
   }
 
-  Future<void> setTimetableHideTeacher(bool value) async {
-    state = state.copyWith(timetableHideTeacher: value);
-    await _storage.setTimetableHideTeacher(value);
+  Future<void> setTimetableCountdownBarLengthRatio(double value) async {
+    final normalized = value.clamp(0.1, 1.0).toDouble();
+    state = state.copyWith(timetableCountdownBarLengthRatio: normalized);
+    await _storage.setTimetableCountdownBarLengthRatio(normalized);
   }
 
-  Future<void> setTimetableHideTeacherBrackets(bool value) async {
-    state = state.copyWith(timetableHideTeacherBrackets: value);
-    await _storage.setTimetableHideTeacherBrackets(value);
+  Future<void> setTimetableCountdownBarRounded(bool value) async {
+    state = state.copyWith(timetableCountdownBarRounded: value);
+    await _storage.setTimetableCountdownBarRounded(value);
   }
 
-  Future<void> setTimetableRemoveLocationAt(bool value) async {
-    state = state.copyWith(timetableRemoveLocationAt: value);
-    await _storage.setTimetableRemoveLocationAt(value);
+  Future<void> setIgnoreSystemTextScale(bool value) async {
+    state = state.copyWith(ignoreSystemTextScale: value);
+    await _storage.setIgnoreSystemTextScale(value);
   }
 
   Future<void> setTimetableTextAlignCenterHorizontal(bool value) async {
@@ -763,7 +789,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideTeacher: defaults.widgetHideTeacher,
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
-      timetableSectionHeight: defaults.timetableSectionHeight,
+      // 重置后课节高度回到自适应默认值（可用高度 / 11）。
+      timetableSectionHeight: estimateAdaptiveSectionHeight(),
+      timetableSectionHeightIsCustom: false,
       timetableTimeColumnWidth: defaults.timetableTimeColumnWidth,
       timetableDayHeaderHeight: defaults.timetableDayHeaderHeight,
       timetableCourseCornerRadius: defaults.timetableCourseCornerRadius,
@@ -771,18 +799,19 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseOuterPadding: defaults.timetableCourseOuterPadding,
       timetableCourseAlpha: defaults.timetableCourseAlpha,
       timetableCourseFontScale: defaults.timetableCourseFontScale,
-      timetableAddBlankLineAfterTitle: defaults.timetableAddBlankLineAfterTitle,
+      timetableCourseTextTemplate: defaults.timetableCourseTextTemplate,
       timetableDashedBorderDensity: defaults.timetableDashedBorderDensity,
       timetableHideSectionTime: defaults.timetableHideSectionTime,
       timetableHideDateUnderDay: defaults.timetableHideDateUnderDay,
       timetableDayColorMarkers: defaults.timetableDayColorMarkers,
       timetableDayTextMarkers: defaults.timetableDayTextMarkers,
       timetableDayTextMarkerSize: defaults.timetableDayTextMarkerSize,
-      timetableShowStartTime: defaults.timetableShowStartTime,
-      timetableHideLocation: defaults.timetableHideLocation,
-      timetableHideTeacher: defaults.timetableHideTeacher,
-      timetableHideTeacherBrackets: defaults.timetableHideTeacherBrackets,
-      timetableRemoveLocationAt: defaults.timetableRemoveLocationAt,
+      timetableDayTextMarkerPosition: defaults.timetableDayTextMarkerPosition,
+      timetableDayTextMarkerPadding: defaults.timetableDayTextMarkerPadding,
+      timetableCountdownBarLengthRatio:
+          defaults.timetableCountdownBarLengthRatio,
+      timetableCountdownBarRounded: defaults.timetableCountdownBarRounded,
+      ignoreSystemTextScale: defaults.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:
           defaults.timetableTextAlignCenterHorizontal,
       timetableTextAlignCenterVertical:

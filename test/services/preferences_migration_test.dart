@@ -81,7 +81,7 @@ void main() {
       expect(prefs.containsKey('show_today_grid_lines'), isFalse);
       // Getter falls back to the default after the incompatible value is gone.
       expect(storage.getTimetableSectionHeight(), 60.0);
-      expect(storage.getShowTodayGridLines(), isFalse);
+      expect(storage.getShowTodayGridLines(), isTrue);
       // Compatible values are untouched.
       expect(prefs.getInt('course_reminder_minutes'), 15);
     });
@@ -112,6 +112,41 @@ void main() {
 
       expect(cleaned, isTrue);
       expect(storage.getHiddenServiceFeatures(), {'power', 'exams'});
+    });
+
+    test('composes a course text template from legacy booleans', () async {
+      await initStorage({
+        'installed_version_code': '2000',
+        'settings_schema_version': PreferencesStorage.settingsSchemaVersion,
+        'timetable_show_start_time': true,
+        'timetable_hide_teacher': false,
+        'timetable_hide_teacher_brackets': false,
+        'timetable_remove_location_at': true,
+      });
+
+      final cleaned = await storage.migrateForVersionCode('2100');
+
+      expect(cleaned, isTrue);
+      expect(
+        storage.getTimetableCourseTextTemplate(),
+        r'[b]{课程}[/]\n{时间}\n{地点}\n【{教师}】',
+      );
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('timetable_show_start_time'), isFalse);
+      expect(prefs.containsKey('timetable_hide_teacher'), isFalse);
+    });
+
+    test('keeps an existing template untouched during migration', () async {
+      await initStorage({
+        'installed_version_code': '2000',
+        'settings_schema_version': PreferencesStorage.settingsSchemaVersion,
+        'timetable_course_text_template': '{课程}',
+        'timetable_hide_teacher': false,
+      });
+
+      await storage.migrateForVersionCode('2100');
+
+      expect(storage.getTimetableCourseTextTemplate(), '{课程}');
     });
 
     test('keeps the disclaimer flag across migrations', () async {
@@ -161,6 +196,49 @@ void main() {
       await storage.resetTimetableAppearance();
 
       expect(storage.getDisclaimerAccepted(), isTrue);
+    });
+  });
+
+  group('legacy personalization snapshots', () {
+    test('are rejected with the unsupported toast message', () async {
+      await initStorage({'timetable_course_text_size': 12.0});
+
+      expect(
+        storage.isLegacyPersonalizationSnapshot({
+          'timetable_hide_teacher': false,
+        }),
+        isTrue,
+      );
+      expect(
+        () => storage.restorePersonalizationSnapshot({
+          'timetable_hide_teacher': false,
+        }),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            '旧版分享码不支持',
+          ),
+        ),
+      );
+      // 拒绝后不写入任何值。
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.containsKey('timetable_hide_teacher'), isFalse);
+    });
+
+    test('current snapshots are still accepted', () async {
+      await initStorage({});
+
+      expect(
+        storage.isLegacyPersonalizationSnapshot({
+          'timetable_course_text_template': '{课程}',
+        }),
+        isFalse,
+      );
+      await storage.restorePersonalizationSnapshot({
+        'timetable_course_text_template': '{课程}',
+      });
+      expect(storage.getTimetableCourseTextTemplate(), '{课程}');
     });
   });
 }

@@ -891,8 +891,18 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               .timetableTodayHorizontalLineWidth,
                                           todayHorizontalLineOpacity: settings
                                               .timetableTodayHorizontalLineOpacity,
+                                          // 未显式设置课节高度时按可用高度
+                                          // 自适应：一页正好 11 节（需求 11）。
                                           sectionHeight:
-                                              settings.timetableSectionHeight,
+                                              settings
+                                                  .timetableSectionHeightIsCustom
+                                              ? settings.timetableSectionHeight
+                                              : 0,
+                                          visibleSlots:
+                                              settings
+                                                  .timetableSectionHeightIsCustom
+                                              ? 9
+                                              : kAdaptiveSectionCount,
                                           timeColumnWidth:
                                               settings.timetableTimeColumnWidth,
                                           dayHeaderHeight:
@@ -905,8 +915,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               .timetableCourseOuterPadding,
                                           courseFontScale:
                                               settings.timetableCourseFontScale,
-                                          addBlankLineAfterTitle: settings
-                                              .timetableAddBlankLineAfterTitle,
+                                          courseTextTemplate: settings
+                                              .timetableCourseTextTemplate,
+                                          countdownBarLengthRatio: settings
+                                              .timetableCountdownBarLengthRatio,
+                                          countdownBarRounded: settings
+                                              .timetableCountdownBarRounded,
                                           dashedBorderDensity: settings
                                               .timetableDashedBorderDensity,
                                           hideSectionTime:
@@ -917,16 +931,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               settings.timetableDayColorMarkers,
                                           showDayTextMarkers:
                                               settings.timetableDayTextMarkers,
-                                          showStartTime:
-                                              settings.timetableShowStartTime,
-                                          hideLocation:
-                                              settings.timetableHideLocation,
-                                          hideTeacher:
-                                              settings.timetableHideTeacher,
-                                          hideTeacherBrackets: settings
-                                              .timetableHideTeacherBrackets,
-                                          removeLocationAt: settings
-                                              .timetableRemoveLocationAt,
+                                          dayTextMarkerPosition: settings
+                                              .timetableDayTextMarkerPosition,
+                                          dayTextMarkerPadding: settings
+                                              .timetableDayTextMarkerPadding,
                                           textAlignCenterHorizontal: settings
                                               .timetableTextAlignCenterHorizontal,
                                           textAlignCenterVertical: settings

@@ -121,8 +121,11 @@ void main() {
       expect(settings.widgetHideTeacher, isFalse);
       expect(settings.widgetHideLocation, isFalse);
       expect(settings.widgetHideDate, isFalse);
-      expect(settings.timetableHideTeacher, isTrue);
-      expect(settings.timetableHideTeacherBrackets, isTrue);
+      expect(settings.timetableCourseTextTemplate, r'[b]{课程}[/]\n@{地点}');
+      expect(settings.timetableSectionHeightIsCustom, isFalse);
+      expect(settings.ignoreSystemTextScale, isTrue);
+      expect(settings.timetableCountdownBarLengthRatio, 0.75);
+      expect(settings.timetableCountdownBarRounded, isTrue);
       expect(settings.timetableBackgroundPath, isNull);
       expect(settings.timetableDarkBackgroundPath, isNull);
       expect(settings.timetableUseLightBackgroundInDarkMode, isTrue);
@@ -133,7 +136,11 @@ void main() {
       expect(settings.timetableDayHeaderHeight, 40.0);
       expect(settings.timetableCourseOuterPadding, 1.5);
       expect(settings.timetableCourseFontScale, 0.95);
-      expect(settings.timetableAddBlankLineAfterTitle, isFalse);
+      expect(
+        settings.timetableDayTextMarkerPosition,
+        TimetableDayMarkerPosition.topRight,
+      );
+      expect(settings.timetableDayTextMarkerPadding, 2.0);
       expect(settings.timetableDashedBorderDensity, 1.0);
       expect(settings.timetableGridOpacity, 0.5);
       expect(settings.timetableGridLineColor, isNull);
@@ -145,9 +152,9 @@ void main() {
       expect(settings.timetableCourseBorderOpacity, 0.7);
       expect(settings.timetableCourseBorderColor, isNull);
       expect(settings.showTimetableGridLines, isTrue);
-      expect(settings.showTodayGridLines, isFalse);
+      expect(settings.showTodayGridLines, isTrue);
       expect(settings.timetableTodayLineColor, isNull);
-      expect(settings.timetableTodayLineWidth, 1.0);
+      expect(settings.timetableTodayLineWidth, 2.0);
       expect(settings.hiddenServiceFeatures, isEmpty);
     });
 
@@ -176,8 +183,8 @@ void main() {
         widgetHideTeacher: true,
         widgetHideLocation: true,
         widgetHideDate: true,
-        timetableHideTeacher: false,
-        timetableHideTeacherBrackets: false,
+        timetableCourseTextTemplate: '{课程}',
+        timetableDayTextMarkerPosition: TimetableDayMarkerPosition.bottomLeft,
         timetableBackgroundPath: '/tmp/background.jpg',
         timetableDarkBackgroundPath: '/tmp/background-dark.jpg',
         timetableUseLightBackgroundInDarkMode: true,
@@ -197,7 +204,8 @@ void main() {
         timetableDateTextSize: 13,
         timetableCourseBorderWidth: 1.2,
         timetableCourseBorderOpacity: 0.35,
-        timetableAddBlankLineAfterTitle: true,
+        timetableCountdownBarRounded: false,
+        ignoreSystemTextScale: false,
         timetableDashedBorderDensity: 1.5,
         showTimetableGridLines: false,
         showTodayGridLines: false,
@@ -230,8 +238,11 @@ void main() {
       expect(updated.widgetHideTeacher, isTrue);
       expect(updated.widgetHideLocation, isTrue);
       expect(updated.widgetHideDate, isTrue);
-      expect(updated.timetableHideTeacher, isFalse);
-      expect(updated.timetableHideTeacherBrackets, isFalse);
+      expect(updated.timetableCourseTextTemplate, '{课程}');
+      expect(
+        updated.timetableDayTextMarkerPosition,
+        TimetableDayMarkerPosition.bottomLeft,
+      );
       expect(updated.timetableBackgroundPath, '/tmp/background.jpg');
       expect(updated.timetableDarkBackgroundPath, '/tmp/background-dark.jpg');
       expect(updated.timetableUseLightBackgroundInDarkMode, isTrue);
@@ -257,7 +268,8 @@ void main() {
       expect(updated.timetableDateTextSize, 13);
       expect(updated.timetableCourseBorderWidth, 1.2);
       expect(updated.timetableCourseBorderOpacity, 0.35);
-      expect(updated.timetableAddBlankLineAfterTitle, isTrue);
+      expect(updated.timetableCountdownBarRounded, isFalse);
+      expect(updated.ignoreSystemTextScale, isFalse);
       expect(updated.timetableDashedBorderDensity, 1.5);
       expect(updated.showTimetableGridLines, isFalse);
       expect(updated.showTodayGridLines, isFalse);

@@ -136,19 +136,19 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         final theme = Theme.of(context).brightness == Brightness.dark
             ? darkTheme
             : lightTheme;
-        // The app owns its text sizing: the timetable exposes an explicit
-        // font-scale setting, so every other label must stay at 1x regardless
-        // of the system font-size preference.
-        return MediaQuery.withNoTextScaling(
-          child: _SmoothThemeTransition(
-            transitionKey:
-                '${Theme.of(context).brightness.name}:'
-                '${theme.colors.background.toARGB32()}:'
-                '${theme.colors.primary.toARGB32()}',
-            theme: theme,
-            child: child!,
-          ),
+        final transition = _SmoothThemeTransition(
+          transitionKey:
+              '${Theme.of(context).brightness.name}:'
+              '${theme.colors.background.toARGB32()}:'
+              '${theme.colors.primary.toARGB32()}',
+          theme: theme,
+          child: child!,
         );
+        // 「不受系统文字缩放影响」开关（默认开启）：作用于没有独立字号设置的
+        // 全部文字；课表内部已有自己的 withNoTextScaling 与字号设置，不受影响。
+        return settings.ignoreSystemTextScale
+            ? MediaQuery.withNoTextScaling(child: transition)
+            : transition;
       },
       home: HomePage(key: HomePage.globalKey),
     );

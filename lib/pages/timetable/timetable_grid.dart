@@ -4,10 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
 
+import '../../models/app_settings.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/app_colors.dart';
+import '../../utils/course_text_template.dart';
 import 'course_card.dart';
 import 'time_column.dart';
 
@@ -105,17 +107,16 @@ class TimetableGrid extends StatefulWidget {
   final double courseInnerPadding;
   final double courseOuterPadding;
   final double courseFontScale;
-  final bool addBlankLineAfterTitle;
+  final String courseTextTemplate;
+  final double countdownBarLengthRatio;
+  final bool countdownBarRounded;
   final double dashedBorderDensity;
   final bool hideSectionTime;
   final bool hideDateUnderDay;
   final bool showDayColorMarkers;
   final bool showDayTextMarkers;
-  final bool showStartTime;
-  final bool hideLocation;
-  final bool hideTeacher;
-  final bool hideTeacherBrackets;
-  final bool removeLocationAt;
+  final TimetableDayMarkerPosition dayTextMarkerPosition;
+  final double dayTextMarkerPadding;
   final bool textAlignCenterHorizontal;
   final bool textAlignCenterVertical;
   final String borderType;
@@ -179,17 +180,16 @@ class TimetableGrid extends StatefulWidget {
     this.courseInnerPadding = 2.0,
     this.courseOuterPadding = 1.5,
     this.courseFontScale = 0.95,
-    this.addBlankLineAfterTitle = false,
+    this.courseTextTemplate = kDefaultCourseTextTemplate,
+    this.countdownBarLengthRatio = 0.75,
+    this.countdownBarRounded = true,
     this.dashedBorderDensity = 1.0,
     this.hideSectionTime = false,
     this.hideDateUnderDay = false,
     this.showDayColorMarkers = true,
     this.showDayTextMarkers = true,
-    this.showStartTime = false,
-    this.hideLocation = false,
-    this.hideTeacher = true,
-    this.hideTeacherBrackets = true,
-    this.removeLocationAt = false,
+    this.dayTextMarkerPosition = TimetableDayMarkerPosition.topRight,
+    this.dayTextMarkerPadding = 2.0,
     this.textAlignCenterHorizontal = false,
     this.textAlignCenterVertical = false,
     this.borderType = 'solid',
@@ -575,17 +575,14 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               widget.courseInnerPadding,
                                           outerPadding:
                                               widget.courseOuterPadding,
-                                          addBlankLineAfterTitle:
-                                              widget.addBlankLineAfterTitle,
+                                          textTemplate:
+                                              widget.courseTextTemplate,
+                                          countdownBarLengthRatio:
+                                              widget.countdownBarLengthRatio,
+                                          countdownBarRounded:
+                                              widget.countdownBarRounded,
                                           dashedBorderDensity:
                                               widget.dashedBorderDensity,
-                                          showStartTime: widget.showStartTime,
-                                          hideLocation: widget.hideLocation,
-                                          hideTeacher: widget.hideTeacher,
-                                          hideTeacherBrackets:
-                                              widget.hideTeacherBrackets,
-                                          removeLocationAt:
-                                              widget.removeLocationAt,
                                           centerHorizontal:
                                               widget.textAlignCenterHorizontal,
                                           centerVertical:
@@ -812,8 +809,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                     pending == null &&
                     widget.showDayTextMarkers)
                   Positioned(
-                    top: 2,
-                    right: 3,
+                    // 假/调 标记位置与内间距可配置（需求 13/14）。
+                    top: _markerTop ? widget.dayTextMarkerPadding : null,
+                    bottom: _markerTop ? null : widget.dayTextMarkerPadding,
+                    left: _markerLeft ? widget.dayTextMarkerPadding : null,
+                    right: _markerLeft ? null : widget.dayTextMarkerPadding,
                     child: Text(
                       marker,
                       style: theme.typography.caption.copyWith(
@@ -944,6 +944,14 @@ class _TimetableGridState extends State<TimetableGrid> {
       ],
     ),
   );
+
+  bool get _markerTop =>
+      widget.dayTextMarkerPosition == TimetableDayMarkerPosition.topRight ||
+      widget.dayTextMarkerPosition == TimetableDayMarkerPosition.topLeft;
+
+  bool get _markerLeft =>
+      widget.dayTextMarkerPosition == TimetableDayMarkerPosition.topLeft ||
+      widget.dayTextMarkerPosition == TimetableDayMarkerPosition.bottomLeft;
 
   Color? _actionColor(FThemeData theme, TimetableDayActionType? type) =>
       switch (type) {

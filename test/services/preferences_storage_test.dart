@@ -135,19 +135,26 @@ void main() {
       await storage.init();
     });
 
-    test('uses the timetable teacher display defaults', () {
-      expect(storage.getTimetableHideTeacher(), isTrue);
-      expect(storage.getTimetableHideTeacherBrackets(), isTrue);
+    test('uses the timetable appearance defaults', () {
+      expect(storage.getTimetableCourseTextTemplate(), isNull);
+      expect(storage.composeLegacyCourseTextTemplate(), isNull);
       expect(storage.getTimetableCourseCornerRadius(), 6.0);
       expect(storage.getTimetableCourseInnerPadding(), 2.0);
       expect(storage.getTimetableSectionHeight(), 60.0);
+      expect(storage.hasTimetableSectionHeight(), isFalse);
       expect(storage.getTimetableDayHeaderHeight(), 40.0);
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
       expect(storage.getTimetableCourseFontScale(), 0.95);
-      expect(storage.getTimetableAddBlankLineAfterTitle(), isFalse);
       expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getTimetableGridOpacity(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
+      expect(storage.getShowTodayGridLines(), isTrue);
+      expect(storage.getTimetableTodayLineWidth(), 2.0);
+      expect(storage.getTimetableDayTextMarkerPosition(), isNull);
+      expect(storage.getTimetableDayTextMarkerPadding(), 2.0);
+      expect(storage.getTimetableCountdownBarLengthRatio(), 0.75);
+      expect(storage.getTimetableCountdownBarRounded(), isTrue);
+      expect(storage.getIgnoreSystemTextScale(), isTrue);
     });
 
     test('roundtrips timetable appearance settings', () async {
@@ -171,9 +178,13 @@ void main() {
       await storage.setWidgetHideTeacher(true);
       await storage.setWidgetHideLocation(true);
       await storage.setWidgetHideDate(true);
-      await storage.setTimetableHideTeacher(false);
-      await storage.setTimetableHideTeacherBrackets(false);
-      await storage.setTimetableAddBlankLineAfterTitle(true);
+      await storage.setTimetableCourseTextTemplate(r'[b]{课程}[/]\n{时间}');
+      await storage.setTimetableDayTextMarkerPosition('bottomLeft');
+      await storage.setTimetableDayTextMarkerPadding(4);
+      await storage.setTimetableCountdownBarLengthRatio(0.5);
+      await storage.setTimetableCountdownBarRounded(false);
+      await storage.setIgnoreSystemTextScale(false);
+      await storage.setTimetableSectionHeight(72);
       await storage.setTimetableDashedBorderDensity(1.5);
       await storage.setTimetablePageTextColor(0xFF111111);
       await storage.setTimetableLastCustomPageTextColor(0xFF121212);
@@ -221,9 +232,13 @@ void main() {
       expect(storage.getWidgetHideTeacher(), isTrue);
       expect(storage.getWidgetHideLocation(), isTrue);
       expect(storage.getWidgetHideDate(), isTrue);
-      expect(storage.getTimetableHideTeacher(), isFalse);
-      expect(storage.getTimetableHideTeacherBrackets(), isFalse);
-      expect(storage.getTimetableAddBlankLineAfterTitle(), isTrue);
+      expect(storage.getTimetableCourseTextTemplate(), r'[b]{课程}[/]\n{时间}');
+      expect(storage.getTimetableDayTextMarkerPosition(), 'bottomLeft');
+      expect(storage.getTimetableDayTextMarkerPadding(), 4.0);
+      expect(storage.getTimetableCountdownBarLengthRatio(), 0.5);
+      expect(storage.getTimetableCountdownBarRounded(), isFalse);
+      expect(storage.getIgnoreSystemTextScale(), isFalse);
+      expect(storage.hasTimetableSectionHeight(), isTrue);
       expect(storage.getTimetableDashedBorderDensity(), 1.5);
       expect(storage.getTimetablePageTextColor(), 0xFF111111);
       expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
@@ -385,9 +400,13 @@ void main() {
       await storage.setWidgetHideTeacher(true);
       await storage.setWidgetHideLocation(true);
       await storage.setWidgetHideDate(true);
-      await storage.setTimetableHideTeacher(false);
-      await storage.setTimetableHideTeacherBrackets(false);
-      await storage.setTimetableAddBlankLineAfterTitle(true);
+      await storage.setTimetableCourseTextTemplate('{课程}');
+      await storage.setTimetableDayTextMarkerPosition('bottomLeft');
+      await storage.setTimetableDayTextMarkerPadding(4);
+      await storage.setTimetableCountdownBarLengthRatio(0.5);
+      await storage.setTimetableCountdownBarRounded(false);
+      await storage.setIgnoreSystemTextScale(false);
+      await storage.setTimetableSectionHeight(72);
       await storage.setTimetableDashedBorderDensity(1.8);
       await storage.setCourseReminderEnabled(true);
 
@@ -420,10 +439,10 @@ void main() {
       expect(storage.getTimetableCourseBorderWidth(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
       expect(storage.getShowTimetableGridLines(), isTrue);
-      expect(storage.getShowTodayGridLines(), isFalse);
+      expect(storage.getShowTodayGridLines(), isTrue);
       expect(storage.getTimetableTodayLineColor(), 0xFF575757);
       expect(storage.getTimetableLastCustomTodayLineColor(), 0xFF575757);
-      expect(storage.getTimetableTodayLineWidth(), 1.0);
+      expect(storage.getTimetableTodayLineWidth(), 2.0);
       expect(storage.getWidgetThemePreference(), isNull);
       expect(storage.getWidgetFontScale(), 1.0);
       expect(storage.getWidgetBackgroundAlpha(), 1.0);
@@ -439,9 +458,14 @@ void main() {
       expect(storage.getWidgetHideTeacher(), isFalse);
       expect(storage.getWidgetHideLocation(), isFalse);
       expect(storage.getWidgetHideDate(), isFalse);
-      expect(storage.getTimetableHideTeacher(), isTrue);
-      expect(storage.getTimetableHideTeacherBrackets(), isTrue);
-      expect(storage.getTimetableAddBlankLineAfterTitle(), isFalse);
+      expect(storage.getTimetableCourseTextTemplate(), isNull);
+      expect(storage.getTimetableDayTextMarkerPosition(), isNull);
+      expect(storage.getTimetableDayTextMarkerPadding(), 2.0);
+      expect(storage.getTimetableCountdownBarLengthRatio(), 0.75);
+      expect(storage.getTimetableCountdownBarRounded(), isTrue);
+      expect(storage.getIgnoreSystemTextScale(), isTrue);
+      // 重置后课节高度回到自适应默认（key 已删除）。
+      expect(storage.hasTimetableSectionHeight(), isFalse);
       expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getCourseReminderEnabled(), isTrue);
     });
