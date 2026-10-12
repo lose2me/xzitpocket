@@ -30,6 +30,8 @@ void main() {
     );
     adapter = _ControlAdapter();
     service = ControlService.forTesting(adapter: adapter);
+    // Most scenarios model a logged-in student; gate tests close it explicitly.
+    service.updateLoginGate('20260001');
   });
 
   Future<void> login({bool force = false}) => service.syncAfterOaLogin(
@@ -246,6 +248,42 @@ void main() {
 
     await service.syncLearningQuestionBanks({second.id: second});
     expect(detailRequests, 2);
+  });
+
+  group('login gate', () {
+    test('blocks all background communication while logged out', () async {
+      service.updateLoginGate(null);
+      final prefs = PreferencesStorage();
+      await prefs.init();
+
+      await service.initialize();
+      await service.track('foreground');
+      expect(await service.checkForUpdate(), isNull);
+      expect(await service.refreshSchoolCalendarIfChanged(prefs), isFalse);
+      await service.syncAfterOaLogin(
+        studentId: '20260001',
+        displayName: '测试用户',
+      );
+
+      expect(adapter.registrations, 0);
+      expect(adapter.logins, 0);
+    });
+
+    test('reopens after login state is restored', () async {
+      service.updateLoginGate(null);
+      await service.track('foreground');
+      expect(adapter.registrations, 0);
+
+      service.updateLoginGate('20260001');
+      await service.track('foreground');
+      expect(adapter.registrations, 1);
+    });
+
+    test('treats blank student ids as logged out', () async {
+      service.updateLoginGate('   ');
+      await service.track('foreground');
+      expect(adapter.registrations, 0);
+    });
   });
 
   test('calendar refresh detects updates within the same second', () async {

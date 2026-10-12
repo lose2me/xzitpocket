@@ -100,7 +100,10 @@ class AuthNotifier extends Notifier<AuthState> {
       return null;
     } catch (e, stackTrace) {
       talker.error('登录异常', e, stackTrace);
-      state = AuthState(status: AuthStatus.error, errorMessage: '登录失败: ${describeError(e)}');
+      state = AuthState(
+        status: AuthStatus.error,
+        errorMessage: '登录失败: ${describeError(e)}',
+      );
       return null;
     }
   }

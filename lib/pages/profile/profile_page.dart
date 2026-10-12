@@ -7,6 +7,8 @@ import 'package:forui/forui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
+import '../../models/app_settings.dart';
+import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
@@ -422,10 +424,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   void _openFaq() {
     unawaited(
       Navigator.of(context).push(
-        appRoute(
-          name: AppRouteNames.faq,
-          builder: (_) => const FaqPage(),
-        ),
+        appRoute(name: AppRouteNames.faq, builder: (_) => const FaqPage()),
       ),
     );
   }
@@ -810,18 +809,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     setState(() => _isLoggingIn = true);
     final prefs = ref.read(preferencesStorageProvider);
 
-    // 1. Register with control and refresh the school calendar before the OA
-    //    login so cloud course adjustments use the latest calendar.
-    try {
-      // Bounded so a slow/unreachable control service never delays the login.
-      await ControlService.instance
-          .refreshSchoolCalendarIfChanged(prefs)
-          .timeout(const Duration(seconds: 3));
-    } catch (error, stackTrace) {
-      talker.warning('登录前刷新校历失败', error, stackTrace);
-    }
-
-    // 2. OA login. The schedule read defines success, so local persistence and
+    // 1. OA login. The schedule read defines success, so local persistence and
     //    navigation happen as soon as it returns; exams/grades/book list keep
     //    loading in the background.
     final result = await ref
@@ -863,12 +851,28 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         );
 
     if (result != null) {
+      // 2. 登录后 Control 门禁已打开，补一次校历刷新（未登录阶段被门禁跳过），
+      //    保证云端课程规则使用最新校历。
+      try {
+        final calendarChanged = await ControlService.instance
+            .refreshSchoolCalendarIfChanged(prefs)
+            .timeout(const Duration(seconds: 3));
+        if (calendarChanged && prefs.getUseCloudTimetableAdjustments()) {
+          await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
+        }
+      } catch (error, stackTrace) {
+        talker.warning('登录后刷新校历失败', error, stackTrace);
+      }
+
       // 3/4. Portal (一卡通/校园网/电费) and control (题库/上报) data continue
-      //      in the background after the OA login completes.
+      //      in the background after the OA login completes. Disabled
+      //      features are skipped entirely so they never issue requests.
       final examResult = result.$2;
       if (examResult != null) {
         await ToolsDataManager.instance.setExams(examResult, prefs);
       }
+      final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;
+      bool visible(AppServiceFeature feature) => !hidden.contains(feature);
       unawaited(
         ToolsDataManager.instance.startBackgroundLoading(
           studentId: sid,
@@ -876,6 +880,11 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           prefs: prefs,
           roomId: prefs.getSavedPowerRoomId(),
           displayName: result.$1.studentName ?? '',
+          loadYktData: visible(AppServiceFeature.campusCard),
+          loadPowerData: visible(AppServiceFeature.power),
+          loadRepairData: visible(AppServiceFeature.repair),
+          loadNetAuthData: visible(AppServiceFeature.network),
+          loadJpData: visible(AppServiceFeature.teacherEvaluation),
         ),
       );
     } else if (mounted) {

@@ -7,13 +7,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
+import '../../models/app_settings.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../services/control_service.dart';
 import '../../services/credential_storage.dart';
+import '../../services/talker.dart';
 import '../../services/tools_data_manager.dart';
 import 'timetable_providers.dart';
 import '../../providers/secondary_schedule_provider.dart';
@@ -601,19 +604,37 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           return;
         }
         final prefs = ref.read(preferencesStorageProvider);
+        // 登录后 Control 门禁已打开，补一次校历刷新（未登录阶段被门禁跳过）。
+        try {
+          final calendarChanged = await ControlService.instance
+              .refreshSchoolCalendarIfChanged(prefs)
+              .timeout(const Duration(seconds: 3));
+          if (calendarChanged && prefs.getUseCloudTimetableAdjustments()) {
+            await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
+          }
+        } catch (error, stackTrace) {
+          talker.warning('同步后刷新校历失败', error, stackTrace);
+        }
         if (examResult != null) {
           await ToolsDataManager.instance.setExams(examResult, prefs);
         }
         if (mounted) {
           showAppSnackBar(context, '同步成功', severity: ToastSeverity.success);
         }
+        final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;
+        bool visible(AppServiceFeature feature) => !hidden.contains(feature);
         unawaited(
           ToolsDataManager.instance.startBackgroundLoading(
             studentId: loginResult.studentId ?? sid,
             password: pwd,
-            prefs: ref.read(preferencesStorageProvider),
-            roomId: ref.read(preferencesStorageProvider).getSavedPowerRoomId(),
+            prefs: prefs,
+            roomId: prefs.getSavedPowerRoomId(),
             displayName: loginResult.studentName ?? '',
+            loadYktData: visible(AppServiceFeature.campusCard),
+            loadPowerData: visible(AppServiceFeature.power),
+            loadRepairData: visible(AppServiceFeature.repair),
+            loadNetAuthData: visible(AppServiceFeature.network),
+            loadJpData: visible(AppServiceFeature.teacherEvaluation),
           ),
         );
       } else {
@@ -743,6 +764,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         : null,
                     showingSecondarySchedule: secondarySchedule.active,
                     secondaryScheduleTitle: secondarySchedule.title,
+                    // 未登录时只显示日期，不显示「第 N 周」。
+                    showWeekNumber:
+                        ref.watch(configProvider).studentId?.isNotEmpty == true,
                   ),
                 ),
                 Expanded(
@@ -1221,7 +1245,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       }
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '课程已清空，但${describeError(e)}', severity: ToastSeverity.warning);
+        showAppSnackBar(
+          context,
+          '课程已清空，但${describeError(e)}',
+          severity: ToastSeverity.warning,
+        );
       }
     }
   }
@@ -1254,7 +1282,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       );
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '恢复课表失败，但${describeError(e)}', severity: ToastSeverity.warning);
+        showAppSnackBar(
+          context,
+          '恢复课表失败，但${describeError(e)}',
+          severity: ToastSeverity.warning,
+        );
       }
     }
   }
@@ -1305,7 +1337,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       }
     } on WidgetSyncException catch (e) {
       if (mounted) {
-        showAppSnackBar(context, '课程已移动，但${describeError(e)}', severity: ToastSeverity.warning);
+        showAppSnackBar(
+          context,
+          '课程已移动，但${describeError(e)}',
+          severity: ToastSeverity.warning,
+        );
       }
     }
   }

@@ -90,16 +90,26 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   // ── Open methods ──
 
+  /// Unified not-logged-in feedback for every service entry.
+  void _requireLogin() {
+    showAppSnackBar(context, '请登录', severity: ToastSeverity.warning);
+  }
+
+  bool get _loggedIn {
+    final studentId = ref.read(configProvider).studentId;
+    return studentId != null && studentId.isNotEmpty;
+  }
+
   Future<({String studentId, String password})?> _ensureCredentials() async {
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
+      _requireLogin();
       return null;
     }
     final password = await CredentialStorage.getSavedPassword();
     if (password == null || password.isEmpty) {
       if (mounted) {
-        showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
+        _requireLogin();
       }
       return null;
     }
@@ -133,6 +143,10 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     if (loading) return;
     talker.info('[ACTION] $logLabel');
 
+    // 未登录时统一先提示「请登录」，不做网络/校园网探测。
+    final creds = await _ensureCredentials();
+    if (creds == null || !mounted) return;
+
     final hasNet = await _manager.checkInternetAvailable();
     if (!hasNet) {
       if (mounted) {
@@ -151,15 +165,13 @@ class ToolsPageState extends ConsumerState<ToolsPage>
       }
     }
 
-    final creds = await _ensureCredentials();
-    if (creds == null || !mounted) return;
-
     final hadData = getData() != null;
     if (!hadData) {
       final prefs = ref.read(preferencesStorageProvider);
       await load(creds.studentId, creds.password, prefs);
       if (!mounted || getData() == null) return;
     }
+    if (!mounted) return;
     _trackServiceOpen(screen);
     Navigator.of(context).push(
       appRoute(
@@ -264,6 +276,10 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   );
 
   Future<void> _openSchoolCalendar() async {
+    if (!_loggedIn) {
+      _requireLogin();
+      return;
+    }
     final prefs = ref.read(preferencesStorageProvider);
     try {
       final changed = await ControlService.instance
@@ -298,18 +314,16 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.bookList,
-        builder: (_) =>
-            BookListPage(
-              studentId: creds.studentId,
-              password: creds.password,
-              preferencesStorage: ref.read(preferencesStorageProvider),
-            ),
+        builder: (_) => BookListPage(
+          studentId: creds.studentId,
+          password: creds.password,
+          preferencesStorage: ref.read(preferencesStorageProvider),
+        ),
       ),
     );
   }
 
   Future<void> _openJp() async {
-    if (!_manager.isCampusNetworkAvailable) return;
     await _openTool(
       loading: _manager.jpLoading,
       logLabel: '打开教师评价',
@@ -348,9 +362,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   // ── Power refresh (manual) ──
 
   Future<void> _refreshPower() async {
-    final config = ref.read(configProvider);
-    if (config.studentId == null || config.studentId!.isEmpty) {
-      showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
+    if (!_loggedIn) {
+      _requireLogin();
       return;
     }
 
@@ -391,11 +404,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     bool visible(AppServiceFeature feature) => !hidden.contains(feature);
     final roomId = ref.watch(savedRoomIdProvider);
     final hasRoom = roomId != null && roomId.isNotEmpty;
-    final campusAvailable = _manager.isCampusNetworkAvailable;
     final config = ref.watch(configProvider);
     final learningLoggedIn = config.studentId?.isNotEmpty == true;
-    final learningEnabled =
-        ControlService.instance.isConfigured && learningLoggedIn;
 
     ref.listen(savedRoomIdProvider, (prev, next) {
       _manager.clearPower();
@@ -476,7 +486,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           theme,
           icon: FLucideIcons.graduationCap,
           title: '题库中心',
-          onTap: learningEnabled ? _openLearningCenter : null,
+          // 未登录也要有可见提示，不再静默禁用。
+          onTap: learningLoggedIn ? _openLearningCenter : _requireLogin,
         ),
       );
     }
@@ -504,7 +515,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           theme,
           icon: FLucideIcons.messageSquareMore,
           title: '教师评价',
-          onTap: campusAvailable && !_manager.jpLoading ? _openJp : null,
+          // 未登录/未连校园网由 _openJp 内部给出统一提示，不再静默禁用。
+          onTap: _manager.jpLoading ? null : _openJp,
         ),
       );
     }
@@ -742,7 +754,18 @@ class ToolsPageState extends ConsumerState<ToolsPage>
                       ),
                     ],
                   )
-                : Text('一卡通查询', style: theme.typography.tileTitle),
+                // 未登录/无数据分支保持与有数据分支一致的图标+文案结构。
+                : Row(
+                    children: [
+                      Icon(
+                        FLucideIcons.creditCard,
+                        color: theme.colors.primary,
+                        size: 22,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      Text('一卡通查询', style: theme.typography.tileTitle),
+                    ],
+                  ),
           ),
           if (_manager.yktLoading)
             const SizedBox(
@@ -802,7 +825,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
       ),
-      onPress: hasRoom && data != null
+      onPress: (studentId == null || studentId.isEmpty)
+          ? _requireLogin
+          : hasRoom && data != null
           ? () {
               _trackServiceOpen('power');
               Navigator.of(context).push(

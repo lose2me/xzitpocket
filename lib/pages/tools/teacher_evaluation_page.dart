@@ -120,7 +120,11 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     } catch (e, stackTrace) {
       if (!mounted) return;
       talker.error('教师评价查询异常', e, stackTrace);
-      showAppSnackBar(context, '查询失败: ${describeError(e)}', severity: ToastSeverity.error);
+      showAppSnackBar(
+        context,
+        '查询失败: ${describeError(e)}',
+        severity: ToastSeverity.error,
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -179,7 +183,11 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     } catch (e, stackTrace) {
       if (!mounted) return;
       talker.error('教师评价自动评教异常', e, stackTrace);
-      showAppSnackBar(context, '评教失败: ${describeError(e)}', severity: ToastSeverity.error);
+      showAppSnackBar(
+        context,
+        '评教失败: ${describeError(e)}',
+        severity: ToastSeverity.error,
+      );
     } finally {
       if (mounted) setState(() => _isEvaluating = false);
     }

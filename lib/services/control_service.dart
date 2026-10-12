@@ -111,8 +111,25 @@ class ControlService {
         uri.scheme == 'https';
   }
 
+  // ── Login gate ──
+
+  String? _gateStudentId;
+
+  /// Central login gate: while no student is logged in, background control
+  /// communication (initialize / update checks / school calendar / telemetry /
+  /// login sync) stays silent. Set at startup and whenever the local login
+  /// state changes so callers never need scattered `studentId` checks.
+  void updateLoginGate(String? studentId) {
+    final normalized = studentId?.trim() ?? '';
+    _gateStudentId = normalized.isEmpty ? null : normalized;
+  }
+
+  bool get loginGateOpen => _gateStudentId != null;
+
+  bool get _communicationAllowed => isConfigured && loginGateOpen;
+
   Future<void> initialize() {
-    if (!isConfigured) return Future.value();
+    if (!_communicationAllowed) return Future.value();
     return _initializeFuture ??= _initialize();
   }
 
@@ -215,7 +232,7 @@ class ControlService {
     String className = '',
     bool forceProfileUpdate = false,
   }) async {
-    if (!isConfigured) return;
+    if (!_communicationAllowed) return;
     final normalizedStudentId = studentId.trim();
     if (normalizedStudentId.isEmpty) return;
     final previous = _loginFuture;
@@ -566,7 +583,7 @@ class ControlService {
   }
 
   Future<ControlRelease?> checkForUpdate() async {
-    if (!isConfigured) return null;
+    if (!_communicationAllowed) return null;
     try {
       final info = await _getPackageInfo();
       final response = await _request('GET', '/api/v1/app/release');
@@ -621,6 +638,7 @@ class ControlService {
   /// local cache does not have. Returns true when [semesterCalendar] changed;
   /// the caller decides whether to re-apply cloud course adjustments.
   Future<bool> refreshSchoolCalendarIfChanged(PreferencesStorage prefs) {
+    if (!_communicationAllowed) return Future.value(false);
     final pending = _schoolCalendarRefreshFuture;
     if (pending != null) return pending;
     final future = _refreshSchoolCalendarIfChanged(prefs);
@@ -684,7 +702,7 @@ class ControlService {
     String type, {
     Map<String, dynamic> properties = const {},
   }) async {
-    if (!isConfigured) return;
+    if (!_communicationAllowed) return;
     try {
       await _loadState();
       await _ensureDevice();

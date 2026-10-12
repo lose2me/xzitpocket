@@ -300,7 +300,20 @@ class ToolsDataManager extends ChangeNotifier {
     return !result.contains(ConnectivityResult.none);
   }
 
+  /// Whether any campus-network-dependent feature (电费/教师评价) is enabled.
+  /// When all of them are hidden the TCP probe must never run.
+  bool get _campusNetworkFeaturesEnabled {
+    final prefs = _savedPrefs;
+    if (prefs == null) return true;
+    return _featureEnabled(AppServiceFeature.power, prefs) ||
+        _featureEnabled(AppServiceFeature.teacherEvaluation, prefs);
+  }
+
   Future<bool> checkCampusNetwork({bool force = false}) async {
+    if (!_campusNetworkFeaturesEnabled) {
+      _setCampusNetworkStatus(CampusNetworkStatus.unavailable);
+      return false;
+    }
     final activeProbe = _campusProbe;
     if (activeProbe != null) return activeProbe;
 

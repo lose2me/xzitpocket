@@ -16,6 +16,9 @@ class WeekHeader extends StatelessWidget {
   final bool showingSecondarySchedule;
   final String secondaryScheduleTitle;
 
+  /// 未登录时不显示「第 N 周 / 未开学」，仅保留日期。
+  final bool showWeekNumber;
+
   const WeekHeader({
     super.key,
     required this.calendar,
@@ -27,6 +30,7 @@ class WeekHeader extends StatelessWidget {
     this.onToggleSchedule,
     this.showingSecondarySchedule = false,
     this.secondaryScheduleTitle = '正在预览备用课表',
+    this.showWeekNumber = true,
   });
 
   @override
@@ -61,15 +65,17 @@ class WeekHeader extends StatelessWidget {
                           color: theme.colors.foreground,
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.micro),
-                      Text(
-                        beforeStart ? '未开学' : '第$selectedWeek周',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.mutedForeground,
+                      if (showWeekNumber) ...[
+                        const SizedBox(height: AppSpacing.micro),
+                        Text(
+                          beforeStart ? '未开学' : '第$selectedWeek周',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.typography.caption.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
           ),

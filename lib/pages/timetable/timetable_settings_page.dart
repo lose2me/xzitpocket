@@ -1160,7 +1160,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       showAppSnackBar(context, '个性化设置已重置', severity: ToastSeverity.success);
     }
   }
-
 }
 
 class _TimetableGridPreview extends StatelessWidget {

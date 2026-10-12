@@ -104,36 +104,40 @@ class _ToastHost extends StatelessWidget {
     const navigationClearance = 72.0;
     final bottomMargin = viewPadding.bottom + navigationClearance;
 
-    return IgnorePointer(
-      // 让 toast 完全穿透点击/滑动，不遮挡任何操作。
-      ignoring: true,
-      child: SafeArea(
-        bottom: false,
-        child: Align(
-          alignment: Alignment.bottomCenter,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: horizontalMargin,
-              right: horizontalMargin,
-              bottom: bottomMargin,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final t in toasts)
-                  Align(
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: _ToastItem(
-                        key: ValueKey(t),
-                        data: t,
-                        onDone: () => _removeToast(t),
+    return ExcludeFocus(
+      // 防御性排除焦点：toast 内部当前没有可聚焦节点，但排除后可确保任何
+      // 后续改动也不会让 toast 抢占焦点或影响 IME。
+      child: IgnorePointer(
+        // 让 toast 完全穿透点击/滑动，不遮挡任何操作。
+        ignoring: true,
+        child: SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: horizontalMargin,
+                right: horizontalMargin,
+                bottom: bottomMargin,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final t in toasts)
+                    Align(
+                      alignment: Alignment.center,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 520),
+                        child: _ToastItem(
+                          key: ValueKey(t),
+                          data: t,
+                          onDone: () => _removeToast(t),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -43,6 +43,9 @@ void main() async {
     talker.warning('配置版本迁移失败，继续使用现有配置', error, stackTrace);
   }
 
+  // Central control gate: no control communication while logged out.
+  ControlService.instance.updateLoginGate(preferencesStorage.getStudentId());
+
   // Apply the last successfully downloaded calendar before the first frame;
   // the bundled calendar remains the fallback when no cache is available.
   final cachedCalendar = preferencesStorage.getSchoolCalendarCache();

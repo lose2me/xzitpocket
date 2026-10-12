@@ -887,9 +887,7 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  noRequirement && !hasCourses
-                      ? '${cat.name}[无需]'
-                      : cat.name,
+                  noRequirement && !hasCourses ? '${cat.name}[无需]' : cat.name,
                   style: theme.typography.body.md.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -988,9 +986,8 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
                           hideRing:
                               _expandedChild != null && _expandedChild != i,
                           onToggle: () => setState(
-                            () => _expandedChild = _expandedChild == i
-                                ? null
-                                : i,
+                            () =>
+                                _expandedChild = _expandedChild == i ? null : i,
                           ),
                         ),
                     ],
@@ -1185,61 +1182,72 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
                 thumbVisibility: true,
                 scrollbarOrientation: ScrollbarOrientation.right,
                 child: TableView.builder(
-          verticalDetails: ScrollableDetails.vertical(
-            controller: _verticalController,
-          ),
-          horizontalDetails: ScrollableDetails.horizontal(
-            controller: _horizontalController,
-          ),
-          pinnedRowCount: 1,
-          rowCount: widget.courses.length + 1,
-          columnCount: _columns.length,
-          columnBuilder: (index) => TableSpan(
-            extent: FixedTableSpanExtent(_columns[index].$2),
-            foregroundDecoration: TableSpanDecoration(
-              border: TableSpanBorder(trailing: BorderSide(color: cellBorder)),
-            ),
-          ),
-          rowBuilder: (index) => TableSpan(
-            extent: const FixedTableSpanExtent(_rowHeight),
-            backgroundDecoration: TableSpanDecoration(
-              color: index == 0
-                  ? theme.colors.muted
-                  : theme.colors.muted.withValues(alpha: 0.28),
-            ),
-            foregroundDecoration: TableSpanDecoration(
-              border: TableSpanBorder(trailing: BorderSide(color: rowBorder)),
-            ),
-          ),
-          cellBuilder: (context, vicinity) {
-            final header = vicinity.row == 0;
-            final text = header
-                ? _columns[vicinity.column].$1
-                : _courseValues(widget.courses[vicinity.row - 1])[vicinity
-                      .column];
-            return TableViewCell(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-                child: Align(
-                  alignment: header ? Alignment.center : Alignment.centerLeft,
-                  child: Text(
-                    text.isEmpty ? '暂无' : text,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: header ? TextAlign.center : TextAlign.start,
-                    style: theme.typography.body.xs.copyWith(
-                      color: header
-                          ? theme.colors.foreground
-                          : theme.colors.mutedForeground,
-                      fontWeight: header
-                          ? FontWeight.w700
-                          : FontWeight.normal,
+                  verticalDetails: ScrollableDetails.vertical(
+                    controller: _verticalController,
+                  ),
+                  horizontalDetails: ScrollableDetails.horizontal(
+                    controller: _horizontalController,
+                  ),
+                  pinnedRowCount: 1,
+                  rowCount: widget.courses.length + 1,
+                  columnCount: _columns.length,
+                  columnBuilder: (index) => TableSpan(
+                    extent: FixedTableSpanExtent(_columns[index].$2),
+                    foregroundDecoration: TableSpanDecoration(
+                      border: TableSpanBorder(
+                        trailing: BorderSide(color: cellBorder),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            );
-          },
+                  rowBuilder: (index) => TableSpan(
+                    extent: const FixedTableSpanExtent(_rowHeight),
+                    backgroundDecoration: TableSpanDecoration(
+                      color: index == 0
+                          ? theme.colors.muted
+                          : theme.colors.muted.withValues(alpha: 0.28),
+                    ),
+                    foregroundDecoration: TableSpanDecoration(
+                      border: TableSpanBorder(
+                        trailing: BorderSide(color: rowBorder),
+                      ),
+                    ),
+                  ),
+                  cellBuilder: (context, vicinity) {
+                    final header = vicinity.row == 0;
+                    final text = header
+                        ? _columns[vicinity.column].$1
+                        : _courseValues(
+                            widget.courses[vicinity.row - 1],
+                          )[vicinity.column];
+                    return TableViewCell(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xs,
+                        ),
+                        child: Align(
+                          alignment: header
+                              ? Alignment.center
+                              : Alignment.centerLeft,
+                          child: Text(
+                            text.isEmpty ? '暂无' : text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: header
+                                ? TextAlign.center
+                                : TextAlign.start,
+                            style: theme.typography.body.xs.copyWith(
+                              color: header
+                                  ? theme.colors.foreground
+                                  : theme.colors.mutedForeground,
+                              fontWeight: header
+                                  ? FontWeight.w700
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

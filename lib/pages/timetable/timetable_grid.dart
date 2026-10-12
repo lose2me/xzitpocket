@@ -737,9 +737,7 @@ class _TimetableGridState extends State<TimetableGrid> {
           timetableMutedForeground: Color(0xFF475569),
         );
     final statusDateColor =
-        !widget.showDayColorMarkers ||
-            widget.pageTextColor != null ||
-            isToday
+        !widget.showDayColorMarkers || widget.pageTextColor != null || isToday
         ? null
         : isHoliday
         ? semantic.holidayForeground

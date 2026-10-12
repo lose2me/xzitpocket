@@ -58,15 +58,20 @@ class Course {
       if (value is! String) throw FormatException('课程字段 $key 不是文字');
       return value;
     }
+
     final weekday = int.tryParse(json['weekday']?.toString() ?? '');
     final colorIndex = int.tryParse(json['colorIndex']?.toString() ?? '');
-    if (readString('title').trim().isEmpty || weekday == null ||
-        weekday < 1 || weekday > 7 || colorIndex == null) {
+    if (readString('title').trim().isEmpty ||
+        weekday == null ||
+        weekday < 1 ||
+        weekday > 7 ||
+        colorIndex == null) {
       throw const FormatException('课程字段无效');
     }
     final sessions = readInts('sessions');
     final weeks = readInts('weeks');
-    if (sessions.isEmpty || sessions.any((session) => session < 1 || session > 14)) {
+    if (sessions.isEmpty ||
+        sessions.any((session) => session < 1 || session > 14)) {
       throw const FormatException('课程节次须在 1～14 节之间');
     }
     if (weeks.isEmpty || weeks.any((week) => week < 1 || week > 104)) {

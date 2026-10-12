@@ -142,10 +142,7 @@ class _RepairPageState extends State<RepairPage> {
       child: visible.isEmpty
           ? const AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
-              child: AppStateView(
-                icon: FLucideIcons.wrench,
-                title: '暂无报修记录',
-              ),
+              child: AppStateView(icon: FLucideIcons.wrench, title: '暂无报修记录'),
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,

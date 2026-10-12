@@ -25,10 +25,6 @@ class _CourseReminderSettingsPageState
     extends ConsumerState<CourseReminderSettingsPage>
     with WidgetsBindingObserver {
   CourseReminderPermissionStatus? _permissionStatus;
-  final _scrollController = ScrollController();
-  final _notificationPermissionKey = GlobalKey();
-  final _exactAlarmPermissionKey = GlobalKey();
-  final _dndPermissionKey = GlobalKey();
 
   @override
   void initState() {
@@ -40,7 +36,6 @@ class _CourseReminderSettingsPageState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _scrollController.dispose();
     super.dispose();
   }
 
@@ -75,7 +70,6 @@ class _CourseReminderSettingsPageState
     return AppPage(
       title: '课程提醒',
       child: AppPageListView(
-        controller: _scrollController,
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
@@ -116,7 +110,6 @@ class _CourseReminderSettingsPageState
           ProfileSettingsGroup(
             children: [
               ProfileSettingsTile(
-                key: _notificationPermissionKey,
                 icon: FLucideIcons.bell,
                 title: '通知权限',
                 value: _permissionStatus == null
@@ -128,7 +121,6 @@ class _CourseReminderSettingsPageState
                 },
               ),
               ProfileSettingsTile(
-                key: _exactAlarmPermissionKey,
                 icon: FLucideIcons.alarmClock,
                 title: '精确闹钟权限',
                 value: _permissionStatus == null
@@ -140,7 +132,6 @@ class _CourseReminderSettingsPageState
                 },
               ),
               ProfileSettingsTile(
-                key: _dndPermissionKey,
                 icon: FLucideIcons.bellOff,
                 title: '勿扰模式权限',
                 value: _permissionStatus == null
@@ -239,7 +230,7 @@ class _CourseReminderSettingsPageState
         '请先开启${_permissionLabels(missing)}',
         severity: ToastSeverity.warning,
       );
-      await _focusPermissions(missing);
+      // 只弹 toast 提示缺失权限，不再滚动定位到对应条目。
       return;
     }
     await notifier.setCourseReminderEnabled(true);
@@ -265,7 +256,7 @@ class _CourseReminderSettingsPageState
         '请先开启${_permissionLabels(missing)}',
         severity: ToastSeverity.warning,
       );
-      await _focusPermissions(missing);
+      // 只弹 toast 提示缺失权限，不再滚动定位到对应条目。
       return;
     }
     await notifier.setClassAutomationMode(selected);
@@ -278,30 +269,6 @@ class _CourseReminderSettingsPageState
       if (permissions.contains(_PermissionTarget.dnd)) '勿扰模式权限',
     ];
     return labels.join('和');
-  }
-
-  Future<void> _focusPermissions(Set<_PermissionTarget> permissions) async {
-    await WidgetsBinding.instance.endOfFrame;
-    if (!mounted) return;
-    final first = [
-      _PermissionTarget.notifications,
-      _PermissionTarget.exactAlarm,
-      _PermissionTarget.dnd,
-    ].firstWhere(permissions.contains);
-    final targetContext = switch (first) {
-      _PermissionTarget.notifications =>
-        _notificationPermissionKey.currentContext,
-      _PermissionTarget.exactAlarm => _exactAlarmPermissionKey.currentContext,
-      _PermissionTarget.dnd => _dndPermissionKey.currentContext,
-    };
-    if (targetContext != null && targetContext.mounted) {
-      await Scrollable.ensureVisible(
-        targetContext,
-        alignment: 0.2,
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-      );
-    }
   }
 
   static Future<void> _openMinutesSheet(

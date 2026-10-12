@@ -70,6 +70,9 @@ class ConfigNotifier extends Notifier<UserConfig> {
         _storage.setCollegeName(collegeName),
       if (state.className != className) _storage.setClassName(className),
     ]);
+    // Login succeeded: open the control communication gate before any
+    // post-login sync (profile update, question banks, telemetry) runs.
+    ControlService.instance.updateLoginGate(studentId);
     if (state.studentId != studentId ||
         state.studentName != studentName ||
         state.collegeName != collegeName ||
@@ -85,6 +88,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
 
   Future<void> logout() async {
     unawaited(ControlService.instance.logout());
+    ControlService.instance.updateLoginGate(null);
     ToolsDataManager.instance.clear();
     await Future.wait([
       _storage.clearStudentInfo(),

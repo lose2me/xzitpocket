@@ -181,7 +181,9 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     try {
       await ref.read(secondaryScheduleProvider.notifier).clear();
       if (mounted) {
-        _secondaryNameController.text = ref.read(secondaryScheduleProvider).title;
+        _secondaryNameController.text = ref
+            .read(secondaryScheduleProvider)
+            .title;
         showAppSnackBar(context, '备用课表已清空', severity: ToastSeverity.success);
       }
     } finally {
@@ -229,10 +231,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
           ),
         ],
       ),
-      if (footer != null) ...[
-        const SizedBox(height: AppSpacing.md),
-        footer,
-      ],
+      if (footer != null) ...[const SizedBox(height: AppSpacing.md), footer],
     ],
   );
 
@@ -268,9 +267,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
             enabled: !_busy,
             inputFormatters: [LengthLimitingTextInputFormatter(12)],
             onChanged: (value) => unawaited(
-              ref
-                  .read(secondaryScheduleProvider.notifier)
-                  .setTitle(value),
+              ref.read(secondaryScheduleProvider.notifier).setTitle(value),
             ),
           ),
         ),

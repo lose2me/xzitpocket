@@ -367,7 +367,8 @@ class PreferencesStorage {
 
   /// Permanent first-run disclaimer acceptance. This flag must never be
   /// cleared by personalization resets, migrations, or logout.
-  bool getDisclaimerAccepted() => _prefs.getBool('disclaimer_accepted') ?? false;
+  bool getDisclaimerAccepted() =>
+      _prefs.getBool('disclaimer_accepted') ?? false;
 
   Future<void> setDisclaimerAccepted(bool value) =>
       _prefs.setBool('disclaimer_accepted', value);
