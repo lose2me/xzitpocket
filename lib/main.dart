@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import 'app.dart';
@@ -29,6 +30,18 @@ void main() async {
   // Run them concurrently; platform widget sync and network probes happen
   // after the first frame so a cold launch can paint immediately.
   await Future.wait([courseStorage.init(), preferencesStorage.init()]);
+
+  // Cross-version preference migration must run before any provider reads
+  // stored settings, so incompatible values never reach the first frame.
+  var settingsMigrated = false;
+  try {
+    final packageInfo = await PackageInfo.fromPlatform();
+    settingsMigrated = await preferencesStorage.migrateForVersionCode(
+      packageInfo.buildNumber,
+    );
+  } catch (error, stackTrace) {
+    talker.warning('配置版本迁移失败，继续使用现有配置', error, stackTrace);
+  }
 
   // Apply the last successfully downloaded calendar before the first frame;
   // the bundled calendar remains the fallback when no cache is available.
@@ -58,7 +71,9 @@ void main() async {
 
   WidgetsBinding.instance.addPostFrameCallback((_) {
     unawaited(_handleInitialWidgetLaunch());
-    unawaited(_finishStartup(courseStorage, preferencesStorage));
+    unawaited(
+      _finishStartup(courseStorage, preferencesStorage, settingsMigrated),
+    );
   });
 }
 
@@ -91,6 +106,7 @@ Future<void> _handleInitialWidgetLaunch() async {
 Future<void> _finishStartup(
   CourseStorage courseStorage,
   PreferencesStorage preferencesStorage,
+  bool settingsMigrated,
 ) async {
   ToolsDataManager.instance.initialize(preferencesStorage);
   await ControlService.instance.initialize();
@@ -110,12 +126,15 @@ Future<void> _finishStartup(
   final controlAvailable = ControlService.instance.serviceAvailable;
   final studentId = preferencesStorage.getStudentId();
   if (controlAvailable && studentId != null && studentId.isNotEmpty) {
+    // After a cross-version migration the stored profile may have been
+    // cleaned up, so force control to re-record student id/name/class/college.
     unawaited(
       ControlService.instance.syncAfterOaLogin(
         studentId: studentId,
         displayName: preferencesStorage.getStudentName() ?? '',
         collegeName: preferencesStorage.getCollegeName() ?? '',
         className: preferencesStorage.getClassName() ?? '',
+        forceProfileUpdate: settingsMigrated,
       ),
     );
   }

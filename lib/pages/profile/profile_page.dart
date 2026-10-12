@@ -20,6 +20,8 @@ import '../../services/widget_service.dart';
 import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
+import '../about/disclaimer_page.dart';
+import '../about/faq_page.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
 import '../../services/control_service.dart';
@@ -336,33 +338,29 @@ class ProfilePageState extends ConsumerState<ProfilePage>
                   },
                 ),
                 const SizedBox(height: AppSpacing.xl),
-                // 登录页底部的低调调试入口。
-                FTappable(
-                  onPress: _openDebugLogs,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.sm,
+                // 登录页底部的低调入口：免责声明 / 常见问题 / 调试模式。
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _buildSubtleEntry(
+                      theme,
+                      icon: FLucideIcons.scrollText,
+                      label: '免责声明',
+                      onTap: _openDisclaimer,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          FLucideIcons.bug,
-                          size: 14,
-                          color: theme.colors.mutedForeground,
-                        ),
-                        const SizedBox(width: AppSpacing.xs),
-                        Text(
-                          '调试模式',
-                          style: theme.typography.body.sm.copyWith(
-                            color: theme.colors.mutedForeground,
-                          ),
-                        ),
-                      ],
+                    _buildSubtleEntry(
+                      theme,
+                      icon: FLucideIcons.circleHelp,
+                      label: '常见问题',
+                      onTap: _openFaq,
                     ),
-                  ),
+                    _buildSubtleEntry(
+                      theme,
+                      icon: FLucideIcons.bug,
+                      label: '调试模式',
+                      onTap: _openDebugLogs,
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -374,6 +372,62 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
   void _switchPage(int page) {
     setState(() => _currentPage = page);
+  }
+
+  /// Shared low-key icon+text entry so the three login-page shortcuts keep an
+  /// identical style.
+  Widget _buildSubtleEntry(
+    FThemeData theme, {
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return FTappable(
+      onPress: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: theme.colors.mutedForeground),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              style: theme.typography.body.sm.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openDisclaimer() {
+    unawaited(
+      Navigator.of(context).push(
+        appRoute(
+          name: AppRouteNames.disclaimer,
+          fullscreenDialog: true,
+          builder: (_) => const DisclaimerPage(),
+        ),
+      ),
+    );
+  }
+
+  void _openFaq() {
+    unawaited(
+      Navigator.of(context).push(
+        appRoute(
+          name: AppRouteNames.faq,
+          builder: (_) => const FaqPage(),
+        ),
+      ),
+    );
   }
 
   Future<void> _openDebugLogs() async {

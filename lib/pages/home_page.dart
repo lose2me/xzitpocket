@@ -7,6 +7,9 @@ import 'package:forui/forui.dart';
 
 import '../models/app_settings.dart';
 import '../providers/app_settings_provider.dart';
+import '../providers/config_provider.dart';
+import '../ui/app_components.dart';
+import 'about/disclaimer_page.dart';
 import 'tools/tools_page.dart';
 import 'timetable/timetable_page.dart';
 import 'profile/profile_page.dart';
@@ -45,6 +48,25 @@ class HomePageState extends ConsumerState<HomePage> {
     _timetablePage = TimetablePage(key: TimetablePage.globalKey);
     _toolsPage = ToolsPage(key: ToolsPage.globalKey);
     _profilePage = ProfilePage(key: ProfilePage.globalKey);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowDisclaimer());
+  }
+
+  /// First-install compliance gate: the disclaimer route cannot be dismissed
+  /// by back navigation, only by its own buttons. Accepting persists the flag
+  /// permanently, so this is a no-op on every later launch.
+  void _maybeShowDisclaimer() {
+    if (!mounted) return;
+    final prefs = ref.read(preferencesStorageProvider);
+    if (prefs.getDisclaimerAccepted()) return;
+    unawaited(
+      Navigator.of(context).push(
+        appRoute(
+          name: AppRouteNames.disclaimer,
+          fullscreenDialog: true,
+          builder: (_) => const DisclaimerPage(),
+        ),
+      ),
+    );
   }
 
   @override
