@@ -278,15 +278,29 @@ class _CourseReminderSettingsPageState
     WidgetRef ref,
     int current,
   ) async {
+    const minutesOptions = [5, 10, 15, 20, 30, 45, 60];
+    final choices = [
+      for (final minutes in minutesOptions)
+        WheelChoice(label: '$minutes 分钟', value: minutes),
+    ];
+    // 滚轮默认停在当前分钟数；当前值不在选项内时停在最接近的一项。
+    var initialIndex = minutesOptions.indexOf(current);
+    if (initialIndex < 0) {
+      initialIndex = 0;
+      for (var index = 0; index < minutesOptions.length; index++) {
+        if ((minutesOptions[index] - current).abs() <
+            (minutesOptions[initialIndex] - current).abs()) {
+          initialIndex = index;
+        }
+      }
+    }
     final selected = await showAppSheet<WheelChoice<int>>(
       context: context,
       maxHeightRatio: 0.5,
       builder: (context) => SingleWheelSheet<int>(
         title: '提前提醒时间',
-        choices: [
-          for (final minutes in const [5, 10, 15, 20, 30, 45, 60])
-            WheelChoice(label: '$minutes 分钟', value: minutes),
-        ],
+        choices: choices,
+        initialIndex: initialIndex,
       ),
     );
     if (selected != null && selected.value != current) {

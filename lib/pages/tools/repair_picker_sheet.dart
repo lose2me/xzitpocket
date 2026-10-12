@@ -17,10 +17,14 @@ class SingleWheelSheet<T> extends StatefulWidget {
   final String title;
   final List<WheelChoice<T>> choices;
 
+  /// 滚轮初始停留的位置；默认停在第一项。
+  final int initialIndex;
+
   const SingleWheelSheet({
     super.key,
     required this.title,
     required this.choices,
+    this.initialIndex = 0,
   });
 
   @override
@@ -28,7 +32,16 @@ class SingleWheelSheet<T> extends StatefulWidget {
 }
 
 class _SingleWheelSheetState<T> extends State<SingleWheelSheet<T>> {
-  int _index = 0;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex.clamp(
+      0,
+      widget.choices.isEmpty ? 0 : widget.choices.length - 1,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
