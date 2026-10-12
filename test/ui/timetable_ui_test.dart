@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
+import 'package:xzitpocket/models/app_settings.dart';
 import 'package:xzitpocket/models/course.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/pages/timetable/course_form_page.dart';
@@ -10,6 +11,7 @@ import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/pages/timetable/time_column.dart';
 import 'package:xzitpocket/ui/app_components.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
+import 'package:xzitpocket/widgets/week_header.dart';
 
 void main() {
   testWidgets('course text vertical centering affects the card layout', (
@@ -329,6 +331,88 @@ void main() {
     expect(
       find.byKey(const ValueKey('timetable-today-indicator-1')),
       findsNothing,
+    );
+  });
+
+  testWidgets('day text marker follows the configured corner and padding', (
+    tester,
+  ) async {
+    final holidayCalendar = SemesterCalendar([
+      SchoolDay(date: DateTime(2026, 8, 31), adjustment: '/'),
+    ]);
+
+    Future<Positioned> markerPosition({
+      required TimetableDayMarkerPosition position,
+      required double padding,
+    }) async {
+      await tester.pumpWidget(
+        _testApp(
+          SizedBox(
+            width: 390,
+            height: 260,
+            child: TimetableGrid(
+              courses: const [],
+              week: 1,
+              calendar: holidayCalendar,
+              borderColor: AppTheme.light.colors.border,
+              dayTextMarkerPosition: position,
+              dayTextMarkerPadding: padding,
+            ),
+          ),
+        ),
+      );
+      return tester.widget<Positioned>(
+        find
+            .ancestor(of: find.text('假'), matching: find.byType(Positioned))
+            .first,
+      );
+    }
+
+    final topRight = await markerPosition(
+      position: TimetableDayMarkerPosition.topRight,
+      padding: 2,
+    );
+    expect(topRight.top, 2);
+    expect(topRight.right, 2);
+    expect(topRight.bottom, isNull);
+    expect(topRight.left, isNull);
+
+    final bottomLeft = await markerPosition(
+      position: TimetableDayMarkerPosition.bottomLeft,
+      padding: 5,
+    );
+    expect(bottomLeft.bottom, 5);
+    expect(bottomLeft.left, 5);
+    expect(bottomLeft.top, isNull);
+    expect(bottomLeft.right, isNull);
+  });
+
+  testWidgets('week header hides the week number when logged out', (
+    tester,
+  ) async {
+    final today = DateTime.now();
+    final dateLabel = '${today.year}/${today.month}/${today.day}';
+
+    await tester.pumpWidget(
+      _testApp(
+        WeekHeader(
+          calendar: semesterCalendar,
+          selectedWeek: 3,
+          showWeekNumber: false,
+        ),
+      ),
+    );
+    expect(find.text(dateLabel), findsOneWidget);
+    expect(find.textContaining('第3周'), findsNothing);
+    expect(find.text('未开学'), findsNothing);
+
+    await tester.pumpWidget(
+      _testApp(WeekHeader(calendar: semesterCalendar, selectedWeek: 3)),
+    );
+    expect(
+      find.text('第3周').evaluate().isNotEmpty ||
+          find.text('未开学').evaluate().isNotEmpty,
+      isTrue,
     );
   });
 
