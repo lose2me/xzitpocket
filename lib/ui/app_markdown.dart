@@ -78,6 +78,27 @@ class AppMarkdown extends StatelessWidget {
           vertical: AppSpacing.xs,
         ),
       ),
+      // GitHub 风格：无序列表按嵌套层级用 实心圆 / 空心圆 / 方块。
+      bulletBuilder: (parameters) => _buildBullet(
+        parameters,
+        theme.typography.bodyText.copyWith(color: foreground),
+      ),
     );
+  }
+
+  Widget _buildBullet(MarkdownBulletParameters parameters, TextStyle style) {
+    if (parameters.style == BulletStyle.orderedList) {
+      return Text(
+        '${parameters.index + 1}.',
+        textAlign: TextAlign.right,
+        style: style,
+      );
+    }
+    final marker = switch (parameters.nestLevel) {
+      0 => '•',
+      1 => '◦',
+      _ => '▪',
+    };
+    return Text(marker, textAlign: TextAlign.center, style: style);
   }
 }

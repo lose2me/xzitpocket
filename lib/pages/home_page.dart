@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
 import '../models/app_settings.dart';
 import '../providers/app_settings_provider.dart';
 import '../providers/config_provider.dart';
+import '../services/talker.dart';
 import '../ui/app_components.dart';
 import 'about/disclaimer_page.dart';
 import 'tools/tools_page.dart';
@@ -25,7 +28,12 @@ class HomePage extends ConsumerStatefulWidget {
 }
 
 class HomePageState extends ConsumerState<HomePage> {
+  static const _navigationDiagnostics = bool.fromEnvironment(
+    'NAV_LAYOUT_DIAGNOSTICS',
+  );
+
   int _currentIndex = 0;
+  final _navigationKey = _navigationDiagnostics ? GlobalKey() : null;
   late final PageController _pageController;
   late final PageController _backgroundPageController;
 
@@ -156,10 +164,13 @@ class HomePageState extends ConsumerState<HomePage> {
               sidebarBackgroundColor: Color(0x00000000),
               footerDecoration: DecorationDelta.value(BoxDecoration()),
             )
-          : const FScaffoldStyleDelta.context(),
+          : const FScaffoldStyleDelta.delta(
+              footerDecoration: DecorationDelta.value(BoxDecoration()),
+            ),
       resizeToAvoidBottomInset: false,
       childPad: false,
       footer: FBottomNavigationBar(
+        key: _navigationKey,
         style: backgroundVisibleBehindNavigation
             ? FBottomNavigationBarStyleDelta.delta(
                 decoration: DecorationDelta.boxDelta(
@@ -171,8 +182,8 @@ class HomePageState extends ConsumerState<HomePage> {
                   FVariantValueDeltaOperation.all(false),
                 ]),
               )
-            // forui 默认给导航栏加顶部细边框，课表页（透明 footer）看不到，
-            // 服务/我的页却有一条白线；统一去掉，保持三个标签一致。
+            // Remove both the bar and shell footer borders; otherwise the
+            // opaque bar only hides the shell's border underneath it.
             : FBottomNavigationBarStyleDelta.delta(
                 decoration: DecorationDelta.boxDelta(
                   border: const Border.fromBorderSide(BorderSide.none),
@@ -236,20 +247,31 @@ class HomePageState extends ConsumerState<HomePage> {
               1 => _toolsPage,
               _ => _profilePage,
             };
-            // The profile page is the only page that contains text fields and
-            // must avoid the keyboard. It is always wrapped in MediaQuery with
-            // the LIVE inset so its root scaffold resizes correctly (this is
-            // exactly what prevents the white/covered strip above the IME).
+            // Profile needs the live keyboard inset, but must keep the page's
+            // consumed safe-area padding. Restoring the entire ambient query
+            // reserves the bottom safe area again above the shell footer.
             // The page instances are cached above, so the shell rebuild no
             // longer cascades into the page subtrees on each IME frame.
             final pageWithInsets = index == 2
-                ? MediaQuery(data: ambientMediaQuery, child: page)
+                ? MediaQuery(
+                    data: MediaQuery.of(context)
+                        .copyWith(viewInsets: ambientMediaQuery.viewInsets),
+                    child: page,
+                  )
                 : page;
             return TickerMode(enabled: isActive, child: pageWithInsets);
           },
         ),
       ),
     );
+
+    if (_navigationDiagnostics) {
+      _scheduleNavigationDiagnostics(
+        ambientMediaQuery,
+        hasBackgroundAsset: hasBackgroundAsset,
+        showGlobalBackground: showGlobalBackground,
+      );
+    }
 
     // Keep the shell's own inset at zero. Profile injects the live inset into
     // its dedicated root scaffold; this prevents the nav shell and timetable
@@ -285,6 +307,77 @@ class HomePageState extends ConsumerState<HomePage> {
       ],
     );
   }
+
+  void _scheduleNavigationDiagnostics(
+    MediaQueryData ambientMediaQuery, {
+    required bool hasBackgroundAsset,
+    required bool showGlobalBackground,
+  }) {
+    final tab = _currentIndex;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || tab != _currentIndex) return;
+      final navigationContext = _navigationKey?.currentContext;
+      final box = navigationContext?.findRenderObject();
+      if (navigationContext == null || box is! RenderBox || !box.hasSize) {
+        return;
+      }
+      final rawQuery = MediaQueryData.fromView(View.of(navigationContext));
+      final navigationQuery = MediaQuery.of(navigationContext);
+      final navigation = navigationContext.widget as FBottomNavigationBar;
+      final theme = navigationContext.theme;
+      final style = navigation.style(theme.bottomNavigationBarStyle);
+      final scaffold = navigationContext
+          .findAncestorWidgetOfExactType<FScaffold>()!;
+      final scaffoldStyle = scaffold.scaffoldStyle(theme.scaffoldStyle);
+      final pageContext = switch (tab) {
+        0 => TimetablePage.globalKey.currentContext,
+        1 => ToolsPage.globalKey.currentContext,
+        _ => ProfilePage.globalKey.currentContext,
+      };
+      final pageQuery = pageContext == null ? null : MediaQuery.of(pageContext);
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      final message =
+          '[NAV_LAYOUT] ${jsonEncode({
+            'tab': const ['课表', '服务', '我的'][tab],
+            'backgroundConfigured': hasBackgroundAsset,
+            'backgroundVisible': showGlobalBackground,
+            'brightness': Theme.of(navigationContext).brightness.name,
+            'rect': [rect.left, rect.top, rect.width, rect.height],
+            'raw': _diagnosticMediaQuery(rawQuery),
+            'normalized': _diagnosticMediaQuery(ambientMediaQuery),
+            'navigation': _diagnosticMediaQuery(navigationQuery),
+            'page': pageQuery == null ? null : _diagnosticMediaQuery(pageQuery),
+            'decoration': style.decoration.toString(),
+            'footerDecoration': scaffoldStyle.footerDecoration.toString(),
+            'padding': style.padding.toString(),
+            'shellSystemOverlay': _diagnosticSystemOverlay(scaffoldStyle.systemOverlayStyle),
+          })}';
+      // Talker is disabled by default. Keep the opt-in measurements available
+      // in flutter run / adb logcat even before enabling the in-app log viewer.
+      debugPrint(message);
+      talker.info(message);
+    });
+  }
+
+  static Map<String, Object> _diagnosticMediaQuery(MediaQueryData query) => {
+    'size': [query.size.width, query.size.height],
+    'dpr': query.devicePixelRatio,
+    'paddingBottom': query.padding.bottom,
+    'viewPaddingBottom': query.viewPadding.bottom,
+    'viewInsetsBottom': query.viewInsets.bottom,
+    'textScale': query.textScaler.scale(10) / 10,
+  };
+
+  static Map<String, Object?> _diagnosticSystemOverlay(
+    SystemUiOverlayStyle style,
+  ) => {
+    'navigationBarColor': style.systemNavigationBarColor?.toARGB32(),
+    'navigationBarDividerColor': style.systemNavigationBarDividerColor
+        ?.toARGB32(),
+    'navigationBarIconBrightness':
+        style.systemNavigationBarIconBrightness?.name,
+    'navigationBarContrastEnforced': style.systemNavigationBarContrastEnforced,
+  };
 }
 
 /// Keeps IME metric updates out of the home state and the timetable/tools

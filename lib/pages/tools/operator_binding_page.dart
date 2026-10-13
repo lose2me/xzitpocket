@@ -110,6 +110,8 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
       title: '绑定运营商',
       child: FTabs(
         expands: true,
+        // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
+        contentPhysics: const NeverScrollableScrollPhysics(),
         control: FTabControl.lifted(
           index: _selectedIndex,
           onChange: _loading ? (_) {} : _switchCarrier,

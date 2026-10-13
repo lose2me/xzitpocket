@@ -251,13 +251,14 @@ abstract final class AppTheme {
       style: style,
     );
     final tabsStyle = FTabsStyle(
-      decoration: inheritedTabs.decoration,
+      // 外层容器直角、满宽贴屏（不做圆角）。
+      decoration: BoxDecoration(color: colors.muted),
       labelTextStyle: inheritedTabs.labelTextStyle,
       indicatorDecoration: inheritedTabs.indicatorDecoration,
       focusedOutlineStyle: inheritedTabs.focusedOutlineStyle,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      minHeight: 26,
-      spacing: 6,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      minHeight: 30,
+      spacing: 8,
     );
     return FThemeData(
       touch: true,

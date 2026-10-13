@@ -233,6 +233,8 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         maxWidth: AppLayout.contentMaxWidth,
         child: FTabs(
           expands: true,
+          // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
+          contentPhysics: const NeverScrollableScrollPhysics(),
           children: [
             FTabEntry(label: const Text('学科成绩'), child: _buildGradeTab(theme)),
             FTabEntry(

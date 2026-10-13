@@ -232,6 +232,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             child: FTabs(
               scrollable: true,
               expands: true,
+              // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
+              contentPhysics: const NeverScrollableScrollPhysics(),
               children: [
                 FTabEntry(
                   label: const Text('主题外观'),

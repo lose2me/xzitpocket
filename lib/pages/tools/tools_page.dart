@@ -92,7 +92,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
   /// Unified not-logged-in feedback for every service entry.
   void _requireLogin() {
-    showAppSnackBar(context, '请登录', severity: ToastSeverity.warning);
+    showAppSnackBar(context, '此功能需登录使用', severity: ToastSeverity.warning);
   }
 
   bool get _loggedIn {
@@ -143,7 +143,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     if (loading) return;
     talker.info('[ACTION] $logLabel');
 
-    // 未登录时统一先提示「请登录」，不做网络/校园网探测。
+    // 未登录时统一先提示「此功能需登录使用」，不做网络/校园网探测。
     final creds = await _ensureCredentials();
     if (creds == null || !mounted) return;
 

@@ -1046,7 +1046,8 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
       Navigator.of(context).push(
         appRoute(
           name: AppRouteNames.appUpdate,
-          builder: (_) => AppUpdatePage(release: release),
+          builder: (_) =>
+              AppUpdatePage(release: release, currentVersion: _currentVersion),
         ),
       ),
     );

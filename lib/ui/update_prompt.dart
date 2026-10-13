@@ -12,7 +12,14 @@ import 'app_markdown.dart';
 class AppUpdatePage extends StatefulWidget {
   final ControlRelease release;
 
-  const AppUpdatePage({super.key, required this.release});
+  /// 当前已安装版本，用于在下载模块上方显示「当前 → 最新」。
+  final String currentVersion;
+
+  const AppUpdatePage({
+    super.key,
+    required this.release,
+    this.currentVersion = '',
+  });
 
   @override
   State<AppUpdatePage> createState() => _AppUpdatePageState();
@@ -96,6 +103,16 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
         showScrollbar: true,
         children: [
           // ── 下载模块：仅一个「下载并安装」按钮，拿到安装权限后才展开进度 ──
+          if (_versionLine case final versionLine?) ...[
+            Text(
+              versionLine,
+              textAlign: TextAlign.center,
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
           Row(
             children: [
               Expanded(
@@ -142,6 +159,7 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
             const SizedBox(height: AppSpacing.sm),
             Text(
               _error!,
+              textAlign: TextAlign.center,
               style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.destructive,
               ),
@@ -163,6 +181,13 @@ class _AppUpdatePageState extends State<AppUpdatePage> {
         ],
       ),
     );
+  }
+
+  String? get _versionLine {
+    final current = widget.currentVersion.trim();
+    return current.isEmpty
+        ? null
+        : '$current → ${widget.release.latestVersion}';
   }
 
   String _progressLine(UpdateDownloadProgress progress) {
