@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/pages/timetable/timetable_settings_page.dart';
 import 'package:xzitpocket/providers/config_provider.dart';
 import 'package:xzitpocket/services/course_storage.dart';
@@ -86,5 +87,26 @@ void main() {
       );
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('course preview stays collapsed until pulled down', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildHostApp());
+    await tester.tap(find.text('打开个性化设置'));
+    await tester.pumpAndSettle();
+
+    // 默认收起：不渲染预览网格。
+    expect(find.byType(TimetableGrid), findsNothing);
+
+    // 点击标题展开。
+    await tester.tap(find.text('课程预览'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TimetableGrid), findsOneWidget);
+
+    // 再次点击收起。
+    await tester.tap(find.text('课程预览'));
+    await tester.pumpAndSettle();
+    expect(find.byType(TimetableGrid), findsNothing);
   });
 }

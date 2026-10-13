@@ -52,6 +52,8 @@ class TimetableSettingsPage extends ConsumerStatefulWidget {
 class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   final _imagePicker = ImagePicker();
   bool _ignoreNextBackgroundTap = false;
+  // 课程预览默认收起，下拉（或点击）展开。
+  bool _previewExpanded = false;
   late final TextEditingController _templateController;
   final _templateFocusNode = FocusNode();
 
@@ -163,18 +165,67 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                 ),
               ],
             ),
-            child: ClipRect(
-              child: SizedBox(
-                height:
-                    settings.timetableDayHeaderHeight +
-                    settings.timetableSectionHeight * 2 +
-                    2,
-                child: _TimetableGridPreview(
-                  settings: settings,
-                  courses: previewCourses,
-                  showWeekendColumns: showWeekendColumns,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 下拉展开课程预览：默认收起，点击或下拉展开、上滑收起。
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () =>
+                      setState(() => _previewExpanded = !_previewExpanded),
+                  onVerticalDragEnd: (details) {
+                    final velocity = details.primaryVelocity ?? 0;
+                    if (velocity > 0) {
+                      setState(() => _previewExpanded = true);
+                    } else if (velocity < 0) {
+                      setState(() => _previewExpanded = false);
+                    }
+                  },
+                  child: SizedBox(
+                    height: 34,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          _previewExpanded
+                              ? FLucideIcons.chevronUp
+                              : FLucideIcons.chevronDown,
+                          size: 16,
+                          color: context.theme.colors.mutedForeground,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '课程预览',
+                          style: context.theme.typography.bodySmall.copyWith(
+                            color: context.theme.colors.mutedForeground,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  alignment: Alignment.topCenter,
+                  child: _previewExpanded
+                      ? ClipRect(
+                          child: SizedBox(
+                            height:
+                                settings.timetableDayHeaderHeight +
+                                settings.timetableSectionHeight * 2 +
+                                2,
+                            child: _TimetableGridPreview(
+                              settings: settings,
+                              courses: previewCourses,
+                              showWeekendColumns: showWeekendColumns,
+                            ),
+                          ),
+                        )
+                      : const SizedBox(width: double.infinity),
+                ),
+              ],
             ),
           ),
           Expanded(
