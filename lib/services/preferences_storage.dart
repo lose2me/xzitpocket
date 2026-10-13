@@ -28,6 +28,8 @@ class PreferencesStorage {
     'timetable_last_custom_today_horizontal_line_color',
     'timetable_today_horizontal_line_width',
     'timetable_today_horizontal_line_opacity',
+    // 文字模板支持字号标记后废弃的课程字体缩放。
+    'timetable_course_font_scale',
   };
 
   /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
@@ -86,7 +88,6 @@ class PreferencesStorage {
     'timetable_course_inner_padding': double,
     'timetable_course_outer_padding': double,
     'timetable_course_alpha': double,
-    'timetable_course_font_scale': double,
     'timetable_course_text_template': String,
     'timetable_dashed_border_density': double,
     'timetable_border_type': String,
@@ -102,6 +103,11 @@ class PreferencesStorage {
     'timetable_text_align_center_vertical': bool,
     'timetable_countdown_bar_length_ratio': double,
     'timetable_countdown_bar_rounded': bool,
+    'timetable_countdown_bar_thickness': double,
+    'timetable_countdown_bar_padding': double,
+    'timetable_countdown_bar_color': int,
+    'timetable_last_custom_countdown_bar_color': int,
+    'show_current_time_line': bool,
     'ignore_system_text_scale': bool,
     // 页面与文字
     'timetable_hide_section_time': bool,
@@ -285,7 +291,6 @@ class PreferencesStorage {
     'timetable_course_inner_padding',
     'timetable_course_outer_padding',
     'timetable_course_alpha',
-    'timetable_course_font_scale',
     'timetable_course_text_template',
     'timetable_dashed_border_density',
     'timetable_hide_section_time',
@@ -297,6 +302,11 @@ class PreferencesStorage {
     'timetable_day_text_marker_padding',
     'timetable_countdown_bar_length_ratio',
     'timetable_countdown_bar_rounded',
+    'timetable_countdown_bar_thickness',
+    'timetable_countdown_bar_padding',
+    'timetable_countdown_bar_color',
+    'timetable_last_custom_countdown_bar_color',
+    'show_current_time_line',
     'ignore_system_text_scale',
     'timetable_text_align_center_horizontal',
     'timetable_text_align_center_vertical',
@@ -670,16 +680,6 @@ class PreferencesStorage {
     value.clamp(0.1, 1.0).toDouble(),
   );
 
-  double getTimetableCourseFontScale() =>
-      (_prefs.getDouble('timetable_course_font_scale') ?? 0.95)
-          .clamp(0.5, 2.0)
-          .toDouble();
-
-  Future<void> setTimetableCourseFontScale(double value) => _prefs.setDouble(
-    'timetable_course_font_scale',
-    value.clamp(0.5, 2.0).toDouble(),
-  );
-
   String? getTimetableCourseTextTemplate() =>
       _prefs.getString('timetable_course_text_template');
 
@@ -745,6 +745,57 @@ class PreferencesStorage {
 
   Future<void> setTimetableCountdownBarRounded(bool value) =>
       _prefs.setBool('timetable_countdown_bar_rounded', value);
+
+  double getTimetableCountdownBarThickness() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_countdown_bar_thickness') ?? 3.0,
+    min: 1.0,
+    max: 8.0,
+  );
+
+  Future<void> setTimetableCountdownBarThickness(double value) =>
+      _prefs.setDouble(
+        'timetable_countdown_bar_thickness',
+        _clampTimetableDimension(value, min: 1.0, max: 8.0),
+      );
+
+  double getTimetableCountdownBarPadding() => _clampTimetableDimension(
+    _prefs.getDouble('timetable_countdown_bar_padding') ?? 0.0,
+    min: 0.0,
+    max: 8.0,
+  );
+
+  Future<void> setTimetableCountdownBarPadding(double value) =>
+      _prefs.setDouble(
+        'timetable_countdown_bar_padding',
+        _clampTimetableDimension(value, min: 0.0, max: 8.0),
+      );
+
+  int? getTimetableCountdownBarColor() =>
+      _prefs.getInt('timetable_countdown_bar_color');
+  int? getTimetableLastCustomCountdownBarColor() =>
+      _prefs.getInt('timetable_last_custom_countdown_bar_color');
+
+  Future<void> setTimetableCountdownBarColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_countdown_bar_color');
+    } else {
+      await _prefs.setInt('timetable_countdown_bar_color', value);
+    }
+  }
+
+  Future<void> setTimetableLastCustomCountdownBarColor(int? value) async {
+    if (value == null) {
+      await _prefs.remove('timetable_last_custom_countdown_bar_color');
+    } else {
+      await _prefs.setInt('timetable_last_custom_countdown_bar_color', value);
+    }
+  }
+
+  bool getShowCurrentTimeLine() =>
+      _prefs.getBool('show_current_time_line') ?? true;
+
+  Future<void> setShowCurrentTimeLine(bool value) =>
+      _prefs.setBool('show_current_time_line', value);
 
   bool getIgnoreSystemTextScale() =>
       _prefs.getBool('ignore_system_text_scale') ?? true;
@@ -1114,6 +1165,10 @@ class PreferencesStorage {
       getTimetableTodayLineColor(),
       getTimetableLastCustomTodayLineColor(),
     );
+    final keepCountdownBarColor = isActiveCustomColor(
+      getTimetableCountdownBarColor(),
+      getTimetableLastCustomCountdownBarColor(),
+    );
     final keepPageTextColor = isActiveCustomColor(
       getTimetablePageTextColor(),
       getTimetableLastCustomPageTextColor(),
@@ -1175,7 +1230,6 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_inner_padding'),
       _prefs.remove('timetable_course_outer_padding'),
       _prefs.remove('timetable_course_alpha'),
-      _prefs.remove('timetable_course_font_scale'),
       _prefs.remove('timetable_course_text_template'),
       _prefs.remove('timetable_dashed_border_density'),
       _prefs.remove('timetable_hide_section_time'),
@@ -1184,6 +1238,11 @@ class PreferencesStorage {
       _prefs.remove('timetable_day_text_marker_padding'),
       _prefs.remove('timetable_countdown_bar_length_ratio'),
       _prefs.remove('timetable_countdown_bar_rounded'),
+      _prefs.remove('timetable_countdown_bar_thickness'),
+      _prefs.remove('timetable_countdown_bar_padding'),
+      if (!keepCountdownBarColor)
+        _prefs.remove('timetable_countdown_bar_color'),
+      _prefs.remove('show_current_time_line'),
       _prefs.remove('ignore_system_text_scale'),
       _prefs.remove('timetable_text_align_center_horizontal'),
       _prefs.remove('timetable_text_align_center_vertical'),

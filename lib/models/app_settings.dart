@@ -205,7 +205,6 @@ class AppSettings {
   final double timetableCourseInnerPadding;
   final double timetableCourseOuterPadding;
   final double timetableCourseAlpha;
-  final double timetableCourseFontScale;
   final String timetableCourseTextTemplate;
   final double timetableDashedBorderDensity;
   final bool timetableHideSectionTime;
@@ -253,6 +252,14 @@ class AppSettings {
   /// 「点到为止」：今日竖线只画到当天最后一节课的底部，不再向下延伸；
   /// 横线只画到今日列右缘，不再向右延伸。当天无课时不绘制。
   final bool timetableTodayLineStopAtCourse;
+
+  /// 当前时间线：从左侧时间栏延伸出的贯通横线，仅在 8:00-21:20 显示。
+  final bool showCurrentTimeLine;
+
+  final double timetableCountdownBarThickness;
+  final double timetableCountdownBarPadding;
+  final Color? timetableCountdownBarColor;
+  final Color? timetableLastCustomCountdownBarColor;
   final bool useCloudTimetableAdjustments;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
@@ -290,7 +297,6 @@ class AppSettings {
     this.timetableCourseInnerPadding = 2.0,
     this.timetableCourseOuterPadding = 1.5,
     this.timetableCourseAlpha = 1.0,
-    this.timetableCourseFontScale = 0.95,
     this.timetableCourseTextTemplate = kDefaultCourseTextTemplate,
     this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
@@ -301,6 +307,11 @@ class AppSettings {
     this.timetableDayTextMarkerPadding = 2.0,
     this.timetableCountdownBarLengthRatio = 0.75,
     this.timetableCountdownBarRounded = true,
+    this.timetableCountdownBarThickness = 3.0,
+    this.timetableCountdownBarPadding = 0.0,
+    this.timetableCountdownBarColor,
+    this.timetableLastCustomCountdownBarColor,
+    this.showCurrentTimeLine = true,
     this.ignoreSystemTextScale = true,
     this.timetableTextAlignCenterHorizontal = false,
     this.timetableTextAlignCenterVertical = false,
@@ -375,7 +386,6 @@ class AppSettings {
     double? timetableCourseInnerPadding,
     double? timetableCourseOuterPadding,
     double? timetableCourseAlpha,
-    double? timetableCourseFontScale,
     String? timetableCourseTextTemplate,
     double? timetableDashedBorderDensity,
     bool? timetableHideSectionTime,
@@ -386,6 +396,11 @@ class AppSettings {
     double? timetableDayTextMarkerPadding,
     double? timetableCountdownBarLengthRatio,
     bool? timetableCountdownBarRounded,
+    double? timetableCountdownBarThickness,
+    double? timetableCountdownBarPadding,
+    Object? timetableCountdownBarColor = _unset,
+    Object? timetableLastCustomCountdownBarColor = _unset,
+    bool? showCurrentTimeLine,
     bool? ignoreSystemTextScale,
     bool? timetableTextAlignCenterHorizontal,
     bool? timetableTextAlignCenterVertical,
@@ -494,8 +509,6 @@ class AppSettings {
       timetableCourseOuterPadding:
           timetableCourseOuterPadding ?? this.timetableCourseOuterPadding,
       timetableCourseAlpha: timetableCourseAlpha ?? this.timetableCourseAlpha,
-      timetableCourseFontScale:
-          timetableCourseFontScale ?? this.timetableCourseFontScale,
       timetableCourseTextTemplate:
           timetableCourseTextTemplate ?? this.timetableCourseTextTemplate,
       timetableDashedBorderDensity:
@@ -517,6 +530,18 @@ class AppSettings {
           this.timetableCountdownBarLengthRatio,
       timetableCountdownBarRounded:
           timetableCountdownBarRounded ?? this.timetableCountdownBarRounded,
+      timetableCountdownBarThickness:
+          timetableCountdownBarThickness ?? this.timetableCountdownBarThickness,
+      timetableCountdownBarPadding:
+          timetableCountdownBarPadding ?? this.timetableCountdownBarPadding,
+      timetableCountdownBarColor: identical(timetableCountdownBarColor, _unset)
+          ? this.timetableCountdownBarColor
+          : timetableCountdownBarColor as Color?,
+      timetableLastCustomCountdownBarColor:
+          identical(timetableLastCustomCountdownBarColor, _unset)
+          ? this.timetableLastCustomCountdownBarColor
+          : timetableLastCustomCountdownBarColor as Color?,
+      showCurrentTimeLine: showCurrentTimeLine ?? this.showCurrentTimeLine,
       ignoreSystemTextScale:
           ignoreSystemTextScale ?? this.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:

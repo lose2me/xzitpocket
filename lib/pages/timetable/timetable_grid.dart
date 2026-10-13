@@ -103,6 +103,9 @@ class TimetableGrid extends StatefulWidget {
   /// 「点到为止」：今日竖线只画到当天最后一节课底部，横线只画到今日列右缘。
   final bool todayLineStopAtCourse;
 
+  /// 当前时间线：从左侧时间栏延伸出的贯通横线，仅在 8:00-21:20 显示。
+  final bool showCurrentTimeLine;
+
   /// 仅用于「当前/下一节课」计算，默认取系统时间；测试可注入固定值。
   final DateTime? now;
   final bool showGridLines;
@@ -113,10 +116,12 @@ class TimetableGrid extends StatefulWidget {
   final double courseCornerRadius;
   final double courseInnerPadding;
   final double courseOuterPadding;
-  final double courseFontScale;
   final String courseTextTemplate;
   final double countdownBarLengthRatio;
   final bool countdownBarRounded;
+  final double countdownBarThickness;
+  final double countdownBarPadding;
+  final Color? countdownBarColor;
   final double dashedBorderDensity;
   final bool hideSectionTime;
   final bool hideDateUnderDay;
@@ -176,6 +181,7 @@ class TimetableGrid extends StatefulWidget {
     this.todayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
     this.todayLineStopAtCourse = false,
+    this.showCurrentTimeLine = true,
     this.now,
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
@@ -185,10 +191,12 @@ class TimetableGrid extends StatefulWidget {
     this.courseCornerRadius = 4.0,
     this.courseInnerPadding = 2.0,
     this.courseOuterPadding = 1.5,
-    this.courseFontScale = 0.95,
     this.courseTextTemplate = kDefaultCourseTextTemplate,
     this.countdownBarLengthRatio = 0.75,
     this.countdownBarRounded = true,
+    this.countdownBarThickness = 3.0,
+    this.countdownBarPadding = 0.0,
+    this.countdownBarColor,
     this.dashedBorderDensity = 1.0,
     this.hideSectionTime = false,
     this.hideDateUnderDay = false,
@@ -544,6 +552,41 @@ class _TimetableGridState extends State<TimetableGrid> {
                     (todayIndex + 1) * dayColumnWidth;
               }
 
+              // 当前时间线：仅本周页面且处于 8:00-21:20 时显示；节内按时间
+              // 比例插值，课间停在上一节行的底部。
+              double? currentTimeY;
+              if (widget.showCurrentTimeLine && todayIndex >= 0) {
+                final now = widget.now ?? DateTime.now();
+                final minutes = now.hour * 60 + now.minute;
+                if (minutes >= 8 * 60 && minutes <= 21 * 60 + 20) {
+                  for (var i = 0; i < kTimeSlots.length; i++) {
+                    final slot = kTimeSlots[i];
+                    if (slot.index > widget.slotCount) break;
+                    final start = _minutesOfDay(slot.start);
+                    final end = _minutesOfDay(slot.end);
+                    if (minutes < start) break;
+                    final row = sessionToRow[slot.index];
+                    if (minutes <= end) {
+                      if (row != null) {
+                        final fraction =
+                            (minutes - start) / math.max(1, end - start);
+                        currentTimeY = (row + fraction) * cellHeight;
+                      }
+                      break;
+                    }
+                    final nextStart = i + 1 < kTimeSlots.length
+                        ? _minutesOfDay(kTimeSlots[i + 1].start)
+                        : null;
+                    if (nextStart != null && minutes < nextStart) {
+                      if (row != null) {
+                        currentTimeY = (row + 1) * cellHeight;
+                      }
+                      break;
+                    }
+                  }
+                }
+              }
+
               return SingleChildScrollView(
                 controller: _scrollController,
                 child: SizedBox(
@@ -684,9 +727,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                   widget.courseBorderColor ??
                                                   widget.borderColor,
                                               borderWidth: widget.borderWidth,
-                                              textSize:
-                                                  widget.courseTextSize *
-                                                  widget.courseFontScale,
+                                              textSize: widget.courseTextSize,
                                               textColor: widget.courseTextColor,
                                               textOpacity:
                                                   widget.courseTextOpacity,
@@ -702,6 +743,12 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                   .countdownBarLengthRatio,
                                               countdownBarRounded:
                                                   widget.countdownBarRounded,
+                                              countdownBarThickness:
+                                                  widget.countdownBarThickness,
+                                              countdownBarPadding:
+                                                  widget.countdownBarPadding,
+                                              countdownBarColor:
+                                                  widget.countdownBarColor,
                                               dashedBorderDensity:
                                                   widget.dashedBorderDensity,
                                               centerHorizontal: widget
@@ -855,6 +902,18 @@ class _TimetableGridState extends State<TimetableGrid> {
                                   ),
                                 ),
                               ),
+                      // 当前时间线：贯通横线，绘制在最上层，不影响点击。
+                      if (currentTimeY != null)
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: CustomPaint(
+                              painter: _CurrentTimeLinePainter(
+                                y: currentTimeY,
+                                color: theme.colors.primary,
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -997,6 +1056,30 @@ class _TimetableGridState extends State<TimetableGrid> {
                       ),
                     ),
                   ),
+                // 今日竖边线向上延伸到日期头部（主题色背景块）的两侧，
+                // 与网格内的竖线连成完整边线。
+                if (isToday && widget.showTodayGridLines) ...[
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    left: 0,
+                    child: Container(
+                      width: widget.todayLineWidth,
+                      color: (widget.todayLineColor ?? theme.colors.primary)
+                          .withValues(alpha: widget.todayLineOpacity),
+                    ),
+                  ),
+                  Positioned(
+                    top: 0,
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      width: widget.todayLineWidth,
+                      color: (widget.todayLineColor ?? theme.colors.primary)
+                          .withValues(alpha: widget.todayLineOpacity),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1320,6 +1403,38 @@ class _ActiveCourseLinesPainter extends CustomPainter {
       oldDelegate.bottomY != bottomY ||
       oldDelegate.color != color ||
       oldDelegate.width != width;
+}
+
+/// 当前时间线：一条贯通的主题色细横线。
+class _CurrentTimeLinePainter extends CustomPainter {
+  static const double _thickness = 1.5;
+
+  final double y;
+  final Color color;
+
+  const _CurrentTimeLinePainter({required this.y, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final clampedY = y.clamp(0.0, size.height);
+    canvas.drawRect(
+      Rect.fromLTWH(0, clampedY - _thickness / 2, size.width, _thickness),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _CurrentTimeLinePainter oldDelegate) =>
+      oldDelegate.y != y || oldDelegate.color != color;
+}
+
+/// 'HH:mm' → 当天分钟数。
+int _minutesOfDay(String hhmm) {
+  final parts = hhmm.split(':');
+  final hour = int.tryParse(parts.first) ?? 0;
+  final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+  return hour * 60 + minute;
 }
 
 /// 节次在指定日期的开始/结束时刻；节次号无效时返回 null。

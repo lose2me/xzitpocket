@@ -135,7 +135,10 @@ void main() {
       expect(settings.timetableSectionHeight, 60.0);
       expect(settings.timetableDayHeaderHeight, 40.0);
       expect(settings.timetableCourseOuterPadding, 1.5);
-      expect(settings.timetableCourseFontScale, 0.95);
+      expect(settings.showCurrentTimeLine, isTrue);
+      expect(settings.timetableCountdownBarThickness, 3.0);
+      expect(settings.timetableCountdownBarPadding, 0.0);
+      expect(settings.timetableCountdownBarColor, isNull);
       expect(
         settings.timetableDayTextMarkerPosition,
         TimetableDayMarkerPosition.topRight,

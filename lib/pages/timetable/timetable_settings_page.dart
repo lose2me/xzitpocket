@@ -502,6 +502,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setTimetableTodayLineStopAtCourse(value),
                         ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.clock,
+                          title: '显示当前时间线',
+                          value: settings.showCurrentTimeLine,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setShowCurrentTimeLine(value),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),
@@ -518,19 +526,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     const SizedBox(height: AppSpacing.xl),
                     ProfileSettingsGroup(
                       children: [
-                        ProfileSettingsSliderTile(
-                          icon: FLucideIcons.type,
-                          title: '课程字体缩放',
-                          value: settings.timetableCourseFontScale,
-                          min: 0.5,
-                          max: 2,
-                          divisions: 30,
-                          suffix: 'x',
-                          displayDecimals: 2,
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableCourseFontScale(value),
-                        ),
                         ProfileSettingsSliderTile(
                           icon: FLucideIcons.layers,
                           title: '课程字体不透明度',
@@ -728,6 +723,56 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           onChange: (value) => ref
                               .read(appSettingsProvider.notifier)
                               .setTimetableCountdownBarRounded(value),
+                        ),
+                        ProfileSettingsSliderTile(
+                          icon: FLucideIcons.alignVerticalSpaceAround,
+                          title: '倒计时粗细',
+                          value: settings.timetableCountdownBarThickness,
+                          min: 1,
+                          max: 8,
+                          divisions: 70,
+                          suffix: ' px',
+                          displayDecimals: 1,
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableCountdownBarThickness(value),
+                        ),
+                        ProfileSettingsSliderTile(
+                          icon: FLucideIcons.square,
+                          title: '倒计时内边距',
+                          value: settings.timetableCountdownBarPadding,
+                          min: 0,
+                          max: 8,
+                          divisions: 80,
+                          suffix: ' px',
+                          displayDecimals: 1,
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableCountdownBarPadding(value),
+                        ),
+                        ProfileSettingsColorTile(
+                          icon: FLucideIcons.palette,
+                          title: '倒计时颜色',
+                          value: settings.timetableCountdownBarColor,
+                          colors: _styleColors,
+                          lastCustomColor:
+                              settings.timetableLastCustomCountdownBarColor,
+                          resetLabel: '主题色',
+                          onChanged: (color) => unawaited(
+                            ref
+                                .read(appSettingsProvider.notifier)
+                                .setTimetableCountdownBarColor(color),
+                          ),
+                          onCustomColorPressed: () => unawaited(
+                            _selectCustomColor(
+                              settings.timetableLastCustomCountdownBarColor ??
+                                  settings.timetableCountdownBarColor ??
+                                  context.theme.colors.primary,
+                              ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setCustomTimetableCountdownBarColor,
+                            ),
+                          ),
                         ),
                         ProfileSettingsCheckboxTile(
                           icon: FLucideIcons.alignCenterHorizontal,
@@ -1398,10 +1443,13 @@ class _TimetableGridPreview extends StatelessWidget {
             courseCornerRadius: settings.timetableCourseCornerRadius,
             courseInnerPadding: settings.timetableCourseInnerPadding,
             courseOuterPadding: settings.timetableCourseOuterPadding,
-            courseFontScale: settings.timetableCourseFontScale,
             courseTextTemplate: settings.timetableCourseTextTemplate,
             countdownBarLengthRatio: settings.timetableCountdownBarLengthRatio,
             countdownBarRounded: settings.timetableCountdownBarRounded,
+            countdownBarThickness: settings.timetableCountdownBarThickness,
+            countdownBarPadding: settings.timetableCountdownBarPadding,
+            countdownBarColor: settings.timetableCountdownBarColor,
+            showCurrentTimeLine: settings.showCurrentTimeLine,
             dashedBorderDensity: settings.timetableDashedBorderDensity,
             hideSectionTime: settings.timetableHideSectionTime,
             hideDateUnderDay: settings.timetableHideDateUnderDay,

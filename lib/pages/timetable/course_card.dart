@@ -3,7 +3,6 @@ import 'package:forui/forui.dart';
 
 import '../../constants/time_slots.dart';
 import '../../models/course.dart';
-import '../../ui/app_components.dart';
 import '../../utils/course_text_template.dart';
 
 class CourseCard extends StatelessWidget {
@@ -27,6 +26,9 @@ class CourseCard extends StatelessWidget {
   final String borderType;
   final double countdownBarLengthRatio;
   final bool countdownBarRounded;
+  final double countdownBarThickness;
+  final double countdownBarPadding;
+  final Color? countdownBarColor;
 
   const CourseCard({
     super.key,
@@ -50,6 +52,9 @@ class CourseCard extends StatelessWidget {
     this.borderType = 'solid',
     this.countdownBarLengthRatio = 0.75,
     this.countdownBarRounded = true,
+    this.countdownBarThickness = 3.0,
+    this.countdownBarPadding = 0.0,
+    this.countdownBarColor,
   });
 
   @override
@@ -106,7 +111,11 @@ class CourseCard extends StatelessWidget {
           ClipRRect(
             borderRadius: borderRadius,
             child: Padding(
-              padding: EdgeInsets.only(top: countdownAnimation == null ? 0 : 7),
+              padding: EdgeInsets.only(
+                top: countdownAnimation == null
+                    ? 0
+                    : countdownBarPadding + countdownBarThickness + 4,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: centerVertical
@@ -135,13 +144,13 @@ class CourseCard extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              top: 0,
+              top: countdownBarPadding,
               child: Center(
                 // 胶囊长度按卡片宽度比例绘制（默认 3/4）。
                 child: FractionallySizedBox(
                   widthFactor: countdownBarLengthRatio.clamp(0.1, 1.0),
                   child: SizedBox(
-                    height: 3,
+                    height: countdownBarThickness,
                     child: IgnorePointer(
                       child: AnimatedBuilder(
                         animation: countdownAnimation!,
@@ -149,16 +158,17 @@ class CourseCard extends StatelessWidget {
                           final remaining = (1 - countdownAnimation!.value)
                               .clamp(0.0, 1.0)
                               .toDouble();
+                          // 进度色默认主题色，可自定义；底槽为同色淡化。
+                          final effectiveColor =
+                              countdownBarColor ?? context.theme.colors.primary;
                           return CustomPaint(
                             painter: _CountdownBarPainter(
                               progress: remaining,
                               rounded: countdownBarRounded,
-                              backgroundColor: context
-                                  .theme
-                                  .colors
-                                  .semantic
-                                  .warningContainer,
-                              progressColor: context.theme.colors.destructive,
+                              backgroundColor: effectiveColor.withValues(
+                                alpha: 0.22,
+                              ),
+                              progressColor: effectiveColor,
                             ),
                           );
                         },

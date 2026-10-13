@@ -144,7 +144,10 @@ void main() {
       expect(storage.hasTimetableSectionHeight(), isFalse);
       expect(storage.getTimetableDayHeaderHeight(), 40.0);
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
-      expect(storage.getTimetableCourseFontScale(), 0.95);
+      expect(storage.getShowCurrentTimeLine(), isTrue);
+      expect(storage.getTimetableCountdownBarThickness(), 3.0);
+      expect(storage.getTimetableCountdownBarPadding(), 0.0);
+      expect(storage.getTimetableCountdownBarColor(), isNull);
       expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getTimetableGridOpacity(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
@@ -306,13 +309,19 @@ void main() {
     });
 
     test('preserves fine-grained timetable course layout values', () async {
-      await storage.setTimetableCourseFontScale(1.05);
       await storage.setTimetableCourseInnerPadding(2.5);
       await storage.setTimetableCourseOuterPadding(1.5);
+      await storage.setTimetableCountdownBarThickness(5);
+      await storage.setTimetableCountdownBarPadding(2);
+      await storage.setTimetableCountdownBarColor(0xFF123456);
+      await storage.setShowCurrentTimeLine(false);
 
-      expect(storage.getTimetableCourseFontScale(), 1.05);
       expect(storage.getTimetableCourseInnerPadding(), 2.5);
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
+      expect(storage.getTimetableCountdownBarThickness(), 5.0);
+      expect(storage.getTimetableCountdownBarPadding(), 2.0);
+      expect(storage.getTimetableCountdownBarColor(), 0xFF123456);
+      expect(storage.getShowCurrentTimeLine(), isFalse);
     });
 
     test('clamps timetable grid opacity', () async {

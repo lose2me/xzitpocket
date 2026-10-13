@@ -109,7 +109,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseInnerPadding: _storage.getTimetableCourseInnerPadding(),
       timetableCourseOuterPadding: _storage.getTimetableCourseOuterPadding(),
       timetableCourseAlpha: _storage.getTimetableCourseAlpha(),
-      timetableCourseFontScale: _storage.getTimetableCourseFontScale(),
       // 模板缺失时优先由旧布尔开关派生（未迁移安装），否则用默认模板。
       timetableCourseTextTemplate:
           _storage.getTimetableCourseTextTemplate() ??
@@ -128,6 +127,18 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCountdownBarLengthRatio: _storage
           .getTimetableCountdownBarLengthRatio(),
       timetableCountdownBarRounded: _storage.getTimetableCountdownBarRounded(),
+      timetableCountdownBarThickness: _storage
+          .getTimetableCountdownBarThickness(),
+      timetableCountdownBarPadding: _storage.getTimetableCountdownBarPadding(),
+      timetableCountdownBarColor:
+          _storage.getTimetableCountdownBarColor() == null
+          ? null
+          : Color(_storage.getTimetableCountdownBarColor()!),
+      timetableLastCustomCountdownBarColor:
+          _storage.getTimetableLastCustomCountdownBarColor() == null
+          ? null
+          : Color(_storage.getTimetableLastCustomCountdownBarColor()!),
+      showCurrentTimeLine: _storage.getShowCurrentTimeLine(),
       ignoreSystemTextScale: _storage.getIgnoreSystemTextScale(),
       timetableTextAlignCenterHorizontal: _storage
           .getTimetableTextAlignCenterHorizontal(),
@@ -414,12 +425,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableCourseAlpha(normalized);
   }
 
-  Future<void> setTimetableCourseFontScale(double value) async {
-    final normalized = value.clamp(0.5, 2.0).toDouble();
-    state = state.copyWith(timetableCourseFontScale: normalized);
-    await _storage.setTimetableCourseFontScale(normalized);
-  }
-
   Future<void> setTimetableCourseTextTemplate(String value) async {
     final normalized = value.trim();
     state = state.copyWith(
@@ -470,6 +475,37 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
   Future<void> setTimetableCountdownBarRounded(bool value) async {
     state = state.copyWith(timetableCountdownBarRounded: value);
     await _storage.setTimetableCountdownBarRounded(value);
+  }
+
+  Future<void> setTimetableCountdownBarThickness(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 1.0, 8.0);
+    state = state.copyWith(timetableCountdownBarThickness: normalized);
+    await _storage.setTimetableCountdownBarThickness(normalized);
+  }
+
+  Future<void> setTimetableCountdownBarPadding(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 0.0, 8.0);
+    state = state.copyWith(timetableCountdownBarPadding: normalized);
+    await _storage.setTimetableCountdownBarPadding(normalized);
+  }
+
+  Future<void> setTimetableCountdownBarColor(Color? value) async {
+    state = state.copyWith(timetableCountdownBarColor: value);
+    await _storage.setTimetableCountdownBarColor(value?.toARGB32());
+  }
+
+  Future<void> setCustomTimetableCountdownBarColor(Color value) async {
+    state = state.copyWith(
+      timetableCountdownBarColor: value,
+      timetableLastCustomCountdownBarColor: value,
+    );
+    await _storage.setTimetableCountdownBarColor(value.toARGB32());
+    await _storage.setTimetableLastCustomCountdownBarColor(value.toARGB32());
+  }
+
+  Future<void> setShowCurrentTimeLine(bool value) async {
+    state = state.copyWith(showCurrentTimeLine: value);
+    await _storage.setShowCurrentTimeLine(value);
   }
 
   Future<void> setIgnoreSystemTextScale(bool value) async {
@@ -758,7 +794,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseInnerPadding: defaults.timetableCourseInnerPadding,
       timetableCourseOuterPadding: defaults.timetableCourseOuterPadding,
       timetableCourseAlpha: defaults.timetableCourseAlpha,
-      timetableCourseFontScale: defaults.timetableCourseFontScale,
       timetableCourseTextTemplate: defaults.timetableCourseTextTemplate,
       timetableDashedBorderDensity: defaults.timetableDashedBorderDensity,
       timetableHideSectionTime: defaults.timetableHideSectionTime,
@@ -771,6 +806,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCountdownBarLengthRatio:
           defaults.timetableCountdownBarLengthRatio,
       timetableCountdownBarRounded: defaults.timetableCountdownBarRounded,
+      timetableCountdownBarThickness: defaults.timetableCountdownBarThickness,
+      timetableCountdownBarPadding: defaults.timetableCountdownBarPadding,
+      timetableCountdownBarColor: activeCustomColor(
+        state.timetableCountdownBarColor,
+        state.timetableLastCustomCountdownBarColor,
+      ),
+      showCurrentTimeLine: defaults.showCurrentTimeLine,
       ignoreSystemTextScale: defaults.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:
           defaults.timetableTextAlignCenterHorizontal,
