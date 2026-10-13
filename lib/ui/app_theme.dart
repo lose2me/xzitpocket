@@ -244,6 +244,21 @@ abstract final class AppTheme {
       style: style,
       touch: true,
     );
+    // Tab 栏垂直尺寸更紧凑（所有 FTabs 统一生效）。
+    final inheritedTabs = FTabsStyle.inherit(
+      colors: colors,
+      typography: typography,
+      style: style,
+    );
+    final tabsStyle = FTabsStyle(
+      decoration: inheritedTabs.decoration,
+      labelTextStyle: inheritedTabs.labelTextStyle,
+      indicatorDecoration: inheritedTabs.indicatorDecoration,
+      focusedOutlineStyle: inheritedTabs.focusedOutlineStyle,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      minHeight: 30,
+      spacing: 8,
+    );
     return FThemeData(
       touch: true,
       icons: const FIcons.lucide(),
@@ -252,6 +267,7 @@ abstract final class AppTheme {
       typography: typography,
       style: style,
       textFieldStyles: textFieldStyles,
+      tabsStyle: tabsStyle,
     );
   }
 }

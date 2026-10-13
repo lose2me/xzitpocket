@@ -31,9 +31,9 @@ const _compactProfileTileStyle = FItemStyleDelta.delta(
 
 const _compactOptionButtonStyle = FButtonStyleDelta.delta(
   contentStyle: FButtonContentStyleDelta.delta(
-    constraints: BoxConstraints(minHeight: 28),
+    constraints: BoxConstraints(minHeight: 34),
     padding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     ),
   ),
 );
