@@ -30,6 +30,8 @@ class PreferencesStorage {
     'timetable_today_horizontal_line_opacity',
     // 文字模板支持字号标记后废弃的课程字体缩放。
     'timetable_course_font_scale',
+    // 「今日课程点到为止」设置移除后废弃的独立配置。
+    'timetable_today_line_stop_at_course',
   };
 
   /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
@@ -82,7 +84,6 @@ class PreferencesStorage {
     'timetable_today_line_width': double,
     'timetable_today_line_opacity': double,
     'show_today_horizontal_grid_lines': bool,
-    'timetable_today_line_stop_at_course': bool,
     // 课程块
     'timetable_course_corner_radius': double,
     'timetable_course_inner_padding': double,
@@ -336,7 +337,6 @@ class PreferencesStorage {
     'timetable_today_line_width',
     'timetable_today_line_opacity',
     'show_today_horizontal_grid_lines',
-    'timetable_today_line_stop_at_course',
   };
 
   Future<void> init() async {
@@ -974,12 +974,6 @@ class PreferencesStorage {
   Future<void> setShowTodayHorizontalGridLines(bool value) =>
       _prefs.setBool('show_today_horizontal_grid_lines', value);
 
-  bool getTimetableTodayLineStopAtCourse() =>
-      _prefs.getBool('timetable_today_line_stop_at_course') ?? false;
-
-  Future<void> setTimetableTodayLineStopAtCourse(bool value) =>
-      _prefs.setBool('timetable_today_line_stop_at_course', value);
-
   String? getTimetableBackgroundPath() =>
       _prefs.getString('timetable_background_path');
 
@@ -1199,7 +1193,6 @@ class PreferencesStorage {
       _prefs.remove('timetable_today_line_width'),
       _prefs.remove('timetable_today_line_opacity'),
       _prefs.remove('show_today_horizontal_grid_lines'),
-      _prefs.remove('timetable_today_line_stop_at_course'),
       _prefs.remove('timetable_course_text_size'),
       _prefs.remove('timetable_course_text_opacity'),
       _prefs.remove('timetable_time_text_size'),

@@ -628,20 +628,10 @@ void main() {
     expect(activeLines(), findsNothing);
   });
 
-  testWidgets('stop-at-course drops today lines when today has no course', (
+  testWidgets('today vertical lines render regardless of today courses', (
     tester,
   ) async {
     final tuesday = semesterCalendar.weekDates(1)[1];
-    final course = Course(
-      title: '高等数学',
-      teacher: '',
-      weekday: 2,
-      sessions: const [3, 4],
-      weeks: const [1],
-      campus: '',
-      place: '',
-      colorIndex: 0,
-    );
 
     Finder verticalLines() => find.byWidgetPredicate(
       (widget) =>
@@ -649,30 +639,24 @@ void main() {
           widget.painter.runtimeType.toString() == '_TodayGridLinesPainter',
     );
 
-    Future<void> pumpGrid(List<Course> courses) => tester.pumpWidget(
+    await tester.pumpWidget(
       _testApp(
         SizedBox(
           width: 390,
           height: 400,
           child: TimetableGrid(
-            courses: courses,
+            courses: const [],
             week: 1,
             calendar: semesterCalendar,
             currentDate: tuesday,
             borderColor: AppTheme.light.colors.border,
             showTodayGridLines: true,
-            todayLineStopAtCourse: true,
           ),
         ),
       ),
     );
 
-    // 今日无课：点到为止模式下不绘制今日竖线。
-    await pumpGrid(const []);
-    expect(verticalLines(), findsNothing);
-
-    // 今日有课：竖线绘制（止于最后一节课底部）。
-    await pumpGrid([course]);
+    // 今日无课也绘制今日竖线（「点到为止」已移除）。
     expect(verticalLines(), findsOneWidget);
   });
 

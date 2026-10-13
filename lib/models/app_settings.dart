@@ -249,10 +249,6 @@ class AppSettings {
   final double timetableTodayLineOpacity;
   final bool showTodayHorizontalGridLines;
 
-  /// 「点到为止」：今日竖线只画到当天最后一节课的底部，不再向下延伸；
-  /// 横线只画到今日列右缘，不再向右延伸。当天无课时不绘制。
-  final bool timetableTodayLineStopAtCourse;
-
   /// 当前时间线：从左侧时间栏延伸出的贯通横线，仅在 8:00-21:20 显示。
   final bool showCurrentTimeLine;
 
@@ -345,7 +341,6 @@ class AppSettings {
     this.timetableTodayLineWidth = 2.0,
     this.timetableTodayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
-    this.timetableTodayLineStopAtCourse = false,
     this.useCloudTimetableAdjustments = true,
     this.hiddenServiceFeatures = const {},
   });
@@ -434,7 +429,6 @@ class AppSettings {
     double? timetableTodayLineWidth,
     double? timetableTodayLineOpacity,
     bool? showTodayHorizontalGridLines,
-    bool? timetableTodayLineStopAtCourse,
     bool? useCloudTimetableAdjustments,
     Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
@@ -627,8 +621,6 @@ class AppSettings {
           timetableTodayLineOpacity ?? this.timetableTodayLineOpacity,
       showTodayHorizontalGridLines:
           showTodayHorizontalGridLines ?? this.showTodayHorizontalGridLines,
-      timetableTodayLineStopAtCourse:
-          timetableTodayLineStopAtCourse ?? this.timetableTodayLineStopAtCourse,
       useCloudTimetableAdjustments:
           useCloudTimetableAdjustments ?? this.useCloudTimetableAdjustments,
       hiddenServiceFeatures:

@@ -885,8 +885,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               .timetableTodayLineOpacity,
                                           showTodayHorizontalGridLines: settings
                                               .showTodayHorizontalGridLines,
-                                          todayLineStopAtCourse: settings
-                                              .timetableTodayLineStopAtCourse,
                                           // 未显式设置课节高度时按可用高度
                                           // 自适应：一页正好 11 节（需求 11）。
                                           sectionHeight:

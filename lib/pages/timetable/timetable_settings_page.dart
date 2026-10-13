@@ -495,14 +495,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .setShowTodayHorizontalGridLines(value),
                         ),
                         ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.moveVertical,
-                          title: '今日边线点到为止',
-                          value: settings.timetableTodayLineStopAtCourse,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableTodayLineStopAtCourse(value),
-                        ),
-                        ProfileSettingsCheckboxTile(
                           icon: FLucideIcons.clock,
                           title: '显示当前时间线',
                           value: settings.showCurrentTimeLine,
@@ -1389,6 +1381,13 @@ class _TimetableGridPreview extends StatelessWidget {
         .weekOf(DateTime.now())
         .clamp(1, math.max(1, semesterCalendar.totalWeeks))
         .toInt();
+    // 预览取本周实际课程；本周无课时回退到内置测试课表（不额外提醒）。
+    final weekCourses = courses
+        .where((course) => course.isInWeek(currentWeek))
+        .toList();
+    final previewCourses = weekCourses.isEmpty
+        ? _previewSampleCourses(currentWeek)
+        : weekCourses;
     final previewDates = semesterCalendar.weekDates(currentWeek);
     final previewDayIndex = DateTime.now().weekday
         .clamp(1, showWeekendColumns ? 7 : 5)
@@ -1408,7 +1407,7 @@ class _TimetableGridPreview extends StatelessWidget {
           else
             ColoredBox(color: theme.colors.background),
           TimetableGrid(
-            courses: courses,
+            courses: previewCourses,
             week: currentWeek,
             showWeekendColumns: showWeekendColumns,
             currentDate: previewCurrentDate,
@@ -1433,7 +1432,6 @@ class _TimetableGridPreview extends StatelessWidget {
             todayLineWidth: settings.timetableTodayLineWidth,
             todayLineOpacity: settings.timetableTodayLineOpacity,
             showTodayHorizontalGridLines: settings.showTodayHorizontalGridLines,
-            todayLineStopAtCourse: settings.timetableTodayLineStopAtCourse,
             showGridLines: settings.showTimetableGridLines,
             showBelowFoldIndicator: false,
             suppressDayDrop: true,
@@ -1473,6 +1471,60 @@ class _TimetableGridPreview extends StatelessWidget {
     );
   }
 }
+
+/// 预览在本周没有实际课程时使用的内置测试课表。
+List<Course> _previewSampleCourses(int week) => [
+  Course(
+    title: '高等数学',
+    teacher: '张老师',
+    weekday: 1,
+    sessions: const [1, 2],
+    weeks: [week],
+    campus: '',
+    place: '教1-101',
+    colorIndex: 0,
+  ),
+  Course(
+    title: '大学英语',
+    teacher: '李老师',
+    weekday: 2,
+    sessions: const [2],
+    weeks: [week],
+    campus: '',
+    place: '教2-203',
+    colorIndex: 1,
+  ),
+  Course(
+    title: '程序设计',
+    teacher: '王老师',
+    weekday: 3,
+    sessions: const [1, 2],
+    weeks: [week],
+    campus: '',
+    place: '机房 A305',
+    colorIndex: 2,
+  ),
+  Course(
+    title: '线性代数',
+    teacher: '赵老师',
+    weekday: 4,
+    sessions: const [1],
+    weeks: [week],
+    campus: '',
+    place: '教1-208',
+    colorIndex: 3,
+  ),
+  Course(
+    title: '大学物理',
+    teacher: '陈老师',
+    weekday: 5,
+    sessions: const [2],
+    weeks: [week],
+    campus: '',
+    place: '教3-110',
+    colorIndex: 4,
+  ),
+];
 
 Future<ui.Image> _decodeCropPreview(Uint8List bytes) async {
   final buffer = await ui.ImmutableBuffer.fromUint8List(bytes);
