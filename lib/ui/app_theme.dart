@@ -255,9 +255,9 @@ abstract final class AppTheme {
       labelTextStyle: inheritedTabs.labelTextStyle,
       indicatorDecoration: inheritedTabs.indicatorDecoration,
       focusedOutlineStyle: inheritedTabs.focusedOutlineStyle,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      minHeight: 30,
-      spacing: 8,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      minHeight: 26,
+      spacing: 6,
     );
     return FThemeData(
       touch: true,
