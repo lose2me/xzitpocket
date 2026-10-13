@@ -90,7 +90,6 @@ void main() {
                       value: 80,
                       min: 40,
                       max: 140,
-                      divisions: 100,
                       onChanged: (_) {},
                     ),
                   ],

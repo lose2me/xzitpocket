@@ -146,8 +146,8 @@ void main() {
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
       expect(storage.getShowCurrentTimeLine(), isTrue);
       expect(storage.getTimetableCountdownBarThickness(), 3.0);
-      expect(storage.getTimetableCountdownBarPadding(), 0.0);
-      expect(storage.getTimetableCountdownBarColor(), isNull);
+      expect(storage.getTimetableCountdownBarTopPadding(), 0.0);
+      expect(storage.getTimetableCountdownBarBottomPadding(), 4.0);
       expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getTimetableGridOpacity(), 0.5);
       expect(storage.getTimetableCourseBorderOpacity(), 0.7);
@@ -191,8 +191,6 @@ void main() {
       await storage.setTimetableDashedBorderDensity(1.5);
       await storage.setTimetablePageTextColor(0xFF111111);
       await storage.setTimetableLastCustomPageTextColor(0xFF121212);
-      await storage.setTimetableCourseTextColor(0xFF222222);
-      await storage.setTimetableLastCustomCourseTextColor(0xFF232323);
       await storage.setTimetableCourseBorderColor(0xFF333333);
       await storage.setTimetableLastCustomCourseBorderColor(0xFF343434);
       await storage.setTimetableBackgroundPath('/tmp/background.jpg');
@@ -245,8 +243,6 @@ void main() {
       expect(storage.getTimetableDashedBorderDensity(), 1.5);
       expect(storage.getTimetablePageTextColor(), 0xFF111111);
       expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
-      expect(storage.getTimetableCourseTextColor(), 0xFF222222);
-      expect(storage.getTimetableLastCustomCourseTextColor(), 0xFF232323);
       expect(storage.getTimetableCourseBorderColor(), 0xFF333333);
       expect(storage.getTimetableLastCustomCourseBorderColor(), 0xFF343434);
       expect(storage.getTimetableBackgroundPath(), '/tmp/background.jpg');
@@ -312,15 +308,15 @@ void main() {
       await storage.setTimetableCourseInnerPadding(2.5);
       await storage.setTimetableCourseOuterPadding(1.5);
       await storage.setTimetableCountdownBarThickness(5);
-      await storage.setTimetableCountdownBarPadding(2);
-      await storage.setTimetableCountdownBarColor(0xFF123456);
+      await storage.setTimetableCountdownBarTopPadding(2);
+      await storage.setTimetableCountdownBarBottomPadding(6);
       await storage.setShowCurrentTimeLine(false);
 
       expect(storage.getTimetableCourseInnerPadding(), 2.5);
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
       expect(storage.getTimetableCountdownBarThickness(), 5.0);
-      expect(storage.getTimetableCountdownBarPadding(), 2.0);
-      expect(storage.getTimetableCountdownBarColor(), 0xFF123456);
+      expect(storage.getTimetableCountdownBarTopPadding(), 2.0);
+      expect(storage.getTimetableCountdownBarBottomPadding(), 6.0);
       expect(storage.getShowCurrentTimeLine(), isFalse);
     });
 
@@ -376,8 +372,6 @@ void main() {
       await storage.setLastCustomPageBackgroundColor(0xFF102030);
       await storage.setTimetablePageTextColor(0xFF111111);
       await storage.setTimetableLastCustomPageTextColor(0xFF121212);
-      await storage.setTimetableCourseTextColor(0xFF232323);
-      await storage.setTimetableLastCustomCourseTextColor(0xFF232323);
       await storage.setTimetableCourseBorderColor(0xFF333333);
       await storage.setTimetableLastCustomCourseBorderColor(0xFF343434);
       await storage.setTimetableGridOpacity(0.9);
@@ -434,8 +428,6 @@ void main() {
       expect(storage.getLastCustomPageBackgroundColor(), 0xFF102030);
       expect(storage.getTimetablePageTextColor(), isNull);
       expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
-      expect(storage.getTimetableCourseTextColor(), 0xFF232323);
-      expect(storage.getTimetableLastCustomCourseTextColor(), 0xFF232323);
       expect(storage.getTimetableCourseBorderColor(), isNull);
       expect(storage.getTimetableLastCustomCourseBorderColor(), 0xFF343434);
       expect(storage.getTimetableGridOpacity(), 0.5);

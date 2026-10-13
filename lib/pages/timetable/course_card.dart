@@ -20,15 +20,14 @@ class CourseCard extends StatelessWidget {
   final double outerPadding;
   final String textTemplate;
   final double dashedBorderDensity;
-  final Color? textColor;
   final bool centerHorizontal;
   final bool centerVertical;
   final String borderType;
   final double countdownBarLengthRatio;
   final bool countdownBarRounded;
   final double countdownBarThickness;
-  final double countdownBarPadding;
-  final Color? countdownBarColor;
+  final double countdownBarTopPadding;
+  final double countdownBarBottomPadding;
 
   const CourseCard({
     super.key,
@@ -46,15 +45,14 @@ class CourseCard extends StatelessWidget {
     this.outerPadding = 1.5,
     this.textTemplate = kDefaultCourseTextTemplate,
     this.dashedBorderDensity = 1.0,
-    this.textColor,
     this.centerHorizontal = false,
     this.centerVertical = false,
     this.borderType = 'solid',
     this.countdownBarLengthRatio = 0.75,
     this.countdownBarRounded = true,
     this.countdownBarThickness = 3.0,
-    this.countdownBarPadding = 0.0,
-    this.countdownBarColor,
+    this.countdownBarTopPadding = 0.0,
+    this.countdownBarBottomPadding = 4.0,
   });
 
   @override
@@ -65,14 +63,12 @@ class CourseCard extends StatelessWidget {
     // user-defined. Choose text by the card's own luminance so dark mode does
     // not put light text on a pale course card (or vice versa).
     final useDarkText = course.color.computeLuminance() > 0.45;
-    final resolvedTextColor =
-        textColor ??
-        (useDarkText ? const Color(0xFF172033) : const Color(0xFFF8FAFC));
-    final effectiveTextColor = resolvedTextColor.withValues(alpha: textOpacity);
-    final secondaryTextColor = textColor == null
-        ? (useDarkText ? const Color(0xFF475569) : const Color(0xFFCBD5E1))
-              .withValues(alpha: textOpacity)
-        : resolvedTextColor.withValues(alpha: 0.72 * textOpacity);
+    final effectiveTextColor =
+        (useDarkText ? const Color(0xFF172033) : const Color(0xFFF8FAFC))
+            .withValues(alpha: textOpacity);
+    final secondaryTextColor =
+        (useDarkText ? const Color(0xFF475569) : const Color(0xFFCBD5E1))
+            .withValues(alpha: textOpacity);
     final effectiveBorderColor = borderColor.withAlpha(
       (255 * courseBorderOpacity).round(),
     );
@@ -114,7 +110,9 @@ class CourseCard extends StatelessWidget {
               padding: EdgeInsets.only(
                 top: countdownAnimation == null
                     ? 0
-                    : countdownBarPadding + countdownBarThickness + 4,
+                    : countdownBarTopPadding +
+                          countdownBarThickness +
+                          countdownBarBottomPadding,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,7 +142,7 @@ class CourseCard extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              top: countdownBarPadding,
+              top: countdownBarTopPadding,
               child: Center(
                 // 胶囊长度按卡片宽度比例绘制（默认 3/4）。
                 child: FractionallySizedBox(
@@ -158,9 +156,8 @@ class CourseCard extends StatelessWidget {
                           final remaining = (1 - countdownAnimation!.value)
                               .clamp(0.0, 1.0)
                               .toDouble();
-                          // 进度色默认主题色，可自定义；底槽为同色淡化。
-                          final effectiveColor =
-                              countdownBarColor ?? context.theme.colors.primary;
+                          // 进度色固定为主题色；底槽为同色淡化。
+                          final effectiveColor = context.theme.colors.primary;
                           return CustomPaint(
                             painter: _CountdownBarPainter(
                               progress: remaining,

@@ -22,17 +22,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     _storage = ref.watch(preferencesStorageProvider);
     final customThemeColor = _storage.getCustomThemeColor();
     final customPageBackgroundColor = _storage.getCustomPageBackgroundColor();
-    final courseTextColor = _storage.getTimetableCourseTextColor();
     final pageTextColor = _storage.getTimetablePageTextColor();
     if (_storage.getLastCustomThemeColor() == null &&
         customThemeColor != null) {
       unawaited(_storage.setLastCustomThemeColor(customThemeColor));
-    }
-    if (_storage.getTimetableLastCustomCourseTextColor() == null &&
-        courseTextColor != null) {
-      unawaited(
-        _storage.setTimetableLastCustomCourseTextColor(courseTextColor),
-      );
     }
     if (_storage.getTimetableLastCustomPageTextColor() == null &&
         pageTextColor != null) {
@@ -129,15 +122,10 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCountdownBarRounded: _storage.getTimetableCountdownBarRounded(),
       timetableCountdownBarThickness: _storage
           .getTimetableCountdownBarThickness(),
-      timetableCountdownBarPadding: _storage.getTimetableCountdownBarPadding(),
-      timetableCountdownBarColor:
-          _storage.getTimetableCountdownBarColor() == null
-          ? null
-          : Color(_storage.getTimetableCountdownBarColor()!),
-      timetableLastCustomCountdownBarColor:
-          _storage.getTimetableLastCustomCountdownBarColor() == null
-          ? null
-          : Color(_storage.getTimetableLastCustomCountdownBarColor()!),
+      timetableCountdownBarTopPadding: _storage
+          .getTimetableCountdownBarTopPadding(),
+      timetableCountdownBarBottomPadding: _storage
+          .getTimetableCountdownBarBottomPadding(),
       showCurrentTimeLine: _storage.getShowCurrentTimeLine(),
       ignoreSystemTextScale: _storage.getIgnoreSystemTextScale(),
       timetableTextAlignCenterHorizontal: _storage
@@ -158,18 +146,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
               _storage.getTimetableLastCustomPageTextColor() ?? pageTextColor!,
             ),
       timetablePageTextOpacity: _storage.getTimetablePageTextOpacity(),
-      timetableCourseTextColor: courseTextColor == null
-          ? null
-          : Color(courseTextColor),
-      timetableLastCustomCourseTextColor:
-          (_storage.getTimetableLastCustomCourseTextColor() ??
-                  courseTextColor) ==
-              null
-          ? null
-          : Color(
-              _storage.getTimetableLastCustomCourseTextColor() ??
-                  courseTextColor!,
-            ),
       timetableCourseBorderColor:
           _storage.getTimetableCourseBorderColor() == null
           ? null
@@ -481,24 +457,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableCountdownBarThickness(normalized);
   }
 
-  Future<void> setTimetableCountdownBarPadding(double value) async {
+  Future<void> setTimetableCountdownBarTopPadding(double value) async {
     final normalized = _normalizeTimetableDimension(value, 0.0, 8.0);
-    state = state.copyWith(timetableCountdownBarPadding: normalized);
-    await _storage.setTimetableCountdownBarPadding(normalized);
+    state = state.copyWith(timetableCountdownBarTopPadding: normalized);
+    await _storage.setTimetableCountdownBarTopPadding(normalized);
   }
 
-  Future<void> setTimetableCountdownBarColor(Color? value) async {
-    state = state.copyWith(timetableCountdownBarColor: value);
-    await _storage.setTimetableCountdownBarColor(value?.toARGB32());
-  }
-
-  Future<void> setCustomTimetableCountdownBarColor(Color value) async {
-    state = state.copyWith(
-      timetableCountdownBarColor: value,
-      timetableLastCustomCountdownBarColor: value,
-    );
-    await _storage.setTimetableCountdownBarColor(value.toARGB32());
-    await _storage.setTimetableLastCustomCountdownBarColor(value.toARGB32());
+  Future<void> setTimetableCountdownBarBottomPadding(double value) async {
+    final normalized = _normalizeTimetableDimension(value, 0.0, 8.0);
+    state = state.copyWith(timetableCountdownBarBottomPadding: normalized);
+    await _storage.setTimetableCountdownBarBottomPadding(normalized);
   }
 
   Future<void> setShowCurrentTimeLine(bool value) async {
@@ -538,20 +506,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
     await _storage.setTimetablePageTextColor(value.toARGB32());
     await _storage.setTimetableLastCustomPageTextColor(value.toARGB32());
-  }
-
-  Future<void> setTimetableCourseTextColor(Color? value) async {
-    state = state.copyWith(timetableCourseTextColor: value);
-    await _storage.setTimetableCourseTextColor(value?.toARGB32());
-  }
-
-  Future<void> setCustomTimetableCourseTextColor(Color value) async {
-    state = state.copyWith(
-      timetableCourseTextColor: value,
-      timetableLastCustomCourseTextColor: value,
-    );
-    await _storage.setTimetableCourseTextColor(value.toARGB32());
-    await _storage.setTimetableLastCustomCourseTextColor(value.toARGB32());
   }
 
   Future<void> setTimetableCourseBorderColor(Color? value) async {
@@ -799,11 +753,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           defaults.timetableCountdownBarLengthRatio,
       timetableCountdownBarRounded: defaults.timetableCountdownBarRounded,
       timetableCountdownBarThickness: defaults.timetableCountdownBarThickness,
-      timetableCountdownBarPadding: defaults.timetableCountdownBarPadding,
-      timetableCountdownBarColor: activeCustomColor(
-        state.timetableCountdownBarColor,
-        state.timetableLastCustomCountdownBarColor,
-      ),
+      timetableCountdownBarTopPadding: defaults.timetableCountdownBarTopPadding,
+      timetableCountdownBarBottomPadding:
+          defaults.timetableCountdownBarBottomPadding,
       showCurrentTimeLine: defaults.showCurrentTimeLine,
       ignoreSystemTextScale: defaults.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:
@@ -814,10 +766,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetablePageTextColor: activeCustomColor(
         state.timetablePageTextColor,
         state.timetableLastCustomPageTextColor,
-      ),
-      timetableCourseTextColor: activeCustomColor(
-        state.timetableCourseTextColor,
-        state.timetableLastCustomCourseTextColor,
       ),
       timetableCourseBorderColor: activeCustomColor(
         state.timetableCourseBorderColor,

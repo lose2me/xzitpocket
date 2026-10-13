@@ -333,7 +333,6 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
   final double value;
   final double min;
   final double max;
-  final int? divisions;
   final String suffix;
   final double displayMultiplier;
   final int displayDecimals;
@@ -347,7 +346,6 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
     required this.min,
     required this.max,
     required this.onChanged,
-    this.divisions,
     this.suffix = '',
     this.displayMultiplier = 1,
     this.displayDecimals = 1,
@@ -396,7 +394,6 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
                   value: value,
                   min: min,
                   max: max,
-                  divisions: divisions,
                   onChanged: onChanged,
                 ),
               ),

@@ -915,10 +915,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               .timetableCountdownBarRounded,
                                           countdownBarThickness: settings
                                               .timetableCountdownBarThickness,
-                                          countdownBarPadding: settings
-                                              .timetableCountdownBarPadding,
-                                          countdownBarColor: settings
-                                              .timetableCountdownBarColor,
+                                          countdownBarTopPadding: settings
+                                              .timetableCountdownBarTopPadding,
+                                          countdownBarBottomPadding: settings
+                                              .timetableCountdownBarBottomPadding,
                                           showCurrentTimeLine:
                                               settings.showCurrentTimeLine,
                                           dashedBorderDensity: settings
@@ -945,8 +945,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                           pageTextColor: pageTextColor,
                                           pageTextOpacity:
                                               settings.timetablePageTextOpacity,
-                                          courseTextColor:
-                                              settings.timetableCourseTextColor,
                                           courseTextOpacity: settings
                                               .timetableCourseTextOpacity,
                                           onCourseTap: showingSecondary

@@ -137,8 +137,8 @@ void main() {
       expect(settings.timetableCourseOuterPadding, 1.5);
       expect(settings.showCurrentTimeLine, isTrue);
       expect(settings.timetableCountdownBarThickness, 3.0);
-      expect(settings.timetableCountdownBarPadding, 0.0);
-      expect(settings.timetableCountdownBarColor, isNull);
+      expect(settings.timetableCountdownBarTopPadding, 0.0);
+      expect(settings.timetableCountdownBarBottomPadding, 4.0);
       expect(
         settings.timetableDayTextMarkerPosition,
         TimetableDayMarkerPosition.topRight,
@@ -194,8 +194,6 @@ void main() {
         pageBackgroundColor: AppPageBackgroundColor.teal,
         timetablePageTextColor: const Color(0xFF111111),
         timetableLastCustomPageTextColor: const Color(0xFF121212),
-        timetableCourseTextColor: const Color(0xFF222222),
-        timetableLastCustomCourseTextColor: const Color(0xFF232323),
         timetableCourseBorderColor: const Color(0xFF333333),
         timetableLastCustomCourseBorderColor: const Color(0xFF343434),
         timetableGridOpacity: 0.45,
@@ -252,11 +250,6 @@ void main() {
       expect(updated.pageBackgroundColor, AppPageBackgroundColor.teal);
       expect(updated.timetablePageTextColor, const Color(0xFF111111));
       expect(updated.timetableLastCustomPageTextColor, const Color(0xFF121212));
-      expect(updated.timetableCourseTextColor, const Color(0xFF222222));
-      expect(
-        updated.timetableLastCustomCourseTextColor,
-        const Color(0xFF232323),
-      );
       expect(updated.timetableCourseBorderColor, const Color(0xFF333333));
       expect(
         updated.timetableLastCustomCourseBorderColor,

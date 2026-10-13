@@ -117,8 +117,8 @@ class TimetableGrid extends StatefulWidget {
   final double countdownBarLengthRatio;
   final bool countdownBarRounded;
   final double countdownBarThickness;
-  final double countdownBarPadding;
-  final Color? countdownBarColor;
+  final double countdownBarTopPadding;
+  final double countdownBarBottomPadding;
   final double dashedBorderDensity;
   final bool hideSectionTime;
   final bool hideDateUnderDay;
@@ -131,7 +131,6 @@ class TimetableGrid extends StatefulWidget {
   final String borderType;
   final Color? pageTextColor;
   final double pageTextOpacity;
-  final Color? courseTextColor;
   final double courseTextOpacity;
 
   const TimetableGrid({
@@ -191,8 +190,8 @@ class TimetableGrid extends StatefulWidget {
     this.countdownBarLengthRatio = 0.75,
     this.countdownBarRounded = true,
     this.countdownBarThickness = 3.0,
-    this.countdownBarPadding = 0.0,
-    this.countdownBarColor,
+    this.countdownBarTopPadding = 0.0,
+    this.countdownBarBottomPadding = 4.0,
     this.dashedBorderDensity = 1.0,
     this.hideSectionTime = false,
     this.hideDateUnderDay = false,
@@ -205,7 +204,6 @@ class TimetableGrid extends StatefulWidget {
     this.borderType = 'solid',
     this.pageTextColor,
     this.pageTextOpacity = 1.0,
-    this.courseTextColor,
     this.courseTextOpacity = 1.0,
   });
 
@@ -690,7 +688,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                   widget.borderColor,
                                               borderWidth: widget.borderWidth,
                                               textSize: widget.courseTextSize,
-                                              textColor: widget.courseTextColor,
                                               textOpacity:
                                                   widget.courseTextOpacity,
                                               cornerRadius:
@@ -707,10 +704,10 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                   widget.countdownBarRounded,
                                               countdownBarThickness:
                                                   widget.countdownBarThickness,
-                                              countdownBarPadding:
-                                                  widget.countdownBarPadding,
-                                              countdownBarColor:
-                                                  widget.countdownBarColor,
+                                              countdownBarTopPadding:
+                                                  widget.countdownBarTopPadding,
+                                              countdownBarBottomPadding: widget
+                                                  .countdownBarBottomPadding,
                                               dashedBorderDensity:
                                                   widget.dashedBorderDensity,
                                               centerHorizontal: widget
@@ -833,7 +830,8 @@ class _TimetableGridState extends State<TimetableGrid> {
                             child: CustomPaint(
                               painter: _CurrentTimeLinePainter(
                                 y: currentTimeY,
-                                color: theme.colors.primary,
+                                color: todayLineColor,
+                                thickness: widget.todayLineWidth,
                               ),
                             ),
                           ),
@@ -1307,26 +1305,31 @@ class _ActiveCourseLinesPainter extends CustomPainter {
 
 /// 当前时间线：一条贯通的主题色细横线。
 class _CurrentTimeLinePainter extends CustomPainter {
-  static const double _thickness = 1.5;
-
   final double y;
   final Color color;
+  final double thickness;
 
-  const _CurrentTimeLinePainter({required this.y, required this.color});
+  const _CurrentTimeLinePainter({
+    required this.y,
+    required this.color,
+    required this.thickness,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color;
     final clampedY = y.clamp(0.0, size.height);
     canvas.drawRect(
-      Rect.fromLTWH(0, clampedY - _thickness / 2, size.width, _thickness),
+      Rect.fromLTWH(0, clampedY - thickness / 2, size.width, thickness),
       paint,
     );
   }
 
   @override
   bool shouldRepaint(covariant _CurrentTimeLinePainter oldDelegate) =>
-      oldDelegate.y != y || oldDelegate.color != color;
+      oldDelegate.y != y ||
+      oldDelegate.color != color ||
+      oldDelegate.thickness != thickness;
 }
 
 /// 'HH:mm' → 当天分钟数。

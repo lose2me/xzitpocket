@@ -27,8 +27,6 @@ import '../profile/profile_components.dart';
 import 'timetable_grid.dart';
 import 'timetable_providers.dart';
 
-int _tenthsDivisions(double min, double max) => ((max - min) * 10).round();
-
 double _backgroundAspectRatio(Size size) {
   final width = size.width.clamp(1.0, double.infinity).toDouble();
   final height = size.height.clamp(1.0, double.infinity).toDouble();
@@ -340,7 +338,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableSectionHeight,
                           min: 40,
                           max: 140,
-                          divisions: 100,
                           suffix: ' px',
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
@@ -352,7 +349,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableTimeColumnWidth,
                           min: 20,
                           max: 80,
-                          divisions: 60,
                           suffix: ' px',
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
@@ -364,7 +360,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableDayHeaderHeight,
                           min: 30,
                           max: 80,
-                          divisions: 50,
                           suffix: ' px',
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
@@ -407,7 +402,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableGridLineWidth,
                           min: 0.5,
                           max: 3,
-                          divisions: 25,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -420,7 +414,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableGridOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -465,7 +458,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableTodayLineWidth,
                           min: 0.5,
                           max: 4,
-                          divisions: 35,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -478,7 +470,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableTodayLineOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -524,7 +515,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseTextOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -538,7 +528,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseCornerRadius,
                           min: 0,
                           max: 24,
-                          divisions: 24,
                           suffix: ' px',
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
@@ -550,7 +539,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseInnerPadding,
                           min: 0,
                           max: 12,
-                          divisions: 24,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -563,7 +551,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseOuterPadding,
                           min: 0,
                           max: 8,
-                          divisions: 16,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -576,7 +563,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseAlpha,
                           min: 0.1,
                           max: 1,
-                          divisions: 18,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -614,7 +600,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableDashedBorderDensity,
                           min: 0.5,
                           max: 2,
-                          divisions: 15,
                           suffix: 'x',
                           displayDecimals: 2,
                           onChanged: (value) => ref
@@ -650,7 +635,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseBorderWidth,
                           min: 0.5,
                           max: 3,
-                          divisions: 25,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -663,7 +647,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCourseBorderOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -671,36 +654,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setTimetableCourseBorderOpacity(value),
                         ),
-                        ProfileSettingsColorTile(
-                          icon: FLucideIcons.type,
-                          title: '课程块文字颜色',
-                          value: settings.timetableCourseTextColor,
-                          colors: _styleColors,
-                          lastCustomColor:
-                              settings.timetableLastCustomCourseTextColor,
-                          onChanged: (color) => unawaited(
-                            ref
-                                .read(appSettingsProvider.notifier)
-                                .setTimetableCourseTextColor(color),
-                          ),
-                          onCustomColorPressed: () => unawaited(
-                            _selectCustomColor(
-                              settings.timetableLastCustomCourseTextColor ??
-                                  settings.timetableCourseTextColor ??
-                                  context.theme.colors.foreground,
-                              ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setCustomTimetableCourseTextColor,
-                            ),
-                          ),
-                        ),
                         ProfileSettingsSliderTile(
                           icon: FLucideIcons.timer,
                           title: '冲突倒计时长度',
                           value: settings.timetableCountdownBarLengthRatio,
                           min: 0.1,
                           max: 1,
-                          divisions: 18,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -722,7 +681,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableCountdownBarThickness,
                           min: 1,
                           max: 8,
-                          divisions: 70,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -730,41 +688,28 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .setTimetableCountdownBarThickness(value),
                         ),
                         ProfileSettingsSliderTile(
-                          icon: FLucideIcons.square,
-                          title: '倒计时内边距',
-                          value: settings.timetableCountdownBarPadding,
+                          icon: FLucideIcons.arrowUpToLine,
+                          title: '倒计时上边距',
+                          value: settings.timetableCountdownBarTopPadding,
                           min: 0,
                           max: 8,
-                          divisions: 80,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
-                              .setTimetableCountdownBarPadding(value),
+                              .setTimetableCountdownBarTopPadding(value),
                         ),
-                        ProfileSettingsColorTile(
-                          icon: FLucideIcons.palette,
-                          title: '倒计时颜色',
-                          value: settings.timetableCountdownBarColor,
-                          colors: _styleColors,
-                          lastCustomColor:
-                              settings.timetableLastCustomCountdownBarColor,
-                          resetLabel: '主题色',
-                          onChanged: (color) => unawaited(
-                            ref
-                                .read(appSettingsProvider.notifier)
-                                .setTimetableCountdownBarColor(color),
-                          ),
-                          onCustomColorPressed: () => unawaited(
-                            _selectCustomColor(
-                              settings.timetableLastCustomCountdownBarColor ??
-                                  settings.timetableCountdownBarColor ??
-                                  context.theme.colors.primary,
-                              ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setCustomTimetableCountdownBarColor,
-                            ),
-                          ),
+                        ProfileSettingsSliderTile(
+                          icon: FLucideIcons.arrowDownToLine,
+                          title: '倒计时下边距',
+                          value: settings.timetableCountdownBarBottomPadding,
+                          min: 0,
+                          max: 8,
+                          suffix: ' px',
+                          displayDecimals: 1,
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableCountdownBarBottomPadding(value),
                         ),
                         ProfileSettingsCheckboxTile(
                           icon: FLucideIcons.alignCenterHorizontal,
@@ -834,7 +779,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetablePageTextOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -880,7 +824,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableDayTextMarkerSize,
                           min: 4,
                           max: 16,
-                          divisions: 120,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -921,7 +864,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.timetableDayTextMarkerPadding,
                           min: 0,
                           max: 8,
-                          divisions: 80,
                           suffix: ' px',
                           displayDecimals: 1,
                           onChanged: (value) => ref
@@ -1062,7 +1004,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.widgetFontScale,
                           min: 0.5,
                           max: 2.0,
-                          divisions: _tenthsDivisions(0.5, 2.0),
                           suffix: 'x',
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
@@ -1074,7 +1015,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.widgetTextOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -1088,7 +1028,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.widgetBackgroundAlpha,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -1135,7 +1074,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           value: settings.toastOpacity,
                           min: 0,
                           max: 1,
-                          divisions: 20,
                           suffix: '%',
                           displayMultiplier: 100,
                           displayDecimals: 0,
@@ -1445,8 +1383,9 @@ class _TimetableGridPreview extends StatelessWidget {
             countdownBarLengthRatio: settings.timetableCountdownBarLengthRatio,
             countdownBarRounded: settings.timetableCountdownBarRounded,
             countdownBarThickness: settings.timetableCountdownBarThickness,
-            countdownBarPadding: settings.timetableCountdownBarPadding,
-            countdownBarColor: settings.timetableCountdownBarColor,
+            countdownBarTopPadding: settings.timetableCountdownBarTopPadding,
+            countdownBarBottomPadding:
+                settings.timetableCountdownBarBottomPadding,
             showCurrentTimeLine: settings.showCurrentTimeLine,
             dashedBorderDensity: settings.timetableDashedBorderDensity,
             hideSectionTime: settings.timetableHideSectionTime,
@@ -1463,7 +1402,6 @@ class _TimetableGridPreview extends StatelessWidget {
               Theme.of(context).brightness,
             ),
             pageTextOpacity: settings.timetablePageTextOpacity,
-            courseTextColor: settings.timetableCourseTextColor,
             courseTextOpacity: settings.timetableCourseTextOpacity,
           ),
         ],

@@ -222,8 +222,6 @@ class AppSettings {
   final Color? timetablePageTextColor;
   final Color? timetableLastCustomPageTextColor;
   final double timetablePageTextOpacity;
-  final Color? timetableCourseTextColor;
-  final Color? timetableLastCustomCourseTextColor;
   final Color? timetableCourseBorderColor;
   final Color? timetableLastCustomCourseBorderColor;
   final String? timetableBackgroundPath;
@@ -253,9 +251,8 @@ class AppSettings {
   final bool showCurrentTimeLine;
 
   final double timetableCountdownBarThickness;
-  final double timetableCountdownBarPadding;
-  final Color? timetableCountdownBarColor;
-  final Color? timetableLastCustomCountdownBarColor;
+  final double timetableCountdownBarTopPadding;
+  final double timetableCountdownBarBottomPadding;
   final bool useCloudTimetableAdjustments;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
@@ -304,9 +301,8 @@ class AppSettings {
     this.timetableCountdownBarLengthRatio = 0.75,
     this.timetableCountdownBarRounded = true,
     this.timetableCountdownBarThickness = 3.0,
-    this.timetableCountdownBarPadding = 0.0,
-    this.timetableCountdownBarColor,
-    this.timetableLastCustomCountdownBarColor,
+    this.timetableCountdownBarTopPadding = 0.0,
+    this.timetableCountdownBarBottomPadding = 4.0,
     this.showCurrentTimeLine = true,
     this.ignoreSystemTextScale = true,
     this.timetableTextAlignCenterHorizontal = false,
@@ -315,8 +311,6 @@ class AppSettings {
     this.timetablePageTextColor,
     this.timetableLastCustomPageTextColor,
     this.timetablePageTextOpacity = 1.0,
-    this.timetableCourseTextColor,
-    this.timetableLastCustomCourseTextColor,
     this.timetableCourseBorderColor,
     this.timetableLastCustomCourseBorderColor,
     this.timetableBackgroundPath,
@@ -392,9 +386,8 @@ class AppSettings {
     double? timetableCountdownBarLengthRatio,
     bool? timetableCountdownBarRounded,
     double? timetableCountdownBarThickness,
-    double? timetableCountdownBarPadding,
-    Object? timetableCountdownBarColor = _unset,
-    Object? timetableLastCustomCountdownBarColor = _unset,
+    double? timetableCountdownBarTopPadding,
+    double? timetableCountdownBarBottomPadding,
     bool? showCurrentTimeLine,
     bool? ignoreSystemTextScale,
     bool? timetableTextAlignCenterHorizontal,
@@ -403,8 +396,6 @@ class AppSettings {
     Object? timetablePageTextColor = _unset,
     Object? timetableLastCustomPageTextColor = _unset,
     double? timetablePageTextOpacity,
-    Object? timetableCourseTextColor = _unset,
-    Object? timetableLastCustomCourseTextColor = _unset,
     Object? timetableCourseBorderColor = _unset,
     Object? timetableLastCustomCourseBorderColor = _unset,
     Object? timetableBackgroundPath = _unset,
@@ -526,15 +517,12 @@ class AppSettings {
           timetableCountdownBarRounded ?? this.timetableCountdownBarRounded,
       timetableCountdownBarThickness:
           timetableCountdownBarThickness ?? this.timetableCountdownBarThickness,
-      timetableCountdownBarPadding:
-          timetableCountdownBarPadding ?? this.timetableCountdownBarPadding,
-      timetableCountdownBarColor: identical(timetableCountdownBarColor, _unset)
-          ? this.timetableCountdownBarColor
-          : timetableCountdownBarColor as Color?,
-      timetableLastCustomCountdownBarColor:
-          identical(timetableLastCustomCountdownBarColor, _unset)
-          ? this.timetableLastCustomCountdownBarColor
-          : timetableLastCustomCountdownBarColor as Color?,
+      timetableCountdownBarTopPadding:
+          timetableCountdownBarTopPadding ??
+          this.timetableCountdownBarTopPadding,
+      timetableCountdownBarBottomPadding:
+          timetableCountdownBarBottomPadding ??
+          this.timetableCountdownBarBottomPadding,
       showCurrentTimeLine: showCurrentTimeLine ?? this.showCurrentTimeLine,
       ignoreSystemTextScale:
           ignoreSystemTextScale ?? this.ignoreSystemTextScale,
@@ -554,13 +542,6 @@ class AppSettings {
           : timetableLastCustomPageTextColor as Color?,
       timetablePageTextOpacity:
           timetablePageTextOpacity ?? this.timetablePageTextOpacity,
-      timetableCourseTextColor: identical(timetableCourseTextColor, _unset)
-          ? this.timetableCourseTextColor
-          : timetableCourseTextColor as Color?,
-      timetableLastCustomCourseTextColor:
-          identical(timetableLastCustomCourseTextColor, _unset)
-          ? this.timetableLastCustomCourseTextColor
-          : timetableLastCustomCourseTextColor as Color?,
       timetableCourseBorderColor: identical(timetableCourseBorderColor, _unset)
           ? this.timetableCourseBorderColor
           : timetableCourseBorderColor as Color?,
