@@ -90,6 +90,7 @@ void main() {
                       value: 80,
                       min: 40,
                       max: 140,
+                      defaultValue: 60,
                       onChanged: (_) {},
                     ),
                   ],
@@ -102,13 +103,18 @@ void main() {
     );
 
     final theme = tester.widget<SliderTheme>(find.byType(SliderTheme));
-    final thumb = theme.data.thumbShape! as RoundSliderThumbShape;
     final tick = theme.data.tickMarkShape! as RoundSliderTickMarkShape;
-    expect(thumb.enabledThumbRadius, 6);
+    expect(
+      theme.data.thumbShape.runtimeType.toString(),
+      '_VerticalLineThumbShape',
+    );
+    expect(
+      theme.data.trackShape.runtimeType.toString(),
+      '_DefaultValueTrackShape',
+    );
     expect(tick.tickMarkRadius, 0.35);
     expect(theme.data.trackHeight, 2);
     expect(tester.getSize(find.byType(Slider)).height, 16);
-    expect(find.byKey(const ValueKey('sliderCenterMarker')), findsOneWidget);
   });
 
   testWidgets('custom color picker opens and returns its selected color', (

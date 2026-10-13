@@ -333,6 +333,7 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
   final double value;
   final double min;
   final double max;
+  final double defaultValue;
   final String suffix;
   final double displayMultiplier;
   final int displayDecimals;
@@ -345,11 +346,16 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
     required this.value,
     required this.min,
     required this.max,
+    required this.defaultValue,
     required this.onChanged,
     this.suffix = '',
     this.displayMultiplier = 1,
     this.displayDecimals = 1,
   });
+
+  /// 默认值在轨道上的比例位置（0~1）。
+  double get _defaultFraction =>
+      max <= min ? 0 : ((defaultValue - min) / (max - min)).clamp(0.0, 1.0);
 
   @override
   Widget build(BuildContext context) => FTile.raw(
@@ -378,10 +384,18 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
               child: SliderTheme(
                 data: SliderTheme.of(context).copyWith(
                   trackHeight: 2,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 6,
+                  // 手柄是一条主题色竖线，指示当前值，可直接拖动。
+                  thumbShape: _VerticalLineThumbShape(
+                    color: context.theme.colors.primary,
                   ),
                   overlayShape: SliderComponentShape.noOverlay,
+                  // 轨道上的灰色竖线标记默认值的位置。
+                  trackShape: _DefaultValueTrackShape(
+                    fraction: _defaultFraction,
+                    color: context.theme.colors.foreground.withValues(
+                      alpha: 0.4,
+                    ),
+                  ),
                   tickMarkShape: const RoundSliderTickMarkShape(
                     tickMarkRadius: 0.35,
                   ),
@@ -390,27 +404,11 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
                   inactiveTickMarkColor: context.theme.colors.foreground
                       .withValues(alpha: 0.5),
                 ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Slider(
-                      value: value,
-                      min: min,
-                      max: max,
-                      onChanged: onChanged,
-                    ),
-                    // 轨道中点的静态基准线，作为取值的视觉参考。
-                    IgnorePointer(
-                      child: Container(
-                        key: const ValueKey('sliderCenterMarker'),
-                        width: 1,
-                        height: 10,
-                        color: context.theme.colors.foreground.withValues(
-                          alpha: 0.4,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Slider(
+                  value: value,
+                  min: min,
+                  max: max,
+                  onChanged: onChanged,
                 ),
               ),
             ),
@@ -419,6 +417,96 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
       ],
     ),
   );
+}
+
+/// 滑条手柄：一条主题色竖线，其位置即当前值。
+class _VerticalLineThumbShape extends SliderComponentShape {
+  static const double width = 3;
+  static const double height = 14;
+
+  final Color color;
+
+  const _VerticalLineThumbShape({required this.color});
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
+      const Size(width, height);
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    final rect = Rect.fromCenter(center: center, width: width, height: height);
+    context.canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(width / 2)),
+      Paint()..color = color,
+    );
+  }
+}
+
+/// 轨道：在默认值位置额外画一条灰色基准竖线。
+class _DefaultValueTrackShape extends RoundedRectSliderTrackShape {
+  final double fraction;
+  final Color color;
+
+  const _DefaultValueTrackShape({required this.fraction, required this.color});
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset offset, {
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required Animation<double> enableAnimation,
+    required Offset thumbCenter,
+    Offset? secondaryOffset,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+    double additionalActiveTrackHeight = 2,
+    required TextDirection textDirection,
+  }) {
+    super.paint(
+      context,
+      offset,
+      parentBox: parentBox,
+      sliderTheme: sliderTheme,
+      enableAnimation: enableAnimation,
+      thumbCenter: thumbCenter,
+      secondaryOffset: secondaryOffset,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+      additionalActiveTrackHeight: additionalActiveTrackHeight,
+      textDirection: textDirection,
+    );
+    final rect = getPreferredRect(
+      parentBox: parentBox,
+      offset: offset,
+      sliderTheme: sliderTheme,
+      isEnabled: isEnabled,
+      isDiscrete: isDiscrete,
+    );
+    final dx = textDirection == TextDirection.rtl
+        ? rect.right - fraction * rect.width
+        : rect.left + fraction * rect.width;
+    context.canvas.drawLine(
+      Offset(dx, rect.center.dy - 6),
+      Offset(dx, rect.center.dy + 6),
+      Paint()
+        ..color = color
+        ..strokeWidth = 1,
+    );
+  }
 }
 
 class ProfileSettingsColorTile extends StatelessWidget with FTileMixin {

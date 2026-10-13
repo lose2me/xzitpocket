@@ -336,6 +336,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.rows3,
                           title: '课节高度',
                           value: settings.timetableSectionHeight,
+                          defaultValue:
+                              const AppSettings().timetableSectionHeight,
                           min: 40,
                           max: 140,
                           suffix: ' px',
@@ -347,6 +349,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.columns3,
                           title: '时间列宽度',
                           value: settings.timetableTimeColumnWidth,
+                          defaultValue:
+                              const AppSettings().timetableTimeColumnWidth,
                           min: 20,
                           max: 80,
                           suffix: ' px',
@@ -358,6 +362,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.panelTop,
                           title: '日期栏高度',
                           value: settings.timetableDayHeaderHeight,
+                          defaultValue:
+                              const AppSettings().timetableDayHeaderHeight,
                           min: 30,
                           max: 80,
                           suffix: ' px',
@@ -400,6 +406,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.columns3,
                           title: '网格线粗细',
                           value: settings.timetableGridLineWidth,
+                          defaultValue:
+                              const AppSettings().timetableGridLineWidth,
                           min: 0.5,
                           max: 3,
                           suffix: ' px',
@@ -412,6 +420,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '网格线不透明度',
                           value: settings.timetableGridOpacity,
+                          defaultValue:
+                              const AppSettings().timetableGridOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -456,6 +466,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.move,
                           title: '今日课程边线粗细',
                           value: settings.timetableTodayLineWidth,
+                          defaultValue:
+                              const AppSettings().timetableTodayLineWidth,
                           min: 0.5,
                           max: 4,
                           suffix: ' px',
@@ -468,6 +480,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '今日课程边线不透明度',
                           value: settings.timetableTodayLineOpacity,
+                          defaultValue:
+                              const AppSettings().timetableTodayLineOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -513,6 +527,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '课程字体不透明度',
                           value: settings.timetableCourseTextOpacity,
+                          defaultValue:
+                              const AppSettings().timetableCourseTextOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -526,6 +542,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.cornerDownRight,
                           title: '课程块圆角',
                           value: settings.timetableCourseCornerRadius,
+                          defaultValue:
+                              const AppSettings().timetableCourseCornerRadius,
                           min: 0,
                           max: 24,
                           suffix: ' px',
@@ -537,6 +555,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.arrowDownUp,
                           title: '课程块内边距',
                           value: settings.timetableCourseInnerPadding,
+                          defaultValue:
+                              const AppSettings().timetableCourseInnerPadding,
                           min: 0,
                           max: 12,
                           suffix: ' px',
@@ -549,6 +569,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.move,
                           title: '课程块外边距',
                           value: settings.timetableCourseOuterPadding,
+                          defaultValue:
+                              const AppSettings().timetableCourseOuterPadding,
                           min: 0,
                           max: 8,
                           suffix: ' px',
@@ -561,6 +583,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '课程块不透明度',
                           value: settings.timetableCourseAlpha,
+                          defaultValue:
+                              const AppSettings().timetableCourseAlpha,
                           min: 0.1,
                           max: 1,
                           suffix: '%',
@@ -598,6 +622,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.squareDashed,
                           title: '虚线边框密度',
                           value: settings.timetableDashedBorderDensity,
+                          defaultValue:
+                              const AppSettings().timetableDashedBorderDensity,
                           min: 0.5,
                           max: 2,
                           suffix: 'x',
@@ -633,6 +659,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.move,
                           title: '课程块边框线粗细',
                           value: settings.timetableCourseBorderWidth,
+                          defaultValue:
+                              const AppSettings().timetableCourseBorderWidth,
                           min: 0.5,
                           max: 3,
                           suffix: ' px',
@@ -645,6 +673,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '课程块边框不透明度',
                           value: settings.timetableCourseBorderOpacity,
+                          defaultValue:
+                              const AppSettings().timetableCourseBorderOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -658,6 +688,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.timer,
                           title: '冲突倒计时长度',
                           value: settings.timetableCountdownBarLengthRatio,
+                          defaultValue: const AppSettings()
+                              .timetableCountdownBarLengthRatio,
                           min: 0.1,
                           max: 1,
                           suffix: '%',
@@ -679,6 +711,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.alignVerticalSpaceAround,
                           title: '倒计时粗细',
                           value: settings.timetableCountdownBarThickness,
+                          defaultValue: const AppSettings()
+                              .timetableCountdownBarThickness,
                           min: 1,
                           max: 8,
                           suffix: ' px',
@@ -691,6 +725,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.arrowUpToLine,
                           title: '倒计时上边距',
                           value: settings.timetableCountdownBarTopPadding,
+                          defaultValue: const AppSettings()
+                              .timetableCountdownBarTopPadding,
                           min: 0,
                           max: 8,
                           suffix: ' px',
@@ -703,6 +739,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.arrowDownToLine,
                           title: '倒计时下边距',
                           value: settings.timetableCountdownBarBottomPadding,
+                          defaultValue: const AppSettings()
+                              .timetableCountdownBarBottomPadding,
                           min: 0,
                           max: 8,
                           suffix: ' px',
@@ -777,6 +815,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '页面文字不透明度',
                           value: settings.timetablePageTextOpacity,
+                          defaultValue:
+                              const AppSettings().timetablePageTextOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -822,6 +862,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.type,
                           title: '课程改动文字大小',
                           value: settings.timetableDayTextMarkerSize,
+                          defaultValue:
+                              const AppSettings().timetableDayTextMarkerSize,
                           min: 4,
                           max: 16,
                           suffix: ' px',
@@ -862,6 +904,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.shrink,
                           title: '课程改动文字内间距',
                           value: settings.timetableDayTextMarkerPadding,
+                          defaultValue:
+                              const AppSettings().timetableDayTextMarkerPadding,
                           min: 0,
                           max: 8,
                           suffix: ' px',
@@ -1002,6 +1046,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.type,
                           title: '小组件字体缩放',
                           value: settings.widgetFontScale,
+                          defaultValue: const AppSettings().widgetFontScale,
                           min: 0.5,
                           max: 2.0,
                           suffix: 'x',
@@ -1013,6 +1058,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '小组件文字不透明度',
                           value: settings.widgetTextOpacity,
+                          defaultValue: const AppSettings().widgetTextOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -1026,6 +1072,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: '小组件背景不透明度',
                           value: settings.widgetBackgroundAlpha,
+                          defaultValue:
+                              const AppSettings().widgetBackgroundAlpha,
                           min: 0,
                           max: 1,
                           suffix: '%',
@@ -1072,6 +1120,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.layers,
                           title: 'Toast 不透明度',
                           value: settings.toastOpacity,
+                          defaultValue: const AppSettings().toastOpacity,
                           min: 0,
                           max: 1,
                           suffix: '%',
