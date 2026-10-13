@@ -390,11 +390,27 @@ class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {
                   inactiveTickMarkColor: context.theme.colors.foreground
                       .withValues(alpha: 0.5),
                 ),
-                child: Slider(
-                  value: value,
-                  min: min,
-                  max: max,
-                  onChanged: onChanged,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Slider(
+                      value: value,
+                      min: min,
+                      max: max,
+                      onChanged: onChanged,
+                    ),
+                    // 轨道中点的静态基准线，作为取值的视觉参考。
+                    IgnorePointer(
+                      child: Container(
+                        key: const ValueKey('sliderCenterMarker'),
+                        width: 1,
+                        height: 10,
+                        color: context.theme.colors.foreground.withValues(
+                          alpha: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

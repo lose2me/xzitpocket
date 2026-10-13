@@ -108,6 +108,7 @@ void main() {
     expect(tick.tickMarkRadius, 0.35);
     expect(theme.data.trackHeight, 2);
     expect(tester.getSize(find.byType(Slider)).height, 16);
+    expect(find.byKey(const ValueKey('sliderCenterMarker')), findsOneWidget);
   });
 
   testWidgets('custom color picker opens and returns its selected color', (
