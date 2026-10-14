@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:forui/forui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'app_tokens.dart';
 
@@ -20,8 +23,14 @@ class AppMarkdown extends StatelessWidget {
     final foreground = theme.colors.foreground;
     final muted = theme.colors.mutedForeground;
     return MarkdownBody(
-      data: data,
+      data: withLatinBreaks(data),
       selectable: selectable,
+      onTapLink: (text, href, title) {
+        final uri = href == null ? null : Uri.tryParse(href);
+        if (uri != null && uri.hasScheme) {
+          unawaited(launchUrl(uri, mode: LaunchMode.externalApplication));
+        }
+      },
       styleSheet: MarkdownStyleSheet(
         p: theme.typography.bodyText.copyWith(color: foreground),
         h1: theme.typography.pageTitle.copyWith(
@@ -84,6 +93,76 @@ class AppMarkdown extends StatelessWidget {
         theme.typography.bodyText.copyWith(color: foreground),
       ),
     );
+  }
+
+  static bool _isLatinLetter(int c) =>
+      (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A);
+
+  /// Inserts zero-width spaces between adjacent Latin letters so long English
+  /// runs can wrap at any character (like CJK) instead of leaving a large
+  /// trailing gap whenever a whole word does not fit the line. Link
+  /// destinations, autolinks, and code spans/blocks are copied verbatim so
+  /// they stay valid.
+  @visibleForTesting
+  static String withLatinBreaks(String source) {
+    final out = StringBuffer();
+    var i = 0;
+    while (i < source.length) {
+      if (source.startsWith('```', i)) {
+        final end = source.indexOf('```', i + 3);
+        final stop = end == -1 ? source.length : end + 3;
+        out.write(source.substring(i, stop));
+        i = stop;
+        continue;
+      }
+      final ch = source.codeUnitAt(i);
+      if (ch == 0x60) {
+        // Inline code span: `...`.
+        final end = source.indexOf('`', i + 1);
+        final stop = end == -1 ? source.length : end + 1;
+        out.write(source.substring(i, stop));
+        i = stop;
+        continue;
+      }
+      if (ch == 0x5D &&
+          i + 1 < source.length &&
+          source.codeUnitAt(i + 1) == 0x28) {
+        // Link destination: ](...) with balanced parentheses.
+        out.write('](');
+        i += 2;
+        var depth = 1;
+        while (i < source.length && depth > 0) {
+          final c = source.codeUnitAt(i);
+          if (c == 0x28) {
+            depth++;
+          } else if (c == 0x29) {
+            depth--;
+          }
+          out.writeCharCode(c);
+          i++;
+        }
+        continue;
+      }
+      if (ch == 0x3C &&
+          (source.startsWith('http', i + 1) ||
+              source.startsWith('mailto:', i + 1))) {
+        // Autolink: <https://...>.
+        final end = source.indexOf('>', i + 1);
+        if (end != -1) {
+          out.write(source.substring(i, end + 1));
+          i = end + 1;
+          continue;
+        }
+      }
+      out.writeCharCode(ch);
+      if (i + 1 < source.length &&
+          _isLatinLetter(ch) &&
+          _isLatinLetter(source.codeUnitAt(i + 1))) {
+        out.write('\u200B');
+      }
+      i++;
+    }
+    return out.toString();
   }
 
   Widget _buildBullet(MarkdownBulletParameters parameters, TextStyle style) {
