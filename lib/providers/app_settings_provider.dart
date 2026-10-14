@@ -92,6 +92,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideLocation: _storage.getWidgetHideLocation(),
       widgetHideDate: _storage.getWidgetHideDate(),
       timetableSectionHeight: _storage.getTimetableSectionHeight(),
+      timetableSectionHeightIsCustom: _storage.hasTimetableSectionHeight(),
       timetableTimeColumnWidth: _storage.getTimetableTimeColumnWidth(),
       timetableDayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
       timetableCourseCornerRadius: _storage.getTimetableCourseCornerRadius(),
@@ -352,8 +353,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   Future<void> setTimetableSectionHeight(double value) async {
     final normalized = value.clamp(40.0, 140.0).toDouble();
-    state = state.copyWith(timetableSectionHeight: normalized);
+    state = state.copyWith(
+      timetableSectionHeight: normalized,
+      timetableSectionHeightIsCustom: true,
+    );
     await _storage.setTimetableSectionHeight(normalized);
+  }
+
+  Future<void> resetTimetableSectionHeight() async {
+    state = state.copyWith(timetableSectionHeightIsCustom: false);
+    await _storage.clearTimetableSectionHeight();
   }
 
   Future<void> setTimetableTimeColumnWidth(double value) async {
@@ -725,6 +734,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
       timetableSectionHeight: defaults.timetableSectionHeight,
+      timetableSectionHeightIsCustom: false,
       timetableTimeColumnWidth: defaults.timetableTimeColumnWidth,
       timetableDayHeaderHeight: defaults.timetableDayHeaderHeight,
       timetableCourseCornerRadius: defaults.timetableCourseCornerRadius,

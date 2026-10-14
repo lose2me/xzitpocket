@@ -25,6 +25,7 @@ import '../../utils/course_text_template.dart';
 import '../../utils/snackbar_helper.dart';
 import '../profile/profile_components.dart';
 import 'timetable_grid.dart';
+import 'timetable_layout.dart';
 import 'timetable_providers.dart';
 
 double _backgroundAspectRatio(Size size) {
@@ -63,10 +64,18 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     _templateController = TextEditingController(
       text: ref.read(appSettingsProvider).timetableCourseTextTemplate,
     );
+    measuredAdaptiveSectionHeight.addListener(_onMeasuredSectionHeightChanged);
+  }
+
+  void _onMeasuredSectionHeightChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    measuredAdaptiveSectionHeight.removeListener(
+      _onMeasuredSectionHeightChanged,
+    );
     _templateController.dispose();
     _templateFocusNode.dispose();
     super.dispose();
@@ -128,6 +137,22 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
+    final viewport = MediaQuery.sizeOf(context);
+    final scale = timetableViewportScale(viewport);
+    // 未自定义时课节高度走「一屏正好 11 个可见节次」的自适应默认。
+    final adaptiveSectionHeight =
+        measuredAdaptiveSectionHeight.value ??
+        estimateAdaptiveSectionHeight(
+          dayHeaderHeight: settings.timetableDayHeaderHeight,
+        );
+    final sectionHeightIsCustom = settings.timetableSectionHeightIsCustom;
+    // 预览与真实课表用同一套尺寸，保证所见即所得（B1 + 自适应默认）。
+    final effectiveSectionHeight = sectionHeightIsCustom
+        ? settings.timetableSectionHeight * scale.y
+        : adaptiveSectionHeight;
+    final previewSettings = settings
+        .scaledForViewport(viewport)
+        .copyWith(timetableSectionHeight: effectiveSectionHeight);
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final coursesAsync = ref.watch(scheduleProvider);
     final secondarySchedule = ref.watch(secondaryScheduleProvider);
@@ -214,11 +239,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                       ? ClipRect(
                           child: SizedBox(
                             height:
-                                settings.timetableDayHeaderHeight +
-                                settings.timetableSectionHeight * 2 +
+                                previewSettings.timetableDayHeaderHeight +
+                                effectiveSectionHeight * 2 +
                                 2,
                             child: _TimetableGridPreview(
-                              settings: settings,
+                              settings: previewSettings,
                               courses: previewCourses,
                               showWeekendColumns: showWeekendColumns,
                             ),
@@ -389,15 +414,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                         ProfileSettingsSliderTile(
                           icon: FLucideIcons.rows3,
                           title: '课节高度',
-                          value: settings.timetableSectionHeight,
-                          defaultValue:
-                              const AppSettings().timetableSectionHeight,
-                          min: 40,
-                          max: 140,
+                          value: sectionHeightIsCustom
+                              ? settings.timetableSectionHeight * scale.y
+                              : adaptiveSectionHeight,
+                          defaultValue: adaptiveSectionHeight,
+                          // 小窗口或大屏的默认值也必须能显示在轨道上。
+                          min: math.min(40, adaptiveSectionHeight),
+                          max: math.max(140, adaptiveSectionHeight),
                           suffix: ' px',
                           onChanged: (value) => ref
                               .read(appSettingsProvider.notifier)
-                              .setTimetableSectionHeight(value),
+                              .setTimetableSectionHeight(value / scale.y),
                         ),
                         ProfileSettingsSliderTile(
                           icon: FLucideIcons.columns3,
@@ -1207,7 +1234,13 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         ],
       ),
     );
-    return page;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const Offstage(child: TimetableLayoutProbe()),
+        page,
+      ],
+    );
   }
 
   /// 每个分类大项独立一页，可左右滑动；预览固定在上方（需求 10）。

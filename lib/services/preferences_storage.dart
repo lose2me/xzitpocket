@@ -710,6 +710,12 @@ class PreferencesStorage {
     );
   }
 
+  bool hasTimetableSectionHeight() =>
+      _prefs.containsKey('timetable_section_height');
+
+  Future<void> clearTimetableSectionHeight() =>
+      _prefs.remove('timetable_section_height');
+
   String? getTimetableDayTextMarkerPosition() =>
       _prefs.getString('timetable_day_text_marker_position');
 

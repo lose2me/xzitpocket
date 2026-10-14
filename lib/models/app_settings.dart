@@ -195,6 +195,10 @@ class AppSettings {
   final bool widgetHideLocation;
   final bool widgetHideDate;
   final double timetableSectionHeight;
+
+  /// 用户是否显式设置过课节高度。未设置时课表按可用高度自适应，
+  /// 一页正好显示 [kAdaptiveSectionCount] 个可见课节。
+  final bool timetableSectionHeightIsCustom;
   final double timetableTimeColumnWidth;
   final double timetableDayHeaderHeight;
   final double timetableCourseCornerRadius;
@@ -279,6 +283,7 @@ class AppSettings {
     this.widgetHideLocation = false,
     this.widgetHideDate = false,
     this.timetableSectionHeight = 60.0,
+    this.timetableSectionHeightIsCustom = false,
     this.timetableTimeColumnWidth = 40.0,
     this.timetableDayHeaderHeight = 40.0,
     this.timetableCourseCornerRadius = 6.0,
@@ -363,6 +368,7 @@ class AppSettings {
     bool? widgetHideLocation,
     bool? widgetHideDate,
     double? timetableSectionHeight,
+    bool? timetableSectionHeightIsCustom,
     double? timetableTimeColumnWidth,
     double? timetableDayHeaderHeight,
     double? timetableCourseCornerRadius,
@@ -475,6 +481,8 @@ class AppSettings {
       widgetHideDate: widgetHideDate ?? this.widgetHideDate,
       timetableSectionHeight:
           timetableSectionHeight ?? this.timetableSectionHeight,
+      timetableSectionHeightIsCustom:
+          timetableSectionHeightIsCustom ?? this.timetableSectionHeightIsCustom,
       timetableTimeColumnWidth:
           timetableTimeColumnWidth ?? this.timetableTimeColumnWidth,
       timetableDayHeaderHeight:
@@ -631,4 +639,79 @@ class AppSettings {
     }
     return value;
   }
+
+  /// B1：按「参考设备」比例把与空间、字号相关的课表尺寸换算成当前设备的实际值。
+  /// 存储与滑杆始终使用参考值（在参考设备上即真实 px），因此同一份设置会在各
+  /// 设备上按比例呈现。颜色、不透明度、圆角、线宽、虚线密度保持绝对，不缩放。
+  /// 仅用于用户显式设置过的尺寸；未设置时课节高度走自适应默认。
+  AppSettings scaledForViewport(Size viewport) {
+    if (viewport.isEmpty) return this;
+    final scale = timetableViewportScale(viewport);
+    return copyWith(
+      timetableSectionHeight: timetableSectionHeight * scale.y,
+      timetableDayHeaderHeight: timetableDayHeaderHeight * scale.y,
+      timetableTimeColumnWidth: timetableTimeColumnWidth * scale.x,
+      timetableCourseInnerPadding: timetableCourseInnerPadding * scale.y,
+      timetableCourseOuterPadding: timetableCourseOuterPadding * scale.y,
+      timetableCountdownBarTopPadding:
+          timetableCountdownBarTopPadding * scale.y,
+      timetableCountdownBarBottomPadding:
+          timetableCountdownBarBottomPadding * scale.y,
+      timetableCourseTextSize: timetableCourseTextSize * scale.text,
+      timetableTimeTextSize: timetableTimeTextSize * scale.text,
+      timetableDateTextSize: timetableDateTextSize * scale.text,
+      timetableDayTextMarkerSize: timetableDayTextMarkerSize * scale.text,
+      timetableDayTextMarkerPadding:
+          timetableDayTextMarkerPadding * scale.text,
+    );
+  }
+}
+
+/// 比例缩放（B1）的参考设备逻辑尺寸。
+const kReferenceViewport = Size(390, 844);
+
+/// 参考比例的最小/最大缩放，避免小屏过小、平板过大。
+const kMinUiScale = 0.85;
+const kMaxUiScale = 1.3;
+
+/// 每页正好显示的可见课节行数（隐藏的 5、6 节不计入）。
+const kAdaptiveSectionCount = 11;
+
+/// 课表或布局测量算出的真实自适应课节高度（未自定义时写入），
+/// 设置页据此显示默认值与滑杆默认线。
+final ValueNotifier<double?> measuredAdaptiveSectionHeight =
+    ValueNotifier<double?>(null);
+
+/// 自适应课节高度的估算值：可用高度 / [kAdaptiveSectionCount]，
+/// 作为尚未拿到真实布局测量前的兜底。
+double estimateAdaptiveSectionHeight({double dayHeaderHeight = 40.0}) {
+  try {
+    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+    if (view == null) return 60.0;
+    final scale = view.devicePixelRatio;
+    final size = view.physicalSize / scale;
+    final padding = view.viewPadding;
+    // 周头部 + 日期栏 + 底部导航内容；状态栏与手势条已由 padding 扣除。
+    final chromeHeight = 54.0 + (dayHeaderHeight + 1.0) + 50.0;
+    final available =
+        size.height -
+        padding.top / scale -
+        padding.bottom / scale -
+        chromeHeight;
+    if (!available.isFinite || available <= 0) return 60.0;
+    return (available / kAdaptiveSectionCount).toDouble();
+  } catch (_) {
+    return 60.0;
+  }
+}
+
+/// 当前设备相对参考设备的课表尺寸比例（B1）。
+({double x, double y, double text}) timetableViewportScale(Size viewport) {
+  double clampScale(double value) =>
+      value.clamp(kMinUiScale, kMaxUiScale).toDouble();
+  final x = clampScale(viewport.width / kReferenceViewport.width);
+  final y = clampScale(viewport.height / kReferenceViewport.height);
+  // 字号跟随较小的一维，保证文字始终能放进课节/单元格，不会溢出。
+  final text = x < y ? x : y;
+  return (x: x, y: y, text: text);
 }

@@ -132,6 +132,7 @@ void main() {
       expect(settings.timetableCourseCornerRadius, 6.0);
       expect(settings.timetableCourseInnerPadding, 2.0);
       expect(settings.timetableSectionHeight, 60.0);
+      expect(settings.timetableSectionHeightIsCustom, isFalse);
       expect(settings.timetableDayHeaderHeight, 40.0);
       expect(settings.timetableCourseOuterPadding, 1.5);
       expect(settings.showCurrentTimeLine, isTrue);

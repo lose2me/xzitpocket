@@ -728,6 +728,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final coursesAsync = ref.watch(scheduleProvider);
     final secondarySchedule = ref.watch(secondaryScheduleProvider);
     final settings = ref.watch(appSettingsProvider);
+    // 渲染尺寸 = 参考设备设置值 × 当前设备比例（B1）。
+    final gridSettings = settings.scaledForViewport(MediaQuery.sizeOf(context));
     final showNonCurrentWeekCourses = ref.watch(
       showNonCurrentWeekCoursesProvider,
     );
@@ -840,12 +842,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                           courseBorderOpacity: settings
                                               .timetableCourseBorderOpacity,
                                           courseTextSize:
-                                              settings.timetableCourseTextSize,
+                                              gridSettings.timetableCourseTextSize,
                                           timeTextSize:
-                                              settings.timetableTimeTextSize,
+                                              gridSettings.timetableTimeTextSize,
                                           dateTextSize:
-                                              settings.timetableDateTextSize,
-                                          dayTextMarkerSize: settings
+                                              gridSettings.timetableDateTextSize,
+                                          dayTextMarkerSize: gridSettings
                                               .timetableDayTextMarkerSize,
                                           gridOpacity:
                                               settings.timetableGridOpacity,
@@ -867,16 +869,24 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                           showTodayHorizontalGridLines: settings
                                               .showTodayHorizontalGridLines,
                                           sectionHeight:
-                                              settings.timetableSectionHeight,
+                                              gridSettings
+                                                  .timetableSectionHeightIsCustom
+                                              ? gridSettings.timetableSectionHeight
+                                              : 0,
+                                          visibleSlots:
+                                              gridSettings
+                                                  .timetableSectionHeightIsCustom
+                                              ? 9
+                                              : kAdaptiveSectionCount,
                                           timeColumnWidth:
-                                              settings.timetableTimeColumnWidth,
+                                              gridSettings.timetableTimeColumnWidth,
                                           dayHeaderHeight:
-                                              settings.timetableDayHeaderHeight,
+                                              gridSettings.timetableDayHeaderHeight,
                                           courseCornerRadius: settings
                                               .timetableCourseCornerRadius,
-                                          courseInnerPadding: settings
+                                          courseInnerPadding: gridSettings
                                               .timetableCourseInnerPadding,
-                                          courseOuterPadding: settings
+                                          courseOuterPadding: gridSettings
                                               .timetableCourseOuterPadding,
                                           courseTextTemplate: settings
                                               .timetableCourseTextTemplate,
@@ -886,9 +896,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               .timetableCountdownBarRounded,
                                           countdownBarThickness: settings
                                               .timetableCountdownBarThickness,
-                                          countdownBarTopPadding: settings
+                                          countdownBarTopPadding: gridSettings
                                               .timetableCountdownBarTopPadding,
-                                          countdownBarBottomPadding: settings
+                                          countdownBarBottomPadding: gridSettings
                                               .timetableCountdownBarBottomPadding,
                                           showCurrentTimeLine:
                                               settings.showCurrentTimeLine,
@@ -904,7 +914,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               settings.timetableDayTextMarkers,
                                           dayTextMarkerPosition: settings
                                               .timetableDayTextMarkerPosition,
-                                          dayTextMarkerPadding: settings
+                                          dayTextMarkerPadding: gridSettings
                                               .timetableDayTextMarkerPadding,
                                           textAlignCenterHorizontal: settings
                                               .timetableTextAlignCenterHorizontal,
