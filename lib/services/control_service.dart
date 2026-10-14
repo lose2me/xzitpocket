@@ -21,21 +21,21 @@ class ControlRelease {
   /// Markdown 更新日志，由 APP 端统一 Markdown 组件渲染（需求 20）。
   final String changelog;
 
+  /// 服务端版本更新时间，用于按版本持久化更新数据。
+  final String updatedAt;
+
   const ControlRelease({
     required this.latestVersion,
     required this.downloadUrl,
     this.changelog = '',
+    this.updatedAt = '',
   });
 }
 
 class ControlConfigVersions {
-  final String appRelease;
   final String schoolCalendar;
 
-  const ControlConfigVersions({
-    required this.appRelease,
-    required this.schoolCalendar,
-  });
+  const ControlConfigVersions({required this.schoolCalendar});
 }
 
 class ControlApiException implements Exception {
@@ -270,7 +270,12 @@ class ControlService {
     await _ensureDevice();
     if (!forceProfileUpdate &&
         _sessionStudentId == studentId &&
-        await _validAccessToken() != null) {
+        await _validAccessToken() != null &&
+        !await _serverProfileMissing(
+          displayName: displayName,
+          collegeName: collegeName,
+          className: className,
+        )) {
       return;
     }
 
@@ -369,6 +374,33 @@ class ControlService {
     _applySession(response, studentId: studentId);
     await _persistState();
     await _sendTelemetry('control_login_success');
+  }
+
+  /// Detects whether control is missing profile fields we already have locally.
+  /// A missing profile forces a re-assert (retransmit); a control outage never
+  /// does, so it can't turn a transient failure into a spurious resend.
+  Future<bool> _serverProfileMissing({
+    required String displayName,
+    required String collegeName,
+    required String className,
+  }) async {
+    if (displayName.isEmpty && collegeName.isEmpty && className.isEmpty) {
+      return false;
+    }
+    try {
+      final response = await _request('GET', '/api/v1/me');
+      final user = response['user'];
+      final map = user is Map ? user : response;
+      final serverName = map['display_name']?.toString() ?? '';
+      final serverCollege = map['college_name']?.toString() ?? '';
+      final serverClass = map['class_name']?.toString() ?? '';
+      return (displayName.isNotEmpty && serverName.isEmpty) ||
+          (collegeName.isNotEmpty && serverCollege.isEmpty) ||
+          (className.isNotEmpty && serverClass.isEmpty);
+    } catch (error, stackTrace) {
+      talker.debug('读取 control 用户信息失败', error, stackTrace);
+      return false;
+    }
   }
 
   Future<List<LearningQuestionBank>> fetchLearningQuestionBanks() =>
@@ -586,7 +618,7 @@ class ControlService {
     return _stringMap(data);
   }
 
-  Future<ControlRelease?> checkForUpdate() async {
+  Future<ControlRelease?> checkForUpdate({PreferencesStorage? prefs}) async {
     if (!_communicationAllowed) return null;
     try {
       final info = await _getPackageInfo();
@@ -595,20 +627,63 @@ class ControlService {
       final downloadUrl = Uri.tryParse(
         response['downloadUrl']?.toString().trim() ?? '',
       );
+      final changelog = response['changelog']?.toString() ?? '';
+      final updatedAt = response['updatedAt']?.toString() ?? '';
       final controlUri = Uri.parse(baseUrl);
       if (latestVersion.isEmpty ||
           downloadUrl == null ||
-          !isAllowedControlDownloadUrl(controlUri, downloadUrl) ||
-          !isControlVersionNewer(latestVersion, info.version)) {
+          !isAllowedControlDownloadUrl(controlUri, downloadUrl)) {
+        return null;
+      }
+      // Persist the fetched update data keyed by its server version so the
+      // update page can render it without another round trip.
+      if (prefs != null) {
+        await prefs.setAppReleaseCache(
+          jsonEncode({
+            'latestVersion': latestVersion,
+            'downloadUrl': downloadUrl.toString(),
+            'changelog': changelog,
+            'updatedAt': updatedAt,
+          }),
+        );
+      }
+      if (!isControlVersionNewer(latestVersion, info.version)) return null;
+      return ControlRelease(
+        latestVersion: latestVersion,
+        downloadUrl: downloadUrl,
+        changelog: changelog,
+        updatedAt: updatedAt,
+      );
+    } catch (error, stackTrace) {
+      talker.warning('检查新版本失败', error, stackTrace);
+      return null;
+    }
+  }
+
+  /// Reads the persisted version-update data and returns it only when it is
+  /// newer than [currentVersion]; used to render the update page offline.
+  ControlRelease? cachedRelease(PreferencesStorage prefs, String currentVersion) {
+    final raw = prefs.getAppReleaseCache();
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final latestVersion = decoded['latestVersion']?.toString() ?? '';
+      final downloadUrl = Uri.tryParse(
+        decoded['downloadUrl']?.toString() ?? '',
+      );
+      if (latestVersion.isEmpty ||
+          downloadUrl == null ||
+          !isControlVersionNewer(latestVersion, currentVersion)) {
         return null;
       }
       return ControlRelease(
         latestVersion: latestVersion,
         downloadUrl: downloadUrl,
-        changelog: response['changelog']?.toString() ?? '',
+        changelog: decoded['changelog']?.toString() ?? '',
+        updatedAt: decoded['updatedAt']?.toString() ?? '',
       );
-    } catch (error, stackTrace) {
-      talker.warning('检查新版本失败', error, stackTrace);
+    } catch (_) {
       return null;
     }
   }
@@ -634,7 +709,6 @@ class ControlService {
     final response = await _request('GET', '/api/v1/config/versions');
     _serviceAvailable = true;
     return ControlConfigVersions(
-      appRelease: response['appRelease']?.toString() ?? '',
       schoolCalendar: response['schoolCalendar']?.toString() ?? '',
     );
   }

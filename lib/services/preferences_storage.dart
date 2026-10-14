@@ -154,6 +154,8 @@ class PreferencesStorage {
     'hidden_service_features': List<String>,
     'school_calendar_cache': String,
     'school_calendar_version': String,
+    // 版本更新数据（按版本持久化）
+    'app_release_cache': String,
     // 备用课表
     'secondary_schedule_json': String,
     'secondary_schedule_title': String,
@@ -1253,6 +1255,18 @@ class PreferencesStorage {
 
   Future<void> setSchoolCalendarVersion(String value) =>
       _prefs.setString('school_calendar_version', value);
+
+  // ── App release (version update) cache ──
+
+  String? getAppReleaseCache() => _prefs.getString('app_release_cache');
+
+  Future<void> setAppReleaseCache(String? json) async {
+    if (json == null) {
+      await _prefs.remove('app_release_cache');
+    } else {
+      await _prefs.setString('app_release_cache', json);
+    }
+  }
 
   Set<String> getHiddenServiceFeatures() =>
       (_prefs.getStringList('hidden_service_features') ?? const <String>[])

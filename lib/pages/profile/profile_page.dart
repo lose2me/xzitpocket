@@ -792,7 +792,22 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     setState(() => _isLoggingIn = true);
     final prefs = ref.read(preferencesStorageProvider);
 
-    // 1. OA login. The schedule read defines success, so local persistence and
+    // 1. 先注册 control、拉取校历与课程时间（作息）。登录页已拿到学号，临时
+    //    打开 control 通信门禁；任何失败都不阻塞后续教务登录。
+    final previousStudentId = prefs.getStudentId();
+    ControlService.instance.updateLoginGate(sid);
+    try {
+      await ControlService.instance
+          .initialize()
+          .timeout(const Duration(seconds: 4));
+      await ControlService.instance
+          .refreshSchoolCalendarIfChanged(prefs)
+          .timeout(const Duration(seconds: 4));
+    } catch (error, stackTrace) {
+      talker.warning('登录前 control 初始化失败', error, stackTrace);
+    }
+
+    // 2. OA login. The schedule read defines success, so local persistence and
     //    navigation happen as soon as it returns; exams/grades/book list keep
     //    loading in the background.
     final result = await ref
@@ -834,22 +849,18 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         );
 
     if (result != null) {
-      // 2. 登录后 Control 门禁已打开，补一次校历刷新（未登录阶段被门禁跳过），
-      //    保证云端课程规则使用最新校历。
+      // 3. 教务数据已就绪，按云端课程规则重算主课表显示。
       try {
-        final calendarChanged = await ControlService.instance
-            .refreshSchoolCalendarIfChanged(prefs)
-            .timeout(const Duration(seconds: 3));
-        if (calendarChanged && prefs.getUseCloudTimetableAdjustments()) {
+        if (prefs.getUseCloudTimetableAdjustments()) {
           await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
         }
       } catch (error, stackTrace) {
-        talker.warning('登录后刷新校历失败', error, stackTrace);
+        talker.warning('应用云端课程规则失败', error, stackTrace);
       }
 
-      // 3/4. Portal (一卡通/校园网/电费) and control (题库/上报) data continue
-      //      in the background after the OA login completes. Disabled
-      //      features are skipped entirely so they never issue requests.
+      // 4. Portal (一卡通/校园网/电费) and control (题库/上报) data continue
+      //    in the background after the OA login completes. Disabled
+      //    features are skipped entirely so they never issue requests.
       final examResult = result.$2;
       if (examResult != null) {
         await ToolsDataManager.instance.setExams(examResult, prefs);
@@ -870,14 +881,18 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           loadJpData: visible(AppServiceFeature.teacherEvaluation),
         ),
       );
-    } else if (mounted) {
-      setState(() => _isLoggingIn = false);
-      final authState = ref.read(authProvider);
-      showAppSnackBar(
-        context,
-        authState.errorMessage ?? '登录失败',
-        severity: ToastSeverity.error,
-      );
+    } else {
+      // 登录失败：恢复原有门禁，未登录时不保持 control 通信。
+      ControlService.instance.updateLoginGate(previousStudentId);
+      if (mounted) {
+        setState(() => _isLoggingIn = false);
+        final authState = ref.read(authProvider);
+        showAppSnackBar(
+          context,
+          authState.errorMessage ?? '登录失败',
+          severity: ToastSeverity.error,
+        );
+      }
     }
   }
 
@@ -1010,14 +1025,14 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
 /// 「发现新版本 x → y」入口：点击进入版本更新二级页面
 /// （上方下载模块，下方更新日志模块）。不自动弹出任何通知。
-class _ProfileUpdateCard extends StatefulWidget {
+class _ProfileUpdateCard extends ConsumerStatefulWidget {
   const _ProfileUpdateCard();
 
   @override
-  State<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
+  ConsumerState<_ProfileUpdateCard> createState() => _ProfileUpdateCardState();
 }
 
-class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
+class _ProfileUpdateCardState extends ConsumerState<_ProfileUpdateCard> {
   bool _loading = true;
   ControlRelease? _release;
   String _currentVersion = '';
@@ -1030,7 +1045,16 @@ class _ProfileUpdateCardState extends State<_ProfileUpdateCard> {
 
   Future<void> _check() async {
     final info = await PackageInfo.fromPlatform();
-    final release = await ControlService.instance.checkForUpdate();
+    final prefs = ref.read(preferencesStorageProvider);
+    final cached = ControlService.instance.cachedRelease(prefs, info.version);
+    if (cached != null && mounted) {
+      setState(() {
+        _release = cached;
+        _currentVersion = info.version;
+        _loading = false;
+      });
+    }
+    final release = await ControlService.instance.checkForUpdate(prefs: prefs);
     if (!mounted) return;
     setState(() {
       _release = release;

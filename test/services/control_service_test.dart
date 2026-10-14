@@ -296,7 +296,6 @@ void main() {
     adapter.handler = (options) {
       if (options.uri.path == '/api/v1/config/versions') {
         return _json({
-          'appRelease': '',
           'schoolCalendar': '2026-10-06T00:00:00.00${revision}Z',
         });
       }
