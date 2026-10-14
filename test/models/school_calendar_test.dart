@@ -165,13 +165,37 @@ void main() {
   test('decodes control timetable periods alongside the calendar', () {
     final payload = schoolCalendarPayloadFromJson(
       '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
-      '"slots":[{"index":1,"start":"07:30","end":"08:15"},'
-      '{"index":2,"start":"08:25","end":"09:10"}]}',
+      '"slots":[{"index":1,"start":"07:30","end":"08:15","lab":true},'
+      '{"index":2,"start":"08:25","end":"09:10","lab":false}]}',
     );
     expect(payload.slots, const [
-      TimeSlot(index: 1, start: '07:30', end: '08:15'),
+      TimeSlot(index: 1, start: '07:30', end: '08:15', lab: true),
       TimeSlot(index: 2, start: '08:25', end: '09:10'),
     ]);
+  });
+
+  test('marks periods 5/6 as lab when the flag is missing', () {
+    expect(
+      timeSlotFromJson({'index': 5, 'start': '12:00', 'end': '12:45'})!.lab,
+      isTrue,
+    );
+    expect(
+      timeSlotFromJson({'index': 6, 'start': '12:55', 'end': '13:40'})!.lab,
+      isTrue,
+    );
+    expect(
+      timeSlotFromJson({'index': 1, 'start': '08:00', 'end': '08:45'})!.lab,
+      isFalse,
+    );
+    expect(
+      timeSlotFromJson({
+        'index': 5,
+        'start': '12:00',
+        'end': '12:45',
+        'lab': false,
+      })!.lab,
+      isFalse,
+    );
   });
 
   test('falls back to built-in periods when slots are missing or malformed', () {
@@ -190,12 +214,14 @@ void main() {
   test('roundtrips the calendar payload including periods', () {
     final json = schoolCalendarPayloadToJson(
       days: [SchoolDay(date: DateTime(2027, 2, 22))],
-      slots: const [TimeSlot(index: 1, start: '08:00', end: '08:45')],
+      slots: const [
+        TimeSlot(index: 1, start: '08:00', end: '08:45', lab: true),
+      ],
     );
     final payload = schoolCalendarPayloadFromJson(json);
     expect(payload.days, [SchoolDay(date: DateTime(2027, 2, 22))]);
     expect(payload.slots, const [
-      TimeSlot(index: 1, start: '08:00', end: '08:45'),
+      TimeSlot(index: 1, start: '08:00', end: '08:45', lab: true),
     ]);
   });
 }

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
+import '../../constants/time_slots.dart';
 import '../../models/app_settings.dart';
 import '../../models/course.dart';
 import '../../models/school_calendar.dart';
@@ -688,7 +689,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     } else if (semesterNotStarted) {
       icon = FLucideIcons.hourglass;
       title = '未开学';
-      subtitle = '教务系统可能还未发布本学期课表\n开学后下拉刷新或点击右上角重新同步';
+      subtitle = '教务系统可能还未发布本学期课表\n开学后点击右上角重新同步';
     } else {
       icon = FLucideIcons.calendarX;
       title = '暂无课程';
@@ -789,11 +790,15 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                               final maxDisplayWeek = _maxDisplayWeek(
                                 displayedCourses,
                               );
-                              final hide56 = !displayedCourses.any(
-                                (c) =>
-                                    c.sessions.contains(5) ||
-                                    c.sessions.contains(6),
-                              );
+                              // 实验时段（带 T）无课时默认不显示。
+                              final labSections = <int>{
+                                for (final slot in kTimeSlots)
+                                  if (slot.lab) slot.index,
+                              };
+                              final hideLab = labSections.isNotEmpty &&
+                                  !displayedCourses.any(
+                                    (c) => c.sessions.any(labSections.contains),
+                                  );
                               final timetable = Stack(
                                 fit: StackFit.expand,
                                 children: [
@@ -826,8 +831,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                           showWeekendColumns:
                                               showWeekendColumns,
                                           calendar: semesterCalendar,
-                                          hiddenSlots: hide56
-                                              ? const {5, 6}
+                                          hiddenSlots: hideLab
+                                              ? labSections
                                               : const {},
                                           countdownAnimation:
                                               _conflictCountdownController,
