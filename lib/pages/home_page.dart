@@ -15,6 +15,7 @@ import '../ui/app_components.dart';
 import 'about/disclaimer_page.dart';
 import 'tools/tools_page.dart';
 import 'timetable/timetable_page.dart';
+import '../ui/home_layout.dart';
 import 'profile/profile_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -169,29 +170,10 @@ class HomePageState extends ConsumerState<HomePage> {
             ),
       resizeToAvoidBottomInset: false,
       childPad: false,
-      footer: FBottomNavigationBar(
+      footer: buildHomeNavigationBar(
         key: _navigationKey,
-        style: backgroundVisibleBehindNavigation
-            ? FBottomNavigationBarStyleDelta.delta(
-                decoration: DecorationDelta.boxDelta(
-                  color: const Color(0x00000000),
-                  border: const Border.fromBorderSide(BorderSide.none),
-                ),
-                backgroundFilter: null,
-                slideableItems: FVariantsValueDelta.delta([
-                  FVariantValueDeltaOperation.all(false),
-                ]),
-              )
-            // Remove both the bar and shell footer borders; otherwise the
-            // opaque bar only hides the shell's border underneath it.
-            : FBottomNavigationBarStyleDelta.delta(
-                decoration: DecorationDelta.boxDelta(
-                  border: const Border.fromBorderSide(BorderSide.none),
-                ),
-                slideableItems: FVariantsValueDelta.delta([
-                  FVariantValueDeltaOperation.all(false),
-                ]),
-              ),
+        showServices: showServices,
+        transparent: backgroundVisibleBehindNavigation,
         index: selectedNavigationIndex,
         onChange: (i) {
           final targetTab = visibleTabs[i];
@@ -215,21 +197,6 @@ class HomePageState extends ConsumerState<HomePage> {
             });
           }
         },
-        children: [
-          FBottomNavigationBarItem(
-            icon: Icon(FLucideIcons.calendarDays),
-            label: Text('课表'),
-          ),
-          if (showServices)
-            const FBottomNavigationBarItem(
-              icon: Icon(FLucideIcons.layoutGrid),
-              label: Text('服务'),
-            ),
-          FBottomNavigationBarItem(
-            icon: Icon(FLucideIcons.userRound),
-            label: Text('我的'),
-          ),
-        ],
       ),
       child: MediaQuery.removePadding(
         // 外层 FScaffold 的 footer 已包含底部手势条区域，
@@ -394,19 +361,7 @@ class _KeyboardIsolatedShell extends StatelessWidget {
     // Android freeform/split windows can report system insets that are larger
     // than the available content height. Capping them keeps the page body
     // from being laid out at zero height while retaining a small safe margin.
-    final compactWindow = mediaQuery.size.height < 520;
-    final normalizedMediaQuery = compactWindow
-        ? mediaQuery.copyWith(
-            padding: mediaQuery.padding.copyWith(
-              top: mediaQuery.padding.top.clamp(0.0, 24.0).toDouble(),
-              bottom: mediaQuery.padding.bottom.clamp(0.0, 24.0).toDouble(),
-            ),
-            viewPadding: mediaQuery.viewPadding.copyWith(
-              top: mediaQuery.viewPadding.top.clamp(0.0, 24.0).toDouble(),
-              bottom: mediaQuery.viewPadding.bottom.clamp(0.0, 24.0).toDouble(),
-            ),
-          )
-        : mediaQuery;
+    final normalizedMediaQuery = normalizeHomeMediaQuery(mediaQuery);
     return MediaQuery(
       data: normalizedMediaQuery.copyWith(viewInsets: EdgeInsets.zero),
       child: Builder(

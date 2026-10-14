@@ -24,10 +24,10 @@ import '../../services/widget_service.dart';
 import '../../utils/course_text_parser.dart';
 import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
-import '../../widgets/week_header.dart';
 import '../../ui/app_components.dart';
 import 'course_form_page.dart';
 import 'timetable_grid.dart';
+import 'timetable_layout.dart';
 
 class TimetablePage extends ConsumerStatefulWidget {
   const TimetablePage({super.key});
@@ -728,13 +728,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final coursesAsync = ref.watch(scheduleProvider);
     final secondarySchedule = ref.watch(secondaryScheduleProvider);
     final settings = ref.watch(appSettingsProvider);
-    final weekSource = secondarySchedule.active
-        ? secondarySchedule.courses
-        : (coursesAsync.value ?? const <Course>[]);
-    final currentWeek = semesterCalendar
-        .weekOf(DateTime.now())
-        .clamp(1, _maxDisplayWeek(weekSource))
-        .toInt();
     final showNonCurrentWeekCourses = ref.watch(
       showNonCurrentWeekCoursesProvider,
     );
@@ -769,23 +762,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           child: SafeArea(
             child: Column(
               children: [
-                Consumer(
-                  builder: (context, ref, child) => WeekHeader(
-                    calendar: semesterCalendar,
-                    selectedWeek: ref.watch(selectedWeekProvider),
-                    currentWeek: currentWeek,
-                    onSync: _isSyncing ? null : _confirmSync,
-                    syncing: _isSyncing,
-                    onJumpToCurrentWeek: jumpToCurrentWeek,
-                    onToggleSchedule: secondarySchedule.hasSchedule
-                        ? _toggleSchedule
-                        : null,
-                    showingSecondarySchedule: secondarySchedule.active,
-                    secondaryScheduleTitle: secondarySchedule.title,
-                    // 未登录时只显示日期，不显示「第 N 周」。
-                    showWeekNumber:
-                        ref.watch(configProvider).studentId?.isNotEmpty == true,
-                  ),
+                TimetableWeekHeader(
+                  onSync: _isSyncing ? null : _confirmSync,
+                  syncing: _isSyncing,
+                  onJumpToCurrentWeek: jumpToCurrentWeek,
+                  onToggleSchedule: _toggleSchedule,
                 ),
                 Expanded(
                   child:

@@ -365,6 +365,19 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableSectionHeight(normalized);
   }
 
+  Future<void> resetTimetableSectionHeight() async {
+    final adaptive =
+        measuredAdaptiveSectionHeight.value ??
+        estimateAdaptiveSectionHeight(
+          dayHeaderHeight: state.timetableDayHeaderHeight,
+        );
+    state = state.copyWith(
+      timetableSectionHeight: adaptive,
+      timetableSectionHeightIsCustom: false,
+    );
+    await _storage.clearTimetableSectionHeight();
+  }
+
   Future<void> setTimetableTimeColumnWidth(double value) async {
     final normalized = value.clamp(20.0, 80.0).toDouble();
     state = state.copyWith(timetableTimeColumnWidth: normalized);

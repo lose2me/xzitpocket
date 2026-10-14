@@ -641,11 +641,11 @@ class AppSettings {
   }
 }
 
-/// 每页正好显示的节次数（自适应课节高度的分母）。
+/// 每页正好显示的可见课节行数（隐藏的节次不计入）。
 const kAdaptiveSectionCount = 11;
 
-/// 课表在真实布局时算出的自适应课节高度（仅在未自定义课节高度时写入）。
-/// 设置页用它精确显示「课节高度」的默认位置，避免估算误差。
+/// 课表或设置页布局探针算出的真实自适应高度。
+/// 保留原始值，设置页据此显示默认值和灰线。
 final ValueNotifier<double?> measuredAdaptiveSectionHeight =
     ValueNotifier<double?>(null);
 
@@ -667,7 +667,8 @@ double estimateAdaptiveSectionHeight({double dayHeaderHeight = 40.0}) {
         padding.bottom / scale -
         chromeHeight;
     if (!available.isFinite || available <= 0) return 60.0;
-    return (available / kAdaptiveSectionCount).clamp(40.0, 140.0).toDouble();
+    // 不截断自适应值；设置页会扩展滑杆范围以容纳小窗口与大屏的默认值。
+    return (available / kAdaptiveSectionCount).toDouble();
   } catch (_) {
     return 60.0;
   }
