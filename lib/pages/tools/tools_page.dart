@@ -645,7 +645,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
       ),
-      onPress: _manager.examLoading ? null : _openExamQuery,
+      onPress: _openExamQuery,
       child: Row(
         children: [
           Expanded(
@@ -723,7 +723,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.md,
       ),
-      onPress: _manager.yktLoading ? null : _openYkt,
+      onPress: _openYkt,
       child: Row(
         children: [
           Expanded(
