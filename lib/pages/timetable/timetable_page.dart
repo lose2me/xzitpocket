@@ -866,18 +866,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                               .timetableTodayLineOpacity,
                                           showTodayHorizontalGridLines: settings
                                               .showTodayHorizontalGridLines,
-                                          // 未显式设置课节高度时按可用高度
-                                          // 自适应：一页正好 11 节（需求 11）。
                                           sectionHeight:
-                                              settings
-                                                  .timetableSectionHeightIsCustom
-                                              ? settings.timetableSectionHeight
-                                              : 0,
-                                          visibleSlots:
-                                              settings
-                                                  .timetableSectionHeightIsCustom
-                                              ? 9
-                                              : kAdaptiveSectionCount,
+                                              settings.timetableSectionHeight,
                                           timeColumnWidth:
                                               settings.timetableTimeColumnWidth,
                                           dayHeaderHeight:

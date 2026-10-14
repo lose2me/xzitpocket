@@ -141,7 +141,6 @@ void main() {
       expect(storage.getTimetableCourseCornerRadius(), 6.0);
       expect(storage.getTimetableCourseInnerPadding(), 2.0);
       expect(storage.getTimetableSectionHeight(), 60.0);
-      expect(storage.hasTimetableSectionHeight(), isFalse);
       expect(storage.getTimetableDayHeaderHeight(), 40.0);
       expect(storage.getTimetableCourseOuterPadding(), 1.5);
       expect(storage.getShowCurrentTimeLine(), isTrue);
@@ -239,7 +238,7 @@ void main() {
       expect(storage.getTimetableCountdownBarLengthRatio(), 0.5);
       expect(storage.getTimetableCountdownBarRounded(), isFalse);
       expect(storage.getIgnoreSystemTextScale(), isFalse);
-      expect(storage.hasTimetableSectionHeight(), isTrue);
+      expect(storage.getTimetableSectionHeight(), 72.0);
       expect(storage.getTimetableDashedBorderDensity(), 1.5);
       expect(storage.getTimetablePageTextColor(), 0xFF111111);
       expect(storage.getTimetableLastCustomPageTextColor(), 0xFF121212);
@@ -465,8 +464,8 @@ void main() {
       expect(storage.getTimetableCountdownBarLengthRatio(), 0.75);
       expect(storage.getTimetableCountdownBarRounded(), isTrue);
       expect(storage.getIgnoreSystemTextScale(), isTrue);
-      // 重置后课节高度回到自适应默认（key 已删除）。
-      expect(storage.hasTimetableSectionHeight(), isFalse);
+      // 重置后课节高度回到固定默认值。
+      expect(storage.getTimetableSectionHeight(), 60.0);
       expect(storage.getTimetableDashedBorderDensity(), 1.0);
       expect(storage.getCourseReminderEnabled(), isTrue);
     });

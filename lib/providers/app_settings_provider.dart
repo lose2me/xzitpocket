@@ -91,13 +91,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideTeacher: _storage.getWidgetHideTeacher(),
       widgetHideLocation: _storage.getWidgetHideLocation(),
       widgetHideDate: _storage.getWidgetHideDate(),
-      // 无用户设置时使用自适应默认值（可用高度 / 11，见 estimateAdaptive…）。
-      timetableSectionHeight: _storage.hasTimetableSectionHeight()
-          ? _storage.getTimetableSectionHeight()
-          : estimateAdaptiveSectionHeight(
-              dayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
-            ),
-      timetableSectionHeightIsCustom: _storage.hasTimetableSectionHeight(),
+      timetableSectionHeight: _storage.getTimetableSectionHeight(),
       timetableTimeColumnWidth: _storage.getTimetableTimeColumnWidth(),
       timetableDayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
       timetableCourseCornerRadius: _storage.getTimetableCourseCornerRadius(),
@@ -358,24 +352,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
 
   Future<void> setTimetableSectionHeight(double value) async {
     final normalized = value.clamp(40.0, 140.0).toDouble();
-    state = state.copyWith(
-      timetableSectionHeight: normalized,
-      timetableSectionHeightIsCustom: true,
-    );
+    state = state.copyWith(timetableSectionHeight: normalized);
     await _storage.setTimetableSectionHeight(normalized);
-  }
-
-  Future<void> resetTimetableSectionHeight() async {
-    final adaptive =
-        measuredAdaptiveSectionHeight.value ??
-        estimateAdaptiveSectionHeight(
-          dayHeaderHeight: state.timetableDayHeaderHeight,
-        );
-    state = state.copyWith(
-      timetableSectionHeight: adaptive,
-      timetableSectionHeightIsCustom: false,
-    );
-    await _storage.clearTimetableSectionHeight();
   }
 
   Future<void> setTimetableTimeColumnWidth(double value) async {
@@ -746,11 +724,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideTeacher: defaults.widgetHideTeacher,
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
-      // 重置后课节高度回到自适应默认值（可用高度 / 11）。
-      timetableSectionHeight: estimateAdaptiveSectionHeight(
-        dayHeaderHeight: defaults.timetableDayHeaderHeight,
-      ),
-      timetableSectionHeightIsCustom: false,
+      timetableSectionHeight: defaults.timetableSectionHeight,
       timetableTimeColumnWidth: defaults.timetableTimeColumnWidth,
       timetableDayHeaderHeight: defaults.timetableDayHeaderHeight,
       timetableCourseCornerRadius: defaults.timetableCourseCornerRadius,

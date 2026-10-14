@@ -195,10 +195,6 @@ class AppSettings {
   final bool widgetHideLocation;
   final bool widgetHideDate;
   final double timetableSectionHeight;
-
-  /// 用户是否显式设置过课节高度。未设置时课表按可用高度自适应，
-  /// 保证一页正好显示 11 节（见 timetable_page 的布局逻辑）。
-  final bool timetableSectionHeightIsCustom;
   final double timetableTimeColumnWidth;
   final double timetableDayHeaderHeight;
   final double timetableCourseCornerRadius;
@@ -283,7 +279,6 @@ class AppSettings {
     this.widgetHideLocation = false,
     this.widgetHideDate = false,
     this.timetableSectionHeight = 60.0,
-    this.timetableSectionHeightIsCustom = false,
     this.timetableTimeColumnWidth = 40.0,
     this.timetableDayHeaderHeight = 40.0,
     this.timetableCourseCornerRadius = 6.0,
@@ -368,7 +363,6 @@ class AppSettings {
     bool? widgetHideLocation,
     bool? widgetHideDate,
     double? timetableSectionHeight,
-    bool? timetableSectionHeightIsCustom,
     double? timetableTimeColumnWidth,
     double? timetableDayHeaderHeight,
     double? timetableCourseCornerRadius,
@@ -481,8 +475,6 @@ class AppSettings {
       widgetHideDate: widgetHideDate ?? this.widgetHideDate,
       timetableSectionHeight:
           timetableSectionHeight ?? this.timetableSectionHeight,
-      timetableSectionHeightIsCustom:
-          timetableSectionHeightIsCustom ?? this.timetableSectionHeightIsCustom,
       timetableTimeColumnWidth:
           timetableTimeColumnWidth ?? this.timetableTimeColumnWidth,
       timetableDayHeaderHeight:
@@ -638,38 +630,5 @@ class AppSettings {
       }
     }
     return value;
-  }
-}
-
-/// 每页正好显示的可见课节行数（隐藏的节次不计入）。
-const kAdaptiveSectionCount = 11;
-
-/// 课表或设置页布局探针算出的真实自适应高度。
-/// 保留原始值，设置页据此显示默认值和灰线。
-final ValueNotifier<double?> measuredAdaptiveSectionHeight =
-    ValueNotifier<double?>(null);
-
-/// 估算的自适应课节高度：可用高度 / 11。用于设置页滑杆展示与重置后的
-/// 状态值；课表实际渲染时由布局约束精确计算（sectionHeight 传 0）。
-double estimateAdaptiveSectionHeight({double dayHeaderHeight = 40.0}) {
-  try {
-    final view = WidgetsBinding.instance.platformDispatcher.implicitView;
-    if (view == null) return 60.0;
-    final scale = view.devicePixelRatio;
-    final size = view.physicalSize / scale;
-    final padding = view.viewPadding;
-    // 周头部(≈54) + 日期栏(可调，+1 分隔线) + 底部导航内容(≈50)；
-    // 状态栏与手势条已由上面的 padding 扣除。
-    final chromeHeight = 54.0 + (dayHeaderHeight + 1.0) + 50.0;
-    final available =
-        size.height -
-        padding.top / scale -
-        padding.bottom / scale -
-        chromeHeight;
-    if (!available.isFinite || available <= 0) return 60.0;
-    // 不截断自适应值；设置页会扩展滑杆范围以容纳小窗口与大屏的默认值。
-    return (available / kAdaptiveSectionCount).toDouble();
-  } catch (_) {
-    return 60.0;
   }
 }

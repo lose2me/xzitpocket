@@ -7,7 +7,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/app.dart';
-import 'package:xzitpocket/models/app_settings.dart';
 import 'package:xzitpocket/models/course.dart';
 import 'package:xzitpocket/pages/profile/profile_page.dart';
 import 'package:xzitpocket/pages/profile/profile_components.dart';
@@ -25,7 +24,6 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    measuredAdaptiveSectionHeight.value = null;
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(
@@ -44,41 +42,26 @@ void main() {
     );
   });
 
-  for (final (height, bottomInset, noonCourse) in [
-    (844.0, 34.0, false),
-    (844.0, 0.0, true),
-    (480.0, 48.0, false),
-    (1900.0, 24.0, true),
-  ]) {
-    testWidgets('11 visible rows fill the body ($height, $bottomInset, '
-        'noon course $noonCourse)', (tester) async {
+  for (final noonCourse in [false, true]) {
+    testWidgets('timetable uses the fixed section height and hides the noon '
+        'slots ($noonCourse)', (tester) async {
       await _pumpApp(
         tester,
-        bottomInset: bottomInset,
-        height: height,
+        bottomInset: 34,
         hasCourses: true,
         noonCourse: noonCourse,
         personalization: {'timetable_course_text_template': '{课程}'},
       );
-      final (grid, viewport, column) = _timetableGeometry(tester);
-      expect(column.cellHeight * 11, closeTo(viewport.height, 0.000001));
-      expect(
-        measuredAdaptiveSectionHeight.value,
-        closeTo(column.cellHeight, 0.000001),
-      );
+      final (_, _, column) = _timetableGeometry(tester);
+      expect(column.cellHeight, 60.0);
       expect(column.hiddenSlots, noonCourse ? isEmpty : {5, 6});
-      final row = find.descendant(
-        of: grid,
-        matching: find.byKey(const ValueKey('timetable-grid-cell-0-10')),
-      );
-      expect(tester.getBottomLeft(row).dy, closeTo(viewport.bottom, 0.000001));
       expect(tester.takeException(), isNull);
     });
   }
 
   for (final custom in [false, true]) {
-    testWidgets('cold-start settings keep the default and preview exact '
-        'while Home is covered (custom $custom)', (tester) async {
+    testWidgets('cold-start settings keep the fixed section height and preview '
+        'exactly while Home is covered (custom $custom)', (tester) async {
       await _pumpApp(
         tester,
         bottomInset: 34,
@@ -100,66 +83,34 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       var tile = _sectionHeightTile(tester);
-      final originalDefault = tile.defaultValue;
-      expect(tile.value, custom ? 72 : originalDefault);
+      expect(tile.defaultValue, 60.0);
+      expect(tile.value, custom ? 72.0 : 60.0);
       final context = tester.element(find.byType(TimetableSettingsPage));
       final container = ProviderScope.containerOf(context);
       await container
           .read(appSettingsProvider.notifier)
           .setTimetableDayHeaderHeight(80);
       await tester.pump();
-      await tester.pump();
-      // Finish the tab transition after the layout publishes its measurement.
       await tester.pump(const Duration(milliseconds: 300));
+      // 课节高度是固定值，不随日期栏高度变化。
       tile = _sectionHeightTile(tester);
-      expect(tile.defaultValue, closeTo(originalDefault - 40 / 11, 0.000001));
-      expect(tile.value, custom ? 72 : tile.defaultValue);
-      if (custom) {
-        await tester.tap(find.text('自适应（一屏 11 节）'));
-        await tester.pump();
-        expect(
-          container
-              .read(preferencesStorageProvider)
-              .hasTimetableSectionHeight(),
-          isFalse,
-        );
-        container.invalidate(appSettingsProvider);
-        await tester.pump();
-        expect(
-          container.read(appSettingsProvider).timetableSectionHeightIsCustom,
-          isFalse,
-        );
-        expect(
-          container.read(appSettingsProvider).timetableDayHeaderHeight,
-          80,
-        );
-      }
-      tile = _sectionHeightTile(tester);
+      expect(tile.value, custom ? 72.0 : 60.0);
       await tester.tap(find.text('课程预览'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         tester.widget<TimetableGrid>(find.byType(TimetableGrid)).sectionHeight,
-        tile.defaultValue,
+        tile.value,
       );
-      expect(measuredAdaptiveSectionHeight.value, tile.defaultValue);
       await tester.tap(find.text('课程预览'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      tester.view.physicalSize = const Size(390 * 2.75, 480 * 2.75);
-      await tester.pump();
-      await tester.pump();
-      tile = _sectionHeightTile(tester);
-      expect(tile.defaultValue, lessThan(40));
-      expect(tile.value, tile.defaultValue);
-      expect(tile.min, lessThanOrEqualTo(tile.value));
       Navigator.of(context).pop();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       await _selectTab(tester, '课表');
-      final (_, viewport, column) = _timetableGeometry(tester);
-      expect(column.cellHeight, closeTo(tile.defaultValue, 0.000001));
-      expect(column.cellHeight * 11, closeTo(viewport.height, 0.000001));
+      final (_, _, column) = _timetableGeometry(tester);
+      expect(column.cellHeight, closeTo(tile.value, 0.000001));
       expect(tester.takeException(), isNull);
     });
   }

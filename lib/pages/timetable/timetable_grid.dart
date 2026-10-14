@@ -107,7 +107,6 @@ class TimetableGrid extends StatefulWidget {
   final bool showGridLines;
   final bool showBelowFoldIndicator;
   final double sectionHeight;
-  final ValueChanged<double>? onAdaptiveSectionHeightChanged;
   final bool layoutOnly;
   final double timeColumnWidth;
   final double dayHeaderHeight;
@@ -181,7 +180,6 @@ class TimetableGrid extends StatefulWidget {
     this.showGridLines = true,
     this.showBelowFoldIndicator = true,
     this.sectionHeight = 60.0,
-    this.onAdaptiveSectionHeightChanged,
     this.layoutOnly = false,
     this.timeColumnWidth = 40.0,
     this.dayHeaderHeight = 40.0,
@@ -483,23 +481,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                 sessionToRow[visibleSessions[i]] = i;
               }
 
-              final cellHeight = widget.sectionHeight > 0
-                  ? widget.sectionHeight
-                  : constraints.maxHeight / widget.visibleSlots;
-              // 实际课表与设置页的布局探针都保留未截断的真实高度。
-              if (widget.sectionHeight <= 0 &&
-                  cellHeight.isFinite &&
-                  cellHeight > 0) {
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) {
-                    if (widget.onAdaptiveSectionHeightChanged != null) {
-                      widget.onAdaptiveSectionHeightChanged!(cellHeight);
-                    } else {
-                      measuredAdaptiveSectionHeight.value = cellHeight;
-                    }
-                  }
-                });
-              }
+              final cellHeight = widget.sectionHeight;
               if (widget.layoutOnly) return const SizedBox.expand();
               // The fold marker belongs to the last row that is actually
               // visible in the viewport. A fixed session number becomes
