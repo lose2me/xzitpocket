@@ -66,6 +66,7 @@ void main() {
 
   testWidgets('FAQ page has no in-page action buttons', (tester) async {
     await tester.pumpWidget(host(const FaqPage()));
+    await tester.pumpAndSettle();
 
     expect(find.text('常见问题'), findsOneWidget);
     expect(find.byType(FButton), findsNothing);

@@ -48,3 +48,4 @@ flutter:
   assets:
     - fmd/power/room.db
     - assets/tutorials/
+    - assets/about/
