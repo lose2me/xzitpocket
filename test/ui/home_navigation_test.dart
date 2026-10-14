@@ -50,7 +50,7 @@ void main() {
     (480.0, 48.0, false),
     (1900.0, 24.0, true),
   ]) {
-    testWidgets('11 visible rows fill the body ($height, $bottomInset, '
+    testWidgets('9 visible rows fill the body ($height, $bottomInset, '
         'noon course $noonCourse)', (tester) async {
       await _pumpApp(
         tester,
@@ -61,7 +61,7 @@ void main() {
         personalization: {'timetable_course_text_template': '{课程}'},
       );
       final (grid, viewport, column) = _timetableGeometry(tester);
-      expect(column.cellHeight * 11, closeTo(viewport.height, 0.000001));
+      expect(column.cellHeight * 9, closeTo(viewport.height, 0.000001));
       expect(
         measuredAdaptiveSectionHeight.value,
         closeTo(column.cellHeight, 0.000001),
@@ -69,7 +69,7 @@ void main() {
       expect(column.hiddenSlots, noonCourse ? isEmpty : {5, 6});
       final row = find.descendant(
         of: grid,
-        matching: find.byKey(const ValueKey('timetable-grid-cell-0-10')),
+        matching: find.byKey(const ValueKey('timetable-grid-cell-0-8')),
       );
       expect(tester.getBottomLeft(row).dy, closeTo(viewport.bottom, 0.000001));
       expect(tester.takeException(), isNull);
@@ -112,7 +112,7 @@ void main() {
       // Finish the tab transition after the layout publishes its measurement.
       await tester.pump(const Duration(milliseconds: 300));
       tile = _sectionHeightTile(tester);
-      expect(tile.defaultValue, closeTo(originalDefault - 40 / 11, 0.000001));
+      expect(tile.defaultValue, closeTo(originalDefault - 40 / 9, 0.000001));
       expect(tile.value, custom ? 72 : tile.defaultValue);
       if (custom) {
         await container
@@ -161,7 +161,7 @@ void main() {
       await _selectTab(tester, '课表');
       final (_, viewport, column) = _timetableGeometry(tester);
       expect(column.cellHeight, closeTo(tile.defaultValue, 0.000001));
-      expect(column.cellHeight * 11, closeTo(viewport.height, 0.000001));
+      expect(column.cellHeight * 9, closeTo(viewport.height, 0.000001));
       expect(tester.takeException(), isNull);
     });
   }

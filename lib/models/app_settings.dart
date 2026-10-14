@@ -675,7 +675,7 @@ const kMinUiScale = 0.85;
 const kMaxUiScale = 1.3;
 
 /// 每页正好显示的可见课节行数（隐藏的 5、6 节不计入）。
-const kAdaptiveSectionCount = 11;
+const kAdaptiveSectionCount = 9;
 
 /// 课表或布局测量算出的真实自适应课节高度（未自定义时写入），
 /// 设置页据此显示默认值与滑杆默认线。

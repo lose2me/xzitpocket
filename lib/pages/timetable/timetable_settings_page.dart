@@ -139,7 +139,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     final settings = ref.watch(appSettingsProvider);
     final viewport = MediaQuery.sizeOf(context);
     final scale = timetableViewportScale(viewport);
-    // 未自定义时课节高度走「一屏正好 11 个可见节次」的自适应默认。
+    // 未自定义时课节高度走「一屏正好 9 个可见节次」的自适应默认。
     final adaptiveSectionHeight =
         measuredAdaptiveSectionHeight.value ??
         estimateAdaptiveSectionHeight(
