@@ -62,7 +62,6 @@ class TimetableGrid extends StatefulWidget {
   final DateTime? currentDate;
 
   final SemesterCalendar calendar;
-  final int slotCount;
   final int visibleSlots;
   final Set<int> hiddenSlots;
   final void Function(Course course, int index)? onCourseTap;
@@ -100,7 +99,7 @@ class TimetableGrid extends StatefulWidget {
   /// 并在该课上下边界绘制贯通整行的横线（与今日竖线同色同粗细）。
   final bool showTodayHorizontalGridLines;
 
-  /// 当前时间线：从左侧时间栏延伸出的贯通横线，仅在 8:00-21:20 显示。
+  /// 当前时间线：从左侧时间栏延伸出的贯通横线，仅在首节开始到末节结束之间显示。
   final bool showCurrentTimeLine;
 
   /// 仅用于「当前/下一节课」计算，默认取系统时间；测试可注入固定值。
@@ -142,7 +141,6 @@ class TimetableGrid extends StatefulWidget {
     this.showWeekendColumns = true,
     this.currentDate,
     required this.calendar,
-    this.slotCount = 14,
     this.visibleSlots = 9,
     this.hiddenSlots = const {},
     this.onCourseTap,
@@ -472,7 +470,7 @@ class _TimetableGridState extends State<TimetableGrid> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final visibleSessions = [
-                for (int s = 1; s <= widget.slotCount; s++)
+                for (int s = 1; s <= kTimeSlots.length; s++)
                   if (!widget.hiddenSlots.contains(s)) s,
               ];
               final effectiveSlotCount = visibleSessions.length;
@@ -484,6 +482,17 @@ class _TimetableGridState extends State<TimetableGrid> {
               final cellHeight = widget.sectionHeight > 0
                   ? widget.sectionHeight
                   : constraints.maxHeight / widget.visibleSlots;
+              // 非自定义时，把真实布局算出的课节高度抛给设置页，精确显示默认值。
+              if (widget.sectionHeight <= 0 &&
+                  cellHeight.isFinite &&
+                  cellHeight > 0) {
+                final measured = cellHeight.clamp(40.0, 140.0).toDouble();
+                if (measuredAdaptiveSectionHeight.value != measured) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    measuredAdaptiveSectionHeight.value = measured;
+                  });
+                }
+              }
               // The fold marker belongs to the last row that is actually
               // visible in the viewport. A fixed session number becomes
               // wrong as soon as the user changes the cell height or the
@@ -512,16 +521,20 @@ class _TimetableGridState extends State<TimetableGrid> {
                 }
               }
 
-              // 当前时间线：仅本周页面且处于 8:00-21:20 时显示；节内按时间
-              // 比例插值，课间停在上一节行的底部。
+              // 当前时间线：仅本周页面且处于首节开始到末节结束之间时显示；节内
+              // 按时间比例插值，课间停在上一节行的底部。
               double? currentTimeY;
-              if (widget.showCurrentTimeLine && todayIndex >= 0) {
+              if (widget.showCurrentTimeLine &&
+                  todayIndex >= 0 &&
+                  kTimeSlots.isNotEmpty) {
                 final now = widget.now ?? DateTime.now();
                 final minutes = now.hour * 60 + now.minute;
-                if (minutes >= 8 * 60 && minutes <= 21 * 60 + 20) {
+                final dayStart = _minutesOfDay(kTimeSlots.first.start);
+                final dayEnd = _minutesOfDay(kTimeSlots.last.end);
+                if (minutes >= dayStart && minutes <= dayEnd) {
                   for (var i = 0; i < kTimeSlots.length; i++) {
                     final slot = kTimeSlots[i];
-                    if (slot.index > widget.slotCount) break;
+                    if (slot.index > kTimeSlots.length) break;
                     final start = _minutesOfDay(slot.start);
                     final end = _minutesOfDay(slot.end);
                     if (minutes < start) break;
@@ -559,7 +572,6 @@ class _TimetableGridState extends State<TimetableGrid> {
                           TimeColumn(
                             cellHeight: cellHeight,
                             width: effectiveTimeColumnWidth,
-                            slotCount: widget.slotCount,
                             hiddenSlots: widget.hiddenSlots,
                             textSize: widget.timeTextSize,
                             hideSectionTime: widget.hideSectionTime,

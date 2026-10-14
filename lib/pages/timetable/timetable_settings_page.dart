@@ -63,10 +63,18 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     _templateController = TextEditingController(
       text: ref.read(appSettingsProvider).timetableCourseTextTemplate,
     );
+    measuredAdaptiveSectionHeight.addListener(_onMeasuredSectionHeightChanged);
+  }
+
+  void _onMeasuredSectionHeightChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    measuredAdaptiveSectionHeight.removeListener(
+      _onMeasuredSectionHeightChanged,
+    );
     _templateController.dispose();
     _templateFocusNode.dispose();
     super.dispose();
@@ -128,6 +136,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   @override
   Widget build(BuildContext context) {
     final settings = ref.watch(appSettingsProvider);
+    // 课节高度的默认值：非自定义时优先用课表真实布局算出的高度，否则估算。
+    final adaptiveSectionHeight =
+        measuredAdaptiveSectionHeight.value ??
+        estimateAdaptiveSectionHeight(
+          dayHeaderHeight: settings.timetableDayHeaderHeight,
+        );
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final coursesAsync = ref.watch(scheduleProvider);
     final secondarySchedule = ref.watch(secondaryScheduleProvider);
@@ -389,9 +403,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                         ProfileSettingsSliderTile(
                           icon: FLucideIcons.rows3,
                           title: '课节高度',
-                          value: settings.timetableSectionHeight,
-                          // 与首次安装/重置一致：自适应值（可用高度 / 11）。
-                          defaultValue: estimateAdaptiveSectionHeight(),
+                          // 非自定义时显示真实自适应值，与"一屏正好 11 节"精确一致。
+                          value: settings.timetableSectionHeightIsCustom
+                              ? settings.timetableSectionHeight
+                              : adaptiveSectionHeight,
+                          defaultValue: adaptiveSectionHeight,
                           min: 40,
                           max: 140,
                           suffix: ' px',
@@ -1453,7 +1469,6 @@ class _TimetableGridPreview extends StatelessWidget {
             showWeekendColumns: showWeekendColumns,
             currentDate: previewCurrentDate,
             calendar: semesterCalendar,
-            slotCount: 14,
             visibleSlots: 2,
             borderColor: theme.colors.foreground,
             courseBorderColor: settings.timetableCourseBorderColor,

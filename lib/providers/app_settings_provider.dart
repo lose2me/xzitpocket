@@ -94,7 +94,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       // 无用户设置时使用自适应默认值（可用高度 / 11，见 estimateAdaptive…）。
       timetableSectionHeight: _storage.hasTimetableSectionHeight()
           ? _storage.getTimetableSectionHeight()
-          : estimateAdaptiveSectionHeight(),
+          : estimateAdaptiveSectionHeight(
+              dayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
+            ),
       timetableSectionHeightIsCustom: _storage.hasTimetableSectionHeight(),
       timetableTimeColumnWidth: _storage.getTimetableTimeColumnWidth(),
       timetableDayHeaderHeight: _storage.getTimetableDayHeaderHeight(),
@@ -732,7 +734,9 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       widgetHideLocation: defaults.widgetHideLocation,
       widgetHideDate: defaults.widgetHideDate,
       // 重置后课节高度回到自适应默认值（可用高度 / 11）。
-      timetableSectionHeight: estimateAdaptiveSectionHeight(),
+      timetableSectionHeight: estimateAdaptiveSectionHeight(
+        dayHeaderHeight: defaults.timetableDayHeaderHeight,
+      ),
       timetableSectionHeightIsCustom: false,
       timetableTimeColumnWidth: defaults.timetableTimeColumnWidth,
       timetableDayHeaderHeight: defaults.timetableDayHeaderHeight,

@@ -644,17 +644,23 @@ class AppSettings {
 /// 每页正好显示的节次数（自适应课节高度的分母）。
 const kAdaptiveSectionCount = 11;
 
+/// 课表在真实布局时算出的自适应课节高度（仅在未自定义课节高度时写入）。
+/// 设置页用它精确显示「课节高度」的默认位置，避免估算误差。
+final ValueNotifier<double?> measuredAdaptiveSectionHeight =
+    ValueNotifier<double?>(null);
+
 /// 估算的自适应课节高度：可用高度 / 11。用于设置页滑杆展示与重置后的
 /// 状态值；课表实际渲染时由布局约束精确计算（sectionHeight 传 0）。
-double estimateAdaptiveSectionHeight() {
+double estimateAdaptiveSectionHeight({double dayHeaderHeight = 40.0}) {
   try {
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
     if (view == null) return 60.0;
     final scale = view.devicePixelRatio;
     final size = view.physicalSize / scale;
     final padding = view.viewPadding;
-    // 周头部、日期栏与底部导航的近似占位（与 timetable 布局保持一致的量级）。
-    const chromeHeight = 50.0 + 40.0 + 62.0;
+    // 周头部(≈54) + 日期栏(可调，+1 分隔线) + 底部导航内容(≈50)；
+    // 状态栏与手势条已由上面的 padding 扣除。
+    final chromeHeight = 54.0 + (dayHeaderHeight + 1.0) + 50.0;
     final available =
         size.height -
         padding.top / scale -
