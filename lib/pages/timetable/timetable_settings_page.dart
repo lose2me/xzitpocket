@@ -105,7 +105,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         const SizedBox(height: AppSpacing.md),
         const ProfileSettingsHint(
           '变量：{课程} {教师} {地点} {时间}；'
-          '样式：[b]加粗、[s12]字号(px)、[c#亮色|#暗色]颜色、[左][中][右]对齐，[/] 关闭当前样式。'
+          '样式（闭合标签与开标签同名）：[b]加粗[/b]、[s12]字号(px)[/s12]、'
+          '[c#亮色|#暗色]颜色[/c]、[左][中][右]对齐[/左]。'
           '# 和 @ 均为普通字符。含变量的行在变量为空时整行省略。',
         ),
         const SizedBox(height: AppSpacing.xl),

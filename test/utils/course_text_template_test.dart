@@ -69,6 +69,28 @@ void main() {
       expect(spans[1].fontSize, isNull);
     });
 
+    test('explicit close tags close the matching style', () {
+      final lines = parseCourseTemplate(r'[b][s10]{课程}[/s10][/b]{教师}', values);
+      final spans = lines.single.spans;
+      expect(spans[0].text, '高等数学');
+      expect(spans[0].bold, isTrue);
+      expect(spans[0].fontSize, 10);
+      expect(spans[1].text, '张老师');
+      expect(spans[1].bold, isFalse);
+      expect(spans[1].fontSize, isNull);
+    });
+
+    test('explicit close tags disambiguate nested styles', () {
+      // [b][s12]x[/b]y —— 只关闭加粗，字号仍生效。
+      final lines = parseCourseTemplate(r'[b][s12]{课程}[/b]{教师}[/s12]', values);
+      final spans = lines.single.spans;
+      expect(spans[0].bold, isTrue);
+      expect(spans[0].fontSize, 12);
+      expect(spans[1].text, '张老师');
+      expect(spans[1].bold, isFalse);
+      expect(spans[1].fontSize, 12);
+    });
+
     test('# and @ are ordinary characters', () {
       final lines = parseCourseTemplate(r'#1 @教 {地点}', values);
       expect(plain(lines.single), '#1 @教 教101');
@@ -123,6 +145,7 @@ void main() {
       expect(prompt, contains('[左]'));
       expect(prompt, contains('[中]'));
       expect(prompt, contains('[右]'));
+      expect(prompt, contains('[/b]'));
       expect(prompt, contains(r'[b]{课程}[/]'));
       expect(prompt, contains('请按此语法返回新模板'));
     });
@@ -152,7 +175,7 @@ void main() {
         removeLocationAt: true,
         addBlankLineAfterTitle: true,
       );
-      expect(template, r'[b]{课程}[/]\n\n{时间}\n{地点}\n【{教师}】');
+      expect(template, r'[b]{课程}[/b]\n\n{时间}\n{地点}\n【{教师}】');
     });
   });
 }

@@ -129,7 +129,7 @@ void main() {
       expect(cleaned, isTrue);
       expect(
         storage.getTimetableCourseTextTemplate(),
-        r'[b]{课程}[/]\n{时间}\n{地点}\n【{教师}】',
+        r'[b]{课程}[/b]\n{时间}\n{地点}\n【{教师}】',
       );
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.containsKey('timetable_show_start_time'), isFalse);

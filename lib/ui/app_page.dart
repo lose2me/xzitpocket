@@ -215,7 +215,7 @@ class AppAdaptiveGrid extends StatelessWidget {
   );
 }
 
-class AppPageListView extends StatelessWidget {
+class AppPageListView extends StatefulWidget {
   final List<Widget> children;
   final double maxWidth;
   final double topPadding;
@@ -226,7 +226,7 @@ class AppPageListView extends StatelessWidget {
   final bool primary;
   final bool safeArea;
 
-  /// 显示右侧滚动指示条（长文页面使用）。
+  /// 显示右侧滚动指示条（长文页面默认显示）。
   final bool showScrollbar;
 
   const AppPageListView({
@@ -240,37 +240,63 @@ class AppPageListView extends StatelessWidget {
     this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
     this.primary = true,
     this.safeArea = true,
-    this.showScrollbar = false,
+    this.showScrollbar = true,
   });
 
   @override
+  State<AppPageListView> createState() => _AppPageListViewState();
+}
+
+class _AppPageListViewState extends State<AppPageListView> {
+  // 滚动条需要真实的 controller 才能准确跟踪滚动位置：App 内没有
+  // PrimaryScrollController，仅靠滚动通知时滑块不会随内容移动。
+  ScrollController? _ownController;
+
+  ScrollController? get _scrollController {
+    if (widget.controller != null) return widget.controller;
+    if (!widget.showScrollbar) return null;
+    return _ownController ??= ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _ownController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = _scrollController;
     Widget content = LayoutBuilder(
       builder: (context, constraints) {
         final gutter = AppLayout.pageGutter(context);
         final contentWidth = (constraints.maxWidth - gutter * 2)
-            .clamp(0.0, maxWidth)
+            .clamp(0.0, widget.maxWidth)
             .toDouble();
         final horizontal = (constraints.maxWidth - contentWidth) / 2;
         final list = ListView(
           controller: controller,
-          physics: physics,
-          primary: controller == null ? primary : false,
-          keyboardDismissBehavior: keyboardDismissBehavior,
+          physics: widget.physics,
+          primary: controller == null ? widget.primary : false,
+          keyboardDismissBehavior: widget.keyboardDismissBehavior,
           padding: EdgeInsets.fromLTRB(
             horizontal,
-            topPadding,
+            widget.topPadding,
             horizontal,
-            bottomPadding,
+            widget.bottomPadding,
           ),
-          children: children,
+          children: widget.children,
         );
-        return showScrollbar
-            ? Scrollbar(controller: controller, child: list)
-            : list;
+        // 滑动时显示、停止后淡出（不常驻）。
+        if (!widget.showScrollbar) return list;
+        return Scrollbar(
+          controller: controller,
+          thumbVisibility: false,
+          child: list,
+        );
       },
     );
-    if (safeArea) content = SafeArea(child: content);
+    if (widget.safeArea) content = SafeArea(child: content);
     return content;
   }
 }
@@ -278,7 +304,7 @@ class AppPageListView extends StatelessWidget {
 /// Lazy counterpart of [AppPageListView] for long result sets. Keeping this
 /// separate preserves the simple `children` API for short static pages while
 /// allowing large lists to build only the rows that are visible.
-class AppPageListViewBuilder extends StatelessWidget {
+class AppPageListViewBuilder extends StatefulWidget {
   final IndexedWidgetBuilder itemBuilder;
   final int itemCount;
   final double maxWidth;
@@ -289,6 +315,9 @@ class AppPageListViewBuilder extends StatelessWidget {
   final ScrollViewKeyboardDismissBehavior keyboardDismissBehavior;
   final bool primary;
   final bool safeArea;
+
+  /// 显示右侧滚动指示条（长文页面默认显示）。
+  final bool showScrollbar;
 
   const AppPageListViewBuilder({
     super.key,
@@ -302,34 +331,62 @@ class AppPageListViewBuilder extends StatelessWidget {
     this.keyboardDismissBehavior = ScrollViewKeyboardDismissBehavior.onDrag,
     this.primary = true,
     this.safeArea = true,
+    this.showScrollbar = true,
   }) : assert(itemCount >= 0);
 
   @override
+  State<AppPageListViewBuilder> createState() => _AppPageListViewBuilderState();
+}
+
+class _AppPageListViewBuilderState extends State<AppPageListViewBuilder> {
+  ScrollController? _ownController;
+
+  ScrollController? get _scrollController {
+    if (widget.controller != null) return widget.controller;
+    if (!widget.showScrollbar) return null;
+    return _ownController ??= ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _ownController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = _scrollController;
     Widget content = LayoutBuilder(
       builder: (context, constraints) {
         final gutter = AppLayout.pageGutter(context);
         final contentWidth = (constraints.maxWidth - gutter * 2)
-            .clamp(0.0, maxWidth)
+            .clamp(0.0, widget.maxWidth)
             .toDouble();
         final horizontal = (constraints.maxWidth - contentWidth) / 2;
-        return ListView.builder(
+        final list = ListView.builder(
           controller: controller,
-          physics: physics,
-          primary: controller == null ? primary : false,
-          keyboardDismissBehavior: keyboardDismissBehavior,
+          physics: widget.physics,
+          primary: controller == null ? widget.primary : false,
+          keyboardDismissBehavior: widget.keyboardDismissBehavior,
           padding: EdgeInsets.fromLTRB(
             horizontal,
-            topPadding,
+            widget.topPadding,
             horizontal,
-            bottomPadding,
+            widget.bottomPadding,
           ),
-          itemCount: itemCount,
-          itemBuilder: itemBuilder,
+          itemCount: widget.itemCount,
+          itemBuilder: widget.itemBuilder,
+        );
+        // 滑动时显示、停止后淡出（不常驻）。
+        if (!widget.showScrollbar) return list;
+        return Scrollbar(
+          controller: controller,
+          thumbVisibility: false,
+          child: list,
         );
       },
     );
-    if (safeArea) content = SafeArea(child: content);
+    if (widget.safeArea) content = SafeArea(child: content);
     return content;
   }
 }

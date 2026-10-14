@@ -3,12 +3,12 @@
 /// | 用途 | 写法 | 说明 |
 /// |---|---|---|
 /// | 变量 | `{课程}` `{教师}` `{地点}` `{时间}` | 花括号 |
-/// | 加粗 | `[b]文字[/]` | |
-/// | 字号 | `[s12]文字[/]` | 数字为 px |
-/// | 颜色 | `[c#111827\|#f9fafb]文字[/]` | `\|` 前亮色、后暗色 |
-/// | 靠左 | `[左]文字[/]` | |
-/// | 居中 | `[中]文字[/]` | |
-/// | 靠右 | `[右]文字[/]` | |
+/// | 加粗 | `[b]文字[/b]` | |
+/// | 字号 | `[s12]文字[/s12]` | 数字为 px |
+/// | 颜色 | `[c#111827\|#f9fafb]文字[/c]` | `\|` 前亮色、后暗色 |
+/// | 靠左 | `[左]文字[/左]` | |
+/// | 居中 | `[中]文字[/中]` | |
+/// | 靠右 | `[右]文字[/右]` | |
 ///
 /// `\n`（反斜杠 + n）表示换行。`#`、`@` 均为普通字符。
 /// 无法识别的标记按普通文本渲染，保证模板永不崩溃。
@@ -17,7 +17,7 @@ library;
 import 'dart:ui' show Brightness, Color;
 
 /// 默认模板：等价旧版默认展示（课程名加粗一行 + @地点 明细行）。
-const kDefaultCourseTextTemplate = r'[b]{课程}[/]\n@{地点}';
+const kDefaultCourseTextTemplate = r'[b]{课程}[/b]\n@{地点}';
 
 enum CourseTemplateAlign { left, center, right }
 
@@ -76,7 +76,7 @@ List<CourseTemplateLine> parseCourseTemplate(
 
 CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
   final spans = <CourseTemplateSpan>[];
-  // 样式栈：[/] 关闭最近一层。
+  // 样式栈：保存每个未闭合的样式标签；[/tag] 关闭最近的同类标签。
   final stack = <_TemplateStyle>[];
   var hasVariable = false;
   var nonEmptyVariable = false;
@@ -85,9 +85,17 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
   var index = 0;
   final buffer = StringBuffer();
 
+  _TemplateStyle currentStyle() {
+    var style = const _TemplateStyle();
+    for (final tag in stack) {
+      style = style.merge(tag);
+    }
+    return style;
+  }
+
   void flush() {
     if (buffer.isEmpty) return;
-    final style = stack.isEmpty ? const _TemplateStyle() : stack.last;
+    final style = currentStyle();
     spans.add(
       CourseTemplateSpan(
         text: buffer.toString(),
@@ -98,6 +106,15 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
       ),
     );
     buffer.clear();
+  }
+
+  void closeStyle(_TemplateStyleKind kind) {
+    for (var i = stack.length - 1; i >= 0; i--) {
+      if (stack[i].kind == kind) {
+        stack.removeAt(i);
+        return;
+      }
+    }
   }
 
   while (index < raw.length) {
@@ -111,7 +128,7 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
           hasVariable = true;
           final value = values[name] ?? '';
           if (value.trim().isNotEmpty) nonEmptyVariable = true;
-          final style = stack.isEmpty ? const _TemplateStyle() : stack.last;
+          final style = currentStyle();
           spans.add(
             CourseTemplateSpan(
               text: value,
@@ -130,8 +147,16 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
       if (end > index) {
         final tag = raw.substring(index + 1, end);
         if (tag == '/') {
+          // 兼容旧的通用闭合标记：关闭最近一层。
           flush();
           if (stack.isNotEmpty) stack.removeLast();
+          index = end + 1;
+          continue;
+        }
+        final closing = _parseClosingTag(tag);
+        if (closing != null) {
+          flush();
+          closeStyle(closing);
           index = end + 1;
           continue;
         }
@@ -139,7 +164,7 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
         if (style != null) {
           flush();
           if (style.align != null) lineAlign ??= style.align;
-          stack.add(stack.isEmpty ? style : stack.last.merge(style));
+          stack.add(style);
           index = end + 1;
           continue;
         }
@@ -160,6 +185,8 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
 
 const _knownVariables = {'课程', '教师', '地点', '时间'};
 
+enum _TemplateStyleKind { bold, size, color, align }
+
 class _TemplateStyle {
   final bool bold;
   final double? fontSize;
@@ -175,6 +202,15 @@ class _TemplateStyle {
     this.align,
   });
 
+  /// 该标签引入的样式类型（每个开标签只引入一种）。
+  _TemplateStyleKind? get kind {
+    if (bold) return _TemplateStyleKind.bold;
+    if (fontSize != null) return _TemplateStyleKind.size;
+    if (lightColor != null) return _TemplateStyleKind.color;
+    if (align != null) return _TemplateStyleKind.align;
+    return null;
+  }
+
   _TemplateStyle merge(_TemplateStyle child) => _TemplateStyle(
     bold: child.bold || bold,
     fontSize: child.fontSize ?? fontSize,
@@ -182,6 +218,19 @@ class _TemplateStyle {
     darkColor: child.darkColor ?? darkColor,
     align: child.align ?? align,
   );
+}
+
+/// 解析闭合标签（`/b`、`/s12`、`/s`、`/c`、`/左`…），返回要关闭的样式类型。
+_TemplateStyleKind? _parseClosingTag(String tag) {
+  if (tag == '/b') return _TemplateStyleKind.bold;
+  if (tag == '/c') return _TemplateStyleKind.color;
+  if (tag == '/左' || tag == '/中' || tag == '/右') {
+    return _TemplateStyleKind.align;
+  }
+  if (tag == '/s' || RegExp(r'^/s\d+(?:\.\d+)?$').hasMatch(tag)) {
+    return _TemplateStyleKind.size;
+  }
+  return null;
 }
 
 _TemplateStyle? _parseStyleTag(String tag) {
@@ -224,14 +273,14 @@ Color? _parseHexColor(String value) {
 /// 「复制 AI 提示词」输出：语法表 + 当前模板 + 指令。
 String buildCourseTemplateAiPrompt(String currentTemplate) {
   const syntax = '''
-课程块文字模板语法（单行输入，渲染允许多行，\\n 表示换行，[/] 关闭当前样式）：
+课程块文字模板语法（单行输入，渲染允许多行，\\n 表示换行，闭合标签与开标签同名）：
 - 变量：{课程} {教师} {地点} {时间}
-- 加粗：[b]文字[/]
-- 字号：[s12]文字[/]（数字为 px）
-- 颜色：[c#111827|#f9fafb]文字[/]（| 前亮色、后暗色）
-- 靠左：[左]文字[/]
-- 居中：[中]文字[/]
-- 靠右：[右]文字[/]
+- 加粗：[b]文字[/b]
+- 字号：[s12]文字[/s12]（数字为 px）
+- 颜色：[c#111827|#f9fafb]文字[/c]（| 前亮色、后暗色）
+- 靠左：[左]文字[/左]
+- 居中：[中]文字[/中]
+- 靠右：[右]文字[/右]
 - # 和 @ 均为普通字符，可直接书写''';
   return '$syntax\n\n当前模板：\n$currentTemplate\n\n请按此语法返回新模板。';
 }
@@ -245,7 +294,7 @@ String composeLegacyTemplate({
   required bool removeLocationAt,
   required bool addBlankLineAfterTitle,
 }) {
-  final lines = <String>['[b]{课程}[/]'];
+  final lines = <String>['[b]{课程}[/b]'];
   if (addBlankLineAfterTitle) lines.add('');
   if (showStartTime) lines.add('{时间}');
   if (!hideLocation) lines.add('${removeLocationAt ? '' : '@'}{地点}');
