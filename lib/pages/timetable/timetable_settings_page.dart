@@ -390,8 +390,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                           icon: FLucideIcons.rows3,
                           title: '课节高度',
                           value: settings.timetableSectionHeight,
-                          defaultValue:
-                              const AppSettings().timetableSectionHeight,
+                          // 与首次安装/重置一致：自适应值（可用高度 / 11）。
+                          defaultValue: estimateAdaptiveSectionHeight(),
                           min: 40,
                           max: 140,
                           suffix: ' px',

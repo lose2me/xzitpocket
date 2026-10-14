@@ -256,10 +256,10 @@ abstract final class AppTheme {
       labelTextStyle: inheritedTabs.labelTextStyle,
       indicatorDecoration: inheritedTabs.indicatorDecoration,
       focusedOutlineStyle: inheritedTabs.focusedOutlineStyle,
-      // 垂直尺寸用 Forui 默认（4 + 36 + 4 = 44，间距 10）；仅保留外层直角容器。
-      padding: const EdgeInsets.all(4),
-      minHeight: 36,
-      spacing: 10,
+      // 垂直尺寸取 Forui 默认（4/36/10，栏高 44）与上次（2/30/8，栏高 34）的中间值。
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+      minHeight: 33,
+      spacing: 9,
     );
     return FThemeData(
       touch: true,
