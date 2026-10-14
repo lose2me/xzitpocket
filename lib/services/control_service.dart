@@ -669,23 +669,27 @@ class ControlService {
     if (cachedCalendar != null &&
         prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
       try {
-        schoolCalendarDaysFromJson(cachedCalendar);
+        schoolCalendarPayloadFromJson(cachedCalendar);
         return false;
       } on FormatException {
         // A matching version must still have a valid payload before it can
         // suppress a refresh.
       }
     }
-    final days = await fetchSchoolCalendar();
-    semesterCalendar.replaceDays(days);
-    await prefs.setSchoolCalendarCache(schoolCalendarDaysToJson(days));
+    final payload = await fetchSchoolCalendar();
+    semesterCalendar.replaceDays(payload.days);
+    semesterCalendar.replaceSlots(payload.slots);
+    await prefs.setSchoolCalendarCache(
+      schoolCalendarPayloadToJson(days: payload.days, slots: payload.slots),
+    );
     await prefs.setSchoolCalendarVersion(versions.schoolCalendar);
     return true;
   }
 
-  /// Loads the administrator-managed school calendar. This endpoint is public
-  /// because the calendar contains no account-specific information.
-  Future<List<SchoolDay>> fetchSchoolCalendar() async {
+  /// Loads the administrator-managed school calendar and the timetable periods
+  /// served with it. This endpoint is public because the payload contains no
+  /// account-specific information.
+  Future<SchoolCalendarPayload> fetchSchoolCalendar() async {
     if (!isConfigured) {
       throw const ControlApiException(
         'control_not_configured',
@@ -694,7 +698,7 @@ class ControlService {
     }
     final response = await _request('GET', '/api/v1/school-calendar');
     try {
-      return schoolCalendarDaysFromJson(jsonEncode(response));
+      return schoolCalendarPayloadFromJson(jsonEncode(response));
     } catch (error) {
       final message = error is FormatException
           ? error.message

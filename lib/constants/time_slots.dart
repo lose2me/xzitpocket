@@ -4,9 +4,21 @@ class TimeSlot {
   final String end;
 
   const TimeSlot({required this.index, required this.start, required this.end});
+
+  @override
+  bool operator ==(Object other) =>
+      other is TimeSlot &&
+      other.index == index &&
+      other.start == start &&
+      other.end == end;
+
+  @override
+  int get hashCode => Object.hash(index, start, end);
 }
 
-const List<TimeSlot> kTimeSlots = [
+/// Built-in fallback periods (作息时间), used until xzitpocket-control provides
+/// its own list and whenever the downloaded list is missing or malformed.
+const List<TimeSlot> kDefaultTimeSlots = [
   TimeSlot(index: 1, start: '08:00', end: '08:45'),
   TimeSlot(index: 2, start: '08:55', end: '09:40'),
   TimeSlot(index: 3, start: '10:05', end: '10:50'),
@@ -22,3 +34,42 @@ const List<TimeSlot> kTimeSlots = [
   TimeSlot(index: 13, start: '19:40', end: '20:25'),
   TimeSlot(index: 14, start: '20:35', end: '21:20'),
 ];
+
+/// Active timetable periods. Replaced at runtime from the schedule served by
+/// xzitpocket-control together with the school calendar.
+List<TimeSlot> kTimeSlots = kDefaultTimeSlots;
+
+final RegExp _timeSlotClock = RegExp(r'^([01]\d|2[0-3]):[0-5]\d$');
+
+/// Decodes one control period entry; returns null when it is malformed.
+TimeSlot? timeSlotFromJson(Object? raw) {
+  if (raw is! Map) return null;
+  final index = raw['index'];
+  final start = raw['start'];
+  final end = raw['end'];
+  if (index is! int || start is! String || end is! String) return null;
+  if (!_timeSlotClock.hasMatch(start) || !_timeSlotClock.hasMatch(end)) {
+    return null;
+  }
+  if (start.compareTo(end) >= 0) return null;
+  return TimeSlot(index: index, start: start, end: end);
+}
+
+Map<String, dynamic> timeSlotToJson(TimeSlot slot) => {
+  'index': slot.index,
+  'start': slot.start,
+  'end': slot.end,
+};
+
+/// Decodes control's period list. Anything malformed, out of order, or empty
+/// falls back to [kDefaultTimeSlots] so the timetable always renders.
+List<TimeSlot> timeSlotsFromJson(Object? raw) {
+  if (raw is! List || raw.isEmpty) return kDefaultTimeSlots;
+  final slots = <TimeSlot>[];
+  for (var i = 0; i < raw.length; i++) {
+    final slot = timeSlotFromJson(raw[i]);
+    if (slot == null || slot.index != i + 1) return kDefaultTimeSlots;
+    slots.add(slot);
+  }
+  return slots;
+}

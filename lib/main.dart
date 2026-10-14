@@ -51,7 +51,9 @@ void main() async {
   final cachedCalendar = preferencesStorage.getSchoolCalendarCache();
   if (cachedCalendar != null) {
     try {
-      semesterCalendar.replaceDays(schoolCalendarDaysFromJson(cachedCalendar));
+      final payload = schoolCalendarPayloadFromJson(cachedCalendar);
+      semesterCalendar.replaceDays(payload.days);
+      semesterCalendar.replaceSlots(payload.slots);
     } catch (error, stackTrace) {
       talker.warning('本地校历缓存无效，继续使用内置校历', error, stackTrace);
     }

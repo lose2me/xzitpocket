@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xzitpocket/constants/semester_config.dart';
+import 'package:xzitpocket/constants/time_slots.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
 
 void main() {
@@ -159,5 +160,42 @@ void main() {
       SchoolDay(date: DateTime(2027, 2, 22), adjustment: '').isHoliday,
       isFalse,
     );
+  });
+
+  test('decodes control timetable periods alongside the calendar', () {
+    final payload = schoolCalendarPayloadFromJson(
+      '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
+      '"slots":[{"index":1,"start":"07:30","end":"08:15"},'
+      '{"index":2,"start":"08:25","end":"09:10"}]}',
+    );
+    expect(payload.slots, const [
+      TimeSlot(index: 1, start: '07:30', end: '08:15'),
+      TimeSlot(index: 2, start: '08:25', end: '09:10'),
+    ]);
+  });
+
+  test('falls back to built-in periods when slots are missing or malformed', () {
+    final missing = schoolCalendarPayloadFromJson(
+      '{"days":[{"date":"2027-02-22","name":"","adjustment":""}]}',
+    );
+    expect(missing.slots, kDefaultTimeSlots);
+
+    final malformed = schoolCalendarPayloadFromJson(
+      '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
+      '"slots":[{"index":2,"start":"07:30","end":"08:15"}]}',
+    );
+    expect(malformed.slots, kDefaultTimeSlots);
+  });
+
+  test('roundtrips the calendar payload including periods', () {
+    final json = schoolCalendarPayloadToJson(
+      days: [SchoolDay(date: DateTime(2027, 2, 22))],
+      slots: const [TimeSlot(index: 1, start: '08:00', end: '08:45')],
+    );
+    final payload = schoolCalendarPayloadFromJson(json);
+    expect(payload.days, [SchoolDay(date: DateTime(2027, 2, 22))]);
+    expect(payload.slots, const [
+      TimeSlot(index: 1, start: '08:00', end: '08:45'),
+    ]);
   });
 }

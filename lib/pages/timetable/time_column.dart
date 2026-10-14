@@ -6,7 +6,6 @@ import '../../ui/app_tokens.dart';
 
 class TimeColumn extends StatelessWidget {
   final double cellHeight;
-  final int slotCount;
   final Set<int> hiddenSlots;
   final double textSize;
   final double width;
@@ -23,7 +22,6 @@ class TimeColumn extends StatelessWidget {
   const TimeColumn({
     super.key,
     required this.cellHeight,
-    this.slotCount = 14,
     this.hiddenSlots = const {},
     this.textSize = 11.0,
     this.width = 40.0,
@@ -43,7 +41,7 @@ class TimeColumn extends StatelessWidget {
       child: Column(
         // 让每个节次格占满列宽，高亮背景才能填满整格（左右无空缺）。
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: List.generate(slotCount, (i) {
+        children: List.generate(kTimeSlots.length, (i) {
           if (hiddenSlots.contains(i + 1)) return const SizedBox.shrink();
           final slot = kTimeSlots[i];
           final highlighted =

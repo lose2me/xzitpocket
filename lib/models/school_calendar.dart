@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../constants/time_slots.dart';
+
 /// 校历信息：一学期的每日标记。
 ///
 /// The bundled snapshot is used as an offline fallback. A validated calendar
@@ -256,6 +258,15 @@ class SemesterCalendar extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Replaces the active timetable periods downloaded from control and notifies
+  /// timetable/widget consumers. Malformed input restores the built-in list.
+  void replaceSlots(Iterable<TimeSlot> slots) {
+    final next = List<TimeSlot>.unmodifiable(slots);
+    if (listEquals(kTimeSlots, next)) return;
+    kTimeSlots = next;
+    notifyListeners();
+  }
+
   /// 学期实际开学日，即校历数据中的第一天。
   ///
   /// [start] 是用于周号计算的第 1 周周一；当校历第一天不是周一时，
@@ -312,9 +323,11 @@ List<SchoolDay> _sortedDays(Iterable<SchoolDay> days) {
   return result;
 }
 
-/// Decodes the control-service calendar payload.
-List<SchoolDay> schoolCalendarDaysFromJson(String source) {
-  final decoded = jsonDecode(source);
+/// Decodes the control-service school calendar payload (days only).
+List<SchoolDay> schoolCalendarDaysFromJson(String source) =>
+    _parseSchoolDays(jsonDecode(source));
+
+List<SchoolDay> _parseSchoolDays(Object? decoded) {
   final raw = decoded is Map ? decoded['days'] : null;
   if (raw is! List || raw.isEmpty) {
     throw const FormatException('校历数据为空');
@@ -334,6 +347,32 @@ List<SchoolDay> schoolCalendarDaysFromJson(String source) {
   }
   return sorted;
 }
+
+/// A downloaded calendar payload: the semester days plus the timetable periods
+/// control serves alongside them.
+class SchoolCalendarPayload {
+  final List<SchoolDay> days;
+  final List<TimeSlot> slots;
+
+  const SchoolCalendarPayload({required this.days, required this.slots});
+}
+
+/// Decodes the full control payload (school calendar plus timetable periods).
+SchoolCalendarPayload schoolCalendarPayloadFromJson(String source) {
+  final decoded = jsonDecode(source);
+  return SchoolCalendarPayload(
+    days: _parseSchoolDays(decoded),
+    slots: timeSlotsFromJson(decoded is Map ? decoded['slots'] : null),
+  );
+}
+
+String schoolCalendarPayloadToJson({
+  required Iterable<SchoolDay> days,
+  required List<TimeSlot> slots,
+}) => jsonEncode({
+  'days': [for (final day in _sortedDays(days)) day.toJson()],
+  'slots': [for (final slot in slots) timeSlotToJson(slot)],
+});
 
 String schoolCalendarDaysToJson(Iterable<SchoolDay> days) => jsonEncode({
   'days': [for (final day in _sortedDays(days)) day.toJson()],
