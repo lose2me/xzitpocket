@@ -70,6 +70,6 @@ void main() {
 
     expect(find.text('常见问题'), findsOneWidget);
     expect(find.byType(FButton), findsNothing);
-    expect(find.text('登录后课表没有数据怎么办？'), findsOneWidget);
+    expect(find.textContaining('登录所使用的账户密码是什么'), findsOneWidget);
   });
 }
