@@ -110,4 +110,20 @@ void main() {
     expect(catalog.options.map((option) => option.key), ['2025|3']);
     expect(catalog.current?.label, '大一上学期');
   });
+
+  test('the current semester is the first (newest) catalog option', () {
+    final catalog = buildBookListSemesterCatalog(
+      const GradeResult(
+        grades: [],
+        years: ['2025-2026', '2024-2025'],
+        termsByYear: {
+          '2025-2026': ['1'],
+          '2024-2025': ['1', '2'],
+        },
+      ),
+      '25070100246',
+    );
+
+    expect(catalog.options.first.key, catalog.current?.key);
+  });
 }

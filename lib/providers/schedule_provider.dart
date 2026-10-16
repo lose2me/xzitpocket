@@ -81,6 +81,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
     required String studentName,
     required String collegeName,
     required String className,
+    String majorName = '',
   }) async {
     await ref
         .read(configProvider.notifier)
@@ -89,6 +90,7 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
           studentName: studentName,
           collegeName: collegeName,
           className: className,
+          majorName: majorName,
         );
     if (!_sameCourses(_courses, courses)) {
       await _storage.saveCourses(courses);

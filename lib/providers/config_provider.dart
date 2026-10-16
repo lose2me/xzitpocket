@@ -45,6 +45,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
       studentName: _storage.getStudentName(),
       collegeName: _storage.getCollegeName(),
       className: _storage.getClassName(),
+      majorName: _storage.getMajorName(),
     );
   }
 
@@ -53,6 +54,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
     required String studentName,
     required String collegeName,
     required String className,
+    String majorName = '',
   }) async {
     final previousStudentId = _storage.getStudentId();
     if (previousStudentId != null && previousStudentId != studentId) {
@@ -60,6 +62,8 @@ class ConfigNotifier extends Notifier<UserConfig> {
       await Future.wait([
         _storage.clearUserToolCaches(),
         _storage.clearPowerCache(),
+        // Never reuse another account's upload-dedup state.
+        _storage.setUploadedCoursesHash(null),
       ]);
     }
     await Future.wait([
@@ -69,6 +73,8 @@ class ConfigNotifier extends Notifier<UserConfig> {
       if (state.collegeName != collegeName)
         _storage.setCollegeName(collegeName),
       if (state.className != className) _storage.setClassName(className),
+      if (majorName.isNotEmpty && state.majorName != majorName)
+        _storage.setMajorName(majorName),
     ]);
     // Login succeeded: open the control communication gate before any
     // post-login sync (profile update, question banks, telemetry) runs.
@@ -76,12 +82,14 @@ class ConfigNotifier extends Notifier<UserConfig> {
     if (state.studentId != studentId ||
         state.studentName != studentName ||
         state.collegeName != collegeName ||
-        state.className != className) {
+        state.className != className ||
+        (majorName.isNotEmpty && state.majorName != majorName)) {
       state = state.copyWith(
         studentId: studentId,
         studentName: studentName,
         collegeName: collegeName,
         className: className,
+        majorName: majorName.isNotEmpty ? majorName : null,
       );
     }
   }

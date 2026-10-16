@@ -18,6 +18,7 @@ class LoginResult {
   final String? studentName;
   final String? collegeName;
   final String? className;
+  final String? majorName;
   final List<Course> courses;
 
   LoginResult({
@@ -25,6 +26,7 @@ class LoginResult {
     this.studentName,
     this.collegeName,
     this.className,
+    this.majorName,
     required this.courses,
   });
 }
@@ -918,7 +920,7 @@ class AuthService {
         throw AuthException('解析课表失败：存在课程名称为空的数据');
       }
 
-      final courseId = (c['kch_id'] ?? '') as String;
+      final courseId = (c['kch'] ?? '') as String;
       final colorKey = courseId.isNotEmpty ? courseId : title;
       if (!colorMap.containsKey(colorKey)) {
         colorMap[colorKey] = colorIdx % Course.colors.length;
@@ -960,39 +962,49 @@ class AuthService {
     }
 
     final xsxx = (data['xsxx'] as Map<String, dynamic>?) ?? {};
-    final collegeName = await _fetchCollegeName(dio);
+    final (collegeName, majorName) = await _fetchStudentProfile(dio);
 
     return LoginResult(
       studentId: xsxx['XH']?.toString().trim(),
       studentName: xsxx['XM']?.toString().trim(),
       collegeName: collegeName,
       className: xsxx['BJMC']?.toString().trim(),
+      majorName: majorName,
       courses: courses,
     );
   }
 
-  Future<String> _fetchCollegeName(Dio dio) async {
+  /// Fetches the college and major names from the personal-info page. The
+  /// profile page is supplementary; failures return empty values and never
+  /// fail a successful schedule login.
+  Future<(String, String)> _fetchStudentProfile(Dio dio) async {
     try {
       final response = await dio.get(
         '$jwBaseUrl/xsxxxggl/xsgrxxwh_cxXsgrxx.html?gnmkdm=N100801&layout=default',
         options: Options(responseType: ResponseType.plain),
       );
       final body = response.data?.toString() ?? '';
-      if (body.contains('用户登录')) return '';
+      if (body.contains('用户登录')) return ('', '');
 
       final document = html_parser.parse(body);
+      var collegeName = '';
+      var majorName = '';
       for (final label in document.querySelectorAll('label')) {
-        if (!label.text.replaceAll(RegExp(r'\s+'), '').contains('学院名称')) {
-          continue;
-        }
+        final labelText = label.text.replaceAll(RegExp(r'\s+'), '');
+        final isCollege = labelText.contains('学院名称');
+        final isMajor = labelText.contains('专业名称');
+        if (!isCollege && !isMajor) continue;
         final value = label.parent?.querySelector('.form-control-static')?.text;
         final normalized = value?.replaceAll(RegExp(r'\s+'), ' ').trim() ?? '';
-        if (normalized.isNotEmpty) return normalized;
+        if (normalized.isEmpty) continue;
+        if (isCollege && collegeName.isEmpty) collegeName = normalized;
+        if (isMajor && majorName.isEmpty) majorName = normalized;
       }
+      return (collegeName, majorName);
     } catch (_) {
       // The profile page is supplementary; do not fail a successful schedule login.
     }
-    return '';
+    return ('', '');
   }
 
   Future<BookListResult> _fetchBookList(

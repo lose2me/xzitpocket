@@ -58,7 +58,9 @@ void main() {
 
       expect(cleaned, isTrue);
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.containsKey('major_name'), isFalse);
+      // major_name is a live key again (textbook uploads), so it survives the
+      // upgrade even though past releases deprecated it.
+      expect(prefs.containsKey('major_name'), isTrue);
       expect(prefs.containsKey('timetable_component_opacity'), isFalse);
       expect(prefs.containsKey('timetable_solid_background'), isFalse);
       expect(prefs.getString('student_id'), '20260001');

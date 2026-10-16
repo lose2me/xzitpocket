@@ -611,6 +611,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                 studentName: loginResult.studentName ?? '',
                 collegeName: loginResult.collegeName ?? '',
                 className: loginResult.className ?? '',
+                majorName: loginResult.majorName ?? '',
               );
         } on WidgetSyncException catch (e) {
           if (mounted) {

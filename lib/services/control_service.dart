@@ -234,6 +234,7 @@ class ControlService {
     required String displayName,
     String collegeName = '',
     String className = '',
+    String majorName = '',
     bool forceProfileUpdate = false,
   }) async {
     if (!_communicationAllowed) return;
@@ -246,6 +247,7 @@ class ControlService {
       displayName: displayName.trim(),
       collegeName: collegeName.trim(),
       className: className.trim(),
+      majorName: majorName.trim(),
       forceProfileUpdate: forceProfileUpdate,
     );
     _loginFuture = future;
@@ -263,6 +265,7 @@ class ControlService {
     required String displayName,
     required String collegeName,
     required String className,
+    required String majorName,
     required bool forceProfileUpdate,
     bool retryingDevice = false,
   }) async {
@@ -296,6 +299,7 @@ class ControlService {
           displayName: displayName,
           collegeName: collegeName,
           className: className,
+          majorName: majorName,
           forceProfileUpdate: forceProfileUpdate,
           retryingDevice: true,
         );
@@ -322,6 +326,7 @@ class ControlService {
       'display_name': displayName,
       'college_name': collegeName,
       'class_name': className,
+      'major_name': majorName,
       'asserted_at': assertedAt,
     };
     final signedFields = <String>[
@@ -332,9 +337,10 @@ class ControlService {
       studentId,
       alias,
       displayName,
-      if (collegeName.isNotEmpty || className.isNotEmpty) ...[
+      if (collegeName.isNotEmpty || className.isNotEmpty || majorName.isNotEmpty) ...[
         collegeName,
         className,
+        majorName,
       ],
       assertedAt,
     ];
@@ -365,6 +371,7 @@ class ControlService {
           displayName: displayName,
           collegeName: collegeName,
           className: className,
+          majorName: majorName,
           forceProfileUpdate: forceProfileUpdate,
           retryingDevice: true,
         );
@@ -826,6 +833,51 @@ class ControlService {
       },
       headers: {'Authorization': 'Bearer $token'},
     );
+  }
+
+  /// Uploads the course data the client just fetched at login. One row per
+  /// course number; the server dedupes by code and keeps the display name and
+  /// book list. Fails silently: an upload failure never affects the client.
+  Future<void> uploadCourses({
+    required List<
+            ({
+              String code,
+              String name,
+              List<({String name, String tags})> books,
+            })>
+        items,
+  }) async {
+    await _uploadData(
+      '/api/v1/courses',
+      {
+        'items': [
+          for (final item in items)
+            {
+              'code': item.code,
+              'name': item.name,
+              'books': [
+                for (final book in item.books)
+                  {'name': book.name, 'tags': book.tags},
+              ],
+            },
+        ],
+      },
+      '课程上报失败',
+    );
+  }
+
+  Future<void> _uploadData(String path, Map<String, dynamic> body, String warning) async {
+    if (!isConfigured || !_communicationAllowed) return;
+    try {
+      await _loadState();
+      final pendingLogin = _loginFuture;
+      if (pendingLogin != null) await pendingLogin;
+      final token = await _validAccessToken();
+      if (token == null) return;
+      await _request('POST', path, data: body, headers: {'Authorization': 'Bearer $token'});
+    } catch (error, stackTrace) {
+      talker.warning(warning, error, stackTrace);
+    }
   }
 
   Future<void> logout() async {

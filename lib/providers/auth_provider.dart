@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import '../models/app_settings.dart';
 import 'app_settings_provider.dart';
 import 'config_provider.dart';
 import '../services/auth_service.dart';
+import '../services/course_upload.dart';
 import '../services/cas_service.dart';
 import '../services/control_service.dart';
 import '../services/preferences_storage.dart';
@@ -87,6 +89,13 @@ class AuthNotifier extends Notifier<AuthState> {
         cacheWrites.add(_storage.setBookCache(jsonEncode(bookPage.toJson())));
       }
       await Future.wait(cacheWrites);
+      // Course + book upload to control (fail-open, deduped by content
+      // hash). It never blocks or fails the login itself.
+      unawaited(uploadCoursesAndBooks(
+        storage: _storage,
+        courses: login.courses,
+        books: bookPage?.books,
+      ));
       state = AuthState(
         status: AuthStatus.success,
         courses: login.courses,

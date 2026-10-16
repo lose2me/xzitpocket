@@ -191,6 +191,7 @@ class ToolsDataManager extends ChangeNotifier {
       displayName: displayName,
       collegeName: prefs.getCollegeName() ?? '',
       className: prefs.getClassName() ?? '',
+      majorName: prefs.getMajorName() ?? '',
       forceProfileUpdate: true,
     );
     if (generation != _dataGeneration) return;

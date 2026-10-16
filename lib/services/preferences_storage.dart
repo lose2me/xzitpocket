@@ -14,7 +14,6 @@ class PreferencesStorage {
   /// Keys removed by past releases. They are dropped on the next migration so
   /// upgraded installs keep no stale entries.
   static const _deprecatedKeys = <String>{
-    'major_name',
     'timetable_solid_background',
     'timetable_background_original_path',
     'timetable_background_fullscreen',
@@ -155,6 +154,8 @@ class PreferencesStorage {
     'hidden_service_features': List<String>,
     'school_calendar_cache': String,
     'school_calendar_version': String,
+    // 书单/课程上报去重
+    'uploaded_courses_hash': String,
     // 版本更新数据（按版本持久化）
     'app_release_cache': String,
     // 备用课表
@@ -446,11 +447,19 @@ class PreferencesStorage {
   Future<void> setClassName(String name) =>
       _prefs.setString('class_name', name);
 
+  String? getMajorName() => _prefs.getString('major_name');
+  Future<void> setMajorName(String name) =>
+      _prefs.setString('major_name', name);
+
   Future<void> clearStudentInfo() async {
     await _prefs.remove('student_id');
     await _prefs.remove('student_name');
     await _prefs.remove('college_name');
     await _prefs.remove('class_name');
+    await _prefs.remove('major_name');
+    // Upload dedup hash is scoped to the logged-in account; a different
+    // account must be able to report its own (possibly identical) data.
+    await _prefs.remove('uploaded_courses_hash');
   }
 
   // ── Settings ──
@@ -1264,6 +1273,20 @@ class PreferencesStorage {
 
   Future<void> setSchoolCalendarVersion(String value) =>
       _prefs.setString('school_calendar_version', value);
+
+  // ── Course upload dedup ──
+
+  /// Content hash of the last course upload, so repeated logins skip the
+  /// upload when nothing changed.
+  String? getUploadedCoursesHash() => _prefs.getString('uploaded_courses_hash');
+
+  Future<void> setUploadedCoursesHash(String? value) async {
+    if (value == null || value.isEmpty) {
+      await _prefs.remove('uploaded_courses_hash');
+    } else {
+      await _prefs.setString('uploaded_courses_hash', value);
+    }
+  }
 
   // ── App release (version update) cache ──
 
