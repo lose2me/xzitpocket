@@ -5,8 +5,10 @@ import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/book_list.dart';
+import '../../models/course.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
+import '../../services/course_upload.dart';
 import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
@@ -17,11 +19,16 @@ class BookListPage extends StatefulWidget {
   final String password;
   final PreferencesStorage preferencesStorage;
 
+  /// The current timetable, used to associate the loaded book list with course
+  /// numbers before uploading to control.
+  final List<Course> courses;
+
   const BookListPage({
     super.key,
     required this.studentId,
     required this.password,
     required this.preferencesStorage,
+    this.courses = const [],
   });
 
   @override
@@ -40,7 +47,29 @@ class _BookListPageState extends State<BookListPage> {
   void initState() {
     super.initState();
     _restoreCache();
+    unawaited(_maybeUpload());
     unawaited(_load(showError: false));
+  }
+
+  /// Uploads course + book data when the current semester's list is shown, so
+  /// opening or refreshing the book page also refreshes control. Content-hash
+  /// dedup keeps it a no-op when nothing changed.
+  bool _isCurrentSemester() {
+    final selected = _selectedSemester;
+    if (selected == null || _semesterOptions.isEmpty) return false;
+    return selected.key == _semesterOptions.first.key;
+  }
+
+  Future<void> _maybeUpload() async {
+    final result = _result;
+    if (result == null || widget.courses.isEmpty || !_isCurrentSemester()) {
+      return;
+    }
+    await uploadCoursesAndBooks(
+      storage: widget.preferencesStorage,
+      courses: widget.courses,
+      books: result,
+    );
   }
 
   void _restoreCache() {
@@ -139,6 +168,7 @@ class _BookListPageState extends State<BookListPage> {
         _result = result;
       });
       await _saveCache();
+      unawaited(_maybeUpload());
     } on AuthException catch (error, stackTrace) {
       talker.error('教材查询失败', error, stackTrace);
       if (mounted && showError) {

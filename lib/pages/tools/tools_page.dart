@@ -318,6 +318,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           studentId: creds.studentId,
           password: creds.password,
           preferencesStorage: ref.read(preferencesStorageProvider),
+          courses: ref.read(scheduleProvider).value ?? const [],
         ),
       ),
     );
