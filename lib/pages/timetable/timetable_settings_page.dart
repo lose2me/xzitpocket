@@ -968,6 +968,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setTimetableHideDateUnderDay(value),
                         ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.eye,
+                          title: '显示非本周课程',
+                          value: settings.showNonCurrentWeekCourses,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setShowNonCurrentWeekCourses(value),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xl),

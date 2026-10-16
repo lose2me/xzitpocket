@@ -186,6 +186,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTodayLineWidth: _storage.getTimetableTodayLineWidth(),
       timetableTodayLineOpacity: _storage.getTimetableTodayLineOpacity(),
       showTodayHorizontalGridLines: _storage.getShowTodayHorizontalGridLines(),
+      showNonCurrentWeekCourses: _storage.getShowNonCurrentWeekCourses(),
       useCloudTimetableAdjustments: _storage.getUseCloudTimetableAdjustments(),
       hiddenServiceFeatures: {
         for (final value in _storage.getHiddenServiceFeatures())
@@ -640,6 +641,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setShowTodayHorizontalGridLines(value);
   }
 
+  Future<void> setShowNonCurrentWeekCourses(bool value) async {
+    state = state.copyWith(showNonCurrentWeekCourses: value);
+    await _storage.setShowNonCurrentWeekCourses(value);
+  }
+
   Future<void> setTimetableCourseTextSize(double value) async {
     final normalized = _normalizeTimetableDimension(value, 8.0, 18.0);
     await _storage.setTimetableCourseTextSize(normalized);
@@ -714,6 +720,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableTodayLineWidth: defaults.timetableTodayLineWidth,
       timetableTodayLineOpacity: defaults.timetableTodayLineOpacity,
       showTodayHorizontalGridLines: defaults.showTodayHorizontalGridLines,
+      showNonCurrentWeekCourses: defaults.showNonCurrentWeekCourses,
       widgetThemePreference: defaults.widgetThemePreference,
       widgetFontScale: defaults.widgetFontScale,
       widgetBackgroundAlpha: defaults.widgetBackgroundAlpha,

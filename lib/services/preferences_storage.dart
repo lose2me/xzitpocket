@@ -92,6 +92,7 @@ class PreferencesStorage {
     'timetable_today_line_width': double,
     'timetable_today_line_opacity': double,
     'show_today_horizontal_grid_lines': bool,
+    'show_non_current_week_courses': bool,
     // 课程块
     'timetable_course_corner_radius': double,
     'timetable_course_inner_padding': double,
@@ -341,6 +342,7 @@ class PreferencesStorage {
     'timetable_today_line_width',
     'timetable_today_line_opacity',
     'show_today_horizontal_grid_lines',
+    'show_non_current_week_courses',
   };
 
   Future<void> init() async {
@@ -950,6 +952,12 @@ class PreferencesStorage {
   Future<void> setShowTodayHorizontalGridLines(bool value) =>
       _prefs.setBool('show_today_horizontal_grid_lines', value);
 
+  bool getShowNonCurrentWeekCourses() =>
+      _prefs.getBool('show_non_current_week_courses') ?? false;
+
+  Future<void> setShowNonCurrentWeekCourses(bool value) =>
+      _prefs.setBool('show_non_current_week_courses', value);
+
   String? getTimetableBackgroundPath() =>
       _prefs.getString('timetable_background_path');
 
@@ -1161,6 +1169,7 @@ class PreferencesStorage {
       _prefs.remove('timetable_today_line_width'),
       _prefs.remove('timetable_today_line_opacity'),
       _prefs.remove('show_today_horizontal_grid_lines'),
+      _prefs.remove('show_non_current_week_courses'),
       _prefs.remove('timetable_course_text_size'),
       _prefs.remove('timetable_course_text_opacity'),
       _prefs.remove('timetable_time_text_size'),

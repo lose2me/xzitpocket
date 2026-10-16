@@ -247,6 +247,9 @@ class AppSettings {
   final double timetableTodayLineOpacity;
   final bool showTodayHorizontalGridLines;
 
+  /// 是否在当前周页面显示其他周的课程。
+  final bool showNonCurrentWeekCourses;
+
   /// 当前时间线：从左侧时间栏延伸出的贯通横线，仅在 8:00-21:20 显示。
   final bool showCurrentTimeLine;
 
@@ -335,6 +338,7 @@ class AppSettings {
     this.timetableTodayLineWidth = 2.0,
     this.timetableTodayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
+    this.showNonCurrentWeekCourses = false,
     this.useCloudTimetableAdjustments = true,
     this.hiddenServiceFeatures = const {},
   });
@@ -420,6 +424,7 @@ class AppSettings {
     double? timetableTodayLineWidth,
     double? timetableTodayLineOpacity,
     bool? showTodayHorizontalGridLines,
+    bool? showNonCurrentWeekCourses,
     bool? useCloudTimetableAdjustments,
     Set<AppServiceFeature>? hiddenServiceFeatures,
   }) {
@@ -602,6 +607,8 @@ class AppSettings {
           timetableTodayLineOpacity ?? this.timetableTodayLineOpacity,
       showTodayHorizontalGridLines:
           showTodayHorizontalGridLines ?? this.showTodayHorizontalGridLines,
+      showNonCurrentWeekCourses:
+          showNonCurrentWeekCourses ?? this.showNonCurrentWeekCourses,
       useCloudTimetableAdjustments:
           useCloudTimetableAdjustments ?? this.useCloudTimetableAdjustments,
       hiddenServiceFeatures:

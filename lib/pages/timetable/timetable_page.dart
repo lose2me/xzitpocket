@@ -731,9 +731,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     final settings = ref.watch(appSettingsProvider);
     // 渲染尺寸 = 参考设备设置值 × 当前设备比例（B1）。
     final gridSettings = settings.scaledForViewport(MediaQuery.sizeOf(context));
-    final showNonCurrentWeekCourses = ref.watch(
-      showNonCurrentWeekCoursesProvider,
-    );
+    final showNonCurrentWeekCourses = settings.showNonCurrentWeekCourses;
     final showWeekendColumns = ref.watch(showWeekendColumnsProvider);
     final courseBorderColor = context.theme.colors.foreground;
     final courseOpacity = settings.timetableCourseAlpha;
