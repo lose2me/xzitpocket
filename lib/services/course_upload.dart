@@ -1,15 +1,7 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
-
 import '../models/book_list.dart';
 import '../models/course.dart';
 import 'control_service.dart';
 import 'preferences_storage.dart';
-
-/// Bumped when the upload payload/identity changes, so a previously stored
-/// dedup hash is invalidated and the content is pushed once more.
-const _signatureVersion = 'v2';
 
 /// Uploads the timetable courses together with the book list, deduped by a
 /// content hash stored in [storage]. Textbooks are matched to courses by course
@@ -28,7 +20,10 @@ Future<void> uploadCoursesAndBooks({
     ));
   }
   final byCode =
-      <String, ({String code, String name, List<({String name, String tags})> books})>{};
+      <
+        String,
+        ({String code, String name, List<({String name, String tags})> books})
+      >{};
   for (final course in courses) {
     final code = course.courseId.trim();
     if (code.isEmpty) continue;
@@ -43,16 +38,7 @@ Future<void> uploadCoursesAndBooks({
   }
   if (byCode.isEmpty) return;
   final items = byCode.values.toList();
-  final signature = [
-    _signatureVersion,
-    for (final item in items)
-      '${item.code}\u001e${item.name}\u001e'
-          '${[for (final book in item.books) '${book.name}\u001f${book.tags}'].join('\u001e')}',
-  ]..sort();
-  final hash = sha256.convert(utf8.encode(signature.join('\u001e'))).toString();
-  if (hash == storage.getUploadedCoursesHash()) return;
-  final uploaded = await ControlService.instance.uploadCourses(items: items);
-  if (uploaded) {
-    await storage.setUploadedCoursesHash(hash);
-  }
+  // Upload on every login/refresh. The server upserts, and a locally cached
+  // hash would otherwise hide courses that were removed server-side.
+  await ControlService.instance.uploadCourses(items: items);
 }

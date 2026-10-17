@@ -230,6 +230,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildCourseBody(BuildContext context) {
     final theme = context.theme;
     final banks = _courseBanks();
+    final tabKeys = <String>[
+      if (_textbooks.isNotEmpty) 'textbooks',
+      if (banks.isNotEmpty) 'banks',
+      if (_resources.isNotEmpty) 'resources',
+    ];
     final tabs = <FTabEntry>[
       if (_textbooks.isNotEmpty)
         FTabEntry(label: const Text('教材'), child: _buildTextbookTab(theme)),
@@ -255,6 +260,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 ),
                 Expanded(
                   child: FTabs(
+                    key: ValueKey(tabKeys.join(',')),
                     expands: true,
                     // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
                     contentPhysics: const NeverScrollableScrollPhysics(),
