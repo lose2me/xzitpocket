@@ -57,4 +57,14 @@ class ResourceDownloadService {
     'path': file.path,
     'mime': 'application/pdf',
   });
+
+  /// Opens the system "save as" dialog (SAF) and copies [file] to the chosen
+  /// location. Returns false when the user cancels. Requires no permission.
+  Future<bool> saveToDocuments(File file, String fileName) async {
+    final saved = await _channel.invokeMethod<bool>('saveLocalFile', {
+      'path': file.path,
+      'fileName': fileName,
+    });
+    return saved == true;
+  }
 }

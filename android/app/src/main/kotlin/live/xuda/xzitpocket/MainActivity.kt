@@ -1,5 +1,6 @@
 package live.xuda.xzitpocket
 
+import android.app.Activity
 import android.content.Intent
 import android.Manifest
 import android.net.Uri
@@ -22,6 +23,10 @@ class MainActivity : FlutterActivity() {
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val widgetRefreshExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
+    private var pendingSaveResult: MethodChannel.Result? = null
+    private var pendingSaveFile: File? = null
+    private val saveDocumentRequest = 9002
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Ask Android to schedule frames at the panel's high refresh rate when
@@ -31,6 +36,34 @@ class MainActivity : FlutterActivity() {
                 preferredRefreshRate = 120f
             }
         }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == saveDocumentRequest) {
+            val result = pendingSaveResult
+            val file = pendingSaveFile
+            pendingSaveResult = null
+            pendingSaveFile = null
+            if (result == null) {
+                super.onActivityResult(requestCode, resultCode, data)
+                return
+            }
+            val uri = data?.data
+            if (resultCode != Activity.RESULT_OK || uri == null || file == null) {
+                result.success(false)
+                return
+            }
+            try {
+                contentResolver.openOutputStream(uri)?.use { output ->
+                    file.inputStream().use { input -> input.copyTo(output) }
+                }
+                result.success(true)
+            } catch (error: Exception) {
+                result.error("save_failed", error.message, null)
+            }
+            return
+        }
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onDestroy() {
@@ -118,6 +151,28 @@ class MainActivity : FlutterActivity() {
                 "openBatteryOptimizationSettings" -> {
                     openBatteryOptimizationSettings()
                     result.success(null)
+                }
+
+                "saveLocalFile" -> {
+                    val path = call.argument<String>("path")
+                    val fileName = call.argument<String>("fileName") ?: "document.pdf"
+                    if (path.isNullOrBlank()) {
+                        result.error("invalid_path", "path is required", null)
+                    } else {
+                        val file = File(path)
+                        if (!file.exists()) {
+                            result.error("missing_file", "file does not exist", null)
+                        } else {
+                            pendingSaveResult = result
+                            pendingSaveFile = file
+                            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "application/pdf"
+                                putExtra(Intent.EXTRA_TITLE, fileName)
+                            }
+                            startActivityForResult(intent, saveDocumentRequest)
+                        }
+                    }
                 }
 
                 "openLocalFile" -> {

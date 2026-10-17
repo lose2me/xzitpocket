@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -620,6 +621,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       onTap: entry.hasPdf && !downloading
           ? () => unawaited(_handlePdf(entry))
           : null,
+      onLongPress: entry.hasPdf && downloaded && !downloading
+          ? () => unawaited(_reExportPdf(entry))
+          : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
@@ -721,8 +725,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       );
       if (!mounted) return;
       setState(() => _downloadedIds.add(entry.id));
-      showAppSnackBar(context, '已下载', severity: ToastSeverity.success);
-      await ResourceDownloadService.instance.open(file);
+      await _exportPdf(file, entry.title);
     } catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (mounted) {
@@ -734,6 +737,35 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           _downloadingIds.remove(entry.id);
           _downloadProgress.remove(entry.id);
         });
+      }
+    }
+  }
+
+  Future<void> _reExportPdf(_PdfEntry entry) async {
+    final file = await ResourceDownloadService.instance.fileFor(entry.id);
+    if (!await file.exists()) {
+      if (mounted) setState(() => _downloadedIds.remove(entry.id));
+      return;
+    }
+    await _exportPdf(file, entry.title);
+  }
+
+  Future<void> _exportPdf(File file, String title) async {
+    try {
+      final saved = await ResourceDownloadService.instance.saveToDocuments(
+        file,
+        _pdfFileName(title),
+      );
+      if (!mounted) return;
+      showAppSnackBar(
+        context,
+        saved ? '已保存' : '已下载，未另存',
+        severity: saved ? ToastSeverity.success : ToastSeverity.warning,
+      );
+    } catch (error, stackTrace) {
+      talker.warning('保存 PDF 失败', error, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '已下载，保存失败', severity: ToastSeverity.warning);
       }
     }
   }
