@@ -297,15 +297,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
-        AppSpacing.sm,
+        AppSpacing.xs,
         AppSpacing.lg,
-        AppSpacing.sm,
+        AppSpacing.xs,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildCover(theme, width: 58, height: 78),
-          const SizedBox(width: AppSpacing.lg),
+          _buildCover(theme, width: 40, height: 54),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
