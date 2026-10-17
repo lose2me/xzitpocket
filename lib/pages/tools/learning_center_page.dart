@@ -616,62 +616,72 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final meta = downloading
         ? (progress > 0 ? '下载中 ${(progress * 100).round()}%' : '下载中…')
         : [if (size.isNotEmpty) size, downloaded ? '已下载' : '未下载'].join('  ');
-    return InkWell(
-      borderRadius: BorderRadius.circular(10),
-      onTap: entry.hasPdf && !downloading
-          ? () => unawaited(_handlePdf(entry))
-          : null,
-      onLongPress: entry.hasPdf && downloaded && !downloading
-          ? () => unawaited(_reExportPdf(entry))
-          : null,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _pdfFileName(entry.title),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.body.md.copyWith(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      height: 1.25,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    meta,
-                    style: theme.typography.bodySmall.copyWith(
-                      color: theme.colors.mutedForeground,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+    return Material(
+      color: theme.colors.card,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: entry.hasPdf && !downloading
+            ? () => unawaited(_handlePdf(entry))
+            : null,
+        onLongPress: entry.hasPdf && downloaded && !downloading
+            ? () => unawaited(_reExportPdf(entry))
+            : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colors.border.withValues(alpha: 0.55),
             ),
-            const SizedBox(width: 12),
-            if (downloading)
-              SizedBox(
-                width: 44,
-                height: 56,
-                child: Center(
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      value: progress > 0 ? progress : null,
-                      strokeWidth: 2,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _pdfFileName(entry.title),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.typography.body.md.copyWith(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      meta,
+                      style: theme.typography.bodySmall.copyWith(
+                        color: theme.colors.mutedForeground,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (downloading)
+                SizedBox(
+                  width: 46,
+                  height: 58,
+                  child: Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        value: progress > 0 ? progress : null,
+                        strokeWidth: 2,
+                      ),
                     ),
                   ),
-                ),
-              )
-            else
-              _PdfIcon(color: theme.colors.destructive),
-          ],
+                )
+              else
+                _PdfIcon(color: theme.colors.destructive),
+            ],
+          ),
         ),
       ),
     );
@@ -725,7 +735,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       );
       if (!mounted) return;
       setState(() => _downloadedIds.add(entry.id));
-      await _exportPdf(file, entry.title);
+      await _exportPdf(file, entry.title, firstDownload: true);
     } catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (mounted) {
@@ -750,22 +760,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     await _exportPdf(file, entry.title);
   }
 
-  Future<void> _exportPdf(File file, String title) async {
+  Future<void> _exportPdf(
+    File file,
+    String title, {
+    bool firstDownload = false,
+  }) async {
     try {
       final saved = await ResourceDownloadService.instance.saveToDocuments(
         file,
         _pdfFileName(title),
       );
       if (!mounted) return;
-      showAppSnackBar(
-        context,
-        saved ? '已保存' : '已下载，未另存',
-        severity: saved ? ToastSeverity.success : ToastSeverity.warning,
-      );
+      if (saved) {
+        showAppSnackBar(context, '已保存', severity: ToastSeverity.success);
+      } else {
+        showAppSnackBar(
+          context,
+          firstDownload ? '已下载，未另存' : '已取消保存',
+          severity: ToastSeverity.warning,
+        );
+      }
     } catch (error, stackTrace) {
       talker.warning('保存 PDF 失败', error, stackTrace);
       if (mounted) {
-        showAppSnackBar(context, '已下载，保存失败', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '保存失败，请稍后重试', severity: ToastSeverity.warning);
       }
     }
   }
@@ -1085,24 +1103,82 @@ class _PdfIcon extends StatelessWidget {
   const _PdfIcon({required this.color});
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _DashedBorderPainter(color: color),
-    child: SizedBox(
-      width: 44,
-      height: 56,
-      child: Center(
-        child: Text(
-          'PDF',
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
-          ),
+  Widget build(BuildContext context) =>
+      CustomPaint(size: const Size(46, 58), painter: _PdfIconPainter(color));
+}
+
+class _PdfIconPainter extends CustomPainter {
+  final Color color;
+
+  const _PdfIconPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const fold = 13.0;
+    final w = size.width;
+    final h = size.height;
+    final doc = Path()
+      ..moveTo(1, 1)
+      ..lineTo(w - fold, 1)
+      ..lineTo(w - 1, fold)
+      ..lineTo(w - 1, h - 1)
+      ..lineTo(1, h - 1)
+      ..close();
+    canvas.drawPath(doc, Paint()..color = color.withValues(alpha: 0.08));
+
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    _drawDashed(canvas, doc, stroke);
+    _drawDashed(
+      canvas,
+      Path()
+        ..moveTo(w - fold, 1)
+        ..lineTo(w - fold, fold)
+        ..lineTo(w - 1, fold),
+      stroke,
+    );
+
+    final label = TextPainter(
+      text: TextSpan(
+        text: 'PDF',
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.4,
         ),
       ),
-    ),
-  );
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(
+      canvas,
+      Offset((w - label.width) / 2, (h - label.height) / 2 + 4),
+    );
+  }
+
+  void _drawDashed(Canvas canvas, Path path, Paint paint) {
+    const dash = 4.5;
+    const gap = 3.5;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(
+            distance,
+            math.min(distance + dash, metric.length),
+          ),
+          paint,
+        );
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PdfIconPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _DashedBorderPainter extends CustomPainter {
