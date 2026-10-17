@@ -264,17 +264,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               contentPhysics: const NeverScrollableScrollPhysics(),
               children: [
                 FTabEntry(
-                  label: Text('题库 ${banks.length}'),
+                  label: const Text('题库'),
                   child: _buildBankTab(theme, banks),
                 ),
                 FTabEntry(
-                  label: Text('试卷 ${_resources.length}'),
+                  label: const Text('试卷'),
                   child: _detailsLoading
                       ? _buildDetailsLoading()
                       : _buildResourceTab(theme),
                 ),
                 FTabEntry(
-                  label: Text('电子教材 ${_textbooks.length}'),
+                  label: const Text('教材'),
                   child: _detailsLoading
                       ? _buildDetailsLoading()
                       : _buildTextbookTab(theme),
