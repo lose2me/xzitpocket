@@ -18,8 +18,15 @@ const XTypeGroup _pdfTypeGroup = XTypeGroup(
 
 class ResourceUploadPage extends StatefulWidget {
   final List<ResourceCourse> courses;
+  final String initialKind;
+  final String? initialCourseCode;
 
-  const ResourceUploadPage({super.key, required this.courses});
+  const ResourceUploadPage({
+    super.key,
+    required this.courses,
+    this.initialKind = 'textbook',
+    this.initialCourseCode,
+  });
 
   @override
   State<ResourceUploadPage> createState() => _ResourceUploadPageState();
@@ -27,9 +34,8 @@ class ResourceUploadPage extends StatefulWidget {
 
 class _ResourceUploadPageState extends State<ResourceUploadPage> {
   final _nameController = TextEditingController();
-  final _tagsController = TextEditingController();
   String _kind = 'textbook';
-  late String _courseCode = widget.courses.first.code;
+  late String _courseCode = _initialCourseCode();
   XFile? _file;
   int _fileSize = 0;
   bool _uploading = false;
@@ -37,22 +43,35 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   int _total = 0;
   UploadStats? _stats;
   bool _statsLoading = true;
+  List<CourseTextbookItem> _textbooks = const [];
+  String _selectedTextbookId = '';
+  bool _textbooksLoading = true;
+
+  String _initialCourseCode() {
+    final requested = widget.initialCourseCode?.trim() ?? '';
+    if (requested.isNotEmpty &&
+        widget.courses.any((course) => course.code == requested)) {
+      return requested;
+    }
+    return widget.courses.first.code;
+  }
 
   @override
   void initState() {
     super.initState();
+    _kind = widget.initialKind == 'resource' ? 'resource' : 'textbook';
     unawaited(_loadStats());
+    unawaited(_loadTextbooks());
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _tagsController.dispose();
     super.dispose();
   }
 
   Future<void> _loadStats() async {
-    setState(() => _statsLoading = true);
+    if (!_statsLoading) setState(() => _statsLoading = true);
     try {
       final stats = await ControlService.instance.fetchUploadStats();
       if (!mounted) return;
@@ -62,6 +81,35 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     } finally {
       if (mounted) setState(() => _statsLoading = false);
     }
+  }
+
+  Future<void> _loadTextbooks() async {
+    if (_kind != 'textbook') return;
+    if (!_textbooksLoading) setState(() => _textbooksLoading = true);
+    try {
+      final items = await ControlService.instance.fetchCourseTextbooks(
+        _courseCode,
+      );
+      if (!mounted) return;
+      setState(() {
+        _textbooks = items;
+        if (!items.any((item) => item.id == _selectedTextbookId)) {
+          _selectedTextbookId = items.isEmpty ? '' : items.first.id;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _textbooks = const [];
+        _selectedTextbookId = '';
+      });
+    } finally {
+      if (mounted) setState(() => _textbooksLoading = false);
+    }
+  }
+
+  Future<void> _refreshAll() async {
+    await Future.wait([_loadStats(), _loadTextbooks()]);
   }
 
   Future<void> _pickFile() async {
@@ -84,7 +132,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     setState(() {
       _file = file;
       _fileSize = size;
-      if (_nameController.text.trim().isEmpty) {
+      if (_kind == 'resource' && _nameController.text.trim().isEmpty) {
         _nameController.text = _nameFromFile(file.name);
       }
     });
@@ -93,11 +141,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   Future<void> _submit() async {
     if (_uploading) return;
     final file = _file;
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      showAppSnackBar(context, '请输入资料名称', severity: ToastSeverity.warning);
-      return;
-    }
     if (file == null) {
       showAppSnackBar(context, '请选择 PDF 文件', severity: ToastSeverity.warning);
       return;
@@ -105,6 +148,24 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     if (_courseCode.isEmpty) {
       showAppSnackBar(context, '请选择课程', severity: ToastSeverity.warning);
       return;
+    }
+    CourseTextbookItem? target;
+    String name;
+    String tags = '';
+    if (_kind == 'textbook') {
+      target = _selectedTextbook;
+      if (target == null) {
+        showAppSnackBar(context, '请选择教材', severity: ToastSeverity.warning);
+        return;
+      }
+      name = target.name;
+      tags = target.tags;
+    } else {
+      name = _nameController.text.trim();
+      if (name.isEmpty) {
+        showAppSnackBar(context, '请输入试卷名称', severity: ToastSeverity.warning);
+        return;
+      }
     }
     setState(() {
       _uploading = true;
@@ -118,7 +179,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         kind: _kind,
         courseCode: _courseCode,
         name: name,
-        tags: _tagsController.text,
+        tags: tags,
+        targetId: target?.id ?? '',
         sizeBytes: _fileSize,
       );
       await ControlService.instance.uploadToSignedUrl(
@@ -156,17 +218,28 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     }
   }
 
+  CourseTextbookItem? get _selectedTextbook {
+    for (final item in _textbooks) {
+      if (item.id == _selectedTextbookId) return item;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final canSubmit =
+        !_uploading && (_kind == 'resource' || _selectedTextbookId.isNotEmpty);
     return AppPage(
       title: '上传资源',
       actions: [
         AppIconButton(
           icon: FLucideIcons.refreshCw,
-          onPress: _statsLoading ? null : () => unawaited(_loadStats()),
-          tooltip: '刷新我的数据',
-          loading: _statsLoading,
+          onPress: _statsLoading || _textbooksLoading
+              ? null
+              : () => unawaited(_refreshAll()),
+          tooltip: '刷新数据',
+          loading: _statsLoading || _textbooksLoading,
         ),
       ],
       child: AppPageListView(
@@ -188,43 +261,11 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          _buildStudentCard(theme),
           const SizedBox(height: AppSpacing.xl),
-          Text('上传资料', style: theme.typography.tileTitle),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            '资料类型',
-            style: theme.typography.bodySmall.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
           Row(
             children: [
-              Expanded(
-                child: FButton(
-                  variant: _kind == 'textbook'
-                      ? FButtonVariant.primary
-                      : FButtonVariant.outline,
-                  onPress: _uploading
-                      ? null
-                      : () => setState(() => _kind = 'textbook'),
-                  child: const Text('教材'),
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: FButton(
-                  variant: _kind == 'resource'
-                      ? FButtonVariant.primary
-                      : FButtonVariant.outline,
-                  onPress: _uploading
-                      ? null
-                      : () => setState(() => _kind = 'resource'),
-                  child: const Text('试卷'),
-                ),
-              ),
+              _buildTab(theme, 'textbook', '教材'),
+              _buildTab(theme, 'resource', '试卷'),
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -239,9 +280,13 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             control: FSelectControl.lifted(
               value: _courseCode,
               onChange: (value) {
-                if (value != null && !_uploading) {
-                  setState(() => _courseCode = value);
-                }
+                if (value == null || _uploading || value == _courseCode) return;
+                setState(() {
+                  _courseCode = value;
+                  _selectedTextbookId = '';
+                  _textbooks = const [];
+                });
+                unawaited(_loadTextbooks());
               },
             ),
             format: _courseLabel,
@@ -254,25 +299,67 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          AppTextField(
-            controller: _nameController,
-            label: _kind == 'textbook' ? '教材名称' : '试卷名称',
-            hint: '默认使用 PDF 文件名',
-            enabled: !_uploading,
-            maxLength: 256,
-            clearable: true,
-          ),
           if (_kind == 'textbook') ...[
+            Text(
+              '选择教材',
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            if (_textbooksLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                child: Center(
+                  child: FCircularProgress(
+                    size: FCircularProgressSizeVariant.sm,
+                  ),
+                ),
+              )
+            else if (_textbooks.isEmpty)
+              AppCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                child: Text(
+                  '该课程暂无可上传的教材',
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.mutedForeground,
+                  ),
+                ),
+              )
+            else
+              FSelect<String>.rich(
+                control: FSelectControl.lifted(
+                  value: _selectedTextbookId,
+                  onChange: (value) {
+                    if (value != null && !_uploading) {
+                      setState(() => _selectedTextbookId = value);
+                    }
+                  },
+                ),
+                format: _textbookLabel,
+                children: [
+                  for (final item in _textbooks)
+                    FSelectItem.item(
+                      title: Text(_textbookLabel(item.id)),
+                      value: item.id,
+                    ),
+                ],
+              ),
             const SizedBox(height: AppSpacing.md),
+          ] else ...[
             AppTextField(
-              controller: _tagsController,
-              label: '标签（作者、出版社等，可选）',
+              controller: _nameController,
+              label: '试卷名称',
+              hint: '默认使用 PDF 文件名',
               enabled: !_uploading,
-              maxLength: 1024,
+              maxLength: 256,
               clearable: true,
             ),
+            const SizedBox(height: AppSpacing.md),
           ],
-          const SizedBox(height: AppSpacing.md),
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -332,11 +419,52 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           const SizedBox(height: AppSpacing.lg),
           FButton(
             variant: FButtonVariant.primary,
-            onPress: _uploading ? null : () => unawaited(_submit()),
+            onPress: canSubmit ? () => unawaited(_submit()) : null,
             prefix: const Icon(FLucideIcons.arrowUpToLine),
             child: Text(_uploading ? '上传中...' : '提交审核'),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTab(FThemeData theme, String kind, String label) {
+    final selected = _kind == kind;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: _uploading
+            ? null
+            : () {
+                if (_kind == kind) return;
+                setState(() {
+                  _kind = kind;
+                  if (kind == 'textbook') unawaited(_loadTextbooks());
+                });
+              },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: selected ? theme.colors.primary : theme.colors.border,
+                width: selected ? 2 : 1,
+              ),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: theme.typography.body.md.copyWith(
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected
+                    ? theme.colors.primary
+                    : theme.colors.mutedForeground,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -370,40 +498,12 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     );
   }
 
-  Widget _buildStudentCard(FThemeData theme) {
-    final studentId = _stats?.studentId.trim() ?? '';
-    return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          Icon(FLucideIcons.graduationCap, color: theme.colors.primary),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '上传绑定学号',
-                  style: theme.typography.bodySmall.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  studentId.isEmpty ? '未获取到学号' : studentId,
-                  style: theme.typography.body.md.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  String _textbookLabel(String id) {
+    for (final item in _textbooks) {
+      if (item.id != id) continue;
+      return item.hasPdf ? '${item.name}（已有 PDF）' : item.name;
+    }
+    return id;
   }
 
   String _courseLabel(String code) {

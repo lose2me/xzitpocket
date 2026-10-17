@@ -668,6 +668,7 @@ class ControlService {
     required String name,
     required int sizeBytes,
     String tags = '',
+    String targetId = '',
   }) async {
     if (kind != 'textbook' && kind != 'resource') {
       throw const ControlApiException('invalid_kind', '资料类型无效');
@@ -681,6 +682,7 @@ class ControlService {
         'course_code': courseCode.trim(),
         'name': name.trim(),
         'tags': tags.trim(),
+        if (targetId.trim().isNotEmpty) 'target_id': targetId.trim(),
         'size_bytes': sizeBytes,
       },
       headers: {'Authorization': 'Bearer $token'},

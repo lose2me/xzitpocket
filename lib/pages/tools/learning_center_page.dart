@@ -14,6 +14,7 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_question_list_page.dart';
+import 'resource_upload_page.dart';
 import 'learning_quiz_page.dart';
 
 class LearningCenterPage extends StatefulWidget {
@@ -36,7 +37,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   bool _refreshing = false;
   bool _bankSelectionMode = false;
-  int _selectedTabIndex = 0;
+  final List<bool> _expandedSections = [true, true, true];
   bool _detailsLoading = true;
   final Set<String> _selectedBankKeys = {};
   List<CourseResourceItem> _resources = const [];
@@ -235,119 +236,195 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildCourseBody(BuildContext context) {
     final theme = context.theme;
     final banks = _courseBanks();
-    const labels = ['教材', '题库', '试卷'];
-    // Use the course summary counts while the detail lists are still loading,
-    // so the initial tab is the real first non-empty section instead of
-    // flipping from 题库 to 教材 when the fetch completes.
-    final enabled = [
-      _textbooks.isNotEmpty || (_detailsLoading && course.textbookCount > 0),
-      banks.isNotEmpty || (_detailsLoading && course.questionBankCount > 0),
-      _resources.isNotEmpty || (_detailsLoading && course.resourceCount > 0),
-    ];
-    final children = <Widget>[
-      _buildTextbookTab(theme),
-      _buildBankTab(theme, banks),
-      _buildResourceTab(theme),
-    ];
-    final firstEnabled = enabled.indexOf(true);
-    final selected = firstEnabled < 0
-        ? -1
-        : enabled[_selectedTabIndex]
-        ? _selectedTabIndex
-        : firstEnabled;
-    if (selected >= 0 && selected != _selectedTabIndex) {
-      // Keep the fallback so a later data refresh cannot move the user to a
-      // different tab just because another resource finished loading.
-      _selectedTabIndex = selected;
-    }
-    return AppPageBody(
+    final textbookLoading = _detailsLoading && _textbooks.isEmpty;
+    final bankLoading = _detailsLoading && banks.isEmpty;
+    final resourceLoading = _detailsLoading && _resources.isEmpty;
+    final textbookEnabled = _textbooks.isNotEmpty || textbookLoading;
+    final bankEnabled = banks.isNotEmpty || bankLoading;
+    final resourceEnabled = _resources.isNotEmpty || resourceLoading;
+    return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl,
-              AppSpacing.sm,
-              AppSpacing.lg,
-              AppSpacing.xs,
-            ),
-            child: _buildCourseHeader(theme),
-          ),
-          _buildCourseTabs(theme, labels, enabled, selected),
-          Expanded(
-            child: firstEnabled < 0
-                ? _buildEmpty(theme, _detailsLoading ? '正在加载资源' : '该课程暂无资源')
-                : AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.02, 0),
-                          end: Offset.zero,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    ),
-                    child: KeyedSubtree(
-                      key: ValueKey(selected),
-                      child: children[selected],
-                    ),
-                  ),
-          ),
+      topPadding: AppSpacing.sm,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: _buildCourseHeader(theme),
+        ),
+        _buildSectionHeader(
+          theme,
+          0,
+          '教材',
+          textbookEnabled,
+          _expandedSections[0],
+        ),
+        if (_expandedSections[0]) ...[
+          const SizedBox(height: AppSpacing.sm),
+          if (_textbooks.isNotEmpty)
+            for (final item in _textbooks) ...[
+              _buildPdfTile(
+                theme,
+                _PdfEntry(
+                  id: item.id,
+                  title: item.name,
+                  sizeBytes: item.sizeBytes,
+                  hasPdf: item.hasPdf,
+                  urlLoader: () =>
+                      ControlService.instance.fetchTextbookURL(item.id),
+                ),
+                color: theme.colors.destructive,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ]
+          else if (textbookLoading)
+            _buildLoading()
+          else
+            _buildUploadEmpty(theme, kind: 'textbook', action: '点击上传教材'),
+          const SizedBox(height: AppSpacing.md),
         ],
+        _buildSectionHeader(theme, 1, '题库', bankEnabled, _expandedSections[1]),
+        if (_expandedSections[1]) ...[
+          const SizedBox(height: AppSpacing.sm),
+          if (banks.isNotEmpty)
+            for (final bank in banks) ...[
+              _buildBankCard(theme, bank),
+              const SizedBox(height: AppSpacing.sm),
+            ]
+          else if (bankLoading)
+            _buildLoading()
+          else
+            _buildEmpty(theme, '暂无题库'),
+          const SizedBox(height: AppSpacing.md),
+        ],
+        _buildSectionHeader(
+          theme,
+          2,
+          '试卷',
+          resourceEnabled,
+          _expandedSections[2],
+        ),
+        if (_expandedSections[2]) ...[
+          const SizedBox(height: AppSpacing.sm),
+          if (_resources.isNotEmpty)
+            for (final item in _resources) ...[
+              _buildPdfTile(
+                theme,
+                _PdfEntry(
+                  id: item.id,
+                  title: item.name,
+                  sizeBytes: item.sizeBytes,
+                  hasPdf: item.hasPdf,
+                  urlLoader: () =>
+                      ControlService.instance.fetchResourceURL(item.id),
+                ),
+                color: theme.colors.semantic.info,
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ]
+          else if (resourceLoading)
+            _buildLoading()
+          else
+            _buildUploadEmpty(theme, kind: 'resource', action: '点击上传试卷'),
+          const SizedBox(height: AppSpacing.md),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(
+    FThemeData theme,
+    int index,
+    String label,
+    bool enabled,
+    bool expanded,
+  ) {
+    final lineColor = expanded && enabled
+        ? theme.colors.primary
+        : theme.colors.border;
+    final textColor = !enabled
+        ? theme.colors.mutedForeground.withValues(alpha: 0.4)
+        : expanded
+        ? theme.colors.primary
+        : theme.colors.mutedForeground;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() => _expandedSections[index] = !_expandedSections[index]);
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: lineColor,
+              width: expanded && enabled ? 2 : 1,
+            ),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: theme.typography.body.md.copyWith(
+              fontSize: 13,
+              fontWeight: expanded ? FontWeight.w600 : FontWeight.w500,
+              color: textColor,
+            ),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildCourseTabs(
-    FThemeData theme,
-    List<String> labels,
-    List<bool> enabled,
-    int selected,
-  ) {
-    return Column(
-      children: [
-        for (var index = 0; index < labels.length; index++)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: enabled[index]
-                ? () => setState(() => _selectedTabIndex = index)
-                : null,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(
-                    color: index == selected
-                        ? theme.colors.primary
-                        : theme.colors.border,
-                    width: index == selected ? 2 : 1,
+  Widget _buildUploadEmpty(
+    FThemeData theme, {
+    required String kind,
+    required String action,
+  }) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => unawaited(_openUpload(kind: kind)),
+      child: CustomPaint(
+        painter: _DashedBorderPainter(color: theme.colors.border),
+        child: SizedBox(
+          width: double.infinity,
+          height: 112,
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  FLucideIcons.arrowUpToLine,
+                  color: theme.colors.mutedForeground,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  '暂无资源',
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
                 ),
-              ),
-              child: Center(
-                child: Text(
-                  labels[index],
-                  style: theme.typography.body.md.copyWith(
-                    fontSize: 13,
-                    fontWeight: index == selected
-                        ? FontWeight.w600
-                        : FontWeight.w500,
-                    color: !enabled[index]
-                        ? theme.colors.mutedForeground.withValues(alpha: 0.4)
-                        : index == selected
-                        ? theme.colors.primary
-                        : theme.colors.mutedForeground,
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  action,
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.primary,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-      ],
+        ),
+      ),
     );
   }
+
+  Widget _buildLoading() => const Padding(
+    padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+    child: Center(
+      child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+    ),
+  );
 
   Widget _buildCourseHeader(FThemeData theme) {
     final name = course.name.trim().isEmpty ? course.code : course.name.trim();
@@ -362,14 +439,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
   }
 
-  Widget _buildEmpty(FThemeData theme, String message) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Text(
-        message,
-        style: theme.typography.bodySmall.copyWith(
-          color: theme.colors.mutedForeground,
-        ),
+  Widget _buildEmpty(FThemeData theme, String message) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+    child: Text(
+      message,
+      textAlign: TextAlign.center,
+      style: theme.typography.bodySmall.copyWith(
+        color: theme.colors.mutedForeground,
       ),
     ),
   );
@@ -382,72 +458,21 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ];
   }
 
-  Widget _buildBankTab(FThemeData theme, List<_QuestionBankGroup> banks) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.xxl,
+  Future<void> _openUpload({required String kind}) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final submitted = await Navigator.of(context).push<bool>(
+      appRoute(
+        name: AppRouteNames.resourceUpload,
+        builder: (_) => ResourceUploadPage(
+          courses: [course],
+          initialKind: kind,
+          initialCourseCode: course.code,
+        ),
       ),
-      itemCount: banks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) => _buildBankCard(theme, banks[index]),
     );
-  }
-
-  Widget _buildResourceTab(FThemeData theme) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.xxl,
-      ),
-      itemCount: _resources.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final item = _resources[index];
-        return _buildPdfTile(
-          theme,
-          _PdfEntry(
-            id: item.id,
-            title: item.name,
-            sizeBytes: item.sizeBytes,
-            hasPdf: item.hasPdf,
-            urlLoader: () => ControlService.instance.fetchResourceURL(item.id),
-          ),
-          color: theme.colors.semantic.info,
-        );
-      },
-    );
-  }
-
-  Widget _buildTextbookTab(FThemeData theme) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.xxl,
-      ),
-      itemCount: _textbooks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final item = _textbooks[index];
-        return _buildPdfTile(
-          theme,
-          _PdfEntry(
-            id: item.id,
-            title: item.name,
-            sizeBytes: item.sizeBytes,
-            hasPdf: item.hasPdf,
-            urlLoader: () => ControlService.instance.fetchTextbookURL(item.id),
-          ),
-          color: theme.colors.destructive,
-        );
-      },
-    );
+    if (submitted == true && mounted) {
+      await _loadCourseDetails();
+    }
   }
 
   Widget _buildPdfTile(
@@ -1070,4 +1095,41 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
       ),
     );
   }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+
+  const _DashedBorderPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10)),
+      );
+    const dash = 5.0;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(
+            distance,
+            math.min(distance + dash, metric.length),
+          ),
+          paint,
+        );
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
