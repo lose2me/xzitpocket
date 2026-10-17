@@ -712,7 +712,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ? null
             : () => _enterBankSelectionMode(bank),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
