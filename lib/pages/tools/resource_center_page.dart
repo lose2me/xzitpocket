@@ -160,6 +160,8 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   }
 
   Future<void> _openCourse(BuildContext context, ResourceCourse course) async {
+    // 收起搜索框焦点，返回资源中心时不再自动弹出键盘。
+    FocusManager.instance.primaryFocus?.unfocus();
     await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.learning,

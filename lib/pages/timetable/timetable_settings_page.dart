@@ -258,6 +258,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             child: FTabs(
               scrollable: true,
               expands: true,
+              // 个性化设置的 Tab 文案比全局略小。
+              style: FTabsStyleDelta.delta(
+                labelTextStyle: FVariantsDelta.delta([
+                  FVariantOperation.all(TextStyleDelta.delta(fontSize: 12)),
+                ]),
+              ),
               // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
               contentPhysics: const NeverScrollableScrollPhysics(),
               children: [

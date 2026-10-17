@@ -43,7 +43,11 @@ Route<T> appRoute<T>({
   fullscreenDialog: fullscreenDialog,
   transitionDuration: AppMotion.standard,
   reverseTransitionDuration: AppMotion.fast,
-  pageBuilder: (context, animation, secondaryAnimation) => builder(context),
+  pageBuilder: (context, animation, secondaryAnimation) {
+    // 进入新页面前清掉上一页的焦点，返回时不会自动聚焦到搜索框等输入框。
+    FocusManager.instance.primaryFocus?.unfocus();
+    return builder(context);
+  },
   transitionsBuilder: (context, animation, secondaryAnimation, child) {
     final offset = Tween<Offset>(
       begin: const Offset(0.025, 0),
