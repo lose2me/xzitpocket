@@ -21,6 +21,7 @@ abstract final class AppRouteNames {
   static const repairDetail = '/tools/repair/detail';
   static const newRepair = '/tools/repair/new';
   static const learning = '/tools/learning';
+  static const resourceUpload = '/tools/learning/upload';
   static const learningQuestionBank = '/tools/learning/questions';
   static const learningWrongQuestions = '/tools/learning/wrong';
   static const learningFavorites = '/tools/learning/favorites';

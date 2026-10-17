@@ -46,6 +46,24 @@ class ResourceUploadTicket {
   const ResourceUploadTicket({required this.id, required this.uploadUrl});
 }
 
+class UploadStats {
+  final int contributionCount;
+  final int downloadCount;
+  final String studentId;
+
+  const UploadStats({
+    required this.contributionCount,
+    required this.downloadCount,
+    required this.studentId,
+  });
+
+  factory UploadStats.fromJson(Map<String, dynamic> json) => UploadStats(
+    contributionCount: _asInt(json['contribution_count']) ?? 0,
+    downloadCount: _asInt(json['download_count']) ?? 0,
+    studentId: json['student_id']?.toString() ?? '',
+  );
+}
+
 class ControlApiException implements Exception {
   final String code;
   final String message;
@@ -585,6 +603,11 @@ class ControlService {
   }
 
   /// Courses that have at least one bank, resource or textbook.
+  Future<UploadStats> fetchUploadStats() async {
+    final response = await _userGet('/api/v1/resource-center/upload-stats');
+    return UploadStats.fromJson(response);
+  }
+
   Future<List<ResourceCourse>> fetchResourceCourses() async {
     final response = await _userGet('/api/v1/resource-center/courses');
     final items = response['items'];

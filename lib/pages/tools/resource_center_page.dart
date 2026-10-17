@@ -11,7 +11,7 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_center_page.dart';
-import 'resource_upload_sheet.dart';
+import 'resource_upload_page.dart';
 
 class ResourceCenterPage extends StatefulWidget {
   final LearningRepository repository;
@@ -186,9 +186,11 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
       showAppSnackBar(context, '暂无可上传的课程', severity: ToastSeverity.warning);
       return;
     }
-    final submitted = await showResourceUploadSheet(
-      context: context,
-      courses: courses,
+    final submitted = await Navigator.of(context).push<bool>(
+      appRoute(
+        name: AppRouteNames.resourceUpload,
+        builder: (_) => ResourceUploadPage(courses: courses),
+      ),
     );
     if (submitted != true || !mounted) return;
     showAppSnackBar(
