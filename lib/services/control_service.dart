@@ -39,6 +39,13 @@ class ControlConfigVersions {
   const ControlConfigVersions({required this.schoolCalendar});
 }
 
+class ResourceUploadTicket {
+  final String id;
+  final String uploadUrl;
+
+  const ResourceUploadTicket({required this.id, required this.uploadUrl});
+}
+
 class ControlApiException implements Exception {
   final String code;
   final String message;
@@ -628,6 +635,119 @@ class ControlService {
       '/api/v1/textbooks/${Uri.encodeComponent(id)}/url?kind=${Uri.encodeQueryComponent(kind)}',
     );
     return response['url']?.toString() ?? '';
+  }
+
+  /// Creates a short-lived COS upload ticket. The PDF is then PUT directly to
+  /// [ResourceUploadTicket.uploadUrl], bypassing the control server's uplink.
+  Future<ResourceUploadTicket> createResourceUploadTicket({
+    required String kind,
+    required String courseCode,
+    required String name,
+    required int sizeBytes,
+    String tags = '',
+  }) async {
+    if (kind != 'textbook' && kind != 'resource') {
+      throw const ControlApiException('invalid_kind', '资料类型无效');
+    }
+    final token = await _requireUserToken('请先登录后上传资料');
+    final response = await _request(
+      'POST',
+      '/api/v1/resource-center/submissions',
+      data: {
+        'kind': kind,
+        'course_code': courseCode.trim(),
+        'name': name.trim(),
+        'tags': tags.trim(),
+        'size_bytes': sizeBytes,
+      },
+      headers: {'Authorization': 'Bearer $token'},
+    );
+    final id = response['id']?.toString() ?? '';
+    final uploadUrl = response['upload_url']?.toString() ?? '';
+    if (id.isEmpty || uploadUrl.isEmpty) {
+      throw const ControlApiException('invalid_upload_ticket', '服务端返回的上传信息无效');
+    }
+    return ResourceUploadTicket(id: id, uploadUrl: uploadUrl);
+  }
+
+  /// Uploads the selected file straight to COS. The signed URL is scoped to
+  /// one object and expires quickly.
+  Future<void> uploadToSignedUrl(
+    String url, {
+    required String filePath,
+    required int sizeBytes,
+    ProgressCallback? onProgress,
+  }) async {
+    final file = File(filePath);
+    if (!await file.exists()) {
+      throw const ControlApiException('file_missing', '文件不存在');
+    }
+    late final Response<dynamic> response;
+    try {
+      response = await _dio.put<dynamic>(
+        url,
+        data: file.openRead(),
+        options: Options(
+          contentType: 'application/pdf',
+          responseType: ResponseType.plain,
+          headers: {Headers.contentLengthHeader: sizeBytes.toString()},
+          sendTimeout: const Duration(minutes: 10),
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+        onSendProgress: onProgress,
+      );
+    } on DioException catch (error) {
+      throw ControlApiException(
+        'upload_failed',
+        '上传文件失败',
+        error.response?.statusCode,
+      );
+    }
+    final status = response.statusCode ?? 0;
+    if (status < 200 || status >= 300) {
+      throw ControlApiException('upload_failed', '上传文件失败', status);
+    }
+  }
+
+  /// Verifies the direct upload on control and moves it into the review queue.
+  Future<void> completeResourceUpload(String id) async {
+    final token = await _requireUserToken('请先登录后上传资料');
+    await _request(
+      'POST',
+      '/api/v1/resource-center/submissions/${Uri.encodeComponent(id)}/complete',
+      headers: {'Authorization': 'Bearer $token'},
+    );
+  }
+
+  /// Best-effort cleanup when the direct upload fails before completion.
+  Future<void> abortResourceUpload(String id) async {
+    try {
+      final token = await _requireUserToken('请先登录后上传资料');
+      await _request(
+        'DELETE',
+        '/api/v1/resource-center/submissions/${Uri.encodeComponent(id)}',
+        headers: {'Authorization': 'Bearer $token'},
+      );
+    } catch (_) {
+      // The server also expires stale tickets.
+    }
+  }
+
+  Future<String> _requireUserToken(String loginMessage) async {
+    if (!isConfigured) {
+      throw const ControlApiException(
+        'control_not_configured',
+        'Control 服务地址未配置',
+      );
+    }
+    await initialize();
+    final pendingLogin = _loginFuture;
+    if (pendingLogin != null) await pendingLogin;
+    final token = await _validAccessToken();
+    if (token == null) {
+      throw ControlApiException('control_login_required', loginMessage, 401);
+    }
+    return token;
   }
 
   Future<void> redeemLibraryCdk(String code, String questionBankId) async {

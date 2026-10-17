@@ -9,12 +9,22 @@ import '../../services/control_service.dart';
 import '../../services/learning_repository.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
+import '../../utils/snackbar_helper.dart';
 import 'learning_center_page.dart';
+import 'resource_upload_sheet.dart';
 
 class ResourceCenterPage extends StatefulWidget {
   final LearningRepository repository;
 
-  const ResourceCenterPage({super.key, required this.repository});
+  /// Courses from the local timetable, which also lets a course receive its
+  /// first upload before the resource centre lists it.
+  final List<ResourceCourse> localCourses;
+
+  const ResourceCenterPage({
+    super.key,
+    required this.repository,
+    this.localCourses = const [],
+  });
 
   @override
   State<ResourceCenterPage> createState() => _ResourceCenterPageState();
@@ -90,6 +100,11 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
           tooltip: '刷新资源',
           loading: _refreshing,
         ),
+        AppIconButton(
+          icon: FLucideIcons.plus,
+          onPress: _loading ? null : () => unawaited(_openUpload()),
+          tooltip: '上传教材或试卷',
+        ),
       ],
       child: _loading
           ? const AppStateView(icon: FLucideIcons.library, title: '正在加载资源')
@@ -156,6 +171,30 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _openUpload() async {
+    final byCode = <String, ResourceCourse>{};
+    for (final course in [...widget.localCourses, ..._courses]) {
+      final code = course.code.trim();
+      if (code.isEmpty) continue;
+      byCode.putIfAbsent(code, () => course);
+    }
+    final courses = byCode.values.toList();
+    if (courses.isEmpty) {
+      showAppSnackBar(context, '暂无可上传的课程', severity: ToastSeverity.warning);
+      return;
+    }
+    final submitted = await showResourceUploadSheet(
+      context: context,
+      courses: courses,
+    );
+    if (submitted != true || !mounted) return;
+    showAppSnackBar(
+      context,
+      '已提交审核，通过后会出现在资源中心',
+      severity: ToastSeverity.success,
     );
   }
 

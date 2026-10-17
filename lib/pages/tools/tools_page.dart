@@ -7,6 +7,7 @@ import 'package:forui/forui.dart';
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../models/app_settings.dart';
+import '../../models/resource_center.dart';
 import '../../providers/app_settings_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/credential_storage.dart';
@@ -246,6 +247,13 @@ class ToolsPageState extends ConsumerState<ToolsPage>
           : null,
     );
     if (!mounted) return;
+    final localCourses = <ResourceCourse>[];
+    final seenCodes = <String>{};
+    for (final course in ref.read(scheduleProvider).value ?? const []) {
+      final code = course.courseId.trim();
+      if (code.isEmpty || !seenCodes.add(code)) continue;
+      localCourses.add(ResourceCourse(code: code, name: course.title));
+    }
     unawaited(
       control.track(
         'library_open',
@@ -255,7 +263,10 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.learning,
-        builder: (_) => ResourceCenterPage(repository: repository),
+        builder: (_) => ResourceCenterPage(
+          repository: repository,
+          localCourses: localCourses,
+        ),
       ),
     );
   }
