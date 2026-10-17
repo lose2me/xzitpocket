@@ -182,7 +182,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget build(BuildContext context) {
     final loading = !repository.isLoaded;
     return AppPage(
-      title: '课程资源',
+      title: '',
       actions: loading
           ? const [
               AppIconButton(
