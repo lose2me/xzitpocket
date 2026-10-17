@@ -265,13 +265,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           Expanded(
             child: FTabs(
               expands: true,
-              // 课程资源页的 Tab 更紧凑。
-              style: FTabsStyleDelta.delta(
-                minHeight: 34,
-                labelTextStyle: FVariantsDelta.delta([
-                  FVariantOperation.all(TextStyleDelta.delta(fontSize: 13)),
-                ]),
-              ),
               // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
               contentPhysics: const NeverScrollableScrollPhysics(),
               children: [
@@ -304,14 +297,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xl,
-        AppSpacing.md,
+        AppSpacing.sm,
         AppSpacing.lg,
-        AppSpacing.md,
+        AppSpacing.sm,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildCover(theme, width: 66, height: 88),
+          _buildCover(theme, width: 58, height: 78),
           const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Column(
@@ -606,7 +599,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.xs,
+        AppSpacing.sm,
         AppSpacing.lg,
         AppSpacing.xxl,
       ),
@@ -636,7 +629,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ? () => unawaited(_reExportPdf(entry))
             : null,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -654,17 +647,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
-                        fontSize: 16.5,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       meta,
                       style: theme.typography.bodySmall.copyWith(
                         color: theme.colors.mutedForeground,
-                        fontSize: 13,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -673,8 +666,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(width: 12),
               if (downloading)
                 SizedBox(
-                  width: 46,
-                  height: 58,
+                  width: 42,
+                  height: 54,
                   child: Center(
                     child: SizedBox(
                       width: 24,
@@ -1112,7 +1105,7 @@ class _PdfIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      CustomPaint(size: const Size(46, 58), painter: _PdfIconPainter(color));
+      CustomPaint(size: const Size(42, 54), painter: _PdfIconPainter(color));
 }
 
 class _PdfIconPainter extends CustomPainter {
@@ -1122,7 +1115,7 @@ class _PdfIconPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const fold = 13.0;
+    const fold = 11.0;
     final w = size.width;
     final h = size.height;
     final doc = Path()
@@ -1153,7 +1146,7 @@ class _PdfIconPainter extends CustomPainter {
         text: 'PDF',
         style: TextStyle(
           color: color,
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w800,
           letterSpacing: 0.4,
         ),

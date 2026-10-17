@@ -259,6 +259,7 @@ abstract final class AppTheme {
       labelTextStyle: FVariants.from(
         typography.body.md.copyWith(
           color: colors.mutedForeground,
+          fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
         variants: {
@@ -273,7 +274,7 @@ abstract final class AppTheme {
       ),
       focusedOutlineStyle: inheritedTabs.focusedOutlineStyle,
       padding: EdgeInsets.zero,
-      minHeight: 42,
+      minHeight: 34,
       spacing: 0,
     );
     return FThemeData(

@@ -260,6 +260,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
               expands: true,
               // 个性化设置的 Tab 文案比全局略小。
               style: FTabsStyleDelta.delta(
+                minHeight: 42,
                 labelTextStyle: FVariantsDelta.delta([
                   FVariantOperation.all(TextStyleDelta.delta(fontSize: 12)),
                 ]),
