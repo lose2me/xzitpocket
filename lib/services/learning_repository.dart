@@ -515,6 +515,14 @@ class LearningRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> removeWrongQuestions(Iterable<String> questionIds) async {
+    final ids = questionIds.toSet();
+    if (ids.isEmpty || !_wrongIds.any(ids.contains)) return;
+    _wrongIds.removeWhere(ids.contains);
+    await _persistState();
+    notifyListeners();
+  }
+
   Future<bool> submitAnswer(
     String questionId,
     Iterable<String> optionIds,

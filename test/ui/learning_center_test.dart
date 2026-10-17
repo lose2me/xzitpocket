@@ -71,6 +71,7 @@ void main() {
 
     await pumpCenter(tester, repository);
 
+    // ignore: avoid_print
     expect(find.text('在线题库'), findsOneWidget);
     // A single term is displayed without a redundant section heading.
     expect(find.text('最新题库'), findsNothing);

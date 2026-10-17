@@ -11,11 +11,13 @@ enum LearningListKind { bank, wrong, favorite }
 class LearningQuestionListPage extends StatefulWidget {
   final LearningRepository repository;
   final LearningListKind kind;
+  final String courseCode;
 
   const LearningQuestionListPage({
     super.key,
     required this.repository,
     required this.kind,
+    this.courseCode = '',
   });
 
   @override
@@ -54,7 +56,16 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           if (repository.favoriteIds.contains(question.id)) question,
       ],
     };
-    return questions;
+    final courseCode = widget.courseCode.trim();
+    if (courseCode.isEmpty) return questions;
+    final bankIds = {
+      for (final bank in repository.banks)
+        if (bank.courseCodes.contains(courseCode)) bank.id,
+    };
+    return [
+      for (final question in questions)
+        if (bankIds.contains(question.bankId)) question,
+    ];
   }
 
   List<_QuestionBankGroup> get _groupedQuestions {
@@ -194,9 +205,21 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           questions.map((question) => question.id),
         );
       case LearningListKind.wrong:
-        await repository.clearWrongQuestions();
+        if (widget.courseCode.trim().isEmpty) {
+          await repository.clearWrongQuestions();
+        } else {
+          await repository.removeWrongQuestions(
+            questions.map((question) => question.id),
+          );
+        }
       case LearningListKind.favorite:
-        await repository.clearFavorites();
+        if (widget.courseCode.trim().isEmpty) {
+          await repository.clearFavorites();
+        } else {
+          await repository.removeFavorites(
+            questions.map((question) => question.id),
+          );
+        }
     }
   }
 

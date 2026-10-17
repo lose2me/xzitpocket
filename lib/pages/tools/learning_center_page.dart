@@ -36,6 +36,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   bool _refreshing = false;
   bool _bankSelectionMode = false;
+  int _selectedTabIndex = 0;
   final Set<String> _selectedBankKeys = {};
   List<CourseResourceItem> _resources = const [];
   List<CourseTextbookItem> _textbooks = const [];
@@ -230,45 +231,112 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildCourseBody(BuildContext context) {
     final theme = context.theme;
     final banks = _courseBanks();
-    final tabKeys = <String>[
-      if (_textbooks.isNotEmpty) 'textbooks',
-      if (banks.isNotEmpty) 'banks',
-      if (_resources.isNotEmpty) 'resources',
+    const labels = ['教材', '题库', '试卷'];
+    final enabled = [
+      _textbooks.isNotEmpty,
+      banks.isNotEmpty,
+      _resources.isNotEmpty,
     ];
-    final tabs = <FTabEntry>[
-      if (_textbooks.isNotEmpty)
-        FTabEntry(label: const Text('教材'), child: _buildTextbookTab(theme)),
-      if (banks.isNotEmpty)
-        FTabEntry(label: const Text('题库'), child: _buildBankTab(theme, banks)),
-      if (_resources.isNotEmpty)
-        FTabEntry(label: const Text('试卷'), child: _buildResourceTab(theme)),
+    final children = <Widget>[
+      _buildTextbookTab(theme),
+      _buildBankTab(theme, banks),
+      _buildResourceTab(theme),
     ];
+    final firstEnabled = enabled.indexOf(true);
+    if (firstEnabled < 0) {
+      return AppPageBody(
+        maxWidth: AppLayout.resultMaxWidth,
+        child: _buildEmpty(theme, '该课程暂无资源'),
+      );
+    }
+    final selected = enabled[_selectedTabIndex]
+        ? _selectedTabIndex
+        : firstEnabled;
     return AppPageBody(
       maxWidth: AppLayout.resultMaxWidth,
-      child: tabs.isEmpty
-          ? _buildEmpty(theme, '该课程暂无资源')
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.xl,
-                    AppSpacing.sm,
-                    AppSpacing.lg,
-                    AppSpacing.xs,
-                  ),
-                  child: _buildCourseHeader(theme),
-                ),
-                Expanded(
-                  child: FTabs(
-                    key: ValueKey(tabKeys.join(',')),
-                    expands: true,
-                    // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
-                    contentPhysics: const NeverScrollableScrollPhysics(),
-                    children: tabs,
-                  ),
-                ),
-              ],
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.sm,
+              AppSpacing.lg,
+              AppSpacing.xs,
             ),
+            child: _buildCourseHeader(theme),
+          ),
+          _buildCourseTabs(theme, labels, enabled, selected),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 220),
+              transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.02, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                ),
+              ),
+              child: KeyedSubtree(
+                key: ValueKey(selected),
+                child: children[selected],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourseTabs(
+    FThemeData theme,
+    List<String> labels,
+    List<bool> enabled,
+    int selected,
+  ) {
+    return Row(
+      children: [
+        for (var index = 0; index < labels.length; index++)
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: enabled[index]
+                  ? () => setState(() => _selectedTabIndex = index)
+                  : null,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: index == selected
+                          ? theme.colors.primary
+                          : theme.colors.border,
+                      width: index == selected ? 2 : 1,
+                    ),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    labels[index],
+                    style: theme.typography.body.md.copyWith(
+                      fontSize: 13,
+                      fontWeight: index == selected
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                      color: !enabled[index]
+                          ? theme.colors.mutedForeground.withValues(alpha: 0.4)
+                          : index == selected
+                          ? theme.colors.primary
+                          : theme.colors.mutedForeground,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -689,8 +757,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           name: kind == LearningListKind.wrong
               ? AppRouteNames.learningWrongQuestions
               : AppRouteNames.learningFavorites,
-          builder: (_) =>
-              LearningQuestionListPage(repository: repository, kind: kind),
+          builder: (_) => LearningQuestionListPage(
+            repository: repository,
+            kind: kind,
+            courseCode: course.code,
+          ),
         ),
       ),
     );
