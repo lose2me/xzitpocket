@@ -837,8 +837,9 @@ class ControlService {
 
   /// Uploads the course data the client just fetched at login. One row per
   /// course number; the server dedupes by code and keeps the display name and
-  /// book list. Fails silently: an upload failure never affects the client.
-  Future<void> uploadCourses({
+  /// book list. Returns true only when the server accepted the request, so the
+  /// caller only records the dedup hash on a real upload.
+  Future<bool> uploadCourses({
     required List<
             ({
               String code,
@@ -846,8 +847,8 @@ class ControlService {
               List<({String name, String tags})> books,
             })>
         items,
-  }) async {
-    await _uploadData(
+  }) {
+    return _uploadData(
       '/api/v1/courses',
       {
         'items': [
@@ -866,17 +867,22 @@ class ControlService {
     );
   }
 
-  Future<void> _uploadData(String path, Map<String, dynamic> body, String warning) async {
-    if (!isConfigured || !_communicationAllowed) return;
+  /// Returns true when the request reached the server, false when it was
+  /// skipped (disabled, no session) or failed. Failures are logged, never
+  /// thrown.
+  Future<bool> _uploadData(String path, Map<String, dynamic> body, String warning) async {
+    if (!isConfigured || !_communicationAllowed) return false;
     try {
       await _loadState();
       final pendingLogin = _loginFuture;
       if (pendingLogin != null) await pendingLogin;
       final token = await _validAccessToken();
-      if (token == null) return;
+      if (token == null) return false;
       await _request('POST', path, data: body, headers: {'Authorization': 'Bearer $token'});
+      return true;
     } catch (error, stackTrace) {
       talker.warning(warning, error, stackTrace);
+      return false;
     }
   }
 
