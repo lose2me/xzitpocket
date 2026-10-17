@@ -120,6 +120,36 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
 
+                "openLocalFile" -> {
+                    val path = call.argument<String>("path")
+                    val mime = call.argument<String>("mime") ?: "application/pdf"
+                    if (path.isNullOrBlank()) {
+                        result.error("invalid_path", "path is required", null)
+                    } else {
+                        try {
+                            val file = File(path)
+                            if (!file.exists()) {
+                                result.error("missing_file", "file does not exist", null)
+                            } else {
+                                val uri = FileProvider.getUriForFile(
+                                    this,
+                                    "$packageName.fileprovider",
+                                    file,
+                                )
+                                val intent = Intent(Intent.ACTION_VIEW).apply {
+                                    setDataAndType(uri, mime)
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                startActivity(intent)
+                                result.success(true)
+                            }
+                        } catch (error: Exception) {
+                            result.error("open_failed", error.message, null)
+                        }
+                    }
+                }
+
                 "getAutomationPermissions" -> {
                     result.success(
                         mapOf(

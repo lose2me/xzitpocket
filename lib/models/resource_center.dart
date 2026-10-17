@@ -33,12 +33,14 @@ class CourseResourceItem {
   final String name;
   final String tags;
   final bool hasPdf;
+  final int sizeBytes;
 
   const CourseResourceItem({
     required this.id,
     required this.name,
     this.tags = '',
     this.hasPdf = false,
+    this.sizeBytes = 0,
   });
 
   factory CourseResourceItem.fromJson(Map<String, dynamic> json) =>
@@ -47,6 +49,7 @@ class CourseResourceItem {
         name: json['name']?.toString() ?? '试卷',
         tags: json['tags']?.toString() ?? '',
         hasPdf: json['has_pdf'] == true,
+        sizeBytes: _asInt(json['size_bytes']),
       );
 }
 
@@ -56,6 +59,7 @@ class CourseTextbookItem {
   final String tags;
   final bool hasPdf;
   final bool hasCover;
+  final int sizeBytes;
 
   const CourseTextbookItem({
     required this.id,
@@ -63,6 +67,7 @@ class CourseTextbookItem {
     this.tags = '',
     this.hasPdf = false,
     this.hasCover = false,
+    this.sizeBytes = 0,
   });
 
   factory CourseTextbookItem.fromJson(Map<String, dynamic> json) =>
@@ -72,6 +77,7 @@ class CourseTextbookItem {
         tags: json['tags']?.toString() ?? '',
         hasPdf: json['has_pdf'] == true,
         hasCover: json['has_cover'] == true,
+        sizeBytes: _asInt(json['size_bytes']),
       );
 }
 

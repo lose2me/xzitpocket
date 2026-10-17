@@ -3,12 +3,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/learning_question.dart';
 import '../../models/resource_center.dart';
 import '../../services/control_service.dart';
 import '../../services/learning_repository.dart';
+import '../../services/resource_download_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
@@ -42,6 +42,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   List<CourseResourceItem> _resources = const [];
   List<CourseTextbookItem> _textbooks = const [];
   bool _detailsLoading = true;
+  final Set<String> _downloadedIds = {};
+  final Set<String> _downloadingIds = {};
+  final Map<String, double> _downloadProgress = {};
 
   @override
   void initState() {
@@ -76,6 +79,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _resources = results[0] as List<CourseResourceItem>;
         _textbooks = results[1] as List<CourseTextbookItem>;
       });
+      unawaited(_refreshDownloadedStatuses());
     } catch (error, stackTrace) {
       talker.warning('课程资源加载失败', error, stackTrace);
       if (!mounted) return;
@@ -563,77 +567,188 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Widget _buildResourceTab(FThemeData theme) {
     if (_resources.isEmpty) return _buildEmpty(theme, '该课程暂无试卷');
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xs,
-        AppSpacing.xs,
-        AppSpacing.xs,
-        AppSpacing.xxl,
-      ),
-      itemCount: _resources.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final item = _resources[index];
-        return FTile(
-          prefix: const Icon(FLucideIcons.fileText),
-          title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: item.tags.isEmpty
-              ? null
-              : Text(item.tags, maxLines: 1, overflow: TextOverflow.ellipsis),
-          suffix: const Icon(FLucideIcons.externalLink),
-          onPress: item.hasPdf ? () => unawaited(_openResource(item)) : null,
-        );
-      },
-    );
+    return _buildPdfList(theme, [
+      for (final item in _resources)
+        _PdfEntry(
+          id: item.id,
+          title: item.name,
+          sizeBytes: item.sizeBytes,
+          hasPdf: item.hasPdf,
+          urlLoader: () => ControlService.instance.fetchResourceURL(item.id),
+        ),
+    ]);
   }
 
   Widget _buildTextbookTab(FThemeData theme) {
-    if (_textbooks.isEmpty) return _buildEmpty(theme, '该课程暂无电子教材');
+    if (_textbooks.isEmpty) return _buildEmpty(theme, '该课程暂无教材');
+    return _buildPdfList(theme, [
+      for (final item in _textbooks)
+        _PdfEntry(
+          id: item.id,
+          title: item.name,
+          sizeBytes: item.sizeBytes,
+          hasPdf: item.hasPdf,
+          urlLoader: () => ControlService.instance.fetchTextbookURL(item.id),
+        ),
+    ]);
+  }
+
+  Widget _buildPdfList(FThemeData theme, List<_PdfEntry> entries) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xs,
-        AppSpacing.xs,
+        AppSpacing.sm,
         AppSpacing.xs,
         AppSpacing.xxl,
       ),
-      itemCount: _textbooks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final item = _textbooks[index];
-        return FTile(
-          prefix: const Icon(FLucideIcons.bookOpen),
-          title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: item.tags.isEmpty
-              ? null
-              : Text(item.tags, maxLines: 1, overflow: TextOverflow.ellipsis),
-          suffix: const Icon(FLucideIcons.externalLink),
-          onPress: item.hasPdf ? () => unawaited(_openTextbook(item)) : null,
-        );
-      },
+      itemCount: entries.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+      itemBuilder: (context, index) => _buildPdfTile(theme, entries[index]),
     );
   }
 
-  Future<void> _openResource(CourseResourceItem item) =>
-      _openSignedURL(() => ControlService.instance.fetchResourceURL(item.id));
+  Widget _buildPdfTile(FThemeData theme, _PdfEntry entry) {
+    final downloaded = _downloadedIds.contains(entry.id);
+    final downloading = _downloadingIds.contains(entry.id);
+    final progress = _downloadProgress[entry.id] ?? 0;
+    final size = _formatFileSize(entry.sizeBytes);
+    final meta = downloading
+        ? (progress > 0 ? '下载中 ${(progress * 100).round()}%' : '下载中…')
+        : [if (size.isNotEmpty) size, downloaded ? '已下载' : '未下载'].join('  ');
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: entry.hasPdf && !downloading
+          ? () => unawaited(_handlePdf(entry))
+          : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _pdfFileName(entry.title),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.body.md.copyWith(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    meta,
+                    style: theme.typography.bodySmall.copyWith(
+                      color: theme.colors.mutedForeground,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            if (downloading)
+              SizedBox(
+                width: 44,
+                height: 56,
+                child: Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      value: progress > 0 ? progress : null,
+                      strokeWidth: 2,
+                    ),
+                  ),
+                ),
+              )
+            else
+              _PdfIcon(color: theme.colors.destructive),
+          ],
+        ),
+      ),
+    );
+  }
 
-  Future<void> _openTextbook(CourseTextbookItem item) =>
-      _openSignedURL(() => ControlService.instance.fetchTextbookURL(item.id));
-
-  Future<void> _openSignedURL(Future<String> Function() loader) async {
-    try {
-      final url = await loader();
-      if (url.isEmpty) throw StateError('empty url');
-      final launched = await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
-      if (!launched) throw StateError('launch failed');
-    } catch (error, stackTrace) {
-      talker.warning('打开资源失败', error, stackTrace);
-      if (mounted) {
-        showAppSnackBar(context, '打开资源失败，请稍后重试', severity: ToastSeverity.error);
+  Future<void> _refreshDownloadedStatuses() async {
+    final ids = <String>[
+      for (final item in _resources) item.id,
+      for (final item in _textbooks) item.id,
+    ];
+    final downloaded = <String>{};
+    for (final id in ids) {
+      if (await ResourceDownloadService.instance.isDownloaded(id)) {
+        downloaded.add(id);
       }
     }
+    if (!mounted) return;
+    setState(() {
+      _downloadedIds
+        ..clear()
+        ..addAll(downloaded);
+    });
+  }
+
+  Future<void> _handlePdf(_PdfEntry entry) async {
+    if (_downloadingIds.contains(entry.id)) return;
+    try {
+      if (_downloadedIds.contains(entry.id)) {
+        final file = await ResourceDownloadService.instance.fileFor(entry.id);
+        if (await file.exists()) {
+          await ResourceDownloadService.instance.open(file);
+          return;
+        }
+        if (mounted) setState(() => _downloadedIds.remove(entry.id));
+      }
+      setState(() {
+        _downloadingIds.add(entry.id);
+        _downloadProgress[entry.id] = 0;
+      });
+      final url = await entry.urlLoader();
+      if (url.isEmpty) throw StateError('empty url');
+      final file = await ResourceDownloadService.instance.download(
+        entry.id,
+        url,
+        onProgress: (received, total) {
+          if (!mounted) return;
+          setState(() {
+            _downloadProgress[entry.id] = total > 0 ? received / total : 0;
+          });
+        },
+      );
+      if (!mounted) return;
+      setState(() => _downloadedIds.add(entry.id));
+      showAppSnackBar(context, '已下载', severity: ToastSeverity.success);
+      await ResourceDownloadService.instance.open(file);
+    } catch (error, stackTrace) {
+      talker.warning('下载资源失败', error, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '下载失败，请稍后重试', severity: ToastSeverity.error);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingIds.remove(entry.id);
+          _downloadProgress.remove(entry.id);
+        });
+      }
+    }
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes <= 0) return '';
+    final mb = bytes / (1024 * 1024);
+    if (mb >= 1) return '${mb.toStringAsFixed(1)} MB';
+    return '${(bytes / 1024).toStringAsFixed(0)} KB';
+  }
+
+  String _pdfFileName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.toLowerCase().endsWith('.pdf')) return trimmed;
+    return '$trimmed.pdf';
   }
 
   List<_QuestionBankGroup> _allBankGroups() {
@@ -914,6 +1029,48 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
     );
   }
+}
+
+class _PdfEntry {
+  final String id;
+  final String title;
+  final int sizeBytes;
+  final bool hasPdf;
+  final Future<String> Function() urlLoader;
+
+  const _PdfEntry({
+    required this.id,
+    required this.title,
+    required this.sizeBytes,
+    required this.hasPdf,
+    required this.urlLoader,
+  });
+}
+
+class _PdfIcon extends StatelessWidget {
+  final Color color;
+
+  const _PdfIcon({required this.color});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _DashedBorderPainter(color: color),
+    child: SizedBox(
+      width: 44,
+      height: 56,
+      child: Center(
+        child: Text(
+          'PDF',
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _DashedBorderPainter extends CustomPainter {

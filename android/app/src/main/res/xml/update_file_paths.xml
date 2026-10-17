@@ -6,4 +6,7 @@
     <files-path
         name="persistent_updates"
         path="updates/" />
+    <files-path
+        name="resource_center"
+        path="resource_center/" />
 </paths>
