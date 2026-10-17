@@ -383,6 +383,7 @@ class LearningQuestionBank {
       if (orderId != null) 'orderId': orderId,
       if (requiresCDK) 'requiresCDK': true,
       if (locked) 'locked': true,
+      if (courseCodes.isNotEmpty) 'courseCodes': courseCodes,
       if (updatedAt.isNotEmpty) 'updatedAt': updatedAt,
       if (hidden) 'hidden': true,
       'questions': [for (final question in questions) question.toJson()],

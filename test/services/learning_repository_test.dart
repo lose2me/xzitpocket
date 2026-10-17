@@ -214,6 +214,7 @@ void main() {
           'orderId': 12,
           'new': true,
           'name': '计算机基础知识测验',
+          'courseCodes': ['C1', 'C2'],
           'questions': [
             {
               'questionNumber': 1,
@@ -266,6 +267,9 @@ void main() {
       expect(bank.questions[1].correctOptionIds, {'A', 'C'});
       expect(bank.questions[2].correctOptionIds, {'正确'});
       expect(bank.questions[3].correctOptionIds, {'1024'});
+      expect(bank.courseCodes, ['C1', 'C2']);
+      final cached = bank.toJson()['questionBank'] as Map<String, dynamic>;
+      expect(cached['courseCodes'], ['C1', 'C2']);
     },
   );
 
