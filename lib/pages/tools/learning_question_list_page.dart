@@ -61,24 +61,18 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
     final groups = <String, _QuestionBankGroup>{};
     for (final question in _questions) {
       final bankId = question.bankId.trim();
-      final key = bankId.isEmpty
-          ? '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}'
-          : bankId;
+      final key = bankId.isEmpty ? question.bankName : bankId;
       final group = groups.putIfAbsent(
         key,
         () => _QuestionBankGroup(
           id: question.bankId,
           name: question.bankName,
           orderId: question.bankOrderId,
-          isNew: question.bankIsNew,
         ),
       );
       group.questions.add(question);
     }
     return groups.values.toList()..sort((a, b) {
-      final aIsNew = a.isNew == true;
-      final bIsNew = b.isNew == true;
-      if (aIsNew != bIsNew) return aIsNew ? -1 : 1;
       final aOrder = a.orderId;
       final bOrder = b.orderId;
       if (aOrder != null && bOrder != null && aOrder != bOrder) {
@@ -400,15 +394,13 @@ class _QuestionBankGroup {
   final String id;
   final String name;
   final int? orderId;
-  final bool? isNew;
   final List<LearningQuestion> questions = [];
 
   _QuestionBankGroup({
     required this.id,
     required this.name,
     required this.orderId,
-    required this.isNew,
   });
 
-  String get title => isNew == true ? '最新题库' : '往年题库';
+  String get title => name;
 }

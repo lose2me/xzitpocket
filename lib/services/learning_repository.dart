@@ -446,12 +446,11 @@ class LearningRepository extends ChangeNotifier {
     for (final question in questions) {
       final key = question.bankId.trim().isNotEmpty
           ? question.bankId.trim()
-          : '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}';
+          : question.bankName;
       final existing = grouped[key];
       if (existing == null) {
         grouped[key] = LearningQuestionBank(
           id: question.bankId,
-          isNew: question.bankIsNew,
           name: question.bankName,
           orderId: question.bankOrderId,
           questions: [question],

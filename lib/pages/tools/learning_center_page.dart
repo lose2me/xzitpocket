@@ -126,9 +126,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   String _bankSelectionKey(_QuestionBankGroup bank) {
     final id = bank.id.trim();
-    return id.isNotEmpty
-        ? id
-        : '${bank.name}\u0000${bank.isNew == true ? 'new' : 'old'}';
+    return id.isNotEmpty ? id : bank.name;
   }
 
   void _enterBankSelectionMode([_QuestionBankGroup? bank]) {
@@ -384,57 +382,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Widget _buildBankList(FThemeData theme, List<_QuestionBankGroup> banks) {
-    final latest = banks.where((bank) => bank.isNew == true).toList();
-    final older = banks.where((bank) => bank.isNew != true).toList();
-    final showHeadings = latest.isNotEmpty && older.isNotEmpty;
-    return ListView(
+    return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.xs,
         0,
         AppSpacing.xs,
         AppSpacing.xxl,
       ),
-      children: [
-        if (latest.isNotEmpty)
-          ..._buildBankSection(
-            theme,
-            '最新题库',
-            latest,
-            showHeading: showHeadings,
-          ),
-        if (older.isNotEmpty)
-          ..._buildBankSection(theme, '往年题库', older, showHeading: showHeadings),
-      ],
+      itemCount: banks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+      itemBuilder: (context, index) => _buildBankTile(theme, banks[index]),
     );
-  }
-
-  List<Widget> _buildBankSection(
-    FThemeData theme,
-    String label,
-    List<_QuestionBankGroup> banks, {
-    required bool showHeading,
-  }) {
-    return [
-      if (showHeading)
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xs,
-            AppSpacing.sm,
-            AppSpacing.xs,
-            AppSpacing.sm,
-          ),
-          child: Text(
-            label,
-            style: theme.typography.body.md.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      for (var index = 0; index < banks.length; index++) ...[
-        _buildBankTile(theme, banks[index]),
-        if (index != banks.length - 1) const SizedBox(height: AppSpacing.md),
-      ],
-    ];
   }
 
   Widget _buildResourceTab(FThemeData theme) {
@@ -675,14 +633,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   List<_QuestionBankGroup> _allBankGroups() {
     final groups = <String, _QuestionBankGroup>{};
     for (final source in repository.banks) {
-      final key = source.id.trim().isNotEmpty
-          ? source.id.trim()
-          : '${source.name}\u0000${source.isNew == true ? 'new' : 'old'}';
+      final key = source.id.trim().isNotEmpty ? source.id.trim() : source.name;
       groups[key] = _QuestionBankGroup(
         id: source.id,
         name: source.name,
         orderId: source.orderId,
-        isNew: source.isNew,
         requiresCDK: source.requiresCDK,
         locked: source.locked,
         courseCodes: source.courseCodes,
@@ -698,7 +653,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             id: question.bankId,
             name: question.bankName,
             orderId: question.bankOrderId,
-            isNew: question.bankIsNew,
           ),
         );
         bank.questions.add(question);
@@ -721,9 +675,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   String _bankKey(LearningQuestion question) {
     final bankId = question.bankId.trim();
-    return bankId.isEmpty
-        ? '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}'
-        : bankId;
+    return bankId.isEmpty ? question.bankName : bankId;
   }
 
   FTile _buildBankTile(FThemeData theme, _QuestionBankGroup bank) {
@@ -879,20 +831,16 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
     if (redeemed != true || !mounted) return;
     showAppSnackBar(context, '题库兑换成功', severity: ToastSeverity.success);
-    final updated = _findBank(id: bank.id, name: bank.name, isNew: bank.isNew);
+    final updated = _findBank(id: bank.id, name: bank.name);
     if (updated != null && !updated.locked && updated.questions.isNotEmpty) {
       unawaited(_openQuestions(updated.questions, pageTitle: name));
     }
   }
 
-  _QuestionBankGroup? _findBank({
-    required String id,
-    required String name,
-    required bool? isNew,
-  }) {
+  _QuestionBankGroup? _findBank({required String id, required String name}) {
     for (final bank in _allBankGroups()) {
       final idMatch = id.trim().isNotEmpty && bank.id.trim() == id.trim();
-      final nameMatch = bank.name == name && bank.isNew == isNew;
+      final nameMatch = bank.name == name;
       if (idMatch || nameMatch) return bank;
     }
     return null;
@@ -1132,7 +1080,6 @@ class _QuestionBankGroup {
   final String id;
   final String name;
   final int? orderId;
-  final bool? isNew;
   final bool requiresCDK;
   final bool locked;
   final List<String> courseCodes;
@@ -1142,7 +1089,6 @@ class _QuestionBankGroup {
     required this.id,
     required this.name,
     required this.orderId,
-    required this.isNew,
     this.requiresCDK = false,
     this.locked = false,
     this.courseCodes = const [],

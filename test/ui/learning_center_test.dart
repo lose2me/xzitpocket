@@ -18,7 +18,6 @@ void main() {
     bankName: '在线题库',
     bankId: 'QB-REMOTE',
     bankOrderId: 1,
-    bankIsNew: true,
     questionNumber: 1,
     title: '第1题',
     questionText: '在线题目',
@@ -127,7 +126,6 @@ void main() {
       id: 'remote-2',
       bankId: 'QB-SECOND',
       bankName: '第二题库',
-      bankIsNew: true,
       title: remoteQuestion.title,
       type: remoteQuestion.type,
       options: remoteQuestion.options,
@@ -211,7 +209,6 @@ void main() {
         const LearningQuestionBank(
           id: 'QB-NEW',
           name: '形势与政策',
-          isNew: true,
           orderId: 1,
           requiresCDK: true,
           locked: true,
@@ -220,7 +217,6 @@ void main() {
         const LearningQuestionBank(
           id: 'QB-OLD',
           name: '2024 马原',
-          isNew: false,
           orderId: 2,
           questions: [remoteQuestion],
         ),
@@ -230,8 +226,6 @@ void main() {
 
     await pumpCenter(tester, repository);
 
-    expect(find.text('最新题库'), findsOneWidget);
-    expect(find.text('往年题库'), findsOneWidget);
     expect(find.text('形势与政策'), findsOneWidget);
     expect(find.text('2024 马原'), findsOneWidget);
     expect(find.text('兑换通用 CDK'), findsNothing);

@@ -507,7 +507,6 @@ class ControlService {
       final summaryBank = LearningQuestionBank.fromJson({
         'id': id,
         'orderId': summary['orderId'],
-        'new': summary['new'],
         'name': summary['name'],
         'requiresCDK': summary['requiresCDK'] == true,
         'courseCodes': summary['courseCodes'],
@@ -534,7 +533,6 @@ class ControlService {
           LearningQuestionBank.fromJson({
             'id': summaryBank.id,
             'orderId': summaryBank.orderId,
-            'new': summaryBank.isNew,
             'name': summaryBank.name,
             'requiresCDK': summaryBank.requiresCDK,
             'courseCodes': summary['courseCodes'],
