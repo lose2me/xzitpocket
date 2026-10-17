@@ -146,8 +146,10 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
 
   List<_QuestionListRow> _buildRows(List<_QuestionBankGroup> groups) {
     final rows = <_QuestionListRow>[
-      const _QuestionListRow.count(),
-      const _QuestionListRow.spacer(AppSpacing.sm),
+      if (widget.kind == LearningListKind.bank) ...[
+        const _QuestionListRow.count(),
+        const _QuestionListRow.spacer(AppSpacing.sm),
+      ],
     ];
     for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
       final group = groups[groupIndex];
@@ -242,6 +244,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           questionIds: [for (final question in questions) question.id],
           pageTitle: _title,
           mode: mode,
+          allowSettings: widget.kind == LearningListKind.bank,
         ),
       ),
     );
@@ -271,6 +274,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
             questionIds: [for (final item in questionSet) item.id],
             initialIndex: index,
             pageTitle: pageTitle,
+            allowSettings: widget.kind == LearningListKind.bank,
           ),
         ),
       ),

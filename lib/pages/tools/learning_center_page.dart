@@ -274,32 +274,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Widget _buildCourseHeader(FThemeData theme) {
     final name = course.name.trim().isEmpty ? course.code : course.name.trim();
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        Flexible(
-          child: Text(
-            name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.typography.body.lg.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        if (course.code.isNotEmpty) ...[
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            course.code,
-            style: theme.typography.bodySmall.copyWith(
-              color: theme.colors.mutedForeground,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ],
+    return Text(
+      name,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: theme.typography.body.lg.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 

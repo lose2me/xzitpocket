@@ -250,7 +250,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('错题集'), findsOneWidget);
-    expect(find.text('1 道题目'), findsOneWidget);
     expect(find.textContaining('在线题目'), findsOneWidget);
 
     await tester.tap(find.textContaining('在线题目'));
@@ -280,7 +279,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('收藏集'), findsOneWidget);
-    expect(find.text('1 道题目'), findsOneWidget);
     expect(find.textContaining('在线题目'), findsOneWidget);
 
     await tester.tap(find.textContaining('在线题目'));

@@ -88,6 +88,7 @@ class LearningQuizPage extends StatefulWidget {
   final String pageTitle;
   final LearningQuizMode mode;
   final bool lockMode;
+  final bool allowSettings;
 
   const LearningQuizPage({
     super.key,
@@ -97,6 +98,7 @@ class LearningQuizPage extends StatefulWidget {
     this.pageTitle = '题库',
     this.mode = LearningQuizMode.normal,
     this.lockMode = false,
+    this.allowSettings = true,
   });
 
   @override
@@ -595,6 +597,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
           initialIndex: 0,
           pageTitle: widget.pageTitle,
           mode: mode,
+          allowSettings: widget.allowSettings,
         ),
       ),
     );
@@ -652,7 +655,7 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
             onPress: _openQuestionCard,
             tooltip: '选题卡',
           ),
-          if (!widget.lockMode)
+          if (widget.allowSettings && !widget.lockMode)
             AppIconButton(
               icon: FLucideIcons.settings,
               onPress: _openSettings,
@@ -673,11 +676,12 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               ),
             ]
           : [
-              AppIconButton(
-                icon: FLucideIcons.settings,
-                onPress: _openSettings,
-                tooltip: '刷题设置',
-              ),
+              if (widget.allowSettings)
+                AppIconButton(
+                  icon: FLucideIcons.settings,
+                  onPress: _openSettings,
+                  tooltip: '刷题设置',
+                ),
             ],
       footer: _buildFooter(theme, question),
       child: Column(
