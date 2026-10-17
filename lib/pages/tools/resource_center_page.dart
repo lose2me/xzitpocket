@@ -21,7 +21,9 @@ class ResourceCenterPage extends StatefulWidget {
 }
 
 class _ResourceCenterPageState extends State<ResourceCenterPage> {
+  final _searchController = TextEditingController();
   List<ResourceCourse> _courses = const [];
+  String _query = '';
   bool _loading = true;
   bool _refreshing = false;
   String? _error;
@@ -30,6 +32,23 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   void initState() {
     super.initState();
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<ResourceCourse> get _filteredCourses {
+    final query = _query.trim().toLowerCase();
+    if (query.isEmpty) return _courses;
+    return [
+      for (final course in _courses)
+        if (course.name.toLowerCase().contains(query) ||
+            course.code.toLowerCase().contains(query))
+          course,
+    ];
   }
 
   Future<void> _load() async {
@@ -80,31 +99,63 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
               title: '暂无资源',
               description: _error ?? '暂时没有可用的题库、试卷或电子教材',
             )
-          : AppPageBody(
-              maxWidth: AppLayout.contentMaxWidth,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final columns = constraints.maxWidth >= 620 ? 3 : 2;
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: AppSpacing.md,
-                      mainAxisSpacing: AppSpacing.md,
-                      childAspectRatio: 1,
+          : _buildCourseList(context),
+    );
+  }
+
+  Widget _buildCourseList(BuildContext context) {
+    final theme = context.theme;
+    final courses = _filteredCourses;
+    return AppPageBody(
+      maxWidth: AppLayout.contentMaxWidth,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.md,
+              AppSpacing.sm,
+            ),
+            child: AppTextField(
+              controller: _searchController,
+              hint: '搜索课程名或课程编号',
+              prefix: const Icon(FLucideIcons.search),
+              clearable: true,
+              onChanged: (value) => setState(() => _query = value),
+            ),
+          ),
+          Expanded(
+            child: courses.isEmpty
+                ? Center(
+                    child: Text(
+                      '没有匹配的课程',
+                      style: theme.typography.bodySmall.copyWith(
+                        color: theme.colors.mutedForeground,
+                      ),
                     ),
-                    itemCount: _courses.length,
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.xs,
+                      AppSpacing.md,
+                      AppSpacing.xxl,
+                    ),
+                    itemCount: courses.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: AppSpacing.md),
                     itemBuilder: (context, index) {
-                      final course = _courses[index];
+                      final course = courses[index];
                       return _CourseCard(
                         course: course,
                         onTap: () => unawaited(_openCourse(context, course)),
                       );
                     },
-                  );
-                },
-              ),
-            ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
