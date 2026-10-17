@@ -54,7 +54,6 @@ void main() {
           const LearningQuestionBank(
             id: 'QB-LOCKED',
             name: '受保护题库',
-            orderId: 1,
             requiresCDK: true,
             locked: true,
             questions: [],
@@ -259,9 +258,7 @@ void main() {
       });
 
       expect(bank.id, 'QB-001');
-      expect(bank.orderId, 12);
       expect(bank.questions, hasLength(4));
-      expect(bank.questions.first.bankOrderId, 12);
       expect(bank.questions[0].correctOptionIds, {'B'});
       expect(bank.questions[1].correctOptionIds, {'A', 'C'});
       expect(bank.questions[2].correctOptionIds, {'正确'});
@@ -297,7 +294,6 @@ void main() {
         LearningQuestionBank(
           id: 'QB-1',
           name: '题库',
-          orderId: 1,
           updatedAt: updatedAt,
           questions: [
             for (var index = 1; index <= count; index++)
@@ -383,13 +379,11 @@ LearningQuestionBank _fixtureBank(String id, String name, String questionId) =>
     LearningQuestionBank(
       id: id,
       name: name,
-      orderId: 1,
       questions: [
         LearningQuestion(
           id: questionId,
           bankId: id,
           bankName: name,
-          bankOrderId: 1,
           questionNumber: 1,
           title: name,
           type: LearningQuestionType.single,
@@ -407,7 +401,6 @@ List<LearningQuestion> _fixtureQuestions() => [
     id: 'remote-1',
     bankName: '在线题库',
     bankId: 'QB-REMOTE',
-    bankOrderId: 1,
     questionNumber: 1,
     title: '单选',
     questionText: '单选',
@@ -422,7 +415,6 @@ List<LearningQuestion> _fixtureQuestions() => [
     id: 'remote-2',
     bankName: '在线题库',
     bankId: 'QB-REMOTE',
-    bankOrderId: 1,
     questionNumber: 2,
     title: '多选',
     questionText: '多选',
@@ -437,7 +429,6 @@ List<LearningQuestion> _fixtureQuestions() => [
     id: 'remote-3',
     bankName: '在线题库',
     bankId: 'QB-REMOTE',
-    bankOrderId: 1,
     questionNumber: 3,
     title: '判断',
     questionText: '判断',
@@ -452,7 +443,6 @@ List<LearningQuestion> _fixtureQuestions() => [
     id: 'remote-4',
     bankName: '在线题库',
     bankId: 'QB-REMOTE',
-    bankOrderId: 1,
     questionNumber: 4,
     title: '填空',
     questionText: '填空',
@@ -465,7 +455,6 @@ List<LearningQuestion> _fixtureQuestions() => [
       id: 'remote-$index',
       bankName: '在线题库',
       bankId: 'QB-REMOTE',
-      bankOrderId: 1,
       questionNumber: index,
       title: '题目$index',
       questionText: '题目$index',

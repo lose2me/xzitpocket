@@ -64,22 +64,11 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
       final key = bankId.isEmpty ? question.bankName : bankId;
       final group = groups.putIfAbsent(
         key,
-        () => _QuestionBankGroup(
-          id: question.bankId,
-          name: question.bankName,
-          orderId: question.bankOrderId,
-        ),
+        () => _QuestionBankGroup(id: question.bankId, name: question.bankName),
       );
       group.questions.add(question);
     }
     return groups.values.toList()..sort((a, b) {
-      final aOrder = a.orderId;
-      final bOrder = b.orderId;
-      if (aOrder != null && bOrder != null && aOrder != bOrder) {
-        return aOrder.compareTo(bOrder);
-      }
-      if (aOrder != null && bOrder == null) return -1;
-      if (aOrder == null && bOrder != null) return 1;
       return a.name.compareTo(b.name);
     });
   }
@@ -393,14 +382,9 @@ class _QuestionListRow {
 class _QuestionBankGroup {
   final String id;
   final String name;
-  final int? orderId;
   final List<LearningQuestion> questions = [];
 
-  _QuestionBankGroup({
-    required this.id,
-    required this.name,
-    required this.orderId,
-  });
+  _QuestionBankGroup({required this.id, required this.name});
 
   String get title => name;
 }

@@ -165,11 +165,8 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
     await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.learning,
-        builder: (_) => LearningCenterPage(
-          repository: widget.repository,
-          course: course,
-          coverUrl: course.coverUrl,
-        ),
+        builder: (_) =>
+            LearningCenterPage(repository: widget.repository, course: course),
       ),
     );
   }

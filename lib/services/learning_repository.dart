@@ -452,7 +452,6 @@ class LearningRepository extends ChangeNotifier {
         grouped[key] = LearningQuestionBank(
           id: question.bankId,
           name: question.bankName,
-          orderId: question.bankOrderId,
           questions: [question],
         );
       } else {

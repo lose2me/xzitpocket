@@ -17,7 +17,6 @@ void main() {
     id: 'remote-1',
     bankName: '在线题库',
     bankId: 'QB-REMOTE',
-    bankOrderId: 1,
     questionNumber: 1,
     title: '第1题',
     questionText: '在线题目',
@@ -80,8 +79,7 @@ void main() {
     expect(find.byIcon(FLucideIcons.circleAlert), findsOneWidget);
     expect(find.byIcon(FLucideIcons.bookmark), findsOneWidget);
     expect(find.text('兑换通用 CDK'), findsNothing);
-    expect(find.byType(FTile), findsOneWidget);
-    expect(find.text('0%'), findsOneWidget);
+    expect(find.textContaining('进度 0%'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.check), findsNothing);
     expect(find.byIcon(FLucideIcons.refreshCw), findsOneWidget);
 
@@ -102,11 +100,10 @@ void main() {
     await repository.submitAnswer(remoteQuestion.id, {'A'});
 
     await pumpCenter(tester, repository);
-    expect(find.text('100%'), findsOneWidget);
+    expect(find.textContaining('进度 100%'), findsOneWidget);
 
     await tester.longPress(find.text('在线题库'));
     await tester.pumpAndSettle();
-    expect(tester.widget<FTile>(find.byType(FTile)).selected, isTrue);
     await tester.tap(find.byIcon(FLucideIcons.trash2));
     await tester.pumpAndSettle();
 
@@ -115,7 +112,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.isJudged(remoteQuestion.id), isFalse);
-    expect(find.text('0%'), findsOneWidget);
+    expect(find.textContaining('进度 0%'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.trash2), findsNothing);
   });
 
@@ -209,7 +206,6 @@ void main() {
         const LearningQuestionBank(
           id: 'QB-NEW',
           name: '形势与政策',
-          orderId: 1,
           requiresCDK: true,
           locked: true,
           questions: [],
@@ -217,7 +213,6 @@ void main() {
         const LearningQuestionBank(
           id: 'QB-OLD',
           name: '2024 马原',
-          orderId: 2,
           questions: [remoteQuestion],
         ),
       ],

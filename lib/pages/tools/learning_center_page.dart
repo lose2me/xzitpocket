@@ -19,13 +19,11 @@ import 'learning_quiz_page.dart';
 class LearningCenterPage extends StatefulWidget {
   final LearningRepository repository;
   final ResourceCourse course;
-  final String coverUrl;
 
   const LearningCenterPage({
     super.key,
     required this.repository,
     required this.course,
-    this.coverUrl = '',
   });
 
   @override
@@ -41,7 +39,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   final Set<String> _selectedBankKeys = {};
   List<CourseResourceItem> _resources = const [];
   List<CourseTextbookItem> _textbooks = const [];
-  bool _detailsLoading = true;
   final Set<String> _downloadedIds = {};
   final Set<String> _downloadingIds = {};
   final Map<String, double> _downloadProgress = {};
@@ -67,7 +64,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Future<void> _loadCourseDetails() async {
     if (!mounted) return;
-    setState(() => _detailsLoading = true);
     try {
       final control = ControlService.instance;
       final results = await Future.wait([
@@ -87,9 +83,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _resources = const [];
         _textbooks = const [];
       });
-    } finally {
-      if (mounted) setState(() => _detailsLoading = false);
-    }
+    } finally {}
   }
 
   @override
@@ -238,123 +232,73 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final banks = _courseBanks();
     return AppPageBody(
       maxWidth: AppLayout.resultMaxWidth,
-      child: Column(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.xl,
+          AppSpacing.xs,
+          AppSpacing.xl,
+          AppSpacing.xxl,
+        ),
         children: [
           _buildCourseHeader(theme),
-          Expanded(
-            child: FTabs(
-              expands: true,
-              // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
-              contentPhysics: const NeverScrollableScrollPhysics(),
-              children: [
-                FTabEntry(
-                  label: const Text('题库'),
-                  child: _buildBankTab(theme, banks),
-                ),
-                FTabEntry(
-                  label: const Text('试卷'),
-                  child: _detailsLoading
-                      ? _buildDetailsLoading()
-                      : _buildResourceTab(theme),
-                ),
-                FTabEntry(
-                  label: const Text('教材'),
-                  child: _detailsLoading
-                      ? _buildDetailsLoading()
-                      : _buildTextbookTab(theme),
-                ),
-              ],
-            ),
-          ),
+          _buildSectionHeader(theme, '教材'),
+          _buildTextbookSection(theme),
+          _buildSectionHeader(theme, '题库'),
+          _buildBankSection(theme, banks),
+          _buildSectionHeader(theme, '试卷'),
+          _buildResourceSection(theme),
         ],
       ),
     );
   }
+
+  Widget _buildSectionHeader(FThemeData theme, String title) => Padding(
+    padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.sm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.typography.body.md.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: theme.colors.primary,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(height: 2, width: 40, color: theme.colors.primary),
+      ],
+    ),
+  );
 
   Widget _buildCourseHeader(FThemeData theme) {
     final name = course.name.trim().isEmpty ? course.code : course.name.trim();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xl,
-        AppSpacing.xs,
-        AppSpacing.lg,
-        AppSpacing.xs,
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AppSpacing.sm,
+        runSpacing: 2,
         children: [
-          _buildCover(theme, width: 40, height: 54),
-          const SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: theme.typography.body.lg.copyWith(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (course.code.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      '课程号 ${course.code}',
-                      style: theme.typography.bodySmall.copyWith(
-                        color: theme.colors.mutedForeground,
-                      ),
-                    ),
-                  ),
-              ],
+          Text(
+            name,
+            style: theme.typography.body.lg.copyWith(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
             ),
           ),
+          if (course.code.isNotEmpty)
+            Text(
+              course.code,
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.mutedForeground,
+                fontSize: 12,
+              ),
+            ),
         ],
       ),
     );
   }
-
-  Widget _buildCover(
-    FThemeData theme, {
-    required double width,
-    required double height,
-  }) {
-    final radius = BorderRadius.circular(12);
-    final placeholder = CustomPaint(
-      painter: _DashedBorderPainter(color: theme.colors.border),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Center(
-          child: Icon(
-            FLucideIcons.bookOpen,
-            size: 22,
-            color: theme.colors.mutedForeground,
-          ),
-        ),
-      ),
-    );
-    final url = widget.coverUrl.trim();
-    if (url.isEmpty) return placeholder;
-    return ClipRRect(
-      borderRadius: radius,
-      child: Image.network(
-        url,
-        width: width,
-        height: height,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => placeholder,
-      ),
-    );
-  }
-
-  Widget _buildDetailsLoading() => const Center(
-    child: Padding(
-      padding: EdgeInsets.all(AppSpacing.lg),
-      child: CircularProgressIndicator.adaptive(),
-    ),
-  );
 
   Widget _buildEmpty(FThemeData theme, String message) => Center(
     child: Padding(
@@ -376,28 +320,21 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ];
   }
 
-  Widget _buildBankTab(FThemeData theme, List<_QuestionBankGroup> banks) {
+  Widget _buildBankSection(FThemeData theme, List<_QuestionBankGroup> banks) {
     if (banks.isEmpty) return _buildEmpty(theme, '该课程暂无关联题库');
-    return _buildBankList(theme, banks);
-  }
-
-  Widget _buildBankList(FThemeData theme, List<_QuestionBankGroup> banks) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xs,
-        0,
-        AppSpacing.xs,
-        AppSpacing.xxl,
-      ),
-      itemCount: banks.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-      itemBuilder: (context, index) => _buildBankTile(theme, banks[index]),
+    return Column(
+      children: [
+        for (var index = 0; index < banks.length; index++) ...[
+          _buildBankCard(theme, banks[index]),
+          if (index != banks.length - 1) const SizedBox(height: AppSpacing.sm),
+        ],
+      ],
     );
   }
 
-  Widget _buildResourceTab(FThemeData theme) {
+  Widget _buildResourceSection(FThemeData theme) {
     if (_resources.isEmpty) return _buildEmpty(theme, '该课程暂无试卷');
-    return _buildPdfList(theme, [
+    return _buildPdfColumn(theme, [
       for (final item in _resources)
         _PdfEntry(
           id: item.id,
@@ -406,12 +343,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           hasPdf: item.hasPdf,
           urlLoader: () => ControlService.instance.fetchResourceURL(item.id),
         ),
-    ]);
+    ], color: theme.colors.semantic.info);
   }
 
-  Widget _buildTextbookTab(FThemeData theme) {
+  Widget _buildTextbookSection(FThemeData theme) {
     if (_textbooks.isEmpty) return _buildEmpty(theme, '该课程暂无教材');
-    return _buildPdfList(theme, [
+    return _buildPdfColumn(theme, [
       for (final item in _textbooks)
         _PdfEntry(
           id: item.id,
@@ -420,24 +357,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           hasPdf: item.hasPdf,
           urlLoader: () => ControlService.instance.fetchTextbookURL(item.id),
         ),
-    ]);
+    ], color: theme.colors.destructive);
   }
 
-  Widget _buildPdfList(FThemeData theme, List<_PdfEntry> entries) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.xxl,
-      ),
-      itemCount: entries.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) => _buildPdfTile(theme, entries[index]),
+  Widget _buildPdfColumn(
+    FThemeData theme,
+    List<_PdfEntry> entries, {
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        for (var index = 0; index < entries.length; index++) ...[
+          _buildPdfTile(theme, entries[index], color: color),
+          if (index != entries.length - 1)
+            const SizedBox(height: AppSpacing.sm),
+        ],
+      ],
     );
   }
 
-  Widget _buildPdfTile(FThemeData theme, _PdfEntry entry) {
+  Widget _buildPdfTile(
+    FThemeData theme,
+    _PdfEntry entry, {
+    required Color color,
+  }) {
     final downloaded = _downloadedIds.contains(entry.id);
     final downloading = _downloadingIds.contains(entry.id);
     final progress = _downloadProgress[entry.id] ?? 0;
@@ -508,7 +451,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   ),
                 )
               else
-                _PdfIcon(color: theme.colors.destructive),
+                _PdfIcon(color: color),
             ],
           ),
         ),
@@ -637,7 +580,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       groups[key] = _QuestionBankGroup(
         id: source.id,
         name: source.name,
-        orderId: source.orderId,
         requiresCDK: source.requiresCDK,
         locked: source.locked,
         courseCodes: source.courseCodes,
@@ -649,11 +591,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         final key = _bankKey(question);
         final bank = groups.putIfAbsent(
           key,
-          () => _QuestionBankGroup(
-            id: question.bankId,
-            name: question.bankName,
-            orderId: question.bankOrderId,
-          ),
+          () =>
+              _QuestionBankGroup(id: question.bankId, name: question.bankName),
         );
         bank.questions.add(question);
       }
@@ -662,124 +601,86 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return result;
   }
 
-  int _compareBanks(_QuestionBankGroup a, _QuestionBankGroup b) {
-    final aOrder = a.orderId;
-    final bOrder = b.orderId;
-    if (aOrder != null && bOrder != null && aOrder != bOrder) {
-      return aOrder.compareTo(bOrder);
-    }
-    if (aOrder != null && bOrder == null) return -1;
-    if (aOrder == null && bOrder != null) return 1;
-    return a.name.compareTo(b.name);
-  }
+  int _compareBanks(_QuestionBankGroup a, _QuestionBankGroup b) =>
+      a.name.compareTo(b.name);
 
   String _bankKey(LearningQuestion question) {
     final bankId = question.bankId.trim();
     return bankId.isEmpty ? question.bankName : bankId;
   }
 
-  FTile _buildBankTile(FThemeData theme, _QuestionBankGroup bank) {
+  Widget _buildBankCard(FThemeData theme, _QuestionBankGroup bank) {
     final selectingBanks = _bankSelectionMode;
     final selected =
         selectingBanks && _selectedBankKeys.contains(_bankSelectionKey(bank));
     final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
-    final onPress = bank.locked
+    final progress = _bankProgressPercent(bank);
+    final meta = bank.locked
+        ? '需要 CDK 解锁'
+        : '${bank.questions.length} 道题  ·  进度 $progress%';
+    final onPress = selectingBanks
+        ? (bank.questions.isEmpty ? null : () => _toggleBankSelection(bank))
+        : bank.locked
         ? () => unawaited(_openCdkRedeem(bank))
         : bank.questions.isEmpty
         ? null
         : () => unawaited(_openQuestions(bank.questions, pageTitle: name));
-    final needsCdk = bank.locked;
-    final unlockedWithCdk = bank.requiresCDK && !bank.locked;
-    final details = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (needsCdk)
-          _CdkBadge(
-            theme: theme,
-            label: 'CDK',
-            foreground: theme.colors.semantic.onWarningContainer,
-            background: theme.colors.semantic.warningContainer,
-          )
-        else if (unlockedWithCdk)
-          _CdkBadge(
-            theme: theme,
-            label: '已解锁',
-            foreground: theme.colors.semantic.onSuccessContainer,
-            background: theme.colors.semantic.successContainer,
+    return Material(
+      color: theme.colors.card,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onPress,
+        onLongPress: bank.questions.isEmpty
+            ? null
+            : () => _enterBankSelectionMode(bank),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? theme.colors.primary
+                  : theme.colors.border.withValues(alpha: 0.55),
+              width: selected ? 1.5 : 1,
+            ),
+            color: selected
+                ? theme.colors.primary.withValues(alpha: 0.06)
+                : null,
           ),
-        if (needsCdk || unlockedWithCdk) const SizedBox(width: AppSpacing.sm),
-        Text(
-          '${_bankProgressPercent(bank)}%',
-          style: theme.typography.bodySmall.copyWith(
-            color: theme.colors.primary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-
-    return FTile(
-      selected: selected,
-      style: FItemStyleDelta.delta(
-        shape: const RoundedRectangleBorder(side: BorderSide.none),
-        backgroundColor: FVariantsValueDelta.delta([
-          FVariantValueDeltaOperation.base(Colors.transparent),
-        ]),
-        contentDecoration: FVariantsDelta.delta([
-          FVariantOperation.all(
-            DecorationDelta.value(
-              ShapeDecoration(
-                color: selected
-                    ? theme.colors.primary.withValues(alpha: 0.08)
-                    : Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: selected
-                        ? theme.colors.primary
-                        : theme.colors.border,
-                    width: selected ? 1.5 : 1,
-                  ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.typography.body.md.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      meta,
+                      style: theme.typography.bodySmall.copyWith(
+                        color: theme.colors.mutedForeground,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+              const SizedBox(width: 12),
+              _BankIcon(color: theme.colors.primary),
+            ],
           ),
-        ]),
-        contentStyle: FItemContentStyleDelta.delta(
-          suffixedPadding: const EdgeInsetsGeometryDelta.value(
-            EdgeInsetsDirectional.fromSTEB(0, 0, 12, 0),
-          ),
-          unsuffixedPadding: const EdgeInsetsGeometryDelta.value(
-            EdgeInsetsDirectional.fromSTEB(0, 0, 12, 0),
-          ),
-          prefixIconSpacing: 8,
         ),
       ),
-      prefix: _BankInitial(
-        initial: _bankInitial(name),
-        outerColor: selected
-            ? theme.colors.primary.withValues(alpha: 0.3)
-            : Color.lerp(theme.colors.primary, Colors.white, 0.55)!,
-        innerColor: Color.lerp(theme.colors.primary, Colors.black, 0.2)!,
-      ),
-      title: Text(
-        name,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.typography.body.md.copyWith(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      details: details,
-      onPress: selectingBanks
-          ? bank.questions.isEmpty
-                ? null
-                : () => _toggleBankSelection(bank)
-          : onPress,
-      onLongPress: bank.questions.isEmpty
-          ? null
-          : () => _enterBankSelectionMode(bank),
     );
   }
 
@@ -804,13 +705,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         .where((q) => repository.isJudged(q.id))
         .length;
     return (judged * 100 / bank.questions.length).round();
-  }
-
-  static String _bankInitial(String name) {
-    final match = RegExp(r'[一-龥]').firstMatch(name);
-    if (match != null) return match.group(0)!;
-    final first = name.runes.firstOrNull;
-    return first == null ? '题' : String.fromCharCode(first);
   }
 
   Future<void> _openCdkRedeem(_QuestionBankGroup bank) async {
@@ -874,6 +768,24 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
     );
   }
+}
+
+class _BankIcon extends StatelessWidget {
+  final Color color;
+
+  const _BankIcon({required this.color});
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    painter: _DashedBorderPainter(color: color),
+    child: SizedBox(
+      width: 42,
+      height: 54,
+      child: Center(
+        child: Icon(FLucideIcons.fileQuestion, color: color, size: 20),
+      ),
+    ),
+  );
 }
 
 class _PdfEntry {
@@ -1013,73 +925,9 @@ class _DashedBorderPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class _BankInitial extends StatelessWidget {
-  final String initial;
-  final Color outerColor;
-  final Color innerColor;
-
-  const _BankInitial({
-    required this.initial,
-    required this.outerColor,
-    required this.innerColor,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 38,
-    height: 38,
-    decoration: BoxDecoration(
-      color: outerColor,
-      borderRadius: BorderRadius.circular(12),
-    ),
-    alignment: Alignment.center,
-    child: Text(
-      initial,
-      style: TextStyle(
-        color: innerColor,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-  );
-}
-
-class _CdkBadge extends StatelessWidget {
-  final FThemeData theme;
-  final String label;
-  final Color foreground;
-  final Color background;
-
-  const _CdkBadge({
-    required this.theme,
-    required this.label,
-    required this.foreground,
-    required this.background,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: theme.typography.bodySmall.copyWith(
-          color: foreground,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
 class _QuestionBankGroup {
   final String id;
   final String name;
-  final int? orderId;
   final bool requiresCDK;
   final bool locked;
   final List<String> courseCodes;
@@ -1088,7 +936,6 @@ class _QuestionBankGroup {
   _QuestionBankGroup({
     required this.id,
     required this.name,
-    required this.orderId,
     this.requiresCDK = false,
     this.locked = false,
     this.courseCodes = const [],

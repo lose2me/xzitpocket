@@ -468,16 +468,10 @@ class ControlService {
       if (summaries.length >= total || items is! List || items.isEmpty) break;
       offset = summaries.length;
     }
-    summaries.sort((a, b) {
-      final order = (_asInt(a['orderId']) ?? 0).compareTo(
-        _asInt(b['orderId']) ?? 0,
-      );
-      return order != 0
-          ? order
-          : (a['name']?.toString() ?? '').compareTo(
-              b['name']?.toString() ?? '',
-            );
-    });
+    summaries.sort(
+      (a, b) =>
+          (a['name']?.toString() ?? '').compareTo(b['name']?.toString() ?? ''),
+    );
 
     final banks = <LearningQuestionBank>[];
     final activeIds = <String>{};
@@ -506,7 +500,6 @@ class ControlService {
       }
       final summaryBank = LearningQuestionBank.fromJson({
         'id': id,
-        'orderId': summary['orderId'],
         'name': summary['name'],
         'requiresCDK': summary['requiresCDK'] == true,
         'courseCodes': summary['courseCodes'],
@@ -532,7 +525,6 @@ class ControlService {
         banks.add(
           LearningQuestionBank.fromJson({
             'id': summaryBank.id,
-            'orderId': summaryBank.orderId,
             'name': summaryBank.name,
             'requiresCDK': summaryBank.requiresCDK,
             'courseCodes': summary['courseCodes'],

@@ -26,7 +26,6 @@ class LearningQuestion {
   final String id;
   final String bankName;
   final String bankId;
-  final int? bankOrderId;
   final int? questionNumber;
   final String title;
   final String questionText;
@@ -39,7 +38,6 @@ class LearningQuestion {
     required this.id,
     this.bankName = '题库',
     this.bankId = '',
-    this.bankOrderId,
     this.questionNumber,
     required this.title,
     String? questionText,
@@ -65,7 +63,6 @@ class LearningQuestion {
     String? fallbackId,
     String? fallbackBankName,
     String? fallbackBankId,
-    int? fallbackBankOrderId,
   }) {
     final rawType = json['type']?.toString() ?? 'single';
     final title = json['title']?.toString() ?? '';
@@ -75,10 +72,6 @@ class LearningQuestion {
         ? rawQuestionNumber.toInt()
         : int.tryParse(rawQuestionNumber?.toString() ?? '');
     final bankId = json['bankId']?.toString() ?? fallbackBankId ?? '';
-    final rawBankOrderId = json['bankOrderId'];
-    final bankOrderId = rawBankOrderId is num
-        ? rawBankOrderId.toInt()
-        : int.tryParse(rawBankOrderId?.toString() ?? '') ?? fallbackBankOrderId;
     final type = _parseType(rawType);
     final rawOptions = json['options'] as List<dynamic>? ?? const [];
     final options = [
@@ -120,7 +113,6 @@ class LearningQuestion {
       id: json['id']?.toString() ?? fallbackId ?? title,
       bankName: json['bankName']?.toString() ?? fallbackBankName ?? '题库',
       bankId: bankId,
-      bankOrderId: bankOrderId,
       questionNumber: questionNumber,
       title: title.isEmpty ? questionText : title,
       questionText: questionText,
@@ -135,7 +127,6 @@ class LearningQuestion {
     'id': id,
     'bankName': bankName,
     if (bankId.isNotEmpty) 'bankId': bankId,
-    if (bankOrderId != null) 'bankOrderId': bankOrderId,
     if (questionNumber != null) 'questionNumber': questionNumber,
     'title': title,
     'questionText': questionText,
@@ -263,7 +254,6 @@ class LearningQuestion {
 class LearningQuestionBank {
   final String id;
   final String name;
-  final int? orderId;
   final bool requiresCDK;
   final bool locked;
 
@@ -284,7 +274,6 @@ class LearningQuestionBank {
   const LearningQuestionBank({
     this.id = '',
     required this.name,
-    this.orderId,
     this.requiresCDK = false,
     this.locked = false,
     this.courseCodes = const [],
@@ -297,7 +286,6 @@ class LearningQuestionBank {
       LearningQuestionBank(
         id: id,
         name: name,
-        orderId: orderId,
         requiresCDK: requiresCDK,
         locked: locked,
         courseCodes: courseCodes ?? this.courseCodes,
@@ -311,10 +299,6 @@ class LearningQuestionBank {
     final bank = rawBank is Map<String, dynamic> ? rawBank : json;
     final name = bank['name']?.toString() ?? '题库';
     final id = bank['id']?.toString() ?? name;
-    final rawOrderId = bank['orderId'];
-    final orderId = rawOrderId is num
-        ? rawOrderId.toInt()
-        : int.tryParse(rawOrderId?.toString() ?? '');
     final requiresCDK = bank['requiresCDK'] == true;
     final locked = bank['locked'] == true;
     final hidden = bank['hidden'] == true;
@@ -336,7 +320,6 @@ class LearningQuestionBank {
                   '$id:${(rawQuestions[index] as Map<String, dynamic>)['questionNumber'] ?? index + 1}',
               fallbackBankName: name,
               fallbackBankId: id,
-              fallbackBankOrderId: orderId,
             ),
         ]..sort((a, b) {
           final aNumber = a.questionNumber;
@@ -351,7 +334,6 @@ class LearningQuestionBank {
     return LearningQuestionBank(
       id: id,
       name: name,
-      orderId: orderId,
       requiresCDK: requiresCDK,
       locked: locked,
       courseCodes: courseCodes,
@@ -365,7 +347,6 @@ class LearningQuestionBank {
     'questionBank': {
       if (id.isNotEmpty) 'id': id,
       'name': name,
-      if (orderId != null) 'orderId': orderId,
       if (requiresCDK) 'requiresCDK': true,
       if (locked) 'locked': true,
       if (courseCodes.isNotEmpty) 'courseCodes': courseCodes,
