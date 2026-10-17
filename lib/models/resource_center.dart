@@ -53,6 +53,52 @@ class CourseResourceItem {
       );
 }
 
+class UploadTextbook {
+  final String id;
+  final String name;
+  final String tags;
+  final List<String> courseCodes;
+  final bool hasPdf;
+
+  const UploadTextbook({
+    required this.id,
+    required this.name,
+    this.tags = '',
+    this.courseCodes = const [],
+    this.hasPdf = false,
+  });
+
+  String get primaryCourseCode => courseCodes.isEmpty ? '' : courseCodes.first;
+
+  @override
+  bool operator ==(Object other) => other is UploadTextbook && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  factory UploadTextbook.fromJson(Map<String, dynamic> json) => UploadTextbook(
+    id: json['id']?.toString() ?? '',
+    name: json['name']?.toString() ?? '',
+    tags: json['tags']?.toString() ?? '',
+    courseCodes: [
+      for (final code in (json['course_codes'] as List? ?? const []))
+        if (code?.toString().trim().isNotEmpty ?? false) code.toString().trim(),
+    ],
+    hasPdf: json['has_pdf'] == true,
+  );
+
+  factory UploadTextbook.fromCourseTextbook(
+    CourseTextbookItem item,
+    String courseCode,
+  ) => UploadTextbook(
+    id: item.id,
+    name: item.name,
+    tags: item.tags,
+    courseCodes: [if (courseCode.trim().isNotEmpty) courseCode.trim()],
+    hasPdf: item.hasPdf,
+  );
+}
+
 class CourseTextbookItem {
   final String id;
   final String name;

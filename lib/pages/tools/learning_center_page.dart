@@ -239,9 +239,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final textbookLoading = _detailsLoading && _textbooks.isEmpty;
     final bankLoading = _detailsLoading && banks.isEmpty;
     final resourceLoading = _detailsLoading && _resources.isEmpty;
-    final textbookEnabled = _textbooks.isNotEmpty || textbookLoading;
-    final bankEnabled = banks.isNotEmpty || bankLoading;
-    final resourceEnabled = _resources.isNotEmpty || resourceLoading;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
       topPadding: AppSpacing.sm,
@@ -251,13 +248,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           padding: const EdgeInsets.only(bottom: AppSpacing.xs),
           child: _buildCourseHeader(theme),
         ),
-        _buildSectionHeader(
-          theme,
-          0,
-          '教材',
-          textbookEnabled,
-          _expandedSections[0],
-        ),
+        _buildSectionHeader(theme, 0, '教材', _expandedSections[0]),
         if (_expandedSections[0]) ...[
           const SizedBox(height: AppSpacing.sm),
           if (_textbooks.isNotEmpty)
@@ -277,12 +268,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (textbookLoading)
-            _buildLoading()
+            _buildLoading(theme)
           else
-            _buildUploadEmpty(theme, kind: 'textbook', action: '点击上传教材'),
+            _buildUploadEmpty(
+              theme,
+              label: '暂无资源',
+              action: '点击上传教材',
+              onTap: () => unawaited(_openUpload(kind: 'textbook')),
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
-        _buildSectionHeader(theme, 1, '题库', bankEnabled, _expandedSections[1]),
+        _buildSectionHeader(theme, 1, '题库', _expandedSections[1]),
         if (_expandedSections[1]) ...[
           const SizedBox(height: AppSpacing.sm),
           if (banks.isNotEmpty)
@@ -291,18 +287,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (bankLoading)
-            _buildLoading()
+            _buildLoading(theme)
           else
-            _buildEmpty(theme, '暂无题库'),
+            _buildUploadEmpty(theme, label: '暂无题库', icon: FLucideIcons.library),
           const SizedBox(height: AppSpacing.md),
         ],
-        _buildSectionHeader(
-          theme,
-          2,
-          '试卷',
-          resourceEnabled,
-          _expandedSections[2],
-        ),
+        _buildSectionHeader(theme, 2, '试卷', _expandedSections[2]),
         if (_expandedSections[2]) ...[
           const SizedBox(height: AppSpacing.sm),
           if (_resources.isNotEmpty)
@@ -322,9 +312,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (resourceLoading)
-            _buildLoading()
+            _buildLoading(theme)
           else
-            _buildUploadEmpty(theme, kind: 'resource', action: '点击上传试卷'),
+            _buildUploadEmpty(
+              theme,
+              label: '暂无资源',
+              action: '点击上传试卷',
+              onTap: () => unawaited(_openUpload(kind: 'resource')),
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
       ],
@@ -335,17 +330,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     FThemeData theme,
     int index,
     String label,
-    bool enabled,
     bool expanded,
   ) {
-    final lineColor = expanded && enabled
-        ? theme.colors.primary
-        : theme.colors.border;
-    final textColor = !enabled
-        ? theme.colors.mutedForeground.withValues(alpha: 0.4)
-        : expanded
-        ? theme.colors.primary
-        : theme.colors.mutedForeground;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
@@ -353,24 +339,29 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: lineColor,
-              width: expanded && enabled ? 2 : 1,
+        padding: const EdgeInsets.only(top: 10, bottom: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              textAlign: TextAlign.left,
+              style: theme.typography.body.md.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: theme.colors.primary,
+              ),
             ),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: theme.typography.body.md.copyWith(
-              fontSize: 13,
-              fontWeight: expanded ? FontWeight.w600 : FontWeight.w500,
-              color: textColor,
+            const SizedBox(height: 8),
+            FractionallySizedBox(
+              widthFactor: 0.5,
+              alignment: Alignment.centerLeft,
+              child: Container(
+                height: expanded ? 2 : 1,
+                color: theme.colors.primary,
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -378,32 +369,29 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Widget _buildUploadEmpty(
     FThemeData theme, {
-    required String kind,
-    required String action,
+    required String label,
+    String? action,
+    VoidCallback? onTap,
+    IconData icon = FLucideIcons.arrowUpToLine,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => unawaited(_openUpload(kind: kind)),
-      child: CustomPaint(
-        painter: _DashedBorderPainter(color: theme.colors.border),
-        child: SizedBox(
-          width: double.infinity,
-          height: 112,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  FLucideIcons.arrowUpToLine,
+    final content = CustomPaint(
+      painter: _DashedBorderPainter(color: theme.colors.border),
+      child: SizedBox(
+        width: double.infinity,
+        height: 112,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: theme.colors.mutedForeground),
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                label,
+                style: theme.typography.bodySmall.copyWith(
                   color: theme.colors.mutedForeground,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  '暂无资源',
-                  style: theme.typography.bodySmall.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
+              ),
+              if (action != null) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   action,
@@ -412,17 +400,28 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   ),
                 ),
               ],
-            ),
+            ],
           ),
         ),
       ),
     );
+    if (onTap == null) return content;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: content,
+    );
   }
 
-  Widget _buildLoading() => const Padding(
-    padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+  Widget _buildLoading(FThemeData theme) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
     child: Center(
-      child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+      child: Text(
+        '正在加载…',
+        style: theme.typography.bodySmall.copyWith(
+          color: theme.colors.mutedForeground,
+        ),
+      ),
     ),
   );
 
@@ -438,17 +437,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
     );
   }
-
-  Widget _buildEmpty(FThemeData theme, String message) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-    child: Text(
-      message,
-      textAlign: TextAlign.center,
-      style: theme.typography.bodySmall.copyWith(
-        color: theme.colors.mutedForeground,
-      ),
-    ),
-  );
 
   List<_QuestionBankGroup> _courseBanks() {
     if (course.code.isEmpty) return _allBankGroups();
@@ -467,6 +455,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           courses: [course],
           initialKind: kind,
           initialCourseCode: course.code,
+          courseScoped: true,
         ),
       ),
     );

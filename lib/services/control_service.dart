@@ -603,6 +603,16 @@ class ControlService {
   }
 
   /// Courses that have at least one bank, resource or textbook.
+  Future<List<UploadTextbook>> fetchUploadTextbooks() async {
+    final response = await _userGet('/api/v1/resource-center/upload-textbooks');
+    final items = response['items'];
+    if (items is! List) return const [];
+    return [
+      for (final item in items.whereType<Map>())
+        UploadTextbook.fromJson(_stringMap(item)),
+    ];
+  }
+
   Future<UploadStats> fetchUploadStats() async {
     final response = await _userGet('/api/v1/resource-center/upload-stats');
     return UploadStats.fromJson(response);

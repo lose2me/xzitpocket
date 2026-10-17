@@ -20,12 +20,14 @@ class ResourceUploadPage extends StatefulWidget {
   final List<ResourceCourse> courses;
   final String initialKind;
   final String? initialCourseCode;
+  final bool courseScoped;
 
   const ResourceUploadPage({
     super.key,
     required this.courses,
     this.initialKind = 'textbook',
     this.initialCourseCode,
+    this.courseScoped = false,
   });
 
   @override
@@ -43,8 +45,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   int _total = 0;
   UploadStats? _stats;
   bool _statsLoading = true;
-  List<CourseTextbookItem> _textbooks = const [];
-  String _selectedTextbookId = '';
+  List<UploadTextbook> _textbooks = const [];
+  UploadTextbook? _selectedTextbook;
   bool _textbooksLoading = true;
 
   String _initialCourseCode() {
@@ -60,8 +62,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   void initState() {
     super.initState();
     _kind = widget.initialKind == 'resource' ? 'resource' : 'textbook';
-    unawaited(_loadStats());
-    unawaited(_loadTextbooks());
+    _statsLoading = !widget.courseScoped;
+    _textbooksLoading = _kind == 'textbook';
+    if (!widget.courseScoped) unawaited(_loadStats());
+    if (_kind == 'textbook') unawaited(_loadTextbooks());
   }
 
   @override
@@ -71,6 +75,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   }
 
   Future<void> _loadStats() async {
+    if (widget.courseScoped) return;
     if (!_statsLoading) setState(() => _statsLoading = true);
     try {
       final stats = await ControlService.instance.fetchUploadStats();
@@ -83,25 +88,33 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     }
   }
 
-  Future<void> _loadTextbooks() async {
+  Future<void> _loadTextbooks({bool force = false}) async {
     if (_kind != 'textbook') return;
+    if (!force && _textbooks.isNotEmpty) return;
     if (!_textbooksLoading) setState(() => _textbooksLoading = true);
     try {
-      final items = await ControlService.instance.fetchCourseTextbooks(
-        _courseCode,
-      );
+      final items = widget.courseScoped
+          ? [
+              for (final item
+                  in await ControlService.instance.fetchCourseTextbooks(
+                    _courseCode,
+                  ))
+                UploadTextbook.fromCourseTextbook(item, _courseCode),
+            ]
+          : await ControlService.instance.fetchUploadTextbooks();
       if (!mounted) return;
       setState(() {
         _textbooks = items;
-        if (!items.any((item) => item.id == _selectedTextbookId)) {
-          _selectedTextbookId = items.isEmpty ? '' : items.first.id;
+        final current = _selectedTextbook;
+        if (current == null || !items.any((book) => book.id == current.id)) {
+          _selectedTextbook = items.isEmpty ? null : items.first;
         }
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _textbooks = const [];
-        _selectedTextbookId = '';
+        _selectedTextbook = null;
       });
     } finally {
       if (mounted) setState(() => _textbooksLoading = false);
@@ -109,7 +122,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   }
 
   Future<void> _refreshAll() async {
-    await Future.wait([_loadStats(), _loadTextbooks()]);
+    await Future.wait([
+      if (!widget.courseScoped) _loadStats(),
+      if (_kind == 'textbook') _loadTextbooks(force: true),
+    ]);
   }
 
   Future<void> _pickFile() async {
@@ -145,22 +161,34 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       showAppSnackBar(context, '请选择 PDF 文件', severity: ToastSeverity.warning);
       return;
     }
-    if (_courseCode.isEmpty) {
-      showAppSnackBar(context, '请选择课程', severity: ToastSeverity.warning);
-      return;
-    }
-    CourseTextbookItem? target;
+    String courseCode;
     String name;
     String tags = '';
+    String targetId = '';
     if (_kind == 'textbook') {
-      target = _selectedTextbook;
-      if (target == null) {
+      final book = _selectedTextbook;
+      if (book == null) {
         showAppSnackBar(context, '请选择教材', severity: ToastSeverity.warning);
         return;
       }
-      name = target.name;
-      tags = target.tags;
+      courseCode = widget.courseScoped ? _courseCode : book.primaryCourseCode;
+      if (courseCode.isEmpty) {
+        showAppSnackBar(
+          context,
+          '该教材未关联课程，暂不能上传',
+          severity: ToastSeverity.warning,
+        );
+        return;
+      }
+      name = book.name;
+      tags = book.tags;
+      targetId = book.id;
     } else {
+      courseCode = _courseCode;
+      if (courseCode.isEmpty) {
+        showAppSnackBar(context, '请选择课程', severity: ToastSeverity.warning);
+        return;
+      }
       name = _nameController.text.trim();
       if (name.isEmpty) {
         showAppSnackBar(context, '请输入试卷名称', severity: ToastSeverity.warning);
@@ -177,10 +205,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     try {
       ticket = await ControlService.instance.createResourceUploadTicket(
         kind: _kind,
-        courseCode: _courseCode,
+        courseCode: courseCode,
         name: name,
         tags: tags,
-        targetId: target?.id ?? '',
+        targetId: targetId,
         sizeBytes: _fileSize,
       );
       await ControlService.instance.uploadToSignedUrl(
@@ -218,136 +246,73 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     }
   }
 
-  CourseTextbookItem? get _selectedTextbook {
-    for (final item in _textbooks) {
-      if (item.id == _selectedTextbookId) return item;
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final scoped = widget.courseScoped;
+    final title = scoped ? (_kind == 'textbook' ? '上传教材' : '上传试卷') : '上传资源';
+    final showRefresh = !scoped || _kind == 'textbook';
+    final refreshLoading = !scoped
+        ? (_statsLoading || _textbooksLoading)
+        : _textbooksLoading;
     final canSubmit =
-        !_uploading && (_kind == 'resource' || _selectedTextbookId.isNotEmpty);
+        !_uploading &&
+        (_kind != 'textbook' || _selectedTextbook != null) &&
+        (scoped || _kind == 'textbook' || _courseCode.isNotEmpty);
     return AppPage(
-      title: '上传资源',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _statsLoading || _textbooksLoading
-              ? null
-              : () => unawaited(_refreshAll()),
-          tooltip: '刷新数据',
-          loading: _statsLoading || _textbooksLoading,
-        ),
-      ],
+      title: title,
+      actions: showRefresh
+          ? [
+              AppIconButton(
+                icon: FLucideIcons.refreshCw,
+                onPress: refreshLoading ? null : () => unawaited(_refreshAll()),
+                tooltip: scoped ? '刷新教材' : '刷新数据',
+                loading: refreshLoading,
+              ),
+            ]
+          : const [],
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         children: [
-          AppAdaptiveGrid(
-            children: [
-              _buildMetricCell(
-                theme,
-                '贡献数',
-                _stats == null ? '--' : '${_stats!.contributionCount}',
-              ),
-              _buildMetricCell(
-                theme,
-                '下载量',
-                _stats == null ? '--' : '${_stats!.downloadCount}',
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          Row(
-            children: [
-              _buildTab(theme, 'textbook', '教材'),
-              _buildTab(theme, 'resource', '试卷'),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            '课程',
-            style: theme.typography.bodySmall.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          FSelect<String>.rich(
-            control: FSelectControl.lifted(
-              value: _courseCode,
-              onChange: (value) {
-                if (value == null || _uploading || value == _courseCode) return;
-                setState(() {
-                  _courseCode = value;
-                  _selectedTextbookId = '';
-                  _textbooks = const [];
-                });
-                unawaited(_loadTextbooks());
-              },
-            ),
-            format: _courseLabel,
-            children: [
-              for (final course in widget.courses)
-                FSelectItem.item(
-                  title: Text(_courseLabel(course.code)),
-                  value: course.code,
+          if (!scoped) ...[
+            AppAdaptiveGrid(
+              children: [
+                _buildMetricCell(
+                  theme,
+                  '贡献数',
+                  _stats == null ? '--' : '${_stats!.contributionCount}',
                 ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          if (_kind == 'textbook') ...[
+                _buildMetricCell(
+                  theme,
+                  '下载量',
+                  _stats == null ? '--' : '${_stats!.downloadCount}',
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Row(
+              children: [
+                _buildTab(theme, 'textbook', '教材'),
+                _buildTab(theme, 'resource', '试卷'),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
+          if (!scoped && _kind == 'resource') ...[
             Text(
-              '选择教材',
+              '课程',
               style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.mutedForeground,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            if (_textbooksLoading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                child: Center(
-                  child: FCircularProgress(
-                    size: FCircularProgressSizeVariant.sm,
-                  ),
-                ),
-              )
-            else if (_textbooks.isEmpty)
-              AppCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
-                child: Text(
-                  '该课程暂无可上传的教材',
-                  style: theme.typography.bodySmall.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-              )
-            else
-              FSelect<String>.rich(
-                control: FSelectControl.lifted(
-                  value: _selectedTextbookId,
-                  onChange: (value) {
-                    if (value != null && !_uploading) {
-                      setState(() => _selectedTextbookId = value);
-                    }
-                  },
-                ),
-                format: _textbookLabel,
-                children: [
-                  for (final item in _textbooks)
-                    FSelectItem.item(
-                      title: Text(_textbookLabel(item.id)),
-                      value: item.id,
-                    ),
-                ],
-              ),
+            _buildCourseSelector(theme),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (_kind == 'textbook') ...[
+            _buildTextbookField(theme),
             const SizedBox(height: AppSpacing.md),
           ] else ...[
             AppTextField(
@@ -428,6 +393,129 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     );
   }
 
+  Widget _buildTextbookField(FThemeData theme) {
+    if (_textbooksLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+        child: Center(
+          child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
+        ),
+      );
+    }
+    if (_textbooks.isEmpty) {
+      return AppCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Text(
+          widget.courseScoped ? '该课程暂无关联教材' : '暂无可上传的教材',
+          style: theme.typography.bodySmall.copyWith(
+            color: theme.colors.mutedForeground,
+          ),
+        ),
+      );
+    }
+    final book = _selectedTextbook;
+    if (widget.courseScoped && _textbooks.length == 1 && book != null) {
+      return AppCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '关联教材',
+              style: theme.typography.bodySmall.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              book.name,
+              style: theme.typography.body.md.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '选择教材',
+          style: theme.typography.bodySmall.copyWith(
+            color: theme.colors.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        FSelect<UploadTextbook>.searchBuilder(
+          control: FSelectControl.lifted(
+            value: _selectedTextbook,
+            onChange: (value) {
+              if (value != null && !_uploading) {
+                setState(() => _selectedTextbook = value);
+              }
+            },
+          ),
+          format: _textbookLabel,
+          filter: _filterTextbooks,
+          contentBuilder: (context, query, values) => [
+            for (final item in values)
+              FSelectItem.item(title: Text(_textbookLabel(item)), value: item),
+          ],
+          hint: '输入教材名搜索',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCourseSelector(FThemeData theme) {
+    return FSelect<String>.searchBuilder(
+      control: FSelectControl.lifted(
+        value: _courseCode,
+        onChange: (value) {
+          if (value == null || _uploading || value == _courseCode) return;
+          setState(() => _courseCode = value);
+        },
+      ),
+      format: _courseLabel,
+      filter: (query) {
+        final q = query.trim().toLowerCase();
+        if (q.isEmpty) {
+          return [for (final course in widget.courses) course.code];
+        }
+        return [
+          for (final course in widget.courses)
+            if (course.code.toLowerCase().contains(q) ||
+                course.name.toLowerCase().contains(q))
+              course.code,
+        ];
+      },
+      contentBuilder: (context, query, values) => [
+        for (final code in values)
+          FSelectItem.item(title: Text(_courseLabel(code)), value: code),
+      ],
+      hint: '输入课程名或编号搜索',
+    );
+  }
+
+  Iterable<UploadTextbook> _filterTextbooks(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return _textbooks;
+    return _textbooks.where(
+      (book) =>
+          book.name.toLowerCase().contains(q) ||
+          book.tags.toLowerCase().contains(q) ||
+          book.courseCodes.any((code) => code.toLowerCase().contains(q)) ||
+          _courseName(book.primaryCourseCode).toLowerCase().contains(q),
+    );
+  }
+
   Widget _buildTab(FThemeData theme, String kind, String label) {
     final selected = _kind == kind;
     return Expanded(
@@ -498,21 +586,27 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     );
   }
 
-  String _textbookLabel(String id) {
-    for (final item in _textbooks) {
-      if (item.id != id) continue;
-      return item.hasPdf ? '${item.name}（已有 PDF）' : item.name;
+  String _textbookLabel(UploadTextbook book) {
+    final name = book.name.trim().isEmpty ? book.id : book.name.trim();
+    if (widget.courseScoped) return name;
+    final courseName = _courseName(book.primaryCourseCode);
+    if (courseName.isNotEmpty) return '$name · $courseName';
+    final code = book.primaryCourseCode;
+    return code.isEmpty ? name : '$name · $code';
+  }
+
+  String _courseName(String code) {
+    for (final course in widget.courses) {
+      if (course.code != code) continue;
+      return course.name.trim();
     }
-    return id;
+    return '';
   }
 
   String _courseLabel(String code) {
-    for (final course in widget.courses) {
-      if (course.code != code) continue;
-      final name = course.name.trim();
-      return name.isEmpty ? code : '$code · $name';
-    }
-    return code;
+    final name = _courseName(code);
+    if (name.isEmpty) return code;
+    return '$code · $name';
   }
 
   String _nameFromFile(String fileName) {
