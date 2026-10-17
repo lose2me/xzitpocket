@@ -1198,7 +1198,11 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
               child: FButton(
                 size: FButtonSizeVariant.sm,
                 variant: FButtonVariant.ghost,
-                onPress: _navigationLocked ? null : _goNext,
+                onPress:
+                    _navigationLocked ||
+                        _currentIndex >= _questionIds.length - 1
+                    ? null
+                    : _goNext,
                 suffix: const Icon(FLucideIcons.chevronRight),
                 child: const Text('下一题'),
               ),

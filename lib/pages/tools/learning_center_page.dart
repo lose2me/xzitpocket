@@ -230,73 +230,70 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildCourseBody(BuildContext context) {
     final theme = context.theme;
     final banks = _courseBanks();
+    final tabs = <FTabEntry>[
+      if (_textbooks.isNotEmpty)
+        FTabEntry(label: const Text('教材'), child: _buildTextbookTab(theme)),
+      if (banks.isNotEmpty)
+        FTabEntry(label: const Text('题库'), child: _buildBankTab(theme, banks)),
+      if (_resources.isNotEmpty)
+        FTabEntry(label: const Text('试卷'), child: _buildResourceTab(theme)),
+    ];
     return AppPageBody(
       maxWidth: AppLayout.resultMaxWidth,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          AppSpacing.xs,
-          AppSpacing.xl,
-          AppSpacing.xxl,
-        ),
-        children: [
-          _buildCourseHeader(theme),
-          _buildSectionHeader(theme, '教材'),
-          _buildTextbookSection(theme),
-          _buildSectionHeader(theme, '题库'),
-          _buildBankSection(theme, banks),
-          _buildSectionHeader(theme, '试卷'),
-          _buildResourceSection(theme),
-        ],
-      ),
+      child: tabs.isEmpty
+          ? _buildEmpty(theme, '该课程暂无资源')
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xs,
+                  ),
+                  child: _buildCourseHeader(theme),
+                ),
+                Expanded(
+                  child: FTabs(
+                    expands: true,
+                    // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
+                    contentPhysics: const NeverScrollableScrollPhysics(),
+                    children: tabs,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 
-  Widget _buildSectionHeader(FThemeData theme, String title) => Padding(
-    padding: const EdgeInsets.only(top: AppSpacing.lg, bottom: AppSpacing.sm),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.typography.body.md.copyWith(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: theme.colors.primary,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(height: 2, width: 40, color: theme.colors.primary),
-      ],
-    ),
-  );
-
   Widget _buildCourseHeader(FThemeData theme) {
     final name = course.name.trim().isEmpty ? course.code : course.name.trim();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: AppSpacing.sm,
-        runSpacing: 2,
-        children: [
-          Text(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Flexible(
+          child: Text(
             name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: theme.typography.body.lg.copyWith(
               fontSize: 20,
               fontWeight: FontWeight.w700,
             ),
           ),
-          if (course.code.isNotEmpty)
-            Text(
-              course.code,
-              style: theme.typography.bodySmall.copyWith(
-                color: theme.colors.mutedForeground,
-                fontSize: 12,
-              ),
+        ),
+        if (course.code.isNotEmpty) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            course.code,
+            style: theme.typography.bodySmall.copyWith(
+              color: theme.colors.mutedForeground,
+              fontSize: 12,
             ),
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -320,59 +317,71 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ];
   }
 
-  Widget _buildBankSection(FThemeData theme, List<_QuestionBankGroup> banks) {
-    if (banks.isEmpty) return _buildEmpty(theme, '该课程暂无关联题库');
-    return Column(
-      children: [
-        for (var index = 0; index < banks.length; index++) ...[
-          _buildBankCard(theme, banks[index]),
-          if (index != banks.length - 1) const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
+  Widget _buildBankTab(FThemeData theme, List<_QuestionBankGroup> banks) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+      ),
+      itemCount: banks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) => _buildBankCard(theme, banks[index]),
     );
   }
 
-  Widget _buildResourceSection(FThemeData theme) {
-    if (_resources.isEmpty) return _buildEmpty(theme, '该课程暂无试卷');
-    return _buildPdfColumn(theme, [
-      for (final item in _resources)
-        _PdfEntry(
-          id: item.id,
-          title: item.name,
-          sizeBytes: item.sizeBytes,
-          hasPdf: item.hasPdf,
-          urlLoader: () => ControlService.instance.fetchResourceURL(item.id),
-        ),
-    ], color: theme.colors.semantic.info);
+  Widget _buildResourceTab(FThemeData theme) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+      ),
+      itemCount: _resources.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        final item = _resources[index];
+        return _buildPdfTile(
+          theme,
+          _PdfEntry(
+            id: item.id,
+            title: item.name,
+            sizeBytes: item.sizeBytes,
+            hasPdf: item.hasPdf,
+            urlLoader: () => ControlService.instance.fetchResourceURL(item.id),
+          ),
+          color: theme.colors.semantic.info,
+        );
+      },
+    );
   }
 
-  Widget _buildTextbookSection(FThemeData theme) {
-    if (_textbooks.isEmpty) return _buildEmpty(theme, '该课程暂无教材');
-    return _buildPdfColumn(theme, [
-      for (final item in _textbooks)
-        _PdfEntry(
-          id: item.id,
-          title: item.name,
-          sizeBytes: item.sizeBytes,
-          hasPdf: item.hasPdf,
-          urlLoader: () => ControlService.instance.fetchTextbookURL(item.id),
-        ),
-    ], color: theme.colors.destructive);
-  }
-
-  Widget _buildPdfColumn(
-    FThemeData theme,
-    List<_PdfEntry> entries, {
-    required Color color,
-  }) {
-    return Column(
-      children: [
-        for (var index = 0; index < entries.length; index++) ...[
-          _buildPdfTile(theme, entries[index], color: color),
-          if (index != entries.length - 1)
-            const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
+  Widget _buildTextbookTab(FThemeData theme) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xxl,
+      ),
+      itemCount: _textbooks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        final item = _textbooks[index];
+        return _buildPdfTile(
+          theme,
+          _PdfEntry(
+            id: item.id,
+            title: item.name,
+            sizeBytes: item.sizeBytes,
+            hasPdf: item.hasPdf,
+            urlLoader: () => ControlService.instance.fetchTextbookURL(item.id),
+          ),
+          color: theme.colors.destructive,
+        );
+      },
     );
   }
 
@@ -451,7 +460,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   ),
                 )
               else
-                _PdfIcon(color: color),
+                _DocumentIcon(color: color, label: 'PDF'),
             ],
           ),
         ),
@@ -676,7 +685,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              _BankIcon(color: theme.colors.primary),
+              _DocumentIcon(color: theme.colors.primary, label: 'EXAM'),
             ],
           ),
         ),
@@ -770,24 +779,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 }
 
-class _BankIcon extends StatelessWidget {
-  final Color color;
-
-  const _BankIcon({required this.color});
-
-  @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _DashedBorderPainter(color: color),
-    child: SizedBox(
-      width: 42,
-      height: 54,
-      child: Center(
-        child: Icon(FLucideIcons.fileQuestion, color: color, size: 20),
-      ),
-    ),
-  );
-}
-
 class _PdfEntry {
   final String id;
   final String title;
@@ -804,20 +795,24 @@ class _PdfEntry {
   });
 }
 
-class _PdfIcon extends StatelessWidget {
+class _DocumentIcon extends StatelessWidget {
   final Color color;
+  final String label;
 
-  const _PdfIcon({required this.color});
+  const _DocumentIcon({required this.color, required this.label});
 
   @override
-  Widget build(BuildContext context) =>
-      CustomPaint(size: const Size(42, 54), painter: _PdfIconPainter(color));
+  Widget build(BuildContext context) => CustomPaint(
+    size: const Size(42, 54),
+    painter: _PdfIconPainter(color: color, label: label),
+  );
 }
 
 class _PdfIconPainter extends CustomPainter {
   final Color color;
+  final String label;
 
-  const _PdfIconPainter(this.color);
+  const _PdfIconPainter({required this.color, required this.label});
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -847,21 +842,21 @@ class _PdfIconPainter extends CustomPainter {
       stroke,
     );
 
-    final label = TextPainter(
+    final labelPainter = TextPainter(
       text: TextSpan(
-        text: 'PDF',
+        text: label,
         style: TextStyle(
           color: color,
-          fontSize: 11,
+          fontSize: label == 'EXAM' ? 9 : 11,
           fontWeight: FontWeight.w800,
-          letterSpacing: 0.4,
+          letterSpacing: 0.2,
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    label.paint(
+    labelPainter.paint(
       canvas,
-      Offset((w - label.width) / 2, (h - label.height) / 2 + 4),
+      Offset((w - labelPainter.width) / 2, (h - labelPainter.height) / 2 + 4),
     );
   }
 
@@ -885,44 +880,7 @@ class _PdfIconPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PdfIconPainter oldDelegate) =>
-      oldDelegate.color != color;
-}
-
-class _DashedBorderPainter extends CustomPainter {
-  final Color color;
-
-  const _DashedBorderPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
-      );
-    const dash = 5.0;
-    const gap = 4.0;
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(
-            distance,
-            math.min(distance + dash, metric.length),
-          ),
-          paint,
-        );
-        distance += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color;
+      oldDelegate.color != color || oldDelegate.label != label;
 }
 
 class _QuestionBankGroup {
