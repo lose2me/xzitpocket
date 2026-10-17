@@ -38,7 +38,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   bool _refreshing = false;
   bool _bankSelectionMode = false;
-  LearningListKind _bankListKind = LearningListKind.bank;
   final Set<String> _selectedBankKeys = {};
   List<CourseResourceItem> _resources = const [];
   List<CourseTextbookItem> _textbooks = const [];
@@ -179,24 +178,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (mounted) _exitBankSelectionMode();
   }
 
-  Future<void> _clearCurrentCollection() async {
-    if (_bankListKind == LearningListKind.bank) return;
-    final isWrong = _bankListKind == LearningListKind.wrong;
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: isWrong ? '清空错题集' : '清空收藏集',
-      message: isWrong ? '确定清空全部错题记录吗？' : '确定取消全部收藏吗？',
-      confirmLabel: '清空',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    if (isWrong) {
-      await repository.clearWrongQuestions();
-    } else {
-      await repository.clearFavorites();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final loading = !repository.isLoaded;
@@ -221,17 +202,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 tooltip: '清空已选题库进度',
               ),
             ]
-          : _bankListKind != LearningListKind.bank
-          ? [
-              AppIconButton(
-                icon: FLucideIcons.trash2,
-                onPress: _clearCurrentCollection,
-                tooltip: _bankListKind == LearningListKind.wrong
-                    ? '清空错题集'
-                    : '清空收藏集',
-              ),
-            ]
           : [
+              AppIconButton(
+                icon: FLucideIcons.circleAlert,
+                onPress: () => _openCollection(LearningListKind.wrong),
+                tooltip: '错题集',
+              ),
+              AppIconButton(
+                icon: FLucideIcons.bookmark,
+                onPress: () => _openCollection(LearningListKind.favorite),
+                tooltip: '收藏集',
+              ),
               AppIconButton(
                 icon: FLucideIcons.refreshCw,
                 onPress: _refreshing ? null : _refreshLibrary,
@@ -398,119 +379,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Widget _buildBankTab(FThemeData theme, List<_QuestionBankGroup> banks) {
-    return Column(
-      children: [
-        Expanded(
-          child: switch (_bankListKind) {
-            LearningListKind.bank =>
-              banks.isEmpty
-                  ? _buildEmpty(theme, '该课程暂无关联题库')
-                  : _buildBankList(theme, banks),
-            LearningListKind.wrong => _buildCollectionList(
-              theme,
-              LearningListKind.wrong,
-            ),
-            LearningListKind.favorite => _buildCollectionList(
-              theme,
-              LearningListKind.favorite,
-            ),
-          },
-        ),
-        FBottomNavigationBar(
-          index: _bankListKind.index,
-          onChange: (index) {
-            if (index < 0 || index >= LearningListKind.values.length) return;
-            setState(() {
-              _bankListKind = LearningListKind.values[index];
-              if (_bankListKind != LearningListKind.bank) {
-                _bankSelectionMode = false;
-                _selectedBankKeys.clear();
-              }
-            });
-          },
-          children: const [
-            FBottomNavigationBarItem(
-              icon: Icon(FLucideIcons.library),
-              label: Text('题库'),
-            ),
-            FBottomNavigationBarItem(
-              icon: Icon(FLucideIcons.circleAlert),
-              label: Text('错题集'),
-            ),
-            FBottomNavigationBarItem(
-              icon: Icon(FLucideIcons.bookmark),
-              label: Text('收藏集'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCollectionList(FThemeData theme, LearningListKind kind) {
-    final groups = _groupedQuestions(kind);
-    if (groups.isEmpty) {
-      return _buildEmpty(
-        theme,
-        kind == LearningListKind.wrong ? '这里还没有题目' : '这里还没有题目',
-      );
-    }
-    final showHeadings = groups.length > 1;
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xs,
-        0,
-        AppSpacing.xs,
-        AppSpacing.xxl,
-      ),
-      children: [
-        for (var index = 0; index < groups.length; index++) ...[
-          if (showHeadings)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xs,
-                AppSpacing.sm,
-                AppSpacing.xs,
-                AppSpacing.sm,
-              ),
-              child: Text(
-                groups[index].name,
-                style: theme.typography.body.md.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          _buildBankTile(theme, groups[index], collectionKind: kind),
-          if (index != groups.length - 1) const SizedBox(height: AppSpacing.md),
-        ],
-      ],
-    );
-  }
-
-  List<_QuestionBankGroup> _groupedQuestions(LearningListKind kind) {
-    final questions = [
-      for (final question in repository.questions)
-        if (kind == LearningListKind.wrong
-            ? repository.wrongIds.contains(question.id)
-            : repository.favoriteIds.contains(question.id))
-          question,
-    ];
-    final groups = <String, _QuestionBankGroup>{};
-    for (final question in questions) {
-      final key = _bankKey(question);
-      final group = groups.putIfAbsent(
-        key,
-        () => _QuestionBankGroup(
-          id: question.bankId,
-          name: question.bankName,
-          orderId: question.bankOrderId,
-          isNew: question.bankIsNew,
-        ),
-      );
-      group.questions.add(question);
-    }
-    final result = groups.values.toList()..sort(_compareBanks);
-    return result;
+    if (banks.isEmpty) return _buildEmpty(theme, '该课程暂无关联题库');
+    return _buildBankList(theme, banks);
   }
 
   Widget _buildBankList(FThemeData theme, List<_QuestionBankGroup> banks) {
@@ -856,12 +726,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         : bankId;
   }
 
-  FTile _buildBankTile(
-    FThemeData theme,
-    _QuestionBankGroup bank, {
-    LearningListKind? collectionKind,
-  }) {
-    final selectingBanks = collectionKind == null && _bankSelectionMode;
+  FTile _buildBankTile(FThemeData theme, _QuestionBankGroup bank) {
+    final selectingBanks = _bankSelectionMode;
     final selected =
         selectingBanks && _selectedBankKeys.contains(_bankSelectionKey(bank));
     final name = bank.name.trim().isEmpty ? '题库' : bank.name.trim();
@@ -869,58 +735,36 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         ? () => unawaited(_openCdkRedeem(bank))
         : bank.questions.isEmpty
         ? null
-        : () => unawaited(
-            _openQuestions(
-              bank.questions,
-              pageTitle: name,
-              mode: collectionKind == LearningListKind.favorite
-                  ? LearningQuizMode.memorizeFlow
-                  : LearningQuizMode.normal,
-              retryIncorrect: collectionKind == LearningListKind.wrong,
-              lockMode: collectionKind == LearningListKind.favorite,
-            ),
-          );
+        : () => unawaited(_openQuestions(bank.questions, pageTitle: name));
     final needsCdk = bank.locked;
     final unlockedWithCdk = bank.requiresCDK && !bank.locked;
-    final details = switch (collectionKind) {
-      LearningListKind.wrong => Padding(
-        padding: const EdgeInsets.only(right: AppSpacing.sm),
-        child: _CountBadge(theme: theme, count: bank.questions.length),
-      ),
-      LearningListKind.favorite => AppIconButton(
-        icon: FLucideIcons.x,
-        onPress: () => unawaited(_removeFavoriteBank(bank)),
-        tooltip: '删除此收藏题库',
-        size: FButtonSizeVariant.sm,
-      ),
-      _ => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (needsCdk)
-            _CdkBadge(
-              theme: theme,
-              label: 'CDK',
-              foreground: theme.colors.semantic.onWarningContainer,
-              background: theme.colors.semantic.warningContainer,
-            )
-          else if (unlockedWithCdk)
-            _CdkBadge(
-              theme: theme,
-              label: '已解锁',
-              foreground: theme.colors.semantic.onSuccessContainer,
-              background: theme.colors.semantic.successContainer,
-            ),
-          if (needsCdk || unlockedWithCdk) const SizedBox(width: AppSpacing.sm),
-          Text(
-            '${_bankProgressPercent(bank)}%',
-            style: theme.typography.bodySmall.copyWith(
-              color: theme.colors.primary,
-              fontWeight: FontWeight.w700,
-            ),
+    final details = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (needsCdk)
+          _CdkBadge(
+            theme: theme,
+            label: 'CDK',
+            foreground: theme.colors.semantic.onWarningContainer,
+            background: theme.colors.semantic.warningContainer,
+          )
+        else if (unlockedWithCdk)
+          _CdkBadge(
+            theme: theme,
+            label: '已解锁',
+            foreground: theme.colors.semantic.onSuccessContainer,
+            background: theme.colors.semantic.successContainer,
           ),
-        ],
-      ),
-    };
+        if (needsCdk || unlockedWithCdk) const SizedBox(width: AppSpacing.sm),
+        Text(
+          '${_bankProgressPercent(bank)}%',
+          style: theme.typography.bodySmall.copyWith(
+            color: theme.colors.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
 
     return FTile(
       selected: selected,
@@ -981,23 +825,25 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 ? null
                 : () => _toggleBankSelection(bank)
           : onPress,
-      onLongPress: collectionKind != null || bank.questions.isEmpty
+      onLongPress: bank.questions.isEmpty
           ? null
           : () => _enterBankSelectionMode(bank),
     );
   }
 
-  Future<void> _removeFavoriteBank(_QuestionBankGroup bank) async {
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '删除收藏题库',
-      message: '确定取消收藏「${bank.name}」中的全部题目吗？',
-      confirmLabel: '删除',
-      destructive: true,
+  void _openCollection(LearningListKind kind) {
+    _exitBankSelectionMode();
+    unawaited(
+      Navigator.of(context).push(
+        appRoute(
+          name: kind == LearningListKind.wrong
+              ? AppRouteNames.learningWrongQuestions
+              : AppRouteNames.learningFavorites,
+          builder: (_) =>
+              LearningQuestionListPage(repository: repository, kind: kind),
+        ),
+      ),
     );
-    if (confirmed) {
-      await repository.removeFavorites(bank.questions.map((q) => q.id));
-    }
   }
 
   int _bankProgressPercent(_QuestionBankGroup bank) {
@@ -1280,22 +1126,6 @@ class _CdkBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-class _CountBadge extends StatelessWidget {
-  final FThemeData theme;
-  final int count;
-
-  const _CountBadge({required this.theme, required this.count});
-
-  @override
-  Widget build(BuildContext context) => Text(
-    '$count',
-    style: theme.typography.bodySmall.copyWith(
-      color: theme.colors.mutedForeground,
-      fontWeight: FontWeight.w700,
-    ),
-  );
 }
 
 class _QuestionBankGroup {

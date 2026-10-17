@@ -77,9 +77,9 @@ void main() {
     // A single term is displayed without a redundant section heading.
     expect(find.text('最新题库'), findsNothing);
     expect(find.text('课程资源'), findsOneWidget);
-    expect(find.text('题库'), findsWidgets);
-    expect(find.text('错题集'), findsOneWidget);
-    expect(find.text('收藏集'), findsOneWidget);
+    expect(find.text('题库'), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.circleAlert), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.bookmark), findsOneWidget);
     expect(find.text('兑换通用 CDK'), findsNothing);
     expect(find.byType(FTile), findsOneWidget);
     expect(find.text('0%'), findsOneWidget);
@@ -172,16 +172,15 @@ void main() {
     );
 
     await pumpCenter(tester, repository);
-    await tester.tap(find.text('错题集'));
+    await tester.tap(find.byIcon(FLucideIcons.circleAlert));
     await tester.pumpAndSettle();
 
+    expect(find.text('错题集'), findsOneWidget);
     expect(find.text('这里还没有题目'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.circleAlert), findsWidgets);
   });
 
-  testWidgets('bank selection does not carry into collection tabs', (
-    tester,
-  ) async {
+  testWidgets('bank selection hides the collection shortcuts', (tester) async {
     final repository = LearningRepository(
       preferencesStorage: await storage(),
       fetcher: () async => [remoteQuestion],
@@ -190,11 +189,17 @@ void main() {
     await pumpCenter(tester, repository);
     await tester.longPress(find.text('在线题库'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('错题集'));
+
+    expect(find.byIcon(FLucideIcons.circleAlert), findsNothing);
+    expect(find.byIcon(FLucideIcons.bookmark), findsNothing);
+    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
+
+    await tester.tap(find.text('在线题库'));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(FLucideIcons.listChecks), findsNothing);
-    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.circleAlert), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.bookmark), findsOneWidget);
+    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
   });
 
   testWidgets('groups banks and opens CDK sheet from a locked bank', (
@@ -241,39 +246,39 @@ void main() {
     expect(find.text('输入 CDK'), findsOneWidget);
   });
 
-  testWidgets(
-    'wrong collection shows counts and removes a corrected question',
-    (tester) async {
-      final repository = LearningRepository(
-        preferencesStorage: await storage(),
-        fetcher: () async => [remoteQuestion],
-      );
-      await repository.load();
-      await repository.submitAnswer(remoteQuestion.id, {'B'});
-
-      await pumpCenter(tester, repository);
-      await tester.tap(find.text('错题集'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('最新题库'), findsNothing);
-      expect(find.text('往年题库'), findsNothing);
-      expect(find.text('1'), findsOneWidget);
-
-      await tester.tap(
-        find.ancestor(of: find.text('在线题库'), matching: find.byType(FTile)),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('正确答案'));
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-
-      expect(repository.wrongIds, isNot(contains(remoteQuestion.id)));
-    },
-  );
-
-  testWidgets('favorite banks open in flow mode and can be removed', (
+  testWidgets('wrong collection lists questions and can be cleared', (
     tester,
   ) async {
+    final repository = LearningRepository(
+      preferencesStorage: await storage(),
+      fetcher: () async => [remoteQuestion],
+    );
+    await repository.load();
+    await repository.submitAnswer(remoteQuestion.id, {'B'});
+
+    await pumpCenter(tester, repository);
+    await tester.tap(find.byIcon(FLucideIcons.circleAlert));
+    await tester.pumpAndSettle();
+
+    expect(find.text('错题集'), findsOneWidget);
+    expect(find.text('1 道题目'), findsOneWidget);
+    expect(find.textContaining('在线题目'), findsOneWidget);
+
+    await tester.tap(find.textContaining('在线题目'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LearningQuizPage), findsOneWidget);
+
+    Navigator.of(tester.element(find.byType(LearningQuizPage))).pop();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(FLucideIcons.trash2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('清空'));
+    await tester.pumpAndSettle();
+
+    expect(repository.wrongIds, isEmpty);
+  });
+
+  testWidgets('favorite collection opens and can be cleared', (tester) async {
     final repository = LearningRepository(
       preferencesStorage: await storage(),
       fetcher: () async => [remoteQuestion],
@@ -282,28 +287,24 @@ void main() {
     await repository.toggleFavorite(remoteQuestion.id);
 
     await pumpCenter(tester, repository);
-    await tester.tap(find.text('收藏集'));
+    await tester.tap(find.byIcon(FLucideIcons.bookmark));
     await tester.pumpAndSettle();
 
-    expect(find.text('最新题库'), findsNothing);
-    expect(find.text('往年题库'), findsNothing);
-    expect(find.byIcon(FLucideIcons.x), findsOneWidget);
+    expect(find.text('收藏集'), findsOneWidget);
+    expect(find.text('1 道题目'), findsOneWidget);
+    expect(find.textContaining('在线题目'), findsOneWidget);
 
-    await tester.tap(find.text('在线题库'));
+    await tester.tap(find.textContaining('在线题目'));
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<LearningQuizPage>(find.byType(LearningQuizPage)).mode,
-      LearningQuizMode.memorizeFlow,
-    );
+    expect(find.byType(LearningQuizPage), findsOneWidget);
 
     Navigator.of(tester.element(find.byType(LearningQuizPage))).pop();
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(FLucideIcons.x));
+    await tester.tap(find.byIcon(FLucideIcons.trash2));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('删除'));
+    await tester.tap(find.text('清空'));
     await tester.pumpAndSettle();
 
-    expect(repository.favoriteIds, isNot(contains(remoteQuestion.id)));
-    expect(find.text('在线题库'), findsNothing);
+    expect(repository.favoriteIds, isEmpty);
   });
 }
