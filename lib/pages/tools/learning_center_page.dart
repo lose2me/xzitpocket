@@ -265,6 +265,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           Expanded(
             child: FTabs(
               expands: true,
+              // 课程资源页的 Tab 更紧凑。
+              style: FTabsStyleDelta.delta(
+                minHeight: 34,
+                labelTextStyle: FVariantsDelta.delta([
+                  FVariantOperation.all(TextStyleDelta.delta(fontSize: 13)),
+                ]),
+              ),
               // 只允许点击切换 Tab，不支持左右滑动（保留切换动画）。
               contentPhysics: const NeverScrollableScrollPhysics(),
               children: [
@@ -296,24 +303,25 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final name = course.name.trim().isEmpty ? course.code : course.name.trim();
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xs,
-        AppSpacing.sm,
-        AppSpacing.xs,
+        AppSpacing.xl,
+        AppSpacing.md,
+        AppSpacing.lg,
         AppSpacing.md,
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _buildCover(theme, width: 86, height: 116),
-          const SizedBox(width: AppSpacing.md),
+          _buildCover(theme, width: 66, height: 88),
+          const SizedBox(width: AppSpacing.lg),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   name,
                   style: theme.typography.body.lg.copyWith(
-                    fontSize: 22,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -597,13 +605,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildPdfList(FThemeData theme, List<_PdfEntry> entries) {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
         AppSpacing.xs,
-        AppSpacing.sm,
-        AppSpacing.xs,
+        AppSpacing.lg,
         AppSpacing.xxl,
       ),
       itemCount: entries.length,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
       itemBuilder: (context, index) => _buildPdfTile(theme, entries[index]),
     );
   }
@@ -628,7 +636,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ? () => unawaited(_reExportPdf(entry))
             : null,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -651,7 +659,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                         height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 3),
                     Text(
                       meta,
                       style: theme.typography.bodySmall.copyWith(
