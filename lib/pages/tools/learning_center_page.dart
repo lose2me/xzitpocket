@@ -250,16 +250,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       _buildResourceTab(theme),
     ];
     final firstEnabled = enabled.indexOf(true);
-    if (firstEnabled < 0) {
-      return AppPageBody(
-        maxWidth: AppLayout.resultMaxWidth,
-        child: _buildEmpty(theme, '该课程暂无资源'),
-      );
-    }
-    final selected = enabled[_selectedTabIndex]
+    final selected = firstEnabled < 0
+        ? -1
+        : enabled[_selectedTabIndex]
         ? _selectedTabIndex
         : firstEnabled;
-    if (selected != _selectedTabIndex) {
+    if (selected >= 0 && selected != _selectedTabIndex) {
       // Keep the fallback so a later data refresh cannot move the user to a
       // different tab just because another resource finished loading.
       _selectedTabIndex = selected;
@@ -279,23 +275,25 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           ),
           _buildCourseTabs(theme, labels, enabled, selected),
           Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0.02, 0),
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                ),
-              ),
-              child: KeyedSubtree(
-                key: ValueKey(selected),
-                child: children[selected],
-              ),
-            ),
+            child: firstEnabled < 0
+                ? _buildEmpty(theme, _detailsLoading ? '正在加载资源' : '该课程暂无资源')
+                : AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.02, 0),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: KeyedSubtree(
+                      key: ValueKey(selected),
+                      child: children[selected],
+                    ),
+                  ),
           ),
         ],
       ),
@@ -308,41 +306,40 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     List<bool> enabled,
     int selected,
   ) {
-    return Row(
+    return Column(
       children: [
         for (var index = 0; index < labels.length; index++)
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: enabled[index]
-                  ? () => setState(() => _selectedTabIndex = index)
-                  : null,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: index == selected
-                          ? theme.colors.primary
-                          : theme.colors.border,
-                      width: index == selected ? 2 : 1,
-                    ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled[index]
+                ? () => setState(() => _selectedTabIndex = index)
+                : null,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: index == selected
+                        ? theme.colors.primary
+                        : theme.colors.border,
+                    width: index == selected ? 2 : 1,
                   ),
                 ),
-                child: Center(
-                  child: Text(
-                    labels[index],
-                    style: theme.typography.body.md.copyWith(
-                      fontSize: 13,
-                      fontWeight: index == selected
-                          ? FontWeight.w600
-                          : FontWeight.w500,
-                      color: !enabled[index]
-                          ? theme.colors.mutedForeground.withValues(alpha: 0.4)
-                          : index == selected
-                          ? theme.colors.primary
-                          : theme.colors.mutedForeground,
-                    ),
+              ),
+              child: Center(
+                child: Text(
+                  labels[index],
+                  style: theme.typography.body.md.copyWith(
+                    fontSize: 13,
+                    fontWeight: index == selected
+                        ? FontWeight.w600
+                        : FontWeight.w500,
+                    color: !enabled[index]
+                        ? theme.colors.mutedForeground.withValues(alpha: 0.4)
+                        : index == selected
+                        ? theme.colors.primary
+                        : theme.colors.mutedForeground,
                   ),
                 ),
               ),
