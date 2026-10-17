@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/learning_question.dart';
+import 'package:xzitpocket/models/resource_center.dart';
 import 'package:xzitpocket/pages/tools/learning_center_page.dart';
 import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
@@ -50,7 +51,10 @@ void main() {
             data: AppTheme.light,
             child: FToaster(child: FTooltipGroup(child: child!)),
           ),
-          home: LearningCenterPage(repository: repository),
+          home: LearningCenterPage(
+            repository: repository,
+            course: const ResourceCourse(code: '', name: '测试课程'),
+          ),
         ),
       ),
     );
@@ -72,9 +76,8 @@ void main() {
     expect(find.text('在线题库'), findsOneWidget);
     // A single term is displayed without a redundant section heading.
     expect(find.text('最新题库'), findsNothing);
-    expect(find.text('资源中心'), findsOneWidget);
-    expect(find.text('课程'), findsOneWidget);
-    expect(find.textContaining('题库'), findsWidgets);
+    expect(find.text('课程资源'), findsOneWidget);
+    expect(find.text('题库'), findsOneWidget);
     expect(find.text('错题集'), findsOneWidget);
     expect(find.text('收藏集'), findsOneWidget);
     expect(find.text('兑换通用 CDK'), findsNothing);

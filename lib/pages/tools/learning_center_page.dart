@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -16,32 +17,31 @@ import 'learning_quiz_page.dart';
 
 class LearningCenterPage extends StatefulWidget {
   final LearningRepository repository;
+  final ResourceCourse course;
+  final String coverUrl;
 
-  const LearningCenterPage({super.key, required this.repository});
+  const LearningCenterPage({
+    super.key,
+    required this.repository,
+    required this.course,
+    this.coverUrl = '',
+  });
 
   @override
   State<LearningCenterPage> createState() => _LearningCenterPageState();
 }
 
-enum _LearningTab { course, wrong, favorite }
-
 class _LearningCenterPageState extends State<LearningCenterPage> {
   LearningRepository get repository => widget.repository;
+  ResourceCourse get course => widget.course;
 
-  _LearningTab _tab = _LearningTab.course;
-  List<_TermGroup>? _cachedTermGroups;
-  int _cachedLibraryRevision = -1;
   bool _refreshing = false;
   bool _bankSelectionMode = false;
+  LearningListKind _bankListKind = LearningListKind.bank;
   final Set<String> _selectedBankKeys = {};
-
-  List<ResourceCourse> _courses = const [];
-  final Map<String, List<CourseResourceItem>> _resourcesByCourse = {};
-  final Map<String, List<CourseTextbookItem>> _textbooksByCourse = {};
-  final Set<String> _courseDataLoaded = {};
-  final Set<String> _courseDataLoading = {};
-  String? _courseListError;
-  bool _coursesLoading = false;
+  List<CourseResourceItem> _resources = const [];
+  List<CourseTextbookItem> _textbooks = const [];
+  bool _detailsLoading = true;
 
   @override
   void initState() {
@@ -52,77 +52,39 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Future<void> _loadInitial() async {
     await repository.load();
-    unawaited(_loadCourses());
-    if (!mounted || !repository.loadedFromCache) return;
+    if (!mounted) return;
     try {
       // Version compare happens inside sync; only changed banks are downloaded.
       await repository.sync();
     } catch (error, stackTrace) {
       talker.warning('题库同步失败', error, stackTrace);
     }
+    await _loadCourseDetails();
   }
 
-  /// Loads the course entries of the resource centre. Courses are independent
-  /// from the cached question banks, so a failure keeps the local fallback
-  /// grouping instead of hiding the existing banks.
-  Future<void> _loadCourses({bool force = false}) async {
-    if (_coursesLoading) return;
-    if (!force && _courses.isNotEmpty) return;
-    setState(() {
-      _coursesLoading = true;
-      _courseListError = null;
-    });
-    try {
-      final courses = await ControlService.instance.fetchResourceCourses();
-      if (!mounted) return;
-      setState(() {
-        _courses = courses;
-        _resourcesByCourse.clear();
-        _textbooksByCourse.clear();
-        _courseDataLoaded.clear();
-        _courseDataLoading.clear();
-      });
-    } catch (error, stackTrace) {
-      talker.warning('资源中心课程加载失败', error, stackTrace);
-      if (mounted) setState(() => _courseListError = '课程资源加载失败，仅显示本地题库');
-    } finally {
-      if (mounted) setState(() => _coursesLoading = false);
-    }
-  }
-
-  void _ensureCourseData(String code) {
-    if (code.isEmpty ||
-        _courseDataLoaded.contains(code) ||
-        _courseDataLoading.contains(code)) {
-      return;
-    }
-    _courseDataLoading.add(code);
-    unawaited(_loadCourseData(code));
-  }
-
-  Future<void> _loadCourseData(String code) async {
+  Future<void> _loadCourseDetails() async {
+    if (!mounted) return;
+    setState(() => _detailsLoading = true);
     try {
       final control = ControlService.instance;
       final results = await Future.wait([
-        control.fetchCourseResources(code),
-        control.fetchCourseTextbooks(code),
+        control.fetchCourseResources(course.code),
+        control.fetchCourseTextbooks(course.code),
       ]);
       if (!mounted) return;
       setState(() {
-        _resourcesByCourse[code] = results[0] as List<CourseResourceItem>;
-        _textbooksByCourse[code] = results[1] as List<CourseTextbookItem>;
-        _courseDataLoaded.add(code);
+        _resources = results[0] as List<CourseResourceItem>;
+        _textbooks = results[1] as List<CourseTextbookItem>;
       });
     } catch (error, stackTrace) {
       talker.warning('课程资源加载失败', error, stackTrace);
       if (!mounted) return;
       setState(() {
-        _resourcesByCourse[code] = const [];
-        _textbooksByCourse[code] = const [];
-        _courseDataLoaded.add(code);
+        _resources = const [];
+        _textbooks = const [];
       });
     } finally {
-      _courseDataLoading.remove(code);
+      if (mounted) setState(() => _detailsLoading = false);
     }
   }
 
@@ -141,7 +103,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     setState(() => _refreshing = true);
     try {
       await repository.refresh();
-      await _loadCourses(force: true);
+      await _loadCourseDetails();
       if (mounted && showToast) {
         showAppSnackBar(context, '资源已刷新', severity: ToastSeverity.success);
       }
@@ -155,24 +117,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       }
     } finally {
       if (mounted) setState(() => _refreshing = false);
-    }
-  }
-
-  Future<void> _clearCurrentCollection() async {
-    if (_tab == _LearningTab.course) return;
-    final isWrong = _tab == _LearningTab.wrong;
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: isWrong ? '清空错题集' : '清空收藏集',
-      message: isWrong ? '确定清空全部错题记录吗？' : '确定取消全部收藏吗？',
-      confirmLabel: '清空',
-      destructive: true,
-    );
-    if (!confirmed) return;
-    if (isWrong) {
-      await repository.clearWrongQuestions();
-    } else {
-      await repository.clearFavorites();
     }
   }
 
@@ -210,9 +154,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Future<void> _clearSelectedBankProgress() async {
     final selectedBanks = [
-      for (final term in _termGroups())
-        for (final bank in term.banks)
-          if (_selectedBankKeys.contains(_bankSelectionKey(bank))) bank,
+      for (final bank in _allBankGroups())
+        if (_selectedBankKeys.contains(_bankSelectionKey(bank))) bank,
     ];
     final questionIds = {
       for (final bank in selectedBanks)
@@ -231,15 +174,29 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (mounted) _exitBankSelectionMode();
   }
 
+  Future<void> _clearCurrentCollection() async {
+    if (_bankListKind == LearningListKind.bank) return;
+    final isWrong = _bankListKind == LearningListKind.wrong;
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: isWrong ? '清空错题集' : '清空收藏集',
+      message: isWrong ? '确定清空全部错题记录吗？' : '确定取消全部收藏吗？',
+      confirmLabel: '清空',
+      destructive: true,
+    );
+    if (!confirmed) return;
+    if (isWrong) {
+      await repository.clearWrongQuestions();
+    } else {
+      await repository.clearFavorites();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loading = !repository.isLoaded;
     return AppPage(
-      title: switch (_tab) {
-        _LearningTab.course => '资源中心',
-        _LearningTab.wrong => '错题集',
-        _LearningTab.favorite => '收藏集',
-      },
+      title: '课程资源',
       actions: loading
           ? const [
               AppIconButton(
@@ -249,296 +206,172 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 loading: true,
               ),
             ]
-          : _tab == _LearningTab.course
-          ? _bankSelectionMode
-                ? [
-                    AppIconButton(
-                      icon: FLucideIcons.trash2,
-                      onPress: _selectedBankKeys.isEmpty
-                          ? null
-                          : _clearSelectedBankProgress,
-                      tooltip: '清空已选题库进度',
-                    ),
-                  ]
-                : [
-                    AppIconButton(
-                      icon: FLucideIcons.refreshCw,
-                      onPress: _refreshing ? null : _refreshLibrary,
-                      tooltip: '刷新资源',
-                      loading: _refreshing,
-                    ),
-                  ]
-          : [
+          : _bankSelectionMode
+          ? [
+              AppIconButton(
+                icon: FLucideIcons.trash2,
+                onPress: _selectedBankKeys.isEmpty
+                    ? null
+                    : _clearSelectedBankProgress,
+                tooltip: '清空已选题库进度',
+              ),
+            ]
+          : _bankListKind != LearningListKind.bank
+          ? [
               AppIconButton(
                 icon: FLucideIcons.trash2,
                 onPress: _clearCurrentCollection,
-                tooltip: _tab == _LearningTab.wrong ? '清空错题集' : '清空收藏集',
+                tooltip: _bankListKind == LearningListKind.wrong
+                    ? '清空错题集'
+                    : '清空收藏集',
+              ),
+            ]
+          : [
+              AppIconButton(
+                icon: FLucideIcons.refreshCw,
+                onPress: _refreshing ? null : _refreshLibrary,
+                tooltip: '刷新资源',
+                loading: _refreshing,
               ),
             ],
-      footer: _buildBottomNavigation(),
       child: loading
-          ? const AppStateView(icon: FLucideIcons.library, title: '正在加载题库')
-          : switch (_tab) {
-              _LearningTab.course => _buildResourcePage(context),
-              _LearningTab.wrong => _buildQuestionPage(
-                context,
-                LearningListKind.wrong,
+          ? const AppStateView(icon: FLucideIcons.library, title: '正在加载资源')
+          : repository.libraryUnavailable
+          ? const AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
+              child: AppStateView(
+                icon: FLucideIcons.shieldAlert,
+                title: '风险控制',
+                description: '您的账户被暂时禁用',
               ),
-              _LearningTab.favorite => _buildQuestionPage(
-                context,
-                LearningListKind.favorite,
-              ),
-            },
+            )
+          : _buildCourseBody(context),
     );
   }
 
-  Widget _buildBottomNavigation() => FBottomNavigationBar(
-    index: _tab.index,
-    onChange: (index) {
-      if (index < 0 || index >= _LearningTab.values.length) return;
-      setState(() {
-        _tab = _LearningTab.values[index];
-        if (_tab != _LearningTab.course) {
-          _bankSelectionMode = false;
-          _selectedBankKeys.clear();
-        }
-      });
-    },
-    children: const [
-      FBottomNavigationBarItem(
-        icon: Icon(FLucideIcons.library),
-        label: Text('课程'),
-      ),
-      FBottomNavigationBarItem(
-        icon: Icon(FLucideIcons.circleAlert),
-        label: Text('错题集'),
-      ),
-      FBottomNavigationBarItem(
-        icon: Icon(FLucideIcons.bookmark),
-        label: Text('收藏集'),
-      ),
-    ],
-  );
-
-  List<_QuestionBankGroup> _allBankGroups() {
-    final groups = <String, _QuestionBankGroup>{};
-    for (final source in repository.banks) {
-      final key = source.id.trim().isNotEmpty
-          ? source.id.trim()
-          : '${source.name}\u0000${source.isNew == true ? 'new' : 'old'}';
-      groups[key] = _QuestionBankGroup(
-        id: source.id,
-        name: source.name,
-        orderId: source.orderId,
-        isNew: source.isNew,
-        requiresCDK: source.requiresCDK,
-        locked: source.locked,
-        courseCodes: source.courseCodes,
-        questions: source.questions,
-      );
-    }
-    if (groups.isEmpty) {
-      for (final question in repository.questions) {
-        final key = _bankKey(question);
-        final bank = groups.putIfAbsent(
-          key,
-          () => _QuestionBankGroup(
-            id: question.bankId,
-            name: question.bankName,
-            orderId: question.bankOrderId,
-            isNew: question.bankIsNew,
-          ),
-        );
-        bank.questions.add(question);
-      }
-    }
-    final result = groups.values.toList();
-    result.sort(_compareBanks);
-    return result;
-  }
-
-  int _compareBanks(_QuestionBankGroup a, _QuestionBankGroup b) {
-    final aOrder = a.orderId;
-    final bOrder = b.orderId;
-    if (aOrder != null && bOrder != null && aOrder != bOrder) {
-      return aOrder.compareTo(bOrder);
-    }
-    if (aOrder != null && bOrder == null) return -1;
-    if (aOrder == null && bOrder != null) return 1;
-    return a.name.compareTo(b.name);
-  }
-
-  /// Groups the published banks by every course they are associated with. Banks
-  /// without a course association are kept in a trailing `未关联课程` entry so
-  /// they never disappear from the app.
-  List<_ResourceCourseGroup> _resourceCourseGroups() {
-    final banksByCourse = <String, List<_QuestionBankGroup>>{};
-    for (final bank in _allBankGroups()) {
-      final codes = bank.courseCodes.isEmpty ? const [''] : bank.courseCodes;
-      for (final code in codes) {
-        banksByCourse.putIfAbsent(code, () => []).add(bank);
-      }
-    }
-    final result = <_ResourceCourseGroup>[];
-    final seen = <String>{};
-    for (final course in _courses) {
-      if (course.code.isEmpty || !seen.add(course.code)) continue;
-      result.add(
-        _ResourceCourseGroup(
-          code: course.code,
-          name: course.name,
-          banks: banksByCourse[course.code] ?? const [],
-          resourceCount: course.resourceCount,
-          textbookCount: course.textbookCount,
-        ),
-      );
-    }
-    for (final entry in banksByCourse.entries) {
-      if (entry.key.isEmpty || !seen.add(entry.key)) continue;
-      result.add(
-        _ResourceCourseGroup(
-          code: entry.key,
-          name: entry.key,
-          banks: entry.value,
-        ),
-      );
-    }
-    final unassociated = banksByCourse[''] ?? const <_QuestionBankGroup>[];
-    if (unassociated.isNotEmpty) {
-      result.add(
-        _ResourceCourseGroup(code: '', name: '未关联课程', banks: unassociated),
-      );
-    }
-    return result;
-  }
-
-  Widget _buildResourcePage(BuildContext context) {
-    if (repository.libraryUnavailable) {
-      return const AppPageBody(
-        maxWidth: AppLayout.resultMaxWidth,
-        child: AppStateView(
-          icon: FLucideIcons.shieldAlert,
-          title: '风险控制',
-          description: '您的账户被暂时禁用',
-        ),
-      );
-    }
-    final groups = _resourceCourseGroups();
-    if (groups.isEmpty) {
-      return AppStateView(
-        icon: FLucideIcons.library,
-        title: _coursesLoading ? '正在加载资源' : '暂无资源',
-        description: _courseListError ?? '暂时没有可用的题库、试卷或电子教材',
-      );
-    }
-    return AppPageListView(
+  Widget _buildCourseBody(BuildContext context) {
+    final theme = context.theme;
+    final banks = _courseBanks();
+    return AppPageBody(
       maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.lg,
-      bottomPadding: AppSpacing.xxl,
-      children: [
-        if (_courseListError != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.md),
-            child: Text(
-              _courseListError!,
-              style: context.theme.typography.bodySmall.copyWith(
-                color: context.theme.colors.mutedForeground,
-              ),
+      child: Column(
+        children: [
+          _buildCourseHeader(theme),
+          Expanded(
+            child: FTabs(
+              expands: true,
+              children: [
+                FTabEntry(
+                  label: Text('题库 ${banks.length}'),
+                  child: _buildBankTab(theme, banks),
+                ),
+                FTabEntry(
+                  label: Text('试卷 ${_resources.length}'),
+                  child: _detailsLoading
+                      ? _buildDetailsLoading()
+                      : _buildResourceTab(theme),
+                ),
+                FTabEntry(
+                  label: Text('电子教材 ${_textbooks.length}'),
+                  child: _detailsLoading
+                      ? _buildDetailsLoading()
+                      : _buildTextbookTab(theme),
+                ),
+              ],
             ),
           ),
-        for (var index = 0; index < groups.length; index++) ...[
-          _buildCourseCard(context.theme, groups[index]),
-          if (index != groups.length - 1)
-            const SizedBox(height: AppSpacing.section),
         ],
-      ],
+      ),
     );
   }
 
-  Widget _buildCourseCard(FThemeData theme, _ResourceCourseGroup group) {
-    _ensureCourseData(group.code);
-    final resources = _resourcesByCourse[group.code] ?? const [];
-    final textbooks = _textbooksByCourse[group.code] ?? const [];
-    final loadingDetails =
-        group.code.isNotEmpty && !_courseDataLoaded.contains(group.code);
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colors.border),
-        borderRadius: BorderRadius.circular(20),
+  Widget _buildCourseHeader(FThemeData theme) {
+    final name = course.name.trim().isEmpty ? course.code : course.name.trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        AppSpacing.sm,
+        AppSpacing.xs,
+        AppSpacing.md,
       ),
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      group.name.trim().isEmpty ? group.code : group.name,
-                      style: theme.typography.body.lg.copyWith(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
+          _buildCover(theme, width: 86, height: 116),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: theme.typography.body.lg.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (course.code.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '课程号 ${course.code}',
+                      style: theme.typography.bodySmall.copyWith(
+                        color: theme.colors.mutedForeground,
                       ),
                     ),
-                    if (group.code.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          group.code,
-                          style: theme.typography.bodySmall.copyWith(
-                            color: theme.colors.mutedForeground,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Text(
-                '${group.banks.length} 题库 · ${group.resourceCount} 试卷 · ${group.textbookCount} 教材',
-                style: theme.typography.bodySmall.copyWith(
-                  color: theme.colors.mutedForeground,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          FTabs(
-            children: [
-              FTabEntry(
-                label: Text('题库 ${group.banks.length}'),
-                child: _buildCourseBanks(theme, group),
-              ),
-              FTabEntry(
-                label: Text('试卷 ${group.resourceCount}'),
-                child: loadingDetails
-                    ? _buildCourseLoading(theme)
-                    : _buildCourseResources(theme, resources),
-              ),
-              FTabEntry(
-                label: Text('电子教材 ${group.textbookCount}'),
-                child: loadingDetails
-                    ? _buildCourseLoading(theme)
-                    : _buildCourseTextbooks(theme, textbooks),
-              ),
-            ],
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCourseLoading(FThemeData theme) => const Padding(
-    padding: EdgeInsets.all(AppSpacing.lg),
-    child: Center(child: CircularProgressIndicator.adaptive()),
+  Widget _buildCover(
+    FThemeData theme, {
+    required double width,
+    required double height,
+  }) {
+    final radius = BorderRadius.circular(12);
+    final placeholder = CustomPaint(
+      painter: _DashedBorderPainter(color: theme.colors.border),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Center(
+          child: Icon(
+            FLucideIcons.bookOpen,
+            size: 22,
+            color: theme.colors.mutedForeground,
+          ),
+        ),
+      ),
+    );
+    final url = widget.coverUrl.trim();
+    if (url.isEmpty) return placeholder;
+    return ClipRRect(
+      borderRadius: radius,
+      child: Image.network(
+        url,
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => placeholder,
+      ),
+    );
+  }
+
+  Widget _buildDetailsLoading() => const Center(
+    child: Padding(
+      padding: EdgeInsets.all(AppSpacing.lg),
+      child: CircularProgressIndicator.adaptive(),
+    ),
   );
 
-  Widget _buildCourseEmpty(FThemeData theme, String message) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-    child: Center(
+  Widget _buildEmpty(FThemeData theme, String message) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
       child: Text(
         message,
         style: theme.typography.bodySmall.copyWith(
@@ -548,14 +381,141 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ),
   );
 
-  Widget _buildCourseBanks(FThemeData theme, _ResourceCourseGroup group) {
-    final banks = group.banks;
-    if (banks.isEmpty) return _buildCourseEmpty(theme, '该课程暂无关联题库');
+  List<_QuestionBankGroup> _courseBanks() {
+    if (course.code.isEmpty) return _allBankGroups();
+    return [
+      for (final bank in _allBankGroups())
+        if (bank.courseCodes.contains(course.code)) bank,
+    ];
+  }
+
+  Widget _buildBankTab(FThemeData theme, List<_QuestionBankGroup> banks) {
+    return Column(
+      children: [
+        Expanded(
+          child: switch (_bankListKind) {
+            LearningListKind.bank =>
+              banks.isEmpty
+                  ? _buildEmpty(theme, '该课程暂无关联题库')
+                  : _buildBankList(theme, banks),
+            LearningListKind.wrong => _buildCollectionList(
+              theme,
+              LearningListKind.wrong,
+            ),
+            LearningListKind.favorite => _buildCollectionList(
+              theme,
+              LearningListKind.favorite,
+            ),
+          },
+        ),
+        FBottomNavigationBar(
+          index: _bankListKind.index,
+          onChange: (index) {
+            if (index < 0 || index >= LearningListKind.values.length) return;
+            setState(() {
+              _bankListKind = LearningListKind.values[index];
+              if (_bankListKind != LearningListKind.bank) {
+                _bankSelectionMode = false;
+                _selectedBankKeys.clear();
+              }
+            });
+          },
+          children: const [
+            FBottomNavigationBarItem(
+              icon: Icon(FLucideIcons.library),
+              label: Text('题库'),
+            ),
+            FBottomNavigationBarItem(
+              icon: Icon(FLucideIcons.circleAlert),
+              label: Text('错题集'),
+            ),
+            FBottomNavigationBarItem(
+              icon: Icon(FLucideIcons.bookmark),
+              label: Text('收藏集'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCollectionList(FThemeData theme, LearningListKind kind) {
+    final groups = _groupedQuestions(kind);
+    if (groups.isEmpty) {
+      return _buildEmpty(
+        theme,
+        kind == LearningListKind.wrong ? '这里还没有题目' : '这里还没有题目',
+      );
+    }
+    final showHeadings = groups.length > 1;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        0,
+        AppSpacing.xs,
+        AppSpacing.xxl,
+      ),
+      children: [
+        for (var index = 0; index < groups.length; index++) ...[
+          if (showHeadings)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xs,
+                AppSpacing.sm,
+                AppSpacing.xs,
+                AppSpacing.sm,
+              ),
+              child: Text(
+                groups[index].name,
+                style: theme.typography.body.md.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          _buildBankTile(theme, groups[index], collectionKind: kind),
+          if (index != groups.length - 1) const SizedBox(height: AppSpacing.md),
+        ],
+      ],
+    );
+  }
+
+  List<_QuestionBankGroup> _groupedQuestions(LearningListKind kind) {
+    final questions = [
+      for (final question in repository.questions)
+        if (kind == LearningListKind.wrong
+            ? repository.wrongIds.contains(question.id)
+            : repository.favoriteIds.contains(question.id))
+          question,
+    ];
+    final groups = <String, _QuestionBankGroup>{};
+    for (final question in questions) {
+      final key = _bankKey(question);
+      final group = groups.putIfAbsent(
+        key,
+        () => _QuestionBankGroup(
+          id: question.bankId,
+          name: question.bankName,
+          orderId: question.bankOrderId,
+          isNew: question.bankIsNew,
+        ),
+      );
+      group.questions.add(question);
+    }
+    final result = groups.values.toList()..sort(_compareBanks);
+    return result;
+  }
+
+  Widget _buildBankList(FThemeData theme, List<_QuestionBankGroup> banks) {
     final latest = banks.where((bank) => bank.isNew == true).toList();
     final older = banks.where((bank) => bank.isNew != true).toList();
     final showHeadings = latest.isNotEmpty && older.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        0,
+        AppSpacing.xs,
+        AppSpacing.xxl,
+      ),
       children: [
         if (latest.isNotEmpty)
           ..._buildBankSection(
@@ -599,71 +559,55 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ];
   }
 
-  Widget _buildCourseResources(
-    FThemeData theme,
-    List<CourseResourceItem> resources,
-  ) {
-    if (resources.isEmpty) return _buildCourseEmpty(theme, '该课程暂无试卷');
-    return Column(
-      children: [
-        for (var index = 0; index < resources.length; index++) ...[
-          FTile(
-            prefix: const Icon(FLucideIcons.fileText),
-            title: Text(
-              resources[index].name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: resources[index].tags.isEmpty
-                ? null
-                : Text(
-                    resources[index].tags,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-            suffix: const Icon(FLucideIcons.externalLink),
-            onPress: resources[index].hasPdf
-                ? () => unawaited(_openResource(resources[index]))
-                : null,
-          ),
-          if (index != resources.length - 1)
-            const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
+  Widget _buildResourceTab(FThemeData theme) {
+    if (_resources.isEmpty) return _buildEmpty(theme, '该课程暂无试卷');
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.xxl,
+      ),
+      itemCount: _resources.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        final item = _resources[index];
+        return FTile(
+          prefix: const Icon(FLucideIcons.fileText),
+          title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: item.tags.isEmpty
+              ? null
+              : Text(item.tags, maxLines: 1, overflow: TextOverflow.ellipsis),
+          suffix: const Icon(FLucideIcons.externalLink),
+          onPress: item.hasPdf ? () => unawaited(_openResource(item)) : null,
+        );
+      },
     );
   }
 
-  Widget _buildCourseTextbooks(
-    FThemeData theme,
-    List<CourseTextbookItem> textbooks,
-  ) {
-    if (textbooks.isEmpty) return _buildCourseEmpty(theme, '该课程暂无电子教材');
-    return Column(
-      children: [
-        for (var index = 0; index < textbooks.length; index++) ...[
-          FTile(
-            prefix: const Icon(FLucideIcons.bookOpen),
-            title: Text(
-              textbooks[index].name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            subtitle: textbooks[index].tags.isEmpty
-                ? null
-                : Text(
-                    textbooks[index].tags,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-            suffix: const Icon(FLucideIcons.externalLink),
-            onPress: textbooks[index].hasPdf
-                ? () => unawaited(_openTextbook(textbooks[index]))
-                : null,
-          ),
-          if (index != textbooks.length - 1)
-            const SizedBox(height: AppSpacing.sm),
-        ],
-      ],
+  Widget _buildTextbookTab(FThemeData theme) {
+    if (_textbooks.isEmpty) return _buildEmpty(theme, '该课程暂无电子教材');
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.xs,
+        AppSpacing.xxl,
+      ),
+      itemCount: _textbooks.length,
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+      itemBuilder: (context, index) {
+        final item = _textbooks[index];
+        return FTile(
+          prefix: const Icon(FLucideIcons.bookOpen),
+          title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: item.tags.isEmpty
+              ? null
+              : Text(item.tags, maxLines: 1, overflow: TextOverflow.ellipsis),
+          suffix: const Icon(FLucideIcons.externalLink),
+          onPress: item.hasPdf ? () => unawaited(_openTextbook(item)) : null,
+        );
+      },
     );
   }
 
@@ -688,6 +632,60 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         showAppSnackBar(context, '打开资源失败，请稍后重试', severity: ToastSeverity.error);
       }
     }
+  }
+
+  List<_QuestionBankGroup> _allBankGroups() {
+    final groups = <String, _QuestionBankGroup>{};
+    for (final source in repository.banks) {
+      final key = source.id.trim().isNotEmpty
+          ? source.id.trim()
+          : '${source.name}\u0000${source.isNew == true ? 'new' : 'old'}';
+      groups[key] = _QuestionBankGroup(
+        id: source.id,
+        name: source.name,
+        orderId: source.orderId,
+        isNew: source.isNew,
+        requiresCDK: source.requiresCDK,
+        locked: source.locked,
+        courseCodes: source.courseCodes,
+        questions: source.questions,
+      );
+    }
+    if (groups.isEmpty) {
+      for (final question in repository.questions) {
+        final key = _bankKey(question);
+        final bank = groups.putIfAbsent(
+          key,
+          () => _QuestionBankGroup(
+            id: question.bankId,
+            name: question.bankName,
+            orderId: question.bankOrderId,
+            isNew: question.bankIsNew,
+          ),
+        );
+        bank.questions.add(question);
+      }
+    }
+    final result = groups.values.toList()..sort(_compareBanks);
+    return result;
+  }
+
+  int _compareBanks(_QuestionBankGroup a, _QuestionBankGroup b) {
+    final aOrder = a.orderId;
+    final bOrder = b.orderId;
+    if (aOrder != null && bOrder != null && aOrder != bOrder) {
+      return aOrder.compareTo(bOrder);
+    }
+    if (aOrder != null && bOrder == null) return -1;
+    if (aOrder == null && bOrder != null) return 1;
+    return a.name.compareTo(b.name);
+  }
+
+  String _bankKey(LearningQuestion question) {
+    final bankId = question.bankId.trim();
+    return bankId.isEmpty
+        ? '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}'
+        : bankId;
   }
 
   FTile _buildBankTile(
@@ -716,7 +714,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           );
     final needsCdk = bank.locked;
     final unlockedWithCdk = bank.requiresCDK && !bank.locked;
-    final collectionDetails = switch (collectionKind) {
+    final details = switch (collectionKind) {
       LearningListKind.wrong => Padding(
         padding: const EdgeInsets.only(right: AppSpacing.sm),
         child: _CountBadge(theme: theme, count: bank.questions.length),
@@ -809,7 +807,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      details: collectionDetails,
+      details: details,
       onPress: selectingBanks
           ? bank.questions.isEmpty
                 ? null
@@ -819,14 +817,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           ? null
           : () => _enterBankSelectionMode(bank),
     );
-  }
-
-  int _bankProgressPercent(_QuestionBankGroup bank) {
-    if (bank.questions.isEmpty) return 0;
-    final judged = bank.questions
-        .where((q) => repository.isJudged(q.id))
-        .length;
-    return (judged * 100 / bank.questions.length).round();
   }
 
   Future<void> _removeFavoriteBank(_QuestionBankGroup bank) async {
@@ -840,6 +830,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (confirmed) {
       await repository.removeFavorites(bank.questions.map((q) => q.id));
     }
+  }
+
+  int _bankProgressPercent(_QuestionBankGroup bank) {
+    if (bank.questions.isEmpty) return 0;
+    final judged = bank.questions
+        .where((q) => repository.isJudged(q.id))
+        .length;
+    return (judged * 100 / bank.questions.length).round();
   }
 
   static String _bankInitial(String name) {
@@ -878,216 +876,26 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     required String name,
     required bool? isNew,
   }) {
-    for (final term in _termGroups()) {
-      for (final bank in term.banks) {
-        final idMatch = id.trim().isNotEmpty && bank.id.trim() == id.trim();
-        final nameMatch = bank.name == name && bank.isNew == isNew;
-        if (idMatch || nameMatch) return bank;
-      }
+    for (final bank in _allBankGroups()) {
+      final idMatch = id.trim().isNotEmpty && bank.id.trim() == id.trim();
+      final nameMatch = bank.name == name && bank.isNew == isNew;
+      if (idMatch || nameMatch) return bank;
     }
     return null;
   }
 
-  List<_TermGroup> _termGroups() {
-    if (_cachedTermGroups != null &&
-        _cachedLibraryRevision == repository.libraryRevision) {
-      return _cachedTermGroups!;
-    }
-    final banks = <String, _QuestionBankGroup>{};
-    for (final source in repository.banks) {
-      final key = source.id.trim().isNotEmpty
-          ? source.id.trim()
-          : '${source.name}\u0000${source.isNew == true ? 'new' : 'old'}';
-      banks[key] = _QuestionBankGroup(
-        id: source.id,
-        name: source.name,
-        orderId: source.orderId,
-        isNew: source.isNew,
-        requiresCDK: source.requiresCDK,
-        locked: source.locked,
-        questions: source.questions,
-      );
-    }
-    if (banks.isEmpty) {
-      for (final question in repository.questions) {
-        final key = _bankKey(question);
-        final bank = banks.putIfAbsent(
-          key,
-          () => _QuestionBankGroup(
-            id: question.bankId,
-            name: question.bankName,
-            orderId: question.bankOrderId,
-            isNew: question.bankIsNew,
-          ),
-        );
-        bank.questions.add(question);
-      }
-    }
-
-    final terms = <String, _TermGroup>{};
-    for (final bank in banks.values) {
-      final code = bank.isNew == true ? '最新题库' : '往年题库';
-      terms.putIfAbsent(code, () => _TermGroup(code)).banks.add(bank);
-    }
-    final result = terms.values.toList()
-      ..sort(
-        (a, b) => a.code == '最新题库'
-            ? -1
-            : b.code == '最新题库'
-            ? 1
-            : 0,
-      );
-    for (final term in result) {
-      term.banks.sort((a, b) {
-        final aOrder = a.orderId;
-        final bOrder = b.orderId;
-        if (aOrder != null && bOrder != null && aOrder != bOrder) {
-          return aOrder.compareTo(bOrder);
-        }
-        if (aOrder != null && bOrder == null) return -1;
-        if (aOrder == null && bOrder != null) return 1;
-        return a.name.compareTo(b.name);
-      });
-    }
-    _cachedLibraryRevision = repository.libraryRevision;
-    _cachedTermGroups = result;
-    return result;
-  }
-
-  String _bankKey(LearningQuestion question) {
-    final bankId = question.bankId.trim();
-    return bankId.isEmpty
-        ? '${question.bankName}\u0000${question.bankIsNew == true ? 'new' : 'old'}'
-        : bankId;
-  }
-
-  Widget _buildBankSections(
-    FThemeData theme,
-    Map<String, List<_QuestionBankGroup>> sections, {
-    bool showSectionHeadings = true,
-    LearningListKind? collectionKind,
-  }) {
-    final entries = sections.entries.toList();
-    final displayHeadings = showSectionHeadings && entries.length > 1;
-    return AppPageListView(
-      maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.lg,
-      bottomPadding: AppSpacing.xxl,
-      children: [
-        for (var index = 0; index < entries.length; index++) ...[
-          if (displayHeadings)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xs,
-                0,
-                AppSpacing.xs,
-                AppSpacing.sm,
-              ),
-              child: Text(
-                entries[index].key,
-                style: theme.typography.body.lg.copyWith(
-                  color: theme.colors.foreground,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          for (
-            var bankIndex = 0;
-            bankIndex < entries[index].value.length;
-            bankIndex++
-          ) ...[
-            _buildBankTile(
-              theme,
-              entries[index].value[bankIndex],
-              collectionKind: collectionKind,
-            ),
-            if (bankIndex != entries[index].value.length - 1)
-              const SizedBox(height: AppSpacing.md),
-          ],
-          if (index != entries.length - 1)
-            const SizedBox(height: AppSpacing.section),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildQuestionPage(BuildContext context, LearningListKind kind) {
-    final groups = _groupedQuestions(kind);
-    final sections = <String, List<_QuestionBankGroup>>{'': groups};
-    final emptyIcon = kind == LearningListKind.wrong
-        ? FLucideIcons.circleAlert
-        : FLucideIcons.bookmark;
-    return groups.isEmpty
-        ? AppStateView(
-            icon: emptyIcon,
-            title: '这里还没有题目',
-            description: kind == LearningListKind.wrong
-                ? '完成题目后，答错的题目会显示在这里'
-                : '收藏题目后会显示在这里',
-          )
-        : _buildBankSections(
-            context.theme,
-            sections,
-            showSectionHeadings: false,
-            collectionKind: kind,
-          );
-  }
-
-  List<LearningQuestion> _filteredQuestions(LearningListKind kind) {
-    return [
-      for (final question in repository.questions)
-        if (kind == LearningListKind.wrong
-            ? repository.wrongIds.contains(question.id)
-            : repository.favoriteIds.contains(question.id))
-          question,
-    ];
-  }
-
-  List<_QuestionBankGroup> _groupedQuestions(LearningListKind kind) {
-    final groups = <String, _QuestionBankGroup>{};
-    for (final question in _filteredQuestions(kind)) {
-      final key = _bankKey(question);
-      final group = groups.putIfAbsent(
-        key,
-        () => _QuestionBankGroup(
-          id: question.bankId,
-          name: question.bankName,
-          orderId: question.bankOrderId,
-          isNew: question.bankIsNew,
-        ),
-      );
-      group.questions.add(question);
-    }
-    return groups.values.toList()..sort((a, b) {
-      final aIsNew = a.isNew == true;
-      final bIsNew = b.isNew == true;
-      if (aIsNew != bIsNew) return aIsNew ? -1 : 1;
-      final aOrder = a.orderId;
-      final bOrder = b.orderId;
-      if (aOrder != null && bOrder != null && aOrder != bOrder) {
-        return aOrder.compareTo(bOrder);
-      }
-      if (aOrder != null && bOrder == null) return -1;
-      if (aOrder == null && bOrder != null) return 1;
-      return a.name.compareTo(b.name);
-    });
-  }
-
   Future<void> _openQuestions(
     List<LearningQuestion> questions, {
-    int initialIndex = 0,
     String pageTitle = '题库',
     LearningQuizMode mode = LearningQuizMode.normal,
     bool retryIncorrect = false,
     bool lockMode = false,
   }) async {
-    if (questions.isEmpty) return;
     final questionIds = [for (final question in questions) question.id];
+    if (questionIds.isEmpty) return;
     if (retryIncorrect) {
       // Wrong-question practice is a retry flow. Clear only the judged state
-      // and answer draft; the repository deliberately keeps wrongIds until a
-      // subsequent correct submission removes the question.
+      // and answer draft; the repository keeps wrongIds until a correct answer.
       await repository.resetProgress(questionIds);
     }
     if (!mounted) return;
@@ -1097,7 +905,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         builder: (_) => LearningQuizPage(
           repository: repository,
           questionIds: questionIds,
-          initialIndex: initialIndex,
           pageTitle: pageTitle,
           mode: mode,
           lockMode: lockMode,
@@ -1105,6 +912,43 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       ),
     );
   }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+
+  const _DashedBorderPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
+      );
+    const dash = 5.0;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(
+            distance,
+            math.min(distance + dash, metric.length),
+          ),
+          paint,
+        );
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class _BankInitial extends StatelessWidget {
@@ -1120,27 +964,19 @@ class _BankInitial extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    width: 48,
-    height: 48,
-    alignment: Alignment.center,
+    width: 38,
+    height: 38,
     decoration: BoxDecoration(
-      shape: BoxShape.circle,
       color: outerColor,
-      border: Border.all(color: outerColor, width: 2),
+      borderRadius: BorderRadius.circular(12),
     ),
-    padding: const EdgeInsets.all(3),
-    child: DecoratedBox(
-      decoration: BoxDecoration(shape: BoxShape.circle, color: innerColor),
-      child: Center(
-        child: Text(
-          initial,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            height: 1.2,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+    alignment: Alignment.center,
+    child: Text(
+      initial,
+      style: TextStyle(
+        color: innerColor,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
       ),
     ),
   );
@@ -1162,16 +998,16 @@ class _CdkBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: theme.typography.caption.copyWith(
+        style: theme.typography.bodySmall.copyWith(
           color: foreground,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -1188,7 +1024,7 @@ class _CountBadge extends StatelessWidget {
   Widget build(BuildContext context) => Text(
     '$count',
     style: theme.typography.bodySmall.copyWith(
-      color: theme.colors.primary,
+      color: theme.colors.mutedForeground,
       fontWeight: FontWeight.w700,
     ),
   );
@@ -1214,29 +1050,6 @@ class _QuestionBankGroup {
     this.courseCodes = const [],
     List<LearningQuestion>? questions,
   }) : questions = questions ?? [];
-}
-
-class _TermGroup {
-  final String code;
-  final List<_QuestionBankGroup> banks = [];
-
-  _TermGroup(this.code);
-}
-
-class _ResourceCourseGroup {
-  final String code;
-  final String name;
-  final List<_QuestionBankGroup> banks;
-  final int resourceCount;
-  final int textbookCount;
-
-  const _ResourceCourseGroup({
-    required this.code,
-    required this.name,
-    required this.banks,
-    this.resourceCount = 0,
-    this.textbookCount = 0,
-  });
 }
 
 class _CdkRedeemSheet extends StatefulWidget {

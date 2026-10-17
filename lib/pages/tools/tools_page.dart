@@ -27,7 +27,7 @@ import 'repair_page.dart';
 import 'teacher_evaluation_page.dart';
 import 'school_calendar_page.dart';
 import 'book_list_page.dart';
-import 'learning_center_page.dart';
+import 'resource_center_page.dart';
 
 class ToolsPage extends ConsumerStatefulWidget {
   const ToolsPage({super.key});
@@ -255,7 +255,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.learning,
-        builder: (_) => LearningCenterPage(repository: repository),
+        builder: (_) => ResourceCenterPage(repository: repository),
       ),
     );
   }

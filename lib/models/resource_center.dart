@@ -5,12 +5,17 @@ class ResourceCourse {
   final int resourceCount;
   final int textbookCount;
 
+  /// Signed WebP cover of the first textbook with a cover, empty when the
+  /// course has no cover yet.
+  final String coverUrl;
+
   const ResourceCourse({
     required this.code,
     required this.name,
     this.questionBankCount = 0,
     this.resourceCount = 0,
     this.textbookCount = 0,
+    this.coverUrl = '',
   });
 
   factory ResourceCourse.fromJson(Map<String, dynamic> json) => ResourceCourse(
@@ -19,6 +24,7 @@ class ResourceCourse {
     questionBankCount: _asInt(json['question_bank_count']),
     resourceCount: _asInt(json['resource_count']),
     textbookCount: _asInt(json['textbook_count']),
+    coverUrl: json['cover_url']?.toString() ?? '',
   );
 }
 
