@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:forui/forui.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import 'constants/semester_config.dart';
+import 'models/book_list.dart';
 import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
@@ -13,6 +15,7 @@ import 'providers/config_provider.dart';
 import 'providers/schedule_provider.dart';
 import 'services/course_storage.dart';
 import 'services/control_service.dart';
+import 'services/course_upload.dart';
 import 'services/talker.dart';
 import 'services/tools_data_manager.dart';
 import 'services/widget_service.dart';
@@ -35,6 +38,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_syncCoursesToControl());
   }
 
   @override
@@ -69,8 +73,30 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       TimetablePage.globalKey.currentState?.refreshForResume();
       unawaited(ToolsDataManager.instance.checkCampusNetwork(force: true));
       unawaited(_refreshSchoolCalendarAndWidget());
+      unawaited(_syncCoursesToControl());
       unawaited(ControlService.instance.track('foreground'));
     }
+  }
+
+  /// Pushes the timetable and the cached book list to control when the app
+  /// returns to the foreground, so the console stays current without a fresh
+  /// OA login. Content-hash dedup makes it a no-op when nothing changed.
+  Future<void> _syncCoursesToControl() async {
+    final courses = ref.read(scheduleProvider).value ?? const [];
+    if (courses.isEmpty) return;
+    final prefs = ref.read(preferencesStorageProvider);
+    BookListResult? books;
+    final cached = prefs.getBookCache();
+    if (cached != null && cached.isNotEmpty) {
+      try {
+        books = BookListPageResult.fromJson(
+          jsonDecode(cached) as Map<String, dynamic>,
+        ).books;
+      } catch (error, stackTrace) {
+        talker.debug('书单缓存解析失败', error, stackTrace);
+      }
+    }
+    await uploadCoursesAndBooks(storage: prefs, courses: courses, books: books);
   }
 
   Future<void> _refreshSchoolCalendarAndWidget() async {

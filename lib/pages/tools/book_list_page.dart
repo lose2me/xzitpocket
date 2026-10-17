@@ -2,10 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/book_list.dart';
-import '../../models/course.dart';
+import '../../providers/schedule_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
 import '../../services/course_upload.dart';
@@ -14,28 +15,23 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 
-class BookListPage extends StatefulWidget {
+class BookListPage extends ConsumerStatefulWidget {
   final String studentId;
   final String password;
   final PreferencesStorage preferencesStorage;
-
-  /// The current timetable, used to associate the loaded book list with course
-  /// numbers before uploading to control.
-  final List<Course> courses;
 
   const BookListPage({
     super.key,
     required this.studentId,
     required this.password,
     required this.preferencesStorage,
-    this.courses = const [],
   });
 
   @override
-  State<BookListPage> createState() => _BookListPageState();
+  ConsumerState<BookListPage> createState() => _BookListPageState();
 }
 
-class _BookListPageState extends State<BookListPage> {
+class _BookListPageState extends ConsumerState<BookListPage> {
   static const _cacheTtl = Duration(minutes: 5);
 
   BookListResult? _result;
@@ -62,12 +58,12 @@ class _BookListPageState extends State<BookListPage> {
 
   Future<void> _maybeUpload() async {
     final result = _result;
-    if (result == null || widget.courses.isEmpty || !_isCurrentSemester()) {
-      return;
-    }
+    if (result == null || !_isCurrentSemester()) return;
+    final courses = ref.read(scheduleProvider).value ?? const [];
+    if (courses.isEmpty) return;
     await uploadCoursesAndBooks(
       storage: widget.preferencesStorage,
-      courses: widget.courses,
+      courses: courses,
       books: result,
     );
   }
