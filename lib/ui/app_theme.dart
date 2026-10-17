@@ -251,15 +251,30 @@ abstract final class AppTheme {
       style: style,
     );
     final tabsStyle = FTabsStyle(
-      // 外层容器直角、满宽贴屏（不做圆角）。
-      decoration: BoxDecoration(color: colors.muted),
-      labelTextStyle: inheritedTabs.labelTextStyle,
-      indicatorDecoration: inheritedTabs.indicatorDecoration,
+      // 控制台「资源统计」同款：透明底、底部细线、主色下划线指示条。
+      decoration: BoxDecoration(
+        color: Colors.transparent,
+        border: Border(bottom: BorderSide(color: colors.border)),
+      ),
+      labelTextStyle: FVariants.from(
+        typography.body.md.copyWith(
+          color: colors.mutedForeground,
+          fontWeight: FontWeight.w500,
+        ),
+        variants: {
+          [FTabVariant.selected]: TextStyleDelta.delta(
+            color: colors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        },
+      ),
+      indicatorDecoration: UnderlineTabIndicator(
+        borderSide: BorderSide(color: colors.primary, width: 2),
+      ),
       focusedOutlineStyle: inheritedTabs.focusedOutlineStyle,
-      // 垂直尺寸取 Forui 默认（4/36/10，栏高 44）与上次（2/30/8，栏高 34）的中间值。
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
-      minHeight: 33,
-      spacing: 9,
+      padding: EdgeInsets.zero,
+      minHeight: 42,
+      spacing: 0,
     );
     return FThemeData(
       touch: true,
