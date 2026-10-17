@@ -187,16 +187,16 @@ class _CourseCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.all(AppSpacing.sm),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             border: Border.all(color: theme.colors.border),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             children: [
-              _CourseCover(url: course.coverUrl, width: 64, height: 88),
+              _CourseCover(url: course.coverUrl, width: 46, height: 62),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
@@ -205,22 +205,22 @@ class _CourseCard extends StatelessWidget {
                   children: [
                     Text(
                       name,
-                      maxLines: 3,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     if (course.code.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         course.code,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.typography.bodySmall.copyWith(
                           color: theme.colors.mutedForeground,
-                          fontSize: 11,
+                          fontSize: 10,
                         ),
                       ),
                     ],
