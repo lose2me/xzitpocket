@@ -37,6 +37,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   bool _refreshing = false;
   bool _bankSelectionMode = false;
   int _selectedTabIndex = 0;
+  bool _detailsLoading = true;
   final Set<String> _selectedBankKeys = {};
   List<CourseResourceItem> _resources = const [];
   List<CourseTextbookItem> _textbooks = const [];
@@ -65,6 +66,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Future<void> _loadCourseDetails() async {
     if (!mounted) return;
+    setState(() => _detailsLoading = true);
     try {
       final control = ControlService.instance;
       final results = await Future.wait([
@@ -84,7 +86,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _resources = const [];
         _textbooks = const [];
       });
-    } finally {}
+    } finally {
+      if (mounted) setState(() => _detailsLoading = false);
+    }
   }
 
   @override
@@ -232,10 +236,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final theme = context.theme;
     final banks = _courseBanks();
     const labels = ['教材', '题库', '试卷'];
+    // Use the course summary counts while the detail lists are still loading,
+    // so the initial tab is the real first non-empty section instead of
+    // flipping from 题库 to 教材 when the fetch completes.
     final enabled = [
-      _textbooks.isNotEmpty,
-      banks.isNotEmpty,
-      _resources.isNotEmpty,
+      _textbooks.isNotEmpty || (_detailsLoading && course.textbookCount > 0),
+      banks.isNotEmpty || (_detailsLoading && course.questionBankCount > 0),
+      _resources.isNotEmpty || (_detailsLoading && course.resourceCount > 0),
     ];
     final children = <Widget>[
       _buildTextbookTab(theme),
@@ -252,6 +259,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final selected = enabled[_selectedTabIndex]
         ? _selectedTabIndex
         : firstEnabled;
+    if (selected != _selectedTabIndex) {
+      // Keep the fallback so a later data refresh cannot move the user to a
+      // different tab just because another resource finished loading.
+      _selectedTabIndex = selected;
+    }
     return AppPageBody(
       maxWidth: AppLayout.resultMaxWidth,
       child: Column(
