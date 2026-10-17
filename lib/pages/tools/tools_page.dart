@@ -231,7 +231,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final control = ControlService.instance;
     if (!control.isConfigured) {
       if (mounted) {
-        showAppSnackBar(context, '练习中心服务未配置', severity: ToastSeverity.warning);
+        showAppSnackBar(context, '资源中心服务未配置', severity: ToastSeverity.warning);
       }
       return;
     }
@@ -485,7 +485,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         _buildSimpleCard(
           theme,
           icon: FLucideIcons.graduationCap,
-          title: '练习中心',
+          title: '资源中心',
           // 未登录也要有可见提示，不再静默禁用。
           onTap: learningLoggedIn ? _openLearningCenter : _requireLogin,
         ),

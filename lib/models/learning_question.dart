@@ -276,6 +276,10 @@ class LearningQuestionBank {
   final bool requiresCDK;
   final bool locked;
 
+  /// Course codes this bank is associated with in control. Empty for banks
+  /// created before the course association existed.
+  final List<String> courseCodes;
+
   /// Server-side modification time of the bank summary. Used to skip detail
   /// requests for banks that have not changed.
   final String updatedAt;
@@ -293,22 +297,25 @@ class LearningQuestionBank {
     this.orderId,
     this.requiresCDK = false,
     this.locked = false,
+    this.courseCodes = const [],
     this.updatedAt = '',
     this.hidden = false,
     required this.questions,
   });
 
-  LearningQuestionBank copyWith({bool? hidden}) => LearningQuestionBank(
-    id: id,
-    isNew: isNew,
-    name: name,
-    orderId: orderId,
-    requiresCDK: requiresCDK,
-    locked: locked,
-    updatedAt: updatedAt,
-    hidden: hidden ?? this.hidden,
-    questions: questions,
-  );
+  LearningQuestionBank copyWith({bool? hidden, List<String>? courseCodes}) =>
+      LearningQuestionBank(
+        id: id,
+        isNew: isNew,
+        name: name,
+        orderId: orderId,
+        requiresCDK: requiresCDK,
+        locked: locked,
+        courseCodes: courseCodes ?? this.courseCodes,
+        updatedAt: updatedAt,
+        hidden: hidden ?? this.hidden,
+        questions: questions,
+      );
 
   factory LearningQuestionBank.fromJson(Map<String, dynamic> json) {
     final rawBank = json['questionBank'];
@@ -323,6 +330,13 @@ class LearningQuestionBank {
     final requiresCDK = bank['requiresCDK'] == true;
     final locked = bank['locked'] == true;
     final hidden = bank['hidden'] == true;
+    final rawCourseCodes = bank['courseCodes'];
+    final courseCodes = [
+      if (rawCourseCodes is List)
+        for (final value in rawCourseCodes)
+          if (value?.toString().trim().isNotEmpty == true)
+            value.toString().trim(),
+    ];
     final updatedAt = bank['updatedAt']?.toString() ?? '';
     final rawQuestions = bank['questions'] as List<dynamic>? ?? const [];
     final questions =
@@ -354,6 +368,7 @@ class LearningQuestionBank {
       orderId: orderId,
       requiresCDK: requiresCDK,
       locked: locked,
+      courseCodes: courseCodes,
       updatedAt: updatedAt,
       hidden: hidden,
       questions: questions,

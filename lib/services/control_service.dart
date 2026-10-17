@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 
 import '../constants/control_config.dart';
 import '../models/learning_question.dart';
+import '../models/resource_center.dart';
 import '../models/school_calendar.dart';
 import 'control_crypto.dart';
 import 'preferences_storage.dart';
@@ -337,7 +338,9 @@ class ControlService {
       studentId,
       alias,
       displayName,
-      if (collegeName.isNotEmpty || className.isNotEmpty || majorName.isNotEmpty) ...[
+      if (collegeName.isNotEmpty ||
+          className.isNotEmpty ||
+          majorName.isNotEmpty) ...[
         collegeName,
         className,
         majorName,
@@ -486,7 +489,19 @@ class ControlService {
       final cached = existing[id];
       if (cached != null && cached.updatedAt == updatedAt && !cached.hidden) {
         // Summary timestamp is unchanged, so the cached questions are current.
-        banks.add(cached);
+        // Course associations may still have been added by an older server
+        // release without touching updated_at, so refresh them from the summary.
+        final codes = [
+          if (summary['courseCodes'] is List)
+            for (final value in summary['courseCodes'] as List)
+              if (value?.toString().trim().isNotEmpty == true)
+                value.toString().trim(),
+        ];
+        banks.add(
+          listEquals(cached.courseCodes, codes)
+              ? cached
+              : cached.copyWith(courseCodes: codes),
+        );
         continue;
       }
       final summaryBank = LearningQuestionBank.fromJson({
@@ -495,6 +510,7 @@ class ControlService {
         'new': summary['new'],
         'name': summary['name'],
         'requiresCDK': summary['requiresCDK'] == true,
+        'courseCodes': summary['courseCodes'],
         'updatedAt': updatedAt,
         'questions': const [],
       });
@@ -521,6 +537,7 @@ class ControlService {
             'new': summaryBank.isNew,
             'name': summaryBank.name,
             'requiresCDK': summaryBank.requiresCDK,
+            'courseCodes': summary['courseCodes'],
             'locked': true,
             'updatedAt': updatedAt,
             'questions': const [],
@@ -544,6 +561,83 @@ class ControlService {
   Future<List<LearningQuestion>> fetchLearningQuestions() async {
     final banks = await fetchLearningQuestionBanks();
     return [for (final bank in banks) ...bank.questions];
+  }
+
+  // ── Resource centre ──
+
+  /// Authorized GET for endpoints that require a signed-in app user.
+  Future<Map<String, dynamic>> _userGet(String path) async {
+    if (!isConfigured) {
+      throw const ControlApiException(
+        'control_not_configured',
+        'Control 服务地址未配置',
+      );
+    }
+    await initialize();
+    final pendingLogin = _loginFuture;
+    if (pendingLogin != null) await pendingLogin;
+    final token = await _validAccessToken();
+    if (token == null) {
+      throw const ControlApiException(
+        'control_login_required',
+        '请先登录后使用资源中心',
+        401,
+      );
+    }
+    return _request('GET', path, headers: {'Authorization': 'Bearer $token'});
+  }
+
+  /// Courses that have at least one bank, resource or textbook.
+  Future<List<ResourceCourse>> fetchResourceCourses() async {
+    final response = await _userGet('/api/v1/resource-center/courses');
+    final items = response['items'];
+    if (items is! List) return const [];
+    return [
+      for (final item in items.whereType<Map>())
+        ResourceCourse.fromJson(_stringMap(item)),
+    ];
+  }
+
+  Future<List<CourseResourceItem>> fetchCourseResources(
+    String courseCode,
+  ) async {
+    final response = await _userGet(
+      '/api/v1/resources?course_code=${Uri.encodeQueryComponent(courseCode)}',
+    );
+    final items = response['items'];
+    if (items is! List) return const [];
+    return [
+      for (final item in items.whereType<Map>())
+        CourseResourceItem.fromJson(_stringMap(item)),
+    ];
+  }
+
+  Future<List<CourseTextbookItem>> fetchCourseTextbooks(
+    String courseCode,
+  ) async {
+    final response = await _userGet(
+      '/api/v1/textbooks?course_code=${Uri.encodeQueryComponent(courseCode)}',
+    );
+    final items = response['items'];
+    if (items is! List) return const [];
+    return [
+      for (final item in items.whereType<Map>())
+        CourseTextbookItem.fromJson(_stringMap(item)),
+    ];
+  }
+
+  Future<String> fetchResourceURL(String id) async {
+    final response = await _userGet(
+      '/api/v1/resources/${Uri.encodeComponent(id)}/url',
+    );
+    return response['url']?.toString() ?? '';
+  }
+
+  Future<String> fetchTextbookURL(String id, {String kind = 'pdf'}) async {
+    final response = await _userGet(
+      '/api/v1/textbooks/${Uri.encodeComponent(id)}/url?kind=${Uri.encodeQueryComponent(kind)}',
+    );
+    return response['url']?.toString() ?? '';
   }
 
   Future<void> redeemLibraryCdk(String code, String questionBankId) async {
@@ -669,7 +763,10 @@ class ControlService {
 
   /// Reads the persisted version-update data and returns it only when it is
   /// newer than [currentVersion]; used to render the update page offline.
-  ControlRelease? cachedRelease(PreferencesStorage prefs, String currentVersion) {
+  ControlRelease? cachedRelease(
+    PreferencesStorage prefs,
+    String currentVersion,
+  ) {
     final raw = prefs.getAppReleaseCache();
     if (raw == null || raw.isEmpty) return null;
     try {
@@ -841,36 +938,33 @@ class ControlService {
   /// caller only records the dedup hash on a real upload.
   Future<bool> uploadCourses({
     required List<
-            ({
-              String code,
-              String name,
-              List<({String name, String tags})> books,
-            })>
-        items,
+      ({String code, String name, List<({String name, String tags})> books})
+    >
+    items,
   }) {
-    return _uploadData(
-      '/api/v1/courses',
-      {
-        'items': [
-          for (final item in items)
-            {
-              'code': item.code,
-              'name': item.name,
-              'books': [
-                for (final book in item.books)
-                  {'name': book.name, 'tags': book.tags},
-              ],
-            },
-        ],
-      },
-      '课程上报失败',
-    );
+    return _uploadData('/api/v1/courses', {
+      'items': [
+        for (final item in items)
+          {
+            'code': item.code,
+            'name': item.name,
+            'books': [
+              for (final book in item.books)
+                {'name': book.name, 'tags': book.tags},
+            ],
+          },
+      ],
+    }, '课程上报失败');
   }
 
   /// Returns true when the request reached the server, false when it was
   /// skipped (disabled, no session) or failed. Failures are logged, never
   /// thrown.
-  Future<bool> _uploadData(String path, Map<String, dynamic> body, String warning) async {
+  Future<bool> _uploadData(
+    String path,
+    Map<String, dynamic> body,
+    String warning,
+  ) async {
     if (!isConfigured || !_communicationAllowed) return false;
     try {
       await _loadState();
@@ -878,7 +972,12 @@ class ControlService {
       if (pendingLogin != null) await pendingLogin;
       final token = await _validAccessToken();
       if (token == null) return false;
-      await _request('POST', path, data: body, headers: {'Authorization': 'Bearer $token'});
+      await _request(
+        'POST',
+        path,
+        data: body,
+        headers: {'Authorization': 'Bearer $token'},
+      );
       return true;
     } catch (error, stackTrace) {
       talker.warning(warning, error, stackTrace);

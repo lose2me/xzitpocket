@@ -72,7 +72,9 @@ void main() {
     expect(find.text('在线题库'), findsOneWidget);
     // A single term is displayed without a redundant section heading.
     expect(find.text('最新题库'), findsNothing);
-    expect(find.text('题库'), findsWidgets);
+    expect(find.text('资源中心'), findsOneWidget);
+    expect(find.text('课程'), findsOneWidget);
+    expect(find.textContaining('题库'), findsWidgets);
     expect(find.text('错题集'), findsOneWidget);
     expect(find.text('收藏集'), findsOneWidget);
     expect(find.text('兑换通用 CDK'), findsNothing);

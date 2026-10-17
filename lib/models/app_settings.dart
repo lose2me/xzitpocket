@@ -158,7 +158,7 @@ enum AppServiceFeature {
   academic('academic', '学业情况'),
   network('network', '网络管理'),
   repair('repair', '极速报修'),
-  learning('learning', '练习中心'),
+  learning('learning', '资源中心'),
   calendar('calendar', '学校校历'),
   teacherEvaluation('teacher_evaluation', '教师评价');
 
@@ -668,8 +668,7 @@ class AppSettings {
       timetableTimeTextSize: timetableTimeTextSize * scale.text,
       timetableDateTextSize: timetableDateTextSize * scale.text,
       timetableDayTextMarkerSize: timetableDayTextMarkerSize * scale.text,
-      timetableDayTextMarkerPadding:
-          timetableDayTextMarkerPadding * scale.text,
+      timetableDayTextMarkerPadding: timetableDayTextMarkerPadding * scale.text,
     );
   }
 }
