@@ -28,13 +28,15 @@ class ResourceTag extends StatelessWidget {
         height: height,
         padding: const EdgeInsets.only(left: 10, right: 12),
         color: background,
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: context.theme.typography.bodySmall.copyWith(
-            fontSize: fontSize,
-            fontWeight: FontWeight.w600,
-            color: foreground,
+        child: Center(
+          widthFactor: 1,
+          child: Text(
+            label,
+            style: context.theme.typography.bodySmall.copyWith(
+              fontSize: fontSize,
+              fontWeight: FontWeight.w600,
+              color: foreground,
+            ),
           ),
         ),
       ),

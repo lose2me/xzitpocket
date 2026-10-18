@@ -322,31 +322,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     String label,
     bool expanded,
   ) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        setState(() => _expandedSections[index] = !_expandedSections[index]);
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.only(top: 10, bottom: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionTag(theme, label, index),
-            const SizedBox(height: 2),
-            Container(
-              width: double.infinity,
-              height: expanded ? 2 : 1,
-              color: theme.colors.primary,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _sectionTag(FThemeData theme, String label, int index) {
     final (background, foreground) = switch (index) {
       0 => (
         theme.colors.destructive.withValues(alpha: 0.12),
@@ -361,12 +336,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         theme.colors.semantic.info,
       ),
     };
-    return ResourceTag(
-      label: label,
-      background: background,
-      foreground: foreground,
-      height: 20,
-      fontSize: 11,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        setState(() => _expandedSections[index] = !_expandedSections[index]);
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.only(top: 10, bottom: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ResourceTag(
+              label: label,
+              background: background,
+              foreground: foreground,
+            ),
+            Container(
+              width: double.infinity,
+              height: expanded ? 2 : 1,
+              color: foreground,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
