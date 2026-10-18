@@ -344,20 +344,25 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.only(top: 10, bottom: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ResourceTag(
-              label: label,
-              background: background,
-              foreground: foreground,
-            ),
-            Container(
-              width: double.infinity,
-              height: expanded ? 2 : 1,
-              color: foreground,
-            ),
-          ],
+        alignment: Alignment.centerLeft,
+        child: IntrinsicWidth(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ResourceTag(
+                label: label,
+                background: background,
+                foreground: foreground,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: SwallowtailTagClipper.point,
+                ),
+                child: Container(height: expanded ? 2 : 1, color: foreground),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -408,14 +413,33 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final name = course.name.trim();
     final code = shortCourseCode(course.code);
     final title = name.isNotEmpty ? name : (code.isNotEmpty ? code : '课程');
-    return Text(
-      title,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: theme.typography.body.lg.copyWith(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.typography.body.lg.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (name.isNotEmpty && code.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            code,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.typography.bodySmall.copyWith(
+              color: theme.colors.mutedForeground,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -727,7 +751,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 ),
               ),
               const SizedBox(width: 12),
-              _DocumentIcon(color: theme.colors.primary, label: 'EXAM'),
+              _DocumentIcon(
+                color: theme.colors.semantic.warning,
+                label: 'EXAM',
+              ),
             ],
           ),
         ),
