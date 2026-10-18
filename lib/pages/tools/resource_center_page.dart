@@ -9,6 +9,7 @@ import '../../services/control_service.dart';
 import '../../services/learning_repository.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
+import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_center_page.dart';
 import 'resource_upload_page.dart';
@@ -227,25 +228,25 @@ class _CourseCard extends StatelessWidget {
     final title = name.isNotEmpty ? name : (code.isNotEmpty ? code : '课程');
     final tags = <Widget>[
       if (code.isNotEmpty)
-        _ResourceTypeTag(
+        ResourceTag(
           label: code,
           background: theme.colors.primary.withValues(alpha: 0.18),
           foreground: theme.colors.primary,
         ),
       if (course.textbookCount > 0)
-        _ResourceTypeTag(
+        ResourceTag(
           label: '教材',
           background: theme.colors.destructive.withValues(alpha: 0.12),
           foreground: theme.colors.destructive,
         ),
       if (course.questionBankCount > 0)
-        _ResourceTypeTag(
+        ResourceTag(
           label: '题库',
-          background: theme.colors.primary.withValues(alpha: 0.12),
-          foreground: theme.colors.primary,
+          background: theme.colors.semantic.warning.withValues(alpha: 0.14),
+          foreground: theme.colors.semantic.warning,
         ),
       if (course.resourceCount > 0)
-        _ResourceTypeTag(
+        ResourceTag(
           label: '试卷',
           background: theme.colors.semantic.info.withValues(alpha: 0.12),
           foreground: theme.colors.semantic.info,
@@ -284,16 +285,8 @@ class _CourseCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (var index = 0; index < tags.length; index++)
-                            if (index == 0)
-                              tags[index]
-                            else
-                              Transform.translate(
-                                offset: const Offset(-_tagOverlap, 0),
-                                child: tags[index],
-                              ),
-                        ],
+                        spacing: 4,
+                        children: tags,
                       ),
                     ],
                   ],
@@ -305,61 +298,6 @@ class _CourseCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _ResourceTypeTag extends StatelessWidget {
-  final String label;
-  final Color background;
-  final Color foreground;
-
-  const _ResourceTypeTag({
-    required this.label,
-    required this.background,
-    required this.foreground,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipPath(
-      clipper: const _SwallowtailTagClipper(),
-      child: Container(
-        height: 18,
-        padding: const EdgeInsets.only(left: 10, right: 12),
-        color: background,
-        alignment: Alignment.center,
-        child: Text(
-          label,
-          style: context.theme.typography.bodySmall.copyWith(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: foreground,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-const double _tagOverlap = 5;
-
-class _SwallowtailTagClipper extends CustomClipper<Path> {
-  static const _point = 5.0;
-  static const _notch = 5.0;
-
-  const _SwallowtailTagClipper();
-
-  @override
-  Path getClip(Size size) => Path()
-    ..moveTo(_point, 0)
-    ..lineTo(size.width, 0)
-    ..lineTo(size.width - _notch, size.height / 2)
-    ..lineTo(size.width, size.height)
-    ..lineTo(_point, size.height)
-    ..lineTo(0, size.height / 2)
-    ..close();
-
-  @override
-  bool shouldReclip(covariant _SwallowtailTagClipper oldClipper) => false;
 }
 
 class _CourseCover extends StatelessWidget {

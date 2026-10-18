@@ -12,6 +12,7 @@ import '../../services/learning_repository.dart';
 import '../../services/resource_download_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
+import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_question_list_page.dart';
 import 'learning_quiz_page.dart';
@@ -328,20 +329,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.only(top: 10, bottom: 8),
+        padding: const EdgeInsets.only(top: 10, bottom: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              textAlign: TextAlign.left,
-              style: theme.typography.body.md.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: theme.colors.primary,
-              ),
-            ),
-            const SizedBox(height: 8),
+            _sectionTag(theme, label, index),
+            const SizedBox(height: 2),
             Container(
               width: double.infinity,
               height: expanded ? 2 : 1,
@@ -350,6 +343,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _sectionTag(FThemeData theme, String label, int index) {
+    final (background, foreground) = switch (index) {
+      0 => (
+        theme.colors.destructive.withValues(alpha: 0.12),
+        theme.colors.destructive,
+      ),
+      1 => (
+        theme.colors.semantic.warning.withValues(alpha: 0.14),
+        theme.colors.semantic.warning,
+      ),
+      _ => (
+        theme.colors.semantic.info.withValues(alpha: 0.12),
+        theme.colors.semantic.info,
+      ),
+    };
+    return ResourceTag(
+      label: label,
+      background: background,
+      foreground: foreground,
+      height: 20,
+      fontSize: 11,
     );
   }
 
@@ -398,31 +415,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final name = course.name.trim();
     final code = shortCourseCode(course.code);
     final title = name.isNotEmpty ? name : (code.isNotEmpty ? code : '课程');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.typography.body.lg.copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        if (name.isNotEmpty && code.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            code,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.typography.bodySmall.copyWith(
-              color: theme.colors.mutedForeground,
-              fontSize: 11,
-            ),
-          ),
-        ],
-      ],
+    return Text(
+      title,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: theme.typography.body.lg.copyWith(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+      ),
     );
   }
 
