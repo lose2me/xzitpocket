@@ -14,7 +14,6 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_question_list_page.dart';
-import 'resource_upload_page.dart';
 import 'learning_quiz_page.dart';
 
 class LearningCenterPage extends StatefulWidget {
@@ -270,12 +269,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           else if (textbookLoading)
             _buildLoading(theme)
           else
-            _buildUploadEmpty(
-              theme,
-              label: '暂无资源',
-              action: '点击上传教材',
-              onTap: () => unawaited(_openUpload(kind: 'textbook')),
-            ),
+            _buildUploadEmpty(theme, label: '暂无资源'),
           const SizedBox(height: AppSpacing.md),
         ],
         _buildSectionHeader(theme, 1, '题库', _expandedSections[1]),
@@ -314,12 +308,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           else if (resourceLoading)
             _buildLoading(theme)
           else
-            _buildUploadEmpty(
-              theme,
-              label: '暂无资源',
-              action: '点击上传试卷',
-              onTap: () => unawaited(_openUpload(kind: 'resource')),
-            ),
+            _buildUploadEmpty(theme, label: '暂无资源'),
           const SizedBox(height: AppSpacing.md),
         ],
       ],
@@ -353,13 +342,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               ),
             ),
             const SizedBox(height: 8),
-            FractionallySizedBox(
-              widthFactor: 0.5,
-              alignment: Alignment.centerLeft,
-              child: Container(
-                height: expanded ? 2 : 1,
-                color: theme.colors.primary,
-              ),
+            Container(
+              width: double.infinity,
+              height: expanded ? 2 : 1,
+              color: theme.colors.primary,
             ),
           ],
         ),
@@ -370,11 +356,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildUploadEmpty(
     FThemeData theme, {
     required String label,
-    String? action,
-    VoidCallback? onTap,
     IconData icon = FLucideIcons.arrowUpToLine,
   }) {
-    final content = CustomPaint(
+    return CustomPaint(
       painter: _DashedBorderPainter(color: theme.colors.border),
       child: SizedBox(
         width: double.infinity,
@@ -391,25 +375,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   color: theme.colors.mutedForeground,
                 ),
               ),
-              if (action != null) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  action,
-                  style: theme.typography.bodySmall.copyWith(
-                    color: theme.colors.primary,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
       ),
-    );
-    if (onTap == null) return content;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: content,
     );
   }
 
@@ -444,24 +413,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       for (final bank in _allBankGroups())
         if (bank.courseCodes.contains(course.code)) bank,
     ];
-  }
-
-  Future<void> _openUpload({required String kind}) async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    final submitted = await Navigator.of(context).push<bool>(
-      appRoute(
-        name: AppRouteNames.resourceUpload,
-        builder: (_) => ResourceUploadPage(
-          courses: [course],
-          initialKind: kind,
-          initialCourseCode: course.code,
-          courseScoped: true,
-        ),
-      ),
-    );
-    if (submitted == true && mounted) {
-      await _loadCourseDetails();
-    }
   }
 
   Widget _buildPdfTile(

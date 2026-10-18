@@ -222,7 +222,17 @@ class _CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final name = course.name.trim().isEmpty ? course.code : course.name.trim();
+    final code = course.code.trim();
+    final name = course.name.trim();
+    final title = code.isNotEmpty ? code : (name.isNotEmpty ? name : '课程');
+    final tags = <Widget>[
+      if (course.textbookCount > 0)
+        _ResourceTypeTag(label: '教材', color: theme.colors.destructive),
+      if (course.questionBankCount > 0)
+        _ResourceTypeTag(label: '题库', color: theme.colors.primary),
+      if (course.resourceCount > 0)
+        _ResourceTypeTag(label: '试卷', color: theme.colors.semantic.info),
+    ];
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -244,25 +254,29 @@ class _CourseCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      name,
-                      maxLines: 2,
+                      title,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (course.code.isNotEmpty) ...[
+                    if (code.isNotEmpty && name.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
-                        course.code,
+                        name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.typography.bodySmall.copyWith(
                           color: theme.colors.mutedForeground,
-                          fontSize: 10,
+                          fontSize: 11,
                         ),
                       ),
+                    ],
+                    if (tags.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Wrap(spacing: 4, runSpacing: 2, children: tags),
                     ],
                   ],
                 ),
@@ -273,6 +287,58 @@ class _CourseCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ResourceTypeTag extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _ResourceTypeTag({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground =
+        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+    return ClipPath(
+      clipper: const _SwallowtailTagClipper(),
+      child: Container(
+        height: 18,
+        padding: const EdgeInsets.only(left: 10, right: 12),
+        color: color,
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: context.theme.typography.bodySmall.copyWith(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: foreground,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SwallowtailTagClipper extends CustomClipper<Path> {
+  static const _point = 6.0;
+  static const _notch = 5.0;
+
+  const _SwallowtailTagClipper();
+
+  @override
+  Path getClip(Size size) => Path()
+    ..moveTo(_point, 0)
+    ..lineTo(size.width, 0)
+    ..lineTo(size.width - _notch, size.height / 2)
+    ..lineTo(size.width, size.height)
+    ..lineTo(_point, size.height)
+    ..lineTo(0, size.height / 2)
+    ..close();
+
+  @override
+  bool shouldReclip(covariant _SwallowtailTagClipper oldClipper) => false;
 }
 
 class _CourseCover extends StatelessWidget {
