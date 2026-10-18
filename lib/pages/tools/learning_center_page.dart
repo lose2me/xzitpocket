@@ -375,7 +375,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       painter: _DashedBorderPainter(color: theme.colors.border),
       child: SizedBox(
         width: double.infinity,
-        height: 66,
+        height: 132,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
