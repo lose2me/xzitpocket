@@ -344,25 +344,23 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.only(top: 10, bottom: 4),
-        alignment: Alignment.centerLeft,
-        child: IntrinsicWidth(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              ResourceTag(
-                label: label,
-                background: background,
-                foreground: foreground,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ResourceTag(
+              label: label,
+              background: background,
+              foreground: foreground,
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: SwallowtailTagClipper.point),
+              child: Container(
+                width: double.infinity,
+                height: expanded ? 2 : 1,
+                color: foreground,
               ),
-              Padding(
-                padding: const EdgeInsets.only(
-                  left: SwallowtailTagClipper.point,
-                ),
-                child: Container(height: expanded ? 2 : 1, color: foreground),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
