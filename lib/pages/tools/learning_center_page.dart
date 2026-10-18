@@ -375,13 +375,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       painter: _DashedBorderPainter(color: theme.colors.border),
       child: SizedBox(
         width: double.infinity,
-        height: 112,
+        height: 66,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: theme.colors.mutedForeground),
-              const SizedBox(height: AppSpacing.sm),
+              Icon(icon, size: 20, color: theme.colors.mutedForeground),
+              const SizedBox(height: AppSpacing.xs),
               Text(
                 label,
                 style: theme.typography.bodySmall.copyWith(
@@ -1087,7 +1087,7 @@ class _DashedBorderPainter extends CustomPainter {
       ..strokeWidth = 1.2;
     final path = Path()
       ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(10)),
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
       );
     const dash = 5.0;
     const gap = 4.0;
