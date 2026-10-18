@@ -395,15 +395,34 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   );
 
   Widget _buildCourseHeader(FThemeData theme) {
-    final name = course.name.trim().isEmpty ? course.code : course.name.trim();
-    return Text(
-      name,
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: theme.typography.body.lg.copyWith(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-      ),
+    final name = course.name.trim();
+    final code = shortCourseCode(course.code);
+    final title = name.isNotEmpty ? name : (code.isNotEmpty ? code : '课程');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.typography.body.lg.copyWith(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        if (name.isNotEmpty && code.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            code,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.typography.bodySmall.copyWith(
+              color: theme.colors.mutedForeground,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ],
     );
   }
 

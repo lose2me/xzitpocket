@@ -222,16 +222,34 @@ class _CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final code = course.code.trim();
+    final code = shortCourseCode(course.code);
     final name = course.name.trim();
-    final title = code.isNotEmpty ? code : (name.isNotEmpty ? name : '课程');
+    final title = name.isNotEmpty ? name : (code.isNotEmpty ? code : '课程');
     final tags = <Widget>[
+      if (code.isNotEmpty)
+        _ResourceTypeTag(
+          label: code,
+          background: theme.colors.muted,
+          foreground: theme.colors.foreground,
+        ),
       if (course.textbookCount > 0)
-        _ResourceTypeTag(label: '教材', color: theme.colors.destructive),
+        _ResourceTypeTag(
+          label: '教材',
+          background: theme.colors.destructive.withValues(alpha: 0.12),
+          foreground: theme.colors.destructive,
+        ),
       if (course.questionBankCount > 0)
-        _ResourceTypeTag(label: '题库', color: theme.colors.primary),
+        _ResourceTypeTag(
+          label: '题库',
+          background: theme.colors.primary.withValues(alpha: 0.12),
+          foreground: theme.colors.primary,
+        ),
       if (course.resourceCount > 0)
-        _ResourceTypeTag(label: '试卷', color: theme.colors.semantic.info),
+        _ResourceTypeTag(
+          label: '试卷',
+          background: theme.colors.semantic.info.withValues(alpha: 0.12),
+          foreground: theme.colors.semantic.info,
+        ),
     ];
     return Material(
       color: Colors.transparent,
@@ -255,28 +273,20 @@ class _CourseCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (code.isNotEmpty && name.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.typography.bodySmall.copyWith(
-                          color: theme.colors.mutedForeground,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
                     if (tags.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Wrap(spacing: 4, runSpacing: 2, children: tags),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        spacing: 4,
+                        children: tags,
+                      ),
                     ],
                   ],
                 ),
@@ -291,22 +301,23 @@ class _CourseCard extends StatelessWidget {
 
 class _ResourceTypeTag extends StatelessWidget {
   final String label;
-  final Color color;
+  final Color background;
+  final Color foreground;
 
-  const _ResourceTypeTag({required this.label, required this.color});
+  const _ResourceTypeTag({
+    required this.label,
+    required this.background,
+    required this.foreground,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        ThemeData.estimateBrightnessForColor(color) == Brightness.dark
-        ? Colors.white
-        : Colors.black;
     return ClipPath(
       clipper: const _SwallowtailTagClipper(),
       child: Container(
         height: 18,
         padding: const EdgeInsets.only(left: 10, right: 12),
-        color: color,
+        color: background,
         alignment: Alignment.center,
         child: Text(
           label,

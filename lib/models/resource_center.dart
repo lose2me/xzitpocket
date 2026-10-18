@@ -127,6 +127,13 @@ class CourseTextbookItem {
       );
 }
 
+/// Course numbers are shown at most 10 characters wide in the app.
+String shortCourseCode(String code) {
+  final value = code.trim();
+  if (value.length <= 10) return value;
+  return '${value.substring(0, 9)}…';
+}
+
 int _asInt(dynamic value) {
   if (value is num) return value.toInt();
   return int.tryParse(value?.toString() ?? '') ?? 0;
