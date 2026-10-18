@@ -229,8 +229,8 @@ class _CourseCard extends StatelessWidget {
       if (code.isNotEmpty)
         _ResourceTypeTag(
           label: code,
-          background: theme.colors.muted,
-          foreground: theme.colors.foreground,
+          background: theme.colors.primary.withValues(alpha: 0.18),
+          foreground: theme.colors.primary,
         ),
       if (course.textbookCount > 0)
         _ResourceTypeTag(
@@ -284,8 +284,16 @@ class _CourseCard extends StatelessWidget {
                       const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
-                        spacing: 4,
-                        children: tags,
+                        children: [
+                          for (var index = 0; index < tags.length; index++)
+                            if (index == 0)
+                              tags[index]
+                            else
+                              Transform.translate(
+                                offset: const Offset(-_tagOverlap, 0),
+                                child: tags[index],
+                              ),
+                        ],
                       ),
                     ],
                   ],
@@ -332,8 +340,10 @@ class _ResourceTypeTag extends StatelessWidget {
   }
 }
 
+const double _tagOverlap = 5;
+
 class _SwallowtailTagClipper extends CustomClipper<Path> {
-  static const _point = 6.0;
+  static const _point = 5.0;
   static const _notch = 5.0;
 
   const _SwallowtailTagClipper();
