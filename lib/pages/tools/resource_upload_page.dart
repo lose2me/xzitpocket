@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 
 const double _maxUploadBytes = 80 * 1024 * 1024;
+const int _maxFilesPerUpload = 10;
 const XTypeGroup _pdfTypeGroup = XTypeGroup(
   label: 'PDF',
   extensions: ['pdf'],
@@ -25,7 +27,7 @@ class ResourceUploadPage extends StatefulWidget {
   const ResourceUploadPage({
     super.key,
     required this.courses,
-    this.initialKind = 'textbook',
+    this.initialKind = 'resource',
     this.initialCourseCode,
     this.courseScoped = false,
   });
@@ -36,13 +38,14 @@ class ResourceUploadPage extends StatefulWidget {
 
 class _ResourceUploadPageState extends State<ResourceUploadPage> {
   final _nameController = TextEditingController();
-  String _kind = 'textbook';
+  String _kind = 'resource';
   late String _courseCode = _initialCourseCode();
-  XFile? _file;
-  int _fileSize = 0;
+  final List<_PickedPdf> _files = [];
   bool _uploading = false;
   int _sent = 0;
   int _total = 0;
+  int _uploadIndex = 0;
+  int _uploadCount = 0;
   UploadStats? _stats;
   bool _statsLoading = true;
   List<UploadTextbook> _textbooks = const [];
@@ -55,13 +58,14 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         widget.courses.any((course) => course.code == requested)) {
       return requested;
     }
+    if (widget.courses.isEmpty) return '';
     return widget.courses.first.code;
   }
 
   @override
   void initState() {
     super.initState();
-    _kind = widget.initialKind == 'resource' ? 'resource' : 'textbook';
+    _kind = widget.initialKind == 'textbook' ? 'textbook' : 'resource';
     _statsLoading = !widget.courseScoped;
     _textbooksLoading = _kind == 'textbook';
     if (!widget.courseScoped) unawaited(_loadStats());
@@ -128,41 +132,102 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     ]);
   }
 
-  Future<void> _pickFile() async {
-    final file = await openFile(acceptedTypeGroups: const [_pdfTypeGroup]);
-    if (file == null || !mounted) return;
-    final size = await file.length();
-    if (!mounted) return;
-    if (size <= 0) {
-      showAppSnackBar(context, '无法读取该文件', severity: ToastSeverity.warning);
-      return;
+  Future<void> _pickFiles() async {
+    if (_uploading) return;
+    final multiple = _kind == 'resource';
+    final List<XFile> picked;
+    if (multiple) {
+      picked = await openFiles(acceptedTypeGroups: const [_pdfTypeGroup]);
+    } else {
+      final file = await openFile(acceptedTypeGroups: const [_pdfTypeGroup]);
+      picked = file == null ? const [] : [file];
     }
-    if (size > _maxUploadBytes) {
+    if (!mounted || picked.isEmpty) return;
+
+    final entries = <_PickedPdf>[];
+    var oversized = 0;
+    var unreadable = 0;
+    for (final file in picked) {
+      final size = await file.length();
+      if (size <= 0) {
+        unreadable++;
+        continue;
+      }
+      if (size > _maxUploadBytes) {
+        oversized++;
+        continue;
+      }
+      entries.add(_PickedPdf(file, size));
+    }
+    if (!mounted) return;
+    if (oversized > 0) {
       showAppSnackBar(
         context,
-        'PDF 不能超过 80 MB',
+        '$oversized 个文件超过 80 MB，已忽略',
         severity: ToastSeverity.warning,
       );
-      return;
     }
+    if (unreadable > 0) {
+      showAppSnackBar(
+        context,
+        '$unreadable 个文件无法读取，已忽略',
+        severity: ToastSeverity.warning,
+      );
+    }
+    if (entries.isEmpty) return;
+
+    var overflow = 0;
     setState(() {
-      _file = file;
-      _fileSize = size;
-      if (_kind == 'resource' && _nameController.text.trim().isEmpty) {
-        _nameController.text = _nameFromFile(file.name);
+      if (!multiple) {
+        _files
+          ..clear()
+          ..add(entries.first);
+      } else {
+        final known = {for (final item in _files) item.path};
+        for (final entry in entries) {
+          if (!known.add(entry.path)) continue;
+          if (_files.length >= _maxFilesPerUpload) {
+            overflow++;
+            continue;
+          }
+          _files.add(entry);
+        }
+      }
+      if (_kind == 'resource' &&
+          _files.length == 1 &&
+          _nameController.text.trim().isEmpty) {
+        _nameController.text = _nameFromFile(_files.first.name);
+      }
+    });
+    if (overflow > 0) {
+      showAppSnackBar(
+        context,
+        '一次最多上传 $_maxFilesPerUpload 个文件',
+        severity: ToastSeverity.warning,
+      );
+    }
+  }
+
+  void _removeFile(_PickedPdf picked) {
+    if (_uploading) return;
+    setState(() {
+      _files.remove(picked);
+      if (_kind == 'resource' &&
+          _files.length == 1 &&
+          _nameController.text.trim().isEmpty) {
+        _nameController.text = _nameFromFile(_files.first.name);
       }
     });
   }
 
   Future<void> _submit() async {
     if (_uploading) return;
-    final file = _file;
-    if (file == null) {
+    if (_files.isEmpty) {
       showAppSnackBar(context, '请选择 PDF 文件', severity: ToastSeverity.warning);
       return;
     }
     String courseCode;
-    String name;
+    String name = '';
     String tags = '';
     String targetId = '';
     if (_kind == 'textbook') {
@@ -189,17 +254,76 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         showAppSnackBar(context, '请选择课程', severity: ToastSeverity.warning);
         return;
       }
-      name = _nameController.text.trim();
-      if (name.isEmpty) {
-        showAppSnackBar(context, '请输入试卷名称', severity: ToastSeverity.warning);
-        return;
+      if (_files.length == 1) {
+        name = _nameController.text.trim();
+        if (name.isEmpty) {
+          showAppSnackBar(context, '请输入试卷名称', severity: ToastSeverity.warning);
+          return;
+        }
       }
     }
+    final queue = List<_PickedPdf>.of(_files);
     setState(() {
       _uploading = true;
+      _uploadIndex = 1;
+      _uploadCount = queue.length;
       _sent = 0;
-      _total = _fileSize;
+      _total = queue.first.size;
     });
+    final failed = <_PickedPdf>[];
+    String? firstError;
+    for (var index = 0; index < queue.length; index++) {
+      final picked = queue[index];
+      if (mounted) {
+        setState(() {
+          _uploadIndex = index + 1;
+          _sent = 0;
+          _total = picked.size;
+        });
+      }
+      final itemName = _kind == 'resource' && queue.length > 1
+          ? _nameFromFile(picked.name)
+          : name;
+      final error = await _uploadOne(
+        picked,
+        courseCode: courseCode,
+        name: itemName,
+        tags: tags,
+        targetId: targetId,
+      );
+      if (error == null) {
+        if (mounted) setState(() => _files.remove(picked));
+      } else {
+        failed.add(picked);
+        firstError ??= error;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _uploading = false;
+      if (failed.isNotEmpty) {
+        _files
+          ..clear()
+          ..addAll(failed);
+      }
+    });
+    if (failed.isEmpty) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    final message = failed.length == 1
+        ? (firstError ?? '上传失败，请稍后重试')
+        : '${failed.length} 个文件上传失败，请重试（${firstError ?? '网络异常'}）';
+    showAppSnackBar(context, message, severity: ToastSeverity.error);
+  }
+
+  Future<String?> _uploadOne(
+    _PickedPdf picked, {
+    required String courseCode,
+    required String name,
+    required String tags,
+    required String targetId,
+  }) async {
     ResourceUploadTicket? ticket;
     var uploaded = false;
     try {
@@ -209,12 +333,12 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         name: name,
         tags: tags,
         targetId: targetId,
-        sizeBytes: _fileSize,
+        sizeBytes: picked.size,
       );
       await ControlService.instance.uploadToSignedUrl(
         ticket.uploadUrl,
-        filePath: file.path,
-        sizeBytes: _fileSize,
+        filePath: picked.path,
+        sizeBytes: picked.size,
         onProgress: (sent, total) {
           if (!mounted) return;
           setState(() {
@@ -225,24 +349,17 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       );
       uploaded = true;
       await ControlService.instance.completeResourceUpload(ticket.id);
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
+      return null;
     } on ControlApiException catch (error) {
       if (ticket != null && !uploaded) {
         unawaited(ControlService.instance.abortResourceUpload(ticket.id));
       }
-      if (mounted) {
-        showAppSnackBar(context, error.message, severity: ToastSeverity.error);
-      }
+      return error.message;
     } catch (_) {
       if (ticket != null && !uploaded) {
         unawaited(ControlService.instance.abortResourceUpload(ticket.id));
       }
-      if (mounted) {
-        showAppSnackBar(context, '上传失败，请稍后重试', severity: ToastSeverity.error);
-      }
-    } finally {
-      if (mounted) setState(() => _uploading = false);
+      return '上传失败，请稍后重试';
     }
   }
 
@@ -257,6 +374,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         : _textbooksLoading;
     final canSubmit =
         !_uploading &&
+        _files.isNotEmpty &&
         (_kind != 'textbook' || _selectedTextbook != null) &&
         (scoped || _kind == 'textbook' || _courseCode.isNotEmpty);
     return AppPage(
@@ -294,27 +412,20 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             const SizedBox(height: AppSpacing.xl),
             Row(
               children: [
-                _buildTab(theme, 'textbook', '教材'),
                 _buildTab(theme, 'resource', '试卷'),
+                _buildTab(theme, 'textbook', '教材'),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
           ],
           if (!scoped && _kind == 'resource') ...[
-            Text(
-              '课程',
-              style: theme.typography.bodySmall.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
             _buildCourseSelector(theme),
             const SizedBox(height: AppSpacing.md),
           ],
           if (_kind == 'textbook') ...[
             _buildTextbookField(theme),
             const SizedBox(height: AppSpacing.md),
-          ] else ...[
+          ] else if (_files.length < 2) ...[
             AppTextField(
               controller: _nameController,
               label: '试卷名称',
@@ -325,44 +436,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             ),
             const SizedBox(height: AppSpacing.md),
           ],
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.colors.border),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  FLucideIcons.fileText,
-                  color: theme.colors.mutedForeground,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    _file == null
-                        ? '未选择 PDF 文件'
-                        : '${_file!.name} · ${_formatSize(_fileSize)}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.bodySmall.copyWith(
-                      color: _file == null
-                          ? theme.colors.mutedForeground
-                          : theme.colors.foreground,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                FButton(
-                  variant: FButtonVariant.outline,
-                  size: FButtonSizeVariant.sm,
-                  mainAxisSize: MainAxisSize.min,
-                  onPress: _uploading ? null : () => unawaited(_pickFile()),
-                  child: Text(_file == null ? '选择' : '更换'),
-                ),
-              ],
-            ),
-          ),
+          _buildFilePicker(theme),
           if (_uploading) ...[
             const SizedBox(height: AppSpacing.md),
             ClipRRect(
@@ -373,9 +447,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              _total > 0
-                  ? '上传中 ${(_sent * 100 / _total).clamp(0, 100).round()}%'
-                  : '上传中…',
+              _progressLabel,
               style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.mutedForeground,
               ),
@@ -386,11 +458,29 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             variant: FButtonVariant.primary,
             onPress: canSubmit ? () => unawaited(_submit()) : null,
             prefix: const Icon(FLucideIcons.arrowUpToLine),
-            child: Text(_uploading ? '上传中...' : '提交审核'),
+            child: Text(
+              _uploading
+                  ? '上传中...'
+                  : _files.length > 1
+                  ? '提交审核（${_files.length} 个文件）'
+                  : '提交审核',
+            ),
           ),
         ],
       ),
     );
+  }
+
+  String get _progressLabel {
+    final percent = _total > 0
+        ? '${(_sent * 100 / _total).clamp(0, 100).round()}%'
+        : null;
+    if (_uploadCount > 1) {
+      return percent == null
+          ? '正在上传 $_uploadIndex/$_uploadCount'
+          : '正在上传 $_uploadIndex/$_uploadCount · $percent';
+    }
+    return percent == null ? '上传中…' : '上传中 · $percent';
   }
 
   Widget _buildTextbookField(FThemeData theme) {
@@ -443,77 +533,171 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         ),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '选择教材',
-          style: theme.typography.bodySmall.copyWith(
-            color: theme.colors.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        FSelect<UploadTextbook>.searchBuilder(
-          control: FSelectControl.lifted(
-            value: _selectedTextbook,
-            onChange: (value) {
-              if (value != null && !_uploading) {
-                setState(() => _selectedTextbook = value);
-              }
-            },
-          ),
-          format: _textbookLabel,
-          filter: _filterTextbooks,
-          contentBuilder: (context, query, values) => [
-            for (final item in values)
-              FSelectItem.item(title: Text(_textbookLabel(item)), value: item),
-          ],
-          hint: '输入教材名搜索',
-        ),
-      ],
+    return _SearchChoiceField<UploadTextbook>(
+      label: '选择教材',
+      placeholder: '请选择教材',
+      searchHint: '搜索教材名称、标签或课程',
+      icon: FLucideIcons.bookOpen,
+      value: book,
+      options: _textbooks,
+      format: _textbookLabel,
+      matches: _textbookMatches,
+      enabled: !_uploading,
+      onChanged: (value) => setState(() => _selectedTextbook = value),
     );
   }
 
   Widget _buildCourseSelector(FThemeData theme) {
-    return FSelect<String>.searchBuilder(
-      control: FSelectControl.lifted(
-        value: _courseCode,
-        onChange: (value) {
-          if (value == null || _uploading || value == _courseCode) return;
-          setState(() => _courseCode = value);
-        },
-      ),
+    return _SearchChoiceField<String>(
+      label: '课程',
+      placeholder: '请选择课程',
+      searchHint: '搜索课程名或编号',
+      icon: FLucideIcons.graduationCap,
+      value: _courseCode.isEmpty ? null : _courseCode,
+      options: [for (final course in widget.courses) course.code],
       format: _courseLabel,
-      filter: (query) {
-        final q = query.trim().toLowerCase();
-        if (q.isEmpty) {
-          return [for (final course in widget.courses) course.code];
-        }
-        return [
-          for (final course in widget.courses)
-            if (course.code.toLowerCase().contains(q) ||
-                course.name.toLowerCase().contains(q))
-              course.code,
-        ];
-      },
-      contentBuilder: (context, query, values) => [
-        for (final code in values)
-          FSelectItem.item(title: Text(_courseLabel(code)), value: code),
-      ],
-      hint: '输入课程名或编号搜索',
+      matches: (code, query) =>
+          code.toLowerCase().contains(query) ||
+          _courseName(code).toLowerCase().contains(query),
+      enabled: !_uploading,
+      onChanged: (value) => setState(() => _courseCode = value),
     );
   }
 
-  Iterable<UploadTextbook> _filterTextbooks(String query) {
-    final q = query.trim().toLowerCase();
-    if (q.isEmpty) return _textbooks;
-    return _textbooks.where(
-      (book) =>
-          book.name.toLowerCase().contains(q) ||
-          book.tags.toLowerCase().contains(q) ||
-          book.courseCodes.any((code) => code.toLowerCase().contains(q)) ||
-          _courseName(book.primaryCourseCode).toLowerCase().contains(q),
+  Widget _buildFilePicker(FThemeData theme) {
+    final multiple = _kind == 'resource';
+    final hasFiles = _files.isNotEmpty;
+    final label = hasFiles
+        ? (multiple ? '继续添加 PDF 文件' : '更换 PDF 文件')
+        : '选择 PDF 文件';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _uploading ? null : () => unawaited(_pickFiles()),
+          child: CustomPaint(
+            painter: _DashedBorderPainter(color: theme.colors.border),
+            child: SizedBox(
+              width: double.infinity,
+              height: 132,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      hasFiles ? FLucideIcons.plus : FLucideIcons.arrowUpToLine,
+                      size: 20,
+                      color: theme.colors.mutedForeground,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      _uploading ? '上传中…' : label,
+                      style: theme.typography.bodySmall.copyWith(
+                        color: theme.colors.mutedForeground,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      multiple
+                          ? '支持一次选择多个文件，单个不超过 80 MB'
+                          : '仅支持单个 PDF，不超过 80 MB',
+                      style: theme.typography.bodySmall.copyWith(
+                        fontSize: 11,
+                        color: theme.colors.mutedForeground.withValues(
+                          alpha: 0.8,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (hasFiles) ...[
+          const SizedBox(height: AppSpacing.sm),
+          for (final picked in _files) ...[
+            _buildFileRow(theme, picked),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+          if (multiple && _files.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '多文件上传时，每份试卷按文件名命名',
+                style: theme.typography.bodySmall.copyWith(
+                  fontSize: 11,
+                  color: theme.colors.mutedForeground,
+                ),
+              ),
+            ),
+        ],
+      ],
     );
+  }
+
+  Widget _buildFileRow(FThemeData theme, _PickedPdf picked) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colors.border),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            FLucideIcons.fileText,
+            size: 18,
+            color: theme.colors.mutedForeground,
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  picked.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.foreground,
+                  ),
+                ),
+                Text(
+                  _formatSize(picked.size),
+                  style: theme.typography.bodySmall.copyWith(
+                    fontSize: 11,
+                    color: theme.colors.mutedForeground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          if (!_uploading)
+            IconButton(
+              onPressed: () => _removeFile(picked),
+              icon: const Icon(FLucideIcons.x, size: 18),
+              color: theme.colors.mutedForeground,
+              tooltip: '移除文件',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              visualDensity: VisualDensity.compact,
+            ),
+        ],
+      ),
+    );
+  }
+
+  bool _textbookMatches(UploadTextbook book, String query) {
+    return book.name.toLowerCase().contains(query) ||
+        book.tags.toLowerCase().contains(query) ||
+        book.courseCodes.any((code) => code.toLowerCase().contains(query)) ||
+        _courseName(book.primaryCourseCode).toLowerCase().contains(query);
   }
 
   Widget _buildTab(FThemeData theme, String kind, String label) {
@@ -527,8 +711,9 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                 if (_kind == kind) return;
                 setState(() {
                   _kind = kind;
-                  if (kind == 'textbook') unawaited(_loadTextbooks());
+                  _files.clear();
                 });
+                if (kind == 'textbook') unawaited(_loadTextbooks());
               },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -623,4 +808,284 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     if (mb >= 1) return '${mb.toStringAsFixed(1)} MB';
     return '${(bytes / 1024).toStringAsFixed(0)} KB';
   }
+}
+
+class _PickedPdf {
+  final XFile file;
+  final int size;
+
+  const _PickedPdf(this.file, this.size);
+
+  String get path => file.path;
+  String get name => file.name;
+}
+
+/// A compact combobox: the display box shows the current value while the
+/// search box filters the options inline.
+class _SearchChoiceField<T> extends StatefulWidget {
+  final String label;
+  final String placeholder;
+  final String searchHint;
+  final IconData icon;
+  final T? value;
+  final List<T> options;
+  final String Function(T value) format;
+  final bool Function(T value, String query) matches;
+  final ValueChanged<T> onChanged;
+  final bool enabled;
+
+  const _SearchChoiceField({
+    required this.label,
+    required this.placeholder,
+    required this.searchHint,
+    required this.icon,
+    required this.value,
+    required this.options,
+    required this.format,
+    required this.matches,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  @override
+  State<_SearchChoiceField<T>> createState() => _SearchChoiceFieldState<T>();
+}
+
+class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode();
+  bool _open = false;
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _toggle() {
+    if (!widget.enabled) return;
+    if (_open) {
+      _searchFocus.unfocus();
+      setState(() => _open = false);
+      return;
+    }
+    setState(() => _open = true);
+    _searchFocus.requestFocus();
+  }
+
+  void _select(T value) {
+    widget.onChanged(value);
+    _searchController.clear();
+    _searchFocus.unfocus();
+    setState(() {
+      _query = '';
+      _open = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final value = widget.value;
+    final selectedLabel = value == null ? null : widget.format(value);
+    final query = _query.trim().toLowerCase();
+    final matches = query.isEmpty
+        ? widget.options
+        : [
+            for (final option in widget.options)
+              if (widget.matches(option, query)) option,
+          ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.label,
+          style: theme.typography.bodySmall.copyWith(
+            color: theme.colors.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _toggle,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.colors.card,
+              border: Border.all(
+                color: _open ? theme.colors.primary : theme.colors.border,
+                width: _open ? 1.4 : 1,
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  widget.icon,
+                  size: 18,
+                  color: selectedLabel == null
+                      ? theme.colors.mutedForeground
+                      : theme.colors.primary,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    selectedLabel ?? widget.placeholder,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.body.md.copyWith(
+                      fontWeight: value == null
+                          ? FontWeight.w400
+                          : FontWeight.w600,
+                      color: value == null
+                          ? theme.colors.mutedForeground
+                          : theme.colors.foreground,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Icon(
+                  _open ? FLucideIcons.chevronUp : FLucideIcons.chevronDown,
+                  size: 18,
+                  color: theme.colors.mutedForeground,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AppTextField(
+          controller: _searchController,
+          focusNode: _searchFocus,
+          hint: widget.searchHint,
+          prefix: const Icon(FLucideIcons.search, size: 18),
+          clearable: true,
+          enabled: widget.enabled,
+          textInputAction: TextInputAction.search,
+          onTap: widget.enabled
+              ? () {
+                  if (!_open) setState(() => _open = true);
+                }
+              : null,
+          onChanged: (value) {
+            setState(() {
+              _query = value;
+              _open = true;
+            });
+          },
+        ),
+        if (_open) ...[
+          const SizedBox(height: AppSpacing.sm),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 232),
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: theme.colors.card,
+                border: Border.all(color: theme.colors.border),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: matches.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Text(
+                        '未找到匹配项',
+                        style: theme.typography.bodySmall.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final option in matches)
+                            _buildOption(theme, option, option == widget.value),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildOption(FThemeData theme, T option, bool selected) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _select(option),
+      child: Container(
+        width: double.infinity,
+        color: selected ? theme.colors.secondary : null,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.format(option),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.typography.body.md.copyWith(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  color: selected
+                      ? theme.colors.primary
+                      : theme.colors.foreground,
+                ),
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: AppSpacing.sm),
+              Icon(FLucideIcons.check, size: 18, color: theme.colors.primary),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+
+  const _DashedBorderPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
+      );
+    const dash = 5.0;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(
+            distance,
+            math.min(distance + dash, metric.length),
+          ),
+          paint,
+        );
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
