@@ -156,6 +156,7 @@ class MainActivity : FlutterActivity() {
                 "saveLocalFile" -> {
                     val path = call.argument<String>("path")
                     val fileName = call.argument<String>("fileName") ?: "document.pdf"
+                    val mime = call.argument<String>("mime") ?: "application/pdf"
                     if (path.isNullOrBlank()) {
                         result.error("invalid_path", "path is required", null)
                     } else {
@@ -167,7 +168,7 @@ class MainActivity : FlutterActivity() {
                             pendingSaveFile = file
                             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                                 addCategory(Intent.CATEGORY_OPENABLE)
-                                type = "application/pdf"
+                                type = mime
                                 putExtra(Intent.EXTRA_TITLE, fileName)
                             }
                             startActivityForResult(intent, saveDocumentRequest)

@@ -260,6 +260,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   title: item.name,
                   sizeBytes: item.sizeBytes,
                   hasPdf: item.hasPdf,
+                  format: 'pdf',
                   urlLoader: () =>
                       ControlService.instance.fetchTextbookURL(item.id),
                 ),
@@ -299,6 +300,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   title: item.name,
                   sizeBytes: item.sizeBytes,
                   hasPdf: item.hasPdf,
+                  format: item.format,
                   urlLoader: () =>
                       ControlService.instance.fetchResourceURL(item.id),
                 ),
@@ -487,7 +489,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _pdfFileName(entry.title),
+                      _documentFileName(entry.title, entry.format),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
@@ -524,7 +526,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   ),
                 )
               else
-                _DocumentIcon(color: color, label: 'PDF'),
+                _DocumentIcon(color: color, label: entry.format.toUpperCase()),
             ],
           ),
         ),
@@ -533,14 +535,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Future<void> _refreshDownloadedStatuses() async {
-    final ids = <String>[
-      for (final item in _resources) item.id,
-      for (final item in _textbooks) item.id,
+    final items = <({String id, String format})>[
+      for (final item in _resources) (id: item.id, format: item.format),
+      for (final item in _textbooks) (id: item.id, format: 'pdf'),
     ];
     final downloaded = <String>{};
-    for (final id in ids) {
-      if (await ResourceDownloadService.instance.isDownloaded(id)) {
-        downloaded.add(id);
+    for (final item in items) {
+      if (await ResourceDownloadService.instance.isDownloaded(
+        item.id,
+        format: item.format,
+      )) {
+        downloaded.add(item.id);
       }
     }
     if (!mounted) return;
@@ -555,9 +560,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (_downloadingIds.contains(entry.id)) return;
     try {
       if (_downloadedIds.contains(entry.id)) {
-        final file = await ResourceDownloadService.instance.fileFor(entry.id);
+        final file = await ResourceDownloadService.instance.fileFor(
+          entry.id,
+          format: entry.format,
+        );
         if (await file.exists()) {
-          await ResourceDownloadService.instance.open(file);
+          await ResourceDownloadService.instance.open(
+            file,
+            format: entry.format,
+          );
           return;
         }
         if (mounted) setState(() => _downloadedIds.remove(entry.id));
@@ -571,6 +582,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       final file = await ResourceDownloadService.instance.download(
         entry.id,
         url,
+        format: entry.format,
         onProgress: (received, total) {
           if (!mounted) return;
           setState(() {
@@ -580,7 +592,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       );
       if (!mounted) return;
       setState(() => _downloadedIds.add(entry.id));
-      await _exportPdf(file, entry.title, firstDownload: true);
+      await _exportPdf(
+        file,
+        entry.title,
+        format: entry.format,
+        firstDownload: true,
+      );
     } catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (mounted) {
@@ -597,23 +614,28 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Future<void> _reExportPdf(_PdfEntry entry) async {
-    final file = await ResourceDownloadService.instance.fileFor(entry.id);
+    final file = await ResourceDownloadService.instance.fileFor(
+      entry.id,
+      format: entry.format,
+    );
     if (!await file.exists()) {
       if (mounted) setState(() => _downloadedIds.remove(entry.id));
       return;
     }
-    await _exportPdf(file, entry.title);
+    await _exportPdf(file, entry.title, format: entry.format);
   }
 
   Future<void> _exportPdf(
     File file,
     String title, {
+    required String format,
     bool firstDownload = false,
   }) async {
     try {
       final saved = await ResourceDownloadService.instance.saveToDocuments(
         file,
-        _pdfFileName(title),
+        _documentFileName(title, format),
+        format: format,
       );
       if (!mounted) return;
       if (saved) {
@@ -626,7 +648,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         );
       }
     } catch (error, stackTrace) {
-      talker.warning('保存 PDF 失败', error, stackTrace);
+      talker.warning('保存文件失败', error, stackTrace);
       if (mounted) {
         showAppSnackBar(context, '保存失败，请稍后重试', severity: ToastSeverity.warning);
       }
@@ -640,10 +662,22 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return '${(bytes / 1024).toStringAsFixed(0)} KB';
   }
 
-  String _pdfFileName(String name) {
+  String _documentFileName(String name, String format) {
+    final normalized = switch (format.toLowerCase()) {
+      'docx' => 'docx',
+      'doc' => 'doc',
+      _ => 'pdf',
+    };
     final trimmed = name.trim();
-    if (trimmed.toLowerCase().endsWith('.pdf')) return trimmed;
-    return '$trimmed.pdf';
+    final lower = trimmed.toLowerCase();
+    for (final extension in const ['.pdf', '.docx', '.doc']) {
+      if (lower.endsWith(extension)) {
+        if (extension == '.$normalized') return trimmed;
+        return '${trimmed.substring(0, trimmed.length - extension.length)}.$normalized';
+      }
+    }
+    if (trimmed.isEmpty) return '资料.$normalized';
+    return '$trimmed.$normalized';
   }
 
   List<_QuestionBankGroup> _allBankGroups() {
@@ -854,6 +888,7 @@ class _PdfEntry {
   final String title;
   final int sizeBytes;
   final bool hasPdf;
+  final String format;
   final Future<String> Function() urlLoader;
 
   const _PdfEntry({
@@ -861,6 +896,7 @@ class _PdfEntry {
     required this.title,
     required this.sizeBytes,
     required this.hasPdf,
+    required this.format,
     required this.urlLoader,
   });
 }

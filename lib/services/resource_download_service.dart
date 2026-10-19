@@ -5,9 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-/// Downloads course PDFs into the app's private storage and opens them with the
-/// system PDF viewer. A deterministic file per resource id powers the
-/// "已下载/未下载" state across restarts.
+/// Downloads course documents into the app's private storage and opens them
+/// with the matching system viewer. A deterministic file per resource id and
+/// format powers the "已下载/未下载" state across restarts.
 class ResourceDownloadService {
   ResourceDownloadService._();
 
@@ -31,21 +31,36 @@ class ResourceDownloadService {
     return dir;
   }
 
-  Future<File> fileFor(String id) async {
+  Future<File> fileFor(String id, {String format = 'pdf'}) async {
     final dir = await _directory();
-    return File(p.join(dir.path, '${_safeId(id)}.pdf'));
+    return File(p.join(dir.path, '${_safeId(id)}.${_safeFormat(format)}'));
   }
 
   String _safeId(String id) => id.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 
-  Future<bool> isDownloaded(String id) async => (await fileFor(id)).exists();
+  String _safeFormat(String format) => switch (format.toLowerCase()) {
+    'docx' => 'docx',
+    'doc' => 'doc',
+    _ => 'pdf',
+  };
+
+  String _mimeFor(String format) => switch (_safeFormat(format)) {
+    'docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'doc' => 'application/msword',
+    _ => 'application/pdf',
+  };
+
+  Future<bool> isDownloaded(String id, {String format = 'pdf'}) async =>
+      (await fileFor(id, format: format)).exists();
 
   Future<File> download(
     String id,
     String url, {
+    String format = 'pdf',
     void Function(int received, int total)? onProgress,
   }) async {
-    final file = await fileFor(id);
+    final file = await fileFor(id, format: format);
     final temp = File('${file.path}.part');
     if (await temp.exists()) await temp.delete();
     await _dio.download(url, temp.path, onReceiveProgress: onProgress);
@@ -53,17 +68,23 @@ class ResourceDownloadService {
     return temp.rename(file.path);
   }
 
-  Future<void> open(File file) => _channel.invokeMethod<void>('openLocalFile', {
-    'path': file.path,
-    'mime': 'application/pdf',
-  });
+  Future<void> open(File file, {String format = 'pdf'}) =>
+      _channel.invokeMethod<void>('openLocalFile', {
+        'path': file.path,
+        'mime': _mimeFor(format),
+      });
 
   /// Opens the system "save as" dialog (SAF) and copies [file] to the chosen
   /// location. Returns false when the user cancels. Requires no permission.
-  Future<bool> saveToDocuments(File file, String fileName) async {
+  Future<bool> saveToDocuments(
+    File file,
+    String fileName, {
+    String format = 'pdf',
+  }) async {
     final saved = await _channel.invokeMethod<bool>('saveLocalFile', {
       'path': file.path,
       'fileName': fileName,
+      'mime': _mimeFor(format),
     });
     return saved == true;
   }

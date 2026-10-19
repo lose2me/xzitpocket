@@ -33,6 +33,7 @@ class CourseResourceItem {
   final String name;
   final String tags;
   final bool hasPdf;
+  final String format;
   final int sizeBytes;
 
   const CourseResourceItem({
@@ -40,17 +41,21 @@ class CourseResourceItem {
     required this.name,
     this.tags = '',
     this.hasPdf = false,
+    this.format = 'pdf',
     this.sizeBytes = 0,
   });
 
-  factory CourseResourceItem.fromJson(Map<String, dynamic> json) =>
-      CourseResourceItem(
-        id: json['id']?.toString() ?? '',
-        name: json['name']?.toString() ?? '试卷',
-        tags: json['tags']?.toString() ?? '',
-        hasPdf: json['has_pdf'] == true,
-        sizeBytes: _asInt(json['size_bytes']),
-      );
+  factory CourseResourceItem.fromJson(Map<String, dynamic> json) {
+    final format = json['format']?.toString().toLowerCase() ?? '';
+    return CourseResourceItem(
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '试卷',
+      tags: json['tags']?.toString() ?? '',
+      hasPdf: json['has_pdf'] == true,
+      format: format == 'doc' || format == 'docx' ? format : 'pdf',
+      sizeBytes: _asInt(json['size_bytes']),
+    );
+  }
 }
 
 class UploadTextbook {

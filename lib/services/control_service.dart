@@ -679,6 +679,7 @@ class ControlService {
     required int sizeBytes,
     String tags = '',
     String targetId = '',
+    String format = 'pdf',
   }) async {
     if (kind != 'textbook' && kind != 'resource') {
       throw const ControlApiException('invalid_kind', '资料类型无效');
@@ -693,6 +694,7 @@ class ControlService {
         'name': name.trim(),
         'tags': tags.trim(),
         if (targetId.trim().isNotEmpty) 'target_id': targetId.trim(),
+        'format': format,
         'size_bytes': sizeBytes,
       },
       headers: {'Authorization': 'Bearer $token'},
@@ -711,6 +713,7 @@ class ControlService {
     String url, {
     required String filePath,
     required int sizeBytes,
+    String contentType = 'application/pdf',
     ProgressCallback? onProgress,
   }) async {
     final file = File(filePath);
@@ -723,7 +726,7 @@ class ControlService {
         url,
         data: file.openRead(),
         options: Options(
-          contentType: 'application/pdf',
+          contentType: contentType,
           responseType: ResponseType.plain,
           headers: {Headers.contentLengthHeader: sizeBytes.toString()},
           sendTimeout: const Duration(minutes: 10),

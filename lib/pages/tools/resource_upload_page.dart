@@ -17,6 +17,29 @@ const XTypeGroup _pdfTypeGroup = XTypeGroup(
   extensions: ['pdf'],
   mimeTypes: ['application/pdf'],
 );
+const XTypeGroup _examTypeGroup = XTypeGroup(
+  label: '试卷文档',
+  extensions: ['pdf', 'docx', 'doc'],
+  mimeTypes: [
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/msword',
+  ],
+);
+
+String _fileFormat(String fileName) {
+  final lower = fileName.toLowerCase();
+  if (lower.endsWith('.docx')) return 'docx';
+  if (lower.endsWith('.doc')) return 'doc';
+  return 'pdf';
+}
+
+String _contentTypeForFormat(String format) => switch (format) {
+  'docx' =>
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'doc' => 'application/msword',
+  _ => 'application/pdf',
+};
 
 class ResourceUploadPage extends StatefulWidget {
   final List<ResourceCourse> courses;
@@ -37,7 +60,6 @@ class ResourceUploadPage extends StatefulWidget {
 }
 
 class _ResourceUploadPageState extends State<ResourceUploadPage> {
-  final _nameController = TextEditingController();
   String _kind = 'resource';
   late String _courseCode = _initialCourseCode();
   final List<_PickedPdf> _files = [];
@@ -70,12 +92,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     _textbooksLoading = _kind == 'textbook';
     if (!widget.courseScoped) unawaited(_loadStats());
     if (_kind == 'textbook') unawaited(_loadTextbooks());
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadStats() async {
@@ -136,11 +152,19 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     if (_uploading) return;
     final multiple = _kind == 'resource';
     final List<XFile> picked;
-    if (multiple) {
-      picked = await openFiles(acceptedTypeGroups: const [_pdfTypeGroup]);
-    } else {
-      final file = await openFile(acceptedTypeGroups: const [_pdfTypeGroup]);
-      picked = file == null ? const [] : [file];
+    try {
+      picked = await openFiles(
+        acceptedTypeGroups: [multiple ? _examTypeGroup : _pdfTypeGroup],
+      );
+    } catch (_) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          '无法打开文件选择器，请稍后重试',
+          severity: ToastSeverity.error,
+        );
+      }
+      return;
     }
     if (!mounted || picked.isEmpty) return;
 
@@ -193,11 +217,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           _files.add(entry);
         }
       }
-      if (_kind == 'resource' &&
-          _files.length == 1 &&
-          _nameController.text.trim().isEmpty) {
-        _nameController.text = _nameFromFile(_files.first.name);
-      }
     });
     if (overflow > 0) {
       showAppSnackBar(
@@ -210,20 +229,17 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   void _removeFile(_PickedPdf picked) {
     if (_uploading) return;
-    setState(() {
-      _files.remove(picked);
-      if (_kind == 'resource' &&
-          _files.length == 1 &&
-          _nameController.text.trim().isEmpty) {
-        _nameController.text = _nameFromFile(_files.first.name);
-      }
-    });
+    setState(() => _files.remove(picked));
   }
 
   Future<void> _submit() async {
     if (_uploading) return;
     if (_files.isEmpty) {
-      showAppSnackBar(context, '请选择 PDF 文件', severity: ToastSeverity.warning);
+      showAppSnackBar(
+        context,
+        _kind == 'resource' ? '请选择文件' : '请选择 PDF 文件',
+        severity: ToastSeverity.warning,
+      );
       return;
     }
     String courseCode;
@@ -254,13 +270,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         showAppSnackBar(context, '请选择课程', severity: ToastSeverity.warning);
         return;
       }
-      if (_files.length == 1) {
-        name = _nameController.text.trim();
-        if (name.isEmpty) {
-          showAppSnackBar(context, '请输入试卷名称', severity: ToastSeverity.warning);
-          return;
-        }
-      }
     }
     final queue = List<_PickedPdf>.of(_files);
     setState(() {
@@ -281,9 +290,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           _total = picked.size;
         });
       }
-      final itemName = _kind == 'resource' && queue.length > 1
-          ? _nameFromFile(picked.name)
-          : name;
+      final itemName = _kind == 'resource' ? _nameFromFile(picked.name) : name;
       final error = await _uploadOne(
         picked,
         courseCode: courseCode,
@@ -326,6 +333,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   }) async {
     ResourceUploadTicket? ticket;
     var uploaded = false;
+    final format = _kind == 'resource' ? _fileFormat(picked.name) : 'pdf';
     try {
       ticket = await ControlService.instance.createResourceUploadTicket(
         kind: _kind,
@@ -333,12 +341,14 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         name: name,
         tags: tags,
         targetId: targetId,
+        format: format,
         sizeBytes: picked.size,
       );
       await ControlService.instance.uploadToSignedUrl(
         ticket.uploadUrl,
         filePath: picked.path,
         sizeBytes: picked.size,
+        contentType: _contentTypeForFormat(format),
         onProgress: (sent, total) {
           if (!mounted) return;
           setState(() {
@@ -424,16 +434,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           ],
           if (_kind == 'textbook') ...[
             _buildTextbookField(theme),
-            const SizedBox(height: AppSpacing.md),
-          ] else if (_files.length < 2) ...[
-            AppTextField(
-              controller: _nameController,
-              label: '试卷名称',
-              hint: '默认使用 PDF 文件名',
-              enabled: !_uploading,
-              maxLength: 256,
-              clearable: true,
-            ),
             const SizedBox(height: AppSpacing.md),
           ],
           _buildFilePicker(theme),
@@ -537,7 +537,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       label: '选择教材',
       placeholder: '请选择教材',
       searchHint: '搜索教材名称、标签或课程',
-      icon: FLucideIcons.bookOpen,
       value: book,
       options: _textbooks,
       format: _textbookLabel,
@@ -552,7 +551,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       label: '课程',
       placeholder: '请选择课程',
       searchHint: '搜索课程名或编号',
-      icon: FLucideIcons.graduationCap,
       value: _courseCode.isEmpty ? null : _courseCode,
       options: [for (final course in widget.courses) course.code],
       format: _courseLabel,
@@ -568,11 +566,18 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     final multiple = _kind == 'resource';
     final hasFiles = _files.isNotEmpty;
     final label = hasFiles
-        ? (multiple ? '继续添加 PDF 文件' : '更换 PDF 文件')
-        : '选择 PDF 文件';
+        ? (multiple ? '继续添加文件' : '更换 PDF 文件')
+        : (multiple ? '选择文件' : '选择 PDF 文件');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (hasFiles) ...[
+          for (final picked in _files) ...[
+            _buildFileRow(theme, picked),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+          const SizedBox(height: AppSpacing.xs),
+        ],
         GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: _uploading ? null : () => unawaited(_pickFiles()),
@@ -600,7 +605,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                     const SizedBox(height: 2),
                     Text(
                       multiple
-                          ? '支持一次选择多个文件，单个不超过 80 MB'
+                          ? '支持 PDF / DOCX / DOC，可多选，单个不超过 80 MB'
                           : '仅支持单个 PDF，不超过 80 MB',
                       style: theme.typography.bodySmall.copyWith(
                         fontSize: 11,
@@ -615,24 +620,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             ),
           ),
         ),
-        if (hasFiles) ...[
-          const SizedBox(height: AppSpacing.sm),
-          for (final picked in _files) ...[
-            _buildFileRow(theme, picked),
-            const SizedBox(height: AppSpacing.xs),
-          ],
-          if (multiple && _files.length > 1)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                '多文件上传时，每份试卷按文件名命名',
-                style: theme.typography.bodySmall.copyWith(
-                  fontSize: 11,
-                  color: theme.colors.mutedForeground,
-                ),
-              ),
-            ),
-        ],
       ],
     );
   }
@@ -796,9 +783,11 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   String _nameFromFile(String fileName) {
     final trimmed = fileName.trim();
-    if (trimmed.length > 4 &&
-        trimmed.substring(trimmed.length - 4).toLowerCase() == '.pdf') {
-      return trimmed.substring(0, trimmed.length - 4).trim();
+    final lower = trimmed.toLowerCase();
+    for (final extension in const ['.pdf', '.docx', '.doc']) {
+      if (lower.endsWith(extension)) {
+        return trimmed.substring(0, trimmed.length - extension.length).trim();
+      }
     }
     return trimmed;
   }
@@ -820,13 +809,12 @@ class _PickedPdf {
   String get name => file.name;
 }
 
-/// A compact combobox: the display box shows the current value while the
-/// search box filters the options inline.
+/// A single search field that doubles as the selected-value display: focusing
+/// it turns the label into a query, and picking an option restores the label.
 class _SearchChoiceField<T> extends StatefulWidget {
   final String label;
   final String placeholder;
   final String searchHint;
-  final IconData icon;
   final T? value;
   final List<T> options;
   final String Function(T value) format;
@@ -838,7 +826,6 @@ class _SearchChoiceField<T> extends StatefulWidget {
     required this.label,
     required this.placeholder,
     required this.searchHint,
-    required this.icon,
     required this.value,
     required this.options,
     required this.format,
@@ -858,38 +845,84 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    _searchController.text = _displayText(widget.value);
+    _searchFocus.addListener(_handleFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(covariant _SearchChoiceField<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_searchFocus.hasFocus && oldWidget.value != widget.value) {
+      _syncDisplay();
+    }
+  }
+
+  @override
   void dispose() {
+    _searchFocus.removeListener(_handleFocusChange);
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
 
-  void _toggle() {
-    if (!widget.enabled) return;
-    if (_open) {
-      _searchFocus.unfocus();
-      setState(() => _open = false);
+  /// Focusing the field turns the selected-value label into a search query;
+  /// leaving it restores the label, so one field serves as both.
+  void _handleFocusChange() {
+    if (!mounted) return;
+    if (_searchFocus.hasFocus) {
+      setState(() {
+        _open = true;
+        _query = '';
+      });
+      _searchController.clear();
+      _reveal();
       return;
     }
-    setState(() => _open = true);
-    _searchFocus.requestFocus();
+    setState(() {
+      _open = false;
+      _query = '';
+    });
+    _syncDisplay();
+  }
+
+  String _displayText(T? value) => value == null ? '' : widget.format(value);
+
+  void _syncDisplay() {
+    final text = _displayText(widget.value);
+    if (_searchController.text != text) _searchController.text = text;
+  }
+
+  /// Scrolls the selector up once the keyboard has finished opening so the
+  /// result list is not hidden behind it.
+  void _reveal() {
+    Future<void>.delayed(const Duration(milliseconds: 280), () {
+      if (!mounted || !_open) return;
+      Scrollable.ensureVisible(
+        context,
+        alignment: 0.03,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   void _select(T value) {
     widget.onChanged(value);
-    _searchController.clear();
     _searchFocus.unfocus();
-    setState(() {
-      _query = '';
-      _open = false;
-    });
+    _searchController.text = widget.format(value);
+    if (_open) {
+      setState(() {
+        _query = '';
+        _open = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    final value = widget.value;
-    final selectedLabel = value == null ? null : widget.format(value);
     final query = _query.trim().toLowerCase();
     final matches = query.isEmpty
         ? widget.options
@@ -907,110 +940,56 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _toggle,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: theme.colors.card,
-              border: Border.all(
-                color: _open ? theme.colors.primary : theme.colors.border,
-                width: _open ? 1.4 : 1,
-              ),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  widget.icon,
-                  size: 18,
-                  color: selectedLabel == null
-                      ? theme.colors.mutedForeground
-                      : theme.colors.primary,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Text(
-                    selectedLabel ?? widget.placeholder,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.body.md.copyWith(
-                      fontWeight: value == null
-                          ? FontWeight.w400
-                          : FontWeight.w600,
-                      color: value == null
-                          ? theme.colors.mutedForeground
-                          : theme.colors.foreground,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Icon(
-                  _open ? FLucideIcons.chevronUp : FLucideIcons.chevronDown,
-                  size: 18,
-                  color: theme.colors.mutedForeground,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
         AppTextField(
           controller: _searchController,
           focusNode: _searchFocus,
-          hint: widget.searchHint,
+          hint: _open ? widget.searchHint : widget.placeholder,
           prefix: const Icon(FLucideIcons.search, size: 18),
-          clearable: true,
+          clearable: _open,
           enabled: widget.enabled,
           textInputAction: TextInputAction.search,
-          onTap: widget.enabled
-              ? () {
-                  if (!_open) setState(() => _open = true);
-                }
-              : null,
-          onChanged: (value) {
-            setState(() {
-              _query = value;
-              _open = true;
-            });
-          },
+          onChanged: (value) => setState(() => _query = value),
         ),
         if (_open) ...[
           const SizedBox(height: AppSpacing.sm),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 232),
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: theme.colors.card,
-                border: Border.all(color: theme.colors.border),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: matches.isEmpty
-                  ? Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: AppSpacing.md,
-                      ),
-                      child: Text(
-                        '未找到匹配项',
-                        style: theme.typography.bodySmall.copyWith(
-                          color: theme.colors.mutedForeground,
+          TextFieldTapRegion(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 232),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: theme.colors.card,
+                  border: Border.all(color: theme.colors.border),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: matches.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: AppSpacing.md,
+                        ),
+                        child: Text(
+                          '未找到匹配项',
+                          style: theme.typography.bodySmall.copyWith(
+                            color: theme.colors.mutedForeground,
+                          ),
+                        ),
+                      )
+                    : SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (final option in matches)
+                              _buildOption(
+                                theme,
+                                option,
+                                option == widget.value,
+                              ),
+                          ],
                         ),
                       ),
-                    )
-                  : SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          for (final option in matches)
-                            _buildOption(theme, option, option == widget.value),
-                        ],
-                      ),
-                    ),
+              ),
             ),
           ),
         ],
