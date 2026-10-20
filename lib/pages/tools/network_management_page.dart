@@ -34,7 +34,6 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
   late NetAuthInfo _info;
   late List<NetAuthDevice> _devices;
   String? _unbindingMac;
-  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -45,7 +44,6 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
   }
 
   Future<void> _load({bool forceRefresh = false}) async {
-    setState(() => _isRefreshing = true);
     try {
       final manager = ToolsDataManager.instance;
       NetAuthResult? result;
@@ -88,8 +86,6 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
       if (mounted) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
-    } finally {
-      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -132,18 +128,11 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
 
     return AppPage(
       title: '网络管理',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : () => _load(forceRefresh: true),
-          tooltip: '刷新网络状态',
-          loading: _isRefreshing,
-        ),
-      ],
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
+        onRefresh: () => _load(forceRefresh: true),
         children: [
           Text('账号信息', style: theme.typography.pageTitle),
           const SizedBox(height: AppSpacing.md),

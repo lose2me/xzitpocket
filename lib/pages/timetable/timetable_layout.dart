@@ -18,17 +18,13 @@ import 'timetable_providers.dart';
 
 /// 主课表顶部的周头部。
 class TimetableWeekHeader extends ConsumerWidget {
-  final VoidCallback? onSync;
   final VoidCallback? onJumpToCurrentWeek;
   final VoidCallback? onToggleSchedule;
-  final bool syncing;
 
   const TimetableWeekHeader({
     super.key,
-    this.onSync,
     this.onJumpToCurrentWeek,
     this.onToggleSchedule,
-    this.syncing = false,
   });
 
   @override
@@ -54,8 +50,6 @@ class TimetableWeekHeader extends ConsumerWidget {
       calendar: semesterCalendar,
       selectedWeek: ref.watch(selectedWeekProvider),
       currentWeek: currentWeek,
-      onSync: onSync,
-      syncing: syncing,
       onJumpToCurrentWeek: onJumpToCurrentWeek,
       onToggleSchedule: secondary.hasSchedule ? onToggleSchedule : null,
       showingSecondarySchedule: secondary.active,
@@ -94,7 +88,6 @@ class TimetableLayoutProbe extends ConsumerWidget {
           child: Column(
             children: [
               TimetableWeekHeader(
-                onSync: _noop,
                 onJumpToCurrentWeek: _noop,
                 onToggleSchedule: _noop,
               ),

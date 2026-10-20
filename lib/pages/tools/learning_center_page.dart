@@ -182,14 +182,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return AppPage(
       title: '',
       actions: loading
-          ? const [
-              AppIconButton(
-                icon: FLucideIcons.refreshCw,
-                onPress: null,
-                tooltip: '正在加载资源',
-                loading: true,
-              ),
-            ]
+          ? const []
           : _bankSelectionMode
           ? [
               AppIconButton(
@@ -211,19 +204,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 onPress: () => _openCollection(LearningListKind.favorite),
                 tooltip: '收藏集',
               ),
-              AppIconButton(
-                icon: FLucideIcons.refreshCw,
-                onPress: _refreshing ? null : _refreshLibrary,
-                tooltip: '刷新资源',
-                loading: _refreshing,
-              ),
             ],
       child: loading
           ? const AppStateView(icon: FLucideIcons.library, title: '正在加载资源')
           : repository.libraryUnavailable
-          ? const AppPageBody(
+          ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
-              child: AppStateView(
+              onRefresh: _refreshLibrary,
+              child: const AppStateView(
                 icon: FLucideIcons.shieldAlert,
                 title: '风险控制',
                 description: '您的账户被暂时禁用',
@@ -243,6 +231,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       maxWidth: AppLayout.resultMaxWidth,
       topPadding: AppSpacing.sm,
       bottomPadding: AppSpacing.xxl,
+      onRefresh: _refreshLibrary,
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.xs),

@@ -221,14 +221,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
     return AppPage(
       title: '学业情况',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _loading ? null : () => _load(forceRefresh: true),
-          tooltip: '刷新成绩',
-          loading: _loading,
-        ),
-      ],
       child: AppPageBody(
         maxWidth: AppLayout.contentMaxWidth,
         child: FTabs(
@@ -255,6 +247,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       return AppPageBody(
         maxWidth: AppLayout.resultMaxWidth,
         safeArea: false,
+        onRefresh: () => _load(forceRefresh: true),
         child: Column(
           children: [
             _buildHeader(theme, grades),
@@ -271,6 +264,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         topPadding: AppSpacing.xs,
         bottomPadding: AppSpacing.xxl,
         safeArea: false,
+        onRefresh: () => _load(forceRefresh: true),
         children: [
           _buildHeader(theme, grades),
           for (final grade in grades) _buildGradeTile(theme, grade),
@@ -592,13 +586,21 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
   Widget _buildAcademicTab(FThemeData theme) {
     final status = _academic;
     if (status == null) {
-      return _loading
-          ? const AppStateView(icon: FLucideIcons.hourglass, title: '正在加载学业总览')
-          : const AppStateView(
-              icon: FLucideIcons.chartColumn,
-              title: '暂无学业数据',
-              description: '点击右上角刷新',
-            );
+      return AppPageBody(
+        maxWidth: AppLayout.resultMaxWidth,
+        safeArea: false,
+        onRefresh: _loading ? null : () => _load(forceRefresh: true),
+        child: _loading
+            ? const AppStateView(
+                icon: FLucideIcons.hourglass,
+                title: '正在加载学业总览',
+              )
+            : const AppStateView(
+                icon: FLucideIcons.chartColumn,
+                title: '暂无学业数据',
+                description: '下拉刷新',
+              ),
+      );
     }
 
     final progress = status.totalRequired > 0
@@ -610,6 +612,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       safeArea: false,
       topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
+      onRefresh: () => _load(forceRefresh: true),
       children: [
         AppCard(
           padding: const EdgeInsets.symmetric(

@@ -82,10 +82,12 @@ void main() {
     expect(find.text('兑换通用 CDK'), findsNothing);
     expect(find.textContaining('进度 0%'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.check), findsNothing);
-    expect(find.byIcon(FLucideIcons.refreshCw), findsOneWidget);
 
-    await tester.tap(find.byIcon(FLucideIcons.refreshCw));
+    // Refreshing is a pull-down gesture now; there is no refresh button.
+    expect(find.byIcon(FLucideIcons.refreshCw), findsNothing);
+    await tester.drag(find.byType(ListView).first, const Offset(0, 320));
     await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     expect(fetchCount, 2);
     await tester.pump(const Duration(seconds: 4));
   });

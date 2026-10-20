@@ -208,18 +208,11 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
 
     return AppPage(
       title: '教师评价',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isLoading || !_campusAvailable
-              ? null
-              : () => _loadStatus(forceRefresh: true),
-          tooltip: '刷新评价',
-          loading: _isLoading,
-        ),
-      ],
       child: AppPageBody(
         maxWidth: AppLayout.resultMaxWidth,
+        onRefresh: tasks.isEmpty && !_isLoading && _campusAvailable
+            ? () => _loadStatus(forceRefresh: true)
+            : null,
         child: _isLoading && _status == null
             ? const Center(child: FCircularProgress())
             : tasks.isEmpty
@@ -310,6 +303,9 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
       safeArea: false,
       topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
+      onRefresh: _campusAvailable
+          ? () => _loadStatus(forceRefresh: true)
+          : null,
       children: [
         _buildTaskCard(theme, task),
         if (task.status == '进行中') ...[

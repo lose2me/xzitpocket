@@ -8,10 +8,8 @@ import '../ui/app_components.dart';
 class WeekHeader extends StatelessWidget {
   final SemesterCalendar calendar;
   final int selectedWeek;
-  final VoidCallback? onSync;
   final VoidCallback? onJumpToCurrentWeek;
   final int? currentWeek;
-  final bool syncing;
   final VoidCallback? onToggleSchedule;
   final bool showingSecondarySchedule;
   final String secondaryScheduleTitle;
@@ -23,10 +21,8 @@ class WeekHeader extends StatelessWidget {
     super.key,
     required this.calendar,
     required this.selectedWeek,
-    this.onSync,
     this.onJumpToCurrentWeek,
     this.currentWeek,
-    this.syncing = false,
     this.onToggleSchedule,
     this.showingSecondarySchedule = false,
     this.secondaryScheduleTitle = '正在预览备用课表',
@@ -44,65 +40,63 @@ class WeekHeader extends StatelessWidget {
       safeArea: false,
       topPadding: AppSpacing.xs,
       bottomPadding: AppSpacing.xs,
-      child: Row(
-        children: [
-          Expanded(
-            child: showingSecondarySchedule
-                ? Text(
-                    secondaryScheduleTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.typography.tileTitle.copyWith(
-                      color: theme.colors.foreground,
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${today.year}/${today.month}/${today.day}',
-                        style: theme.typography.pageTitle.copyWith(
-                          color: theme.colors.foreground,
-                        ),
+      child: ConstrainedBox(
+        // Keep the header height stable whether or not the optional week
+        // buttons are visible; the timetable height depends on it.
+        constraints: const BoxConstraints(minHeight: 44),
+        child: Row(
+          children: [
+            Expanded(
+              child: showingSecondarySchedule
+                  ? Text(
+                      secondaryScheduleTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.typography.tileTitle.copyWith(
+                        color: theme.colors.foreground,
                       ),
-                      if (showWeekNumber) ...[
-                        const SizedBox(height: AppSpacing.micro),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          beforeStart ? '未开学' : '第$selectedWeek周',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.typography.caption.copyWith(
-                            color: theme.colors.mutedForeground,
+                          '${today.year}/${today.month}/${today.day}',
+                          style: theme.typography.pageTitle.copyWith(
+                            color: theme.colors.foreground,
                           ),
                         ),
+                        if (showWeekNumber) ...[
+                          const SizedBox(height: AppSpacing.micro),
+                          Text(
+                            beforeStart ? '未开学' : '第$selectedWeek周',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.typography.caption.copyWith(
+                              color: theme.colors.mutedForeground,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-          ),
-          if (currentWeek != null &&
-              currentWeek != selectedWeek &&
-              onJumpToCurrentWeek != null)
-            AppIconButton(
-              icon: selectedWeek < currentWeek!
-                  ? FLucideIcons.arrowRight
-                  : FLucideIcons.arrowLeft,
-              onPress: onJumpToCurrentWeek,
-              tooltip: '回到当前周',
+                    ),
             ),
-          if (!showingSecondarySchedule)
-            AppIconButton(
-              icon: FLucideIcons.refreshCw,
-              onPress: syncing ? null : onSync,
-              tooltip: '同步课表',
-              loading: syncing,
-            ),
-          if (onToggleSchedule != null)
-            AppIconButton(
-              icon: FLucideIcons.arrowLeftRight,
-              onPress: onToggleSchedule,
-              tooltip: showingSecondarySchedule ? '切换到主课表' : '切换到备用课表',
-            ),
-        ],
+            if (currentWeek != null &&
+                currentWeek != selectedWeek &&
+                onJumpToCurrentWeek != null)
+              AppIconButton(
+                icon: selectedWeek < currentWeek!
+                    ? FLucideIcons.arrowRight
+                    : FLucideIcons.arrowLeft,
+                onPress: onJumpToCurrentWeek,
+                tooltip: '回到当前周',
+              ),
+            if (onToggleSchedule != null)
+              AppIconButton(
+                icon: FLucideIcons.arrowLeftRight,
+                onPress: onToggleSchedule,
+                tooltip: showingSecondarySchedule ? '切换到主课表' : '切换到备用课表',
+              ),
+          ],
+        ),
       ),
     );
   }

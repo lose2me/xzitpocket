@@ -96,15 +96,9 @@ void main() {
             widget is AppIconButton &&
             widget.icon == FLucideIcons.arrowLeftRight,
       );
-      final refreshButton = find.byWidgetPredicate(
-        (widget) =>
-            widget is AppIconButton && widget.icon == FLucideIcons.refreshCw,
-      );
       expect(toggleButton, findsOneWidget);
-      expect(
-        tester.getCenter(toggleButton).dx,
-        greaterThan(tester.getCenter(refreshButton).dx),
-      );
+      // The old sync button is gone; syncing is triggered by pull-to-refresh.
+      expect(find.byIcon(FLucideIcons.refreshCw), findsNothing);
       expect(find.byType(PageView), findsOneWidget);
       final header = tester.widget<WeekHeader>(find.byType(WeekHeader));
       header.onToggleSchedule!();

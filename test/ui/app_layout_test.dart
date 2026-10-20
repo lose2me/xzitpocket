@@ -1,5 +1,6 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:forui/forui.dart';
 import 'package:xzitpocket/models/app_settings.dart';
 import 'package:xzitpocket/ui/app_components.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
@@ -41,6 +42,45 @@ void main() {
       await _pumpBody(tester, width: 390, pageGutter: false);
 
       expect(tester.getSize(find.byKey(_bodyChildKey)).width, 390);
+    });
+  });
+
+  group('pull-to-refresh', () {
+    testWidgets('AppPageListView refreshes on pull', (tester) async {
+      var refreshed = 0;
+      await _pumpRefresh(
+        tester,
+        AppPageListView(
+          onRefresh: () async => refreshed++,
+          children: const [SizedBox(height: 1)],
+        ),
+      );
+
+      await tester.drag(find.byType(ListView), const Offset(0, 320));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(refreshed, 1);
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('AppPageBody refreshes on pull', (tester) async {
+      var refreshed = 0;
+      await _pumpRefresh(
+        tester,
+        AppPageBody(
+          onRefresh: () async => refreshed++,
+          child: const SizedBox.expand(key: _bodyChildKey),
+        ),
+      );
+
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, 320),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      expect(refreshed, 1);
+      await tester.pumpAndSettle();
     });
   });
 
@@ -91,6 +131,20 @@ void main() {
       isNot(AppTheme.dark.colors.semantic.controlBorder),
     );
   });
+}
+
+Future<void> _pumpRefresh(WidgetTester tester, Widget child) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(390, 800);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  addTearDown(tester.view.resetPhysicalSize);
+
+  await tester.pumpWidget(
+    FTheme(
+      data: AppTheme.light,
+      child: MaterialApp(home: Scaffold(body: child)),
+    ),
+  );
 }
 
 Future<void> _pumpList(WidgetTester tester, {required double width}) async {

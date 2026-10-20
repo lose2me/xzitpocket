@@ -185,18 +185,11 @@ class _BookListPageState extends ConsumerState<BookListPage> {
     final result = _result;
     return AppPage(
       title: '教材查询',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _loading ? null : _refresh,
-          tooltip: '刷新书单',
-          loading: _loading,
-        ),
-      ],
       child: result == null || result.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
               pageGutter: true,
+              onRefresh: _refresh,
               child: Column(
                 children: [
                   if (_selectedSemester != null)
@@ -217,6 +210,7 @@ class _BookListPageState extends ConsumerState<BookListPage> {
               maxWidth: AppLayout.resultMaxWidth,
               topPadding: AppSpacing.xs,
               bottomPadding: AppSpacing.xxl,
+              onRefresh: _refresh,
               children: [
                 if (_selectedSemester != null) ...[
                   _buildSemesterSelector(),

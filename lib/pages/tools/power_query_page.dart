@@ -234,19 +234,12 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
     return AppPage(
       title: '电费查询',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing || !_canRefresh ? null : () => _refresh(),
-          tooltip: '刷新电费',
-          loading: _isRefreshing,
-        ),
-      ],
       child: AppPageListView(
         controller: _scrollController,
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
+        onRefresh: () => _refresh(),
         children: [
           if (!_canRefresh) ...[
             // 居中一行小字，无图标（样式对齐 ProfileSettingsHint，需求 8）。

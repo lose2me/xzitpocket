@@ -409,10 +409,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     final theme = context.theme;
     final scoped = widget.courseScoped;
     final title = scoped ? (_kind == 'textbook' ? '上传教材' : '上传试卷') : '上传资源';
-    final showRefresh = !scoped || _kind == 'textbook';
-    final refreshLoading = !scoped
-        ? (_statsLoading || _textbooksLoading)
-        : _textbooksLoading;
     final canSubmit =
         !_uploading &&
         _files.isNotEmpty &&
@@ -420,20 +416,11 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         (scoped || _kind == 'textbook' || _courseCode.isNotEmpty);
     return AppPage(
       title: title,
-      actions: showRefresh
-          ? [
-              AppIconButton(
-                icon: FLucideIcons.refreshCw,
-                onPress: refreshLoading ? null : () => unawaited(_refreshAll()),
-                tooltip: scoped ? '刷新教材' : '刷新数据',
-                loading: refreshLoading,
-              ),
-            ]
-          : const [],
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
+        onRefresh: _refreshAll,
         children: [
           if (!scoped) ...[
             AppAdaptiveGrid(

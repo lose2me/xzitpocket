@@ -569,6 +569,7 @@ class _TimetableGridState extends State<TimetableGrid> {
 
               return SingleChildScrollView(
                 controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
                 child: SizedBox(
                   height: totalHeight,
                   child: Stack(

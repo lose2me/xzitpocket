@@ -121,17 +121,10 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
   Widget build(BuildContext context) {
     return AppPage(
       title: '报修进度',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : _load,
-          tooltip: '刷新处理进度',
-          loading: _isRefreshing,
-        ),
-      ],
       child: _detail == null
           ? AppPageBody(
               safeArea: false,
+              onRefresh: _load,
               child: _error == null
                   ? const AppStateView(
                       icon: FLucideIcons.hourglass,
@@ -154,6 +147,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
         maxWidth: AppLayout.resultMaxWidth,
         safeArea: false,
         pageGutter: true,
+        onRefresh: _load,
         child: Column(
           children: [
             if (name.isNotEmpty) _buildName(name, topPadding: AppSpacing.lg),
@@ -171,6 +165,7 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
       maxWidth: AppLayout.resultMaxWidth,
       topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
+      onRefresh: _load,
       children: [
         if (name.isNotEmpty) _buildName(name),
         for (var i = 0; i < detail.steps.length; i++)

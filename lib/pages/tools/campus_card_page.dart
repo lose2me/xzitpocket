@@ -42,7 +42,6 @@ class CampusCardPage extends StatefulWidget {
 
 class _CampusCardPageState extends State<CampusCardPage> {
   static const _pageSize = 7;
-  bool _isRefreshing = false;
   bool _isQuerying = false;
   final _scrollController = ScrollController();
   int _visibleCount = _pageSize;
@@ -79,7 +78,6 @@ class _CampusCardPageState extends State<CampusCardPage> {
   }
 
   Future<void> _refresh({bool showError = true}) async {
-    setState(() => _isRefreshing = true);
     try {
       final result = await ToolsDataManager.instance.refreshYkt(
         widget.studentId,
@@ -111,8 +109,6 @@ class _CampusCardPageState extends State<CampusCardPage> {
       if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
-    } finally {
-      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -222,19 +218,12 @@ class _CampusCardPageState extends State<CampusCardPage> {
 
     return AppPage(
       title: '一卡通查询',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : _refresh,
-          tooltip: '刷新一卡通',
-          loading: _isRefreshing,
-        ),
-      ],
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         controller: _scrollController,
+        onRefresh: () => _refresh(),
         children: [
           Text('卡片信息', style: theme.typography.pageTitle),
           const SizedBox(height: AppSpacing.md),

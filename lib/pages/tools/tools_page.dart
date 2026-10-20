@@ -548,6 +548,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
+        onRefresh: _refreshPower,
         children: cards,
       ),
     );
@@ -894,13 +895,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
               child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
             )
           else if (hasRoom && data != null)
-            Icon(FLucideIcons.chevronRight, color: theme.colors.mutedForeground)
-          else if (hasRoom && campusAvailable && !_manager.powerLoading)
-            AppIconButton(
-              icon: FLucideIcons.refreshCw,
-              onPress: _refreshPower,
-              tooltip: '刷新电费',
-              size: FButtonSizeVariant.xs,
+            Icon(
+              FLucideIcons.chevronRight,
+              color: theme.colors.mutedForeground,
             ),
         ],
       ),

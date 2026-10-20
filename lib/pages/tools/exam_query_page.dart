@@ -32,7 +32,6 @@ class ExamQueryPage extends StatefulWidget {
 
 class _ExamQueryPageState extends State<ExamQueryPage> {
   late ExamResult _result;
-  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -47,7 +46,6 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
   }
 
   Future<void> _refresh({bool showError = true}) async {
-    setState(() => _isRefreshing = true);
     try {
       final result = await ToolsDataManager.instance.refreshExam(
         widget.studentId,
@@ -74,8 +72,6 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
       if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
-    } finally {
-      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -109,18 +105,11 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
 
     return AppPage(
       title: '考试安排',
-      actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : _refresh,
-          tooltip: '刷新考试',
-          loading: _isRefreshing,
-        ),
-      ],
       child: exams.isEmpty
-          ? const AppPageBody(
+          ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
-              child: AppStateView(
+              onRefresh: () => _refresh(),
+              child: const AppStateView(
                 icon: FLucideIcons.calendarCheck,
                 title: '暂无考试安排',
               ),
@@ -129,6 +118,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
               maxWidth: AppLayout.resultMaxWidth,
               topPadding: AppSpacing.lg,
               bottomPadding: AppSpacing.xxl,
+              onRefresh: () => _refresh(),
               children: [
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.md),

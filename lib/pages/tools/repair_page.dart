@@ -34,7 +34,6 @@ class RepairPage extends StatefulWidget {
 class _RepairPageState extends State<RepairPage> {
   late List<RepairRecord> _records;
   late RepairUserInfo _userInfo;
-  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -45,7 +44,6 @@ class _RepairPageState extends State<RepairPage> {
   }
 
   Future<bool> _load({bool forceRefresh = false, bool showError = true}) async {
-    setState(() => _isRefreshing = true);
     try {
       final manager = ToolsDataManager.instance;
       RepairResult? result;
@@ -93,8 +91,6 @@ class _RepairPageState extends State<RepairPage> {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
       return false;
-    } finally {
-      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -127,12 +123,6 @@ class _RepairPageState extends State<RepairPage> {
     return AppPage(
       title: '极速报修',
       actions: [
-        AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _isRefreshing ? null : () => _load(forceRefresh: true),
-          tooltip: '刷新报修',
-          loading: _isRefreshing,
-        ),
         FHeaderAction(
           icon: const Icon(FLucideIcons.plus),
           semanticsLabel: '新建报修',
@@ -140,14 +130,19 @@ class _RepairPageState extends State<RepairPage> {
         ),
       ],
       child: visible.isEmpty
-          ? const AppPageBody(
+          ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
-              child: AppStateView(icon: FLucideIcons.wrench, title: '暂无报修记录'),
+              onRefresh: () => _load(forceRefresh: true),
+              child: const AppStateView(
+                icon: FLucideIcons.wrench,
+                title: '暂无报修记录',
+              ),
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,
               topPadding: AppSpacing.lg,
               bottomPadding: AppSpacing.xxl,
+              onRefresh: () => _load(forceRefresh: true),
               children: [
                 Center(
                   child: Text(

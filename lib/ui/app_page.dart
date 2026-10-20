@@ -102,6 +102,29 @@ class AppPage extends StatelessWidget {
   }
 }
 
+/// Pull-to-refresh wrapper matching the app's theme.
+class AppRefreshIndicator extends StatelessWidget {
+  final Future<void> Function() onRefresh;
+  final Widget child;
+
+  const AppRefreshIndicator({
+    super.key,
+    required this.onRefresh,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: theme.colors.primary,
+      backgroundColor: theme.colors.card,
+      child: child,
+    );
+  }
+}
+
 class AppContentFrame extends StatelessWidget {
   final Widget child;
   final double maxWidth;
@@ -151,12 +174,18 @@ class AppPageBody extends StatelessWidget {
   /// same across the two states.
   final bool pageGutter;
 
+  /// Wraps the body in a pull-to-refresh viewport. The body keeps the viewport
+  /// height (so centered/expanded empty states still work) while remaining
+  /// draggable for [AppRefreshIndicator].
+  final Future<void> Function()? onRefresh;
+
   const AppPageBody({
     super.key,
     required this.child,
     this.maxWidth = AppLayout.contentMaxWidth,
     this.safeArea = true,
     this.pageGutter = false,
+    this.onRefresh,
   });
 
   @override
@@ -164,14 +193,29 @@ class AppPageBody extends StatelessWidget {
     Widget content = LayoutBuilder(
       builder: (context, constraints) {
         final inset = pageGutter ? AppLayout.pageGutter(context) * 2 : 0.0;
+        final width = (constraints.maxWidth - inset)
+            .clamp(0.0, maxWidth)
+            .toDouble();
+        final body = SizedBox(
+          width: width,
+          height: constraints.maxHeight,
+          child: child,
+        );
+        final refresh = onRefresh;
         return Align(
           alignment: Alignment.topCenter,
           child: SizedBox(
-            width: (constraints.maxWidth - inset)
-                .clamp(0.0, maxWidth)
-                .toDouble(),
+            width: width,
             height: constraints.maxHeight,
-            child: child,
+            child: refresh == null
+                ? body
+                : AppRefreshIndicator(
+                    onRefresh: refresh,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: body,
+                    ),
+                  ),
           ),
         );
       },
@@ -229,6 +273,9 @@ class AppPageListView extends StatefulWidget {
   /// 显示右侧滚动指示条（长文页面默认显示）。
   final bool showScrollbar;
 
+  /// 提供后启用下拉刷新，并强制列表在内容不足一屏时仍可下拉。
+  final Future<void> Function()? onRefresh;
+
   const AppPageListView({
     super.key,
     required this.children,
@@ -241,6 +288,7 @@ class AppPageListView extends StatefulWidget {
     this.primary = true,
     this.safeArea = true,
     this.showScrollbar = true,
+    this.onRefresh,
   });
 
   @override
@@ -274,9 +322,11 @@ class _AppPageListViewState extends State<AppPageListView> {
             .clamp(0.0, widget.maxWidth)
             .toDouble();
         final horizontal = (constraints.maxWidth - contentWidth) / 2;
-        final list = ListView(
+        Widget list = ListView(
           controller: controller,
-          physics: widget.physics,
+          physics: widget.onRefresh != null
+              ? const AlwaysScrollableScrollPhysics()
+              : widget.physics,
           primary: controller == null ? widget.primary : false,
           keyboardDismissBehavior: widget.keyboardDismissBehavior,
           padding: EdgeInsets.fromLTRB(
@@ -288,12 +338,18 @@ class _AppPageListViewState extends State<AppPageListView> {
           children: widget.children,
         );
         // 滑动时显示、停止后淡出（不常驻）。
-        if (!widget.showScrollbar) return list;
-        return Scrollbar(
-          controller: controller,
-          thumbVisibility: false,
-          child: list,
-        );
+        if (widget.showScrollbar) {
+          list = Scrollbar(
+            controller: controller,
+            thumbVisibility: false,
+            child: list,
+          );
+        }
+        final refresh = widget.onRefresh;
+        if (refresh != null) {
+          list = AppRefreshIndicator(onRefresh: refresh, child: list);
+        }
+        return list;
       },
     );
     if (widget.safeArea) content = SafeArea(child: content);
@@ -319,6 +375,9 @@ class AppPageListViewBuilder extends StatefulWidget {
   /// 显示右侧滚动指示条（长文页面默认显示）。
   final bool showScrollbar;
 
+  /// 提供后启用下拉刷新，并强制列表在内容不足一屏时仍可下拉。
+  final Future<void> Function()? onRefresh;
+
   const AppPageListViewBuilder({
     super.key,
     required this.itemBuilder,
@@ -332,6 +391,7 @@ class AppPageListViewBuilder extends StatefulWidget {
     this.primary = true,
     this.safeArea = true,
     this.showScrollbar = true,
+    this.onRefresh,
   }) : assert(itemCount >= 0);
 
   @override
@@ -363,9 +423,11 @@ class _AppPageListViewBuilderState extends State<AppPageListViewBuilder> {
             .clamp(0.0, widget.maxWidth)
             .toDouble();
         final horizontal = (constraints.maxWidth - contentWidth) / 2;
-        final list = ListView.builder(
+        Widget list = ListView.builder(
           controller: controller,
-          physics: widget.physics,
+          physics: widget.onRefresh != null
+              ? const AlwaysScrollableScrollPhysics()
+              : widget.physics,
           primary: controller == null ? widget.primary : false,
           keyboardDismissBehavior: widget.keyboardDismissBehavior,
           padding: EdgeInsets.fromLTRB(
@@ -378,12 +440,18 @@ class _AppPageListViewBuilderState extends State<AppPageListViewBuilder> {
           itemBuilder: widget.itemBuilder,
         );
         // 滑动时显示、停止后淡出（不常驻）。
-        if (!widget.showScrollbar) return list;
-        return Scrollbar(
-          controller: controller,
-          thumbVisibility: false,
-          child: list,
-        );
+        if (widget.showScrollbar) {
+          list = Scrollbar(
+            controller: controller,
+            thumbVisibility: false,
+            child: list,
+          );
+        }
+        final refresh = widget.onRefresh;
+        if (refresh != null) {
+          list = AppRefreshIndicator(onRefresh: refresh, child: list);
+        }
+        return list;
       },
     );
     if (widget.safeArea) content = SafeArea(child: content);

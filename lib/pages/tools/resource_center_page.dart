@@ -96,12 +96,6 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
       title: '资源中心',
       actions: [
         AppIconButton(
-          icon: FLucideIcons.refreshCw,
-          onPress: _refreshing ? null : _refresh,
-          tooltip: '刷新资源',
-          loading: _refreshing,
-        ),
-        AppIconButton(
           icon: FLucideIcons.plus,
           onPress: _loading ? null : () => unawaited(_openUpload()),
           tooltip: '上传教材或试卷',
@@ -110,10 +104,14 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
       child: _loading
           ? const AppStateView(icon: FLucideIcons.library, title: '正在加载资源')
           : _courses.isEmpty
-          ? AppStateView(
-              icon: FLucideIcons.library,
-              title: '暂无资源',
-              description: _error ?? '暂时没有可用的题库、试卷或电子教材',
+          ? AppPageBody(
+              maxWidth: AppLayout.contentMaxWidth,
+              onRefresh: _refresh,
+              child: AppStateView(
+                icon: FLucideIcons.library,
+                title: '暂无资源',
+                description: _error ?? '暂时没有可用的题库、试卷或电子教材',
+              ),
             )
           : _buildCourseList(context),
     );
@@ -151,23 +149,27 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
                       ),
                     ),
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md,
-                      AppSpacing.xs,
-                      AppSpacing.md,
-                      AppSpacing.xxl,
+                : AppRefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.xxl,
+                      ),
+                      itemCount: courses.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.md),
+                      itemBuilder: (context, index) {
+                        final course = courses[index];
+                        return _CourseCard(
+                          course: course,
+                          onTap: () => unawaited(_openCourse(context, course)),
+                        );
+                      },
                     ),
-                    itemCount: courses.length,
-                    separatorBuilder: (_, _) =>
-                        const SizedBox(height: AppSpacing.md),
-                    itemBuilder: (context, index) {
-                      final course = courses[index];
-                      return _CourseCard(
-                        course: course,
-                        onTap: () => unawaited(_openCourse(context, course)),
-                      );
-                    },
                   ),
           ),
         ],
