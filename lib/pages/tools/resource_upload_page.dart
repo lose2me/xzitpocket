@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:crypto/crypto.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:forui/forui.dart';
@@ -40,6 +42,33 @@ String _contentTypeForFormat(String format) => switch (format) {
   'doc' => 'application/msword',
   _ => 'application/pdf',
 };
+
+class _DigestSink implements Sink<Digest> {
+  Digest? value;
+
+  @override
+  void add(Digest data) {
+    value = data;
+  }
+
+  @override
+  void close() {}
+}
+
+/// Streams the file so hashing an 80 MB scan does not load it into memory.
+Future<String> _fileMd5(String path) async {
+  final output = _DigestSink();
+  final input = md5.startChunkedConversion(output);
+  await for (final chunk in File(path).openRead()) {
+    input.add(chunk);
+  }
+  input.close();
+  final digest = output.value;
+  if (digest == null) {
+    throw StateError('md5 unavailable');
+  }
+  return digest.toString();
+}
 
 class ResourceUploadPage extends StatefulWidget {
   final List<ResourceCourse> courses;
@@ -335,6 +364,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     var uploaded = false;
     final format = _kind == 'resource' ? _fileFormat(picked.name) : 'pdf';
     try {
+      final fileMd5 = await _fileMd5(picked.path);
       ticket = await ControlService.instance.createResourceUploadTicket(
         kind: _kind,
         courseCode: courseCode,
@@ -342,6 +372,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         tags: tags,
         targetId: targetId,
         format: format,
+        md5: fileMd5,
         sizeBytes: picked.size,
       );
       await ControlService.instance.uploadToSignedUrl(

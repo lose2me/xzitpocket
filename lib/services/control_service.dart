@@ -680,6 +680,7 @@ class ControlService {
     String tags = '',
     String targetId = '',
     String format = 'pdf',
+    String md5 = '',
   }) async {
     if (kind != 'textbook' && kind != 'resource') {
       throw const ControlApiException('invalid_kind', '资料类型无效');
@@ -695,6 +696,7 @@ class ControlService {
         'tags': tags.trim(),
         if (targetId.trim().isNotEmpty) 'target_id': targetId.trim(),
         'format': format,
+        'md5': md5,
         'size_bytes': sizeBytes,
       },
       headers: {'Authorization': 'Bearer $token'},
