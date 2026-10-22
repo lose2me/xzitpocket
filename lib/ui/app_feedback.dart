@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -101,9 +103,17 @@ FDialogStyleDelta appDialogStyle(BuildContext context) {
   );
 }
 
-/// Flat scrim (no blur) matching the reference design.
-FDialogRouteStyleDelta appDialogRouteStyle() =>
-    FDialogRouteStyleDelta.delta(barrierFilter: () => null);
+/// Soft blurred scrim behind every centered dialog.
+FDialogRouteStyleDelta appDialogRouteStyle() => FDialogRouteStyleDelta.delta(
+  barrierFilter: () =>
+      (context, animation) => ImageFilter.compose(
+        outer: ImageFilter.blur(sigmaX: animation * 2, sigmaY: animation * 2),
+        inner: ColorFilter.mode(
+          context.theme.colors.barrier.withValues(alpha: animation * 0.30),
+          BlendMode.srcOver,
+        ),
+      ),
+);
 
 abstract final class AppDialogMetrics {
   static const double maxWidth = 320;
