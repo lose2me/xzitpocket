@@ -230,35 +230,31 @@ class AppDialogFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
     final accent = destructive ? colors.destructive : colors.primary;
-    return ClipRRect(
-      // Keep the tinted confirm cell inside the card's rounded bottom corners.
-      borderRadius: const BorderRadius.vertical(
-        bottom: Radius.circular(AppDialogMetrics.radius),
-      ),
-      child: SizedBox(
-        height: AppDialogMetrics.actionHeight,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(
-              child: AppDialogTextAction(
-                label: cancelLabel,
-                color: colors.mutedForeground,
-                onPress: onCancel,
-              ),
+    // FDialog already clips its child to the card shape, so the tinted cell can
+    // be a plain rectangle and still follow the rounded bottom corners.
+    return SizedBox(
+      height: AppDialogMetrics.actionHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: AppDialogTextAction(
+              label: cancelLabel,
+              color: colors.mutedForeground,
+              onPress: onCancel,
             ),
-            const AppDialogDivider(vertical: true),
-            Expanded(
-              child: AppDialogTextAction(
-                label: confirmLabel,
-                emphasized: true,
-                color: accent,
-                background: accent.withValues(alpha: 0.10),
-                onPress: onConfirm,
-              ),
+          ),
+          const AppDialogDivider(vertical: true),
+          Expanded(
+            child: AppDialogTextAction(
+              label: confirmLabel,
+              emphasized: true,
+              color: accent,
+              background: accent.withValues(alpha: 0.10),
+              onPress: onConfirm,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -280,6 +276,7 @@ Future<bool> showAppConfirmDialog({
     style: appDialogStyle(context),
     builder: (context, style, animation) => FDialog(
       animation: animation,
+      clipBehavior: Clip.antiAlias,
       constraints: const BoxConstraints(
         minWidth: 280,
         maxWidth: AppDialogMetrics.maxWidth,

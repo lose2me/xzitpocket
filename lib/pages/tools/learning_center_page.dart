@@ -833,6 +833,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       style: appDialogStyle(context),
       builder: (context, style, animation) => FDialog(
         animation: animation,
+        clipBehavior: Clip.antiAlias,
         constraints: const BoxConstraints(
           minWidth: 280,
           maxWidth: AppDialogMetrics.maxWidth,
