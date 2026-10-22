@@ -557,6 +557,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   Future<void> _onSync() async {
     if (_isSyncing) return;
+    if (!mounted) return;
     setState(() => _isSyncing = true);
 
     try {
@@ -586,66 +587,41 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         return;
       }
 
-      final result = await ref.read(authProvider.notifier).login(sid, pwd);
-      if (result != null) {
-        final loginResult = result.$1;
-        final examResult = result.$2;
-        try {
-          await ref
-              .read(scheduleProvider.notifier)
-              .updateFromLoginResult(
-                courses: loginResult.courses,
-                studentId: loginResult.studentId ?? sid,
-                studentName: loginResult.studentName ?? '',
-                collegeName: loginResult.collegeName ?? '',
-                className: loginResult.className ?? '',
-                majorName: loginResult.majorName ?? '',
-              );
-        } on WidgetSyncException catch (e) {
-          if (mounted) {
-            showAppSnackBar(
-              context,
-              '同步成功，但${describeError(e)}',
-              severity: ToastSeverity.warning,
-            );
-          }
-          return;
-        }
-        final prefs = ref.read(preferencesStorageProvider);
-        // 登录后 Control 门禁已打开，补一次校历刷新（未登录阶段被门禁跳过）。
-        try {
-          final calendarChanged = await ControlService.instance
-              .refreshSchoolCalendarIfChanged(prefs)
-              .timeout(const Duration(seconds: 3));
-          if (calendarChanged && prefs.getUseCloudTimetableAdjustments()) {
-            await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
-          }
-        } catch (error, stackTrace) {
-          talker.warning('同步后刷新校历失败', error, stackTrace);
-        }
-        if (examResult != null) {
-          await ToolsDataManager.instance.setExams(examResult, prefs);
-        }
-        if (mounted) {
-          showAppSnackBar(context, '同步成功', severity: ToastSeverity.success);
-        }
-        final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;
-        bool visible(AppServiceFeature feature) => !hidden.contains(feature);
+      // 先发起拉取，结果暂存在内存里；弹窗只决定是否把它应用到课表。
+      final pending = ref.read(authProvider.notifier).login(sid, pwd);
+      if (!mounted) {
         unawaited(
-          ToolsDataManager.instance.startBackgroundLoading(
-            studentId: loginResult.studentId ?? sid,
-            password: pwd,
-            prefs: prefs,
-            roomId: prefs.getSavedPowerRoomId(),
-            displayName: loginResult.studentName ?? '',
-            loadYktData: visible(AppServiceFeature.campusCard),
-            loadPowerData: visible(AppServiceFeature.power),
-            loadRepairData: visible(AppServiceFeature.repair),
-            loadNetAuthData: visible(AppServiceFeature.network),
-            loadJpData: visible(AppServiceFeature.teacherEvaluation),
+          pending.then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stackTrace) {},
           ),
         );
-      } else {
+        return;
+      }
+      final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '同步并重建课表',
+        message:
+            '正在从教务系统获取最新课表。确认后会应用云端校历调整并覆盖当前的手动调整，'
+            '是否继续？',
+        confirmLabel: '同步并重建',
+        cancelLabel: '取消',
+      );
+      if (!confirmed || !mounted) {
+        // 取消：丢弃暂存的同步结果，不改动任何课表数据。
+        unawaited(
+          pending.then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stackTrace) {
+              talker.warning('已取消，丢弃本次课表同步结果', error, stackTrace);
+            },
+          ),
+        );
+        return;
+      }
+
+      final result = await pending;
+      if (result == null) {
         final authState = ref.read(authProvider);
         if (mounted) {
           showAppSnackBar(
@@ -654,7 +630,66 @@ class TimetablePageState extends ConsumerState<TimetablePage>
             severity: ToastSeverity.error,
           );
         }
+        return;
       }
+
+      final loginResult = result.$1;
+      final examResult = result.$2;
+      try {
+        await ref
+            .read(scheduleProvider.notifier)
+            .updateFromLoginResult(
+              courses: loginResult.courses,
+              studentId: loginResult.studentId ?? sid,
+              studentName: loginResult.studentName ?? '',
+              collegeName: loginResult.collegeName ?? '',
+              className: loginResult.className ?? '',
+              majorName: loginResult.majorName ?? '',
+            );
+      } on WidgetSyncException catch (e) {
+        if (mounted) {
+          showAppSnackBar(
+            context,
+            '同步成功，但${describeError(e)}',
+            severity: ToastSeverity.warning,
+          );
+        }
+        return;
+      }
+
+      // 登录后 Control 门禁已打开，补一次校历刷新（未登录阶段被门禁跳过）。
+      try {
+        final calendarChanged = await ControlService.instance
+            .refreshSchoolCalendarIfChanged(prefs)
+            .timeout(const Duration(seconds: 3));
+        if (calendarChanged && prefs.getUseCloudTimetableAdjustments()) {
+          await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
+        }
+      } catch (error, stackTrace) {
+        talker.warning('同步后刷新校历失败', error, stackTrace);
+      }
+      if (examResult != null) {
+        await ToolsDataManager.instance.setExams(examResult, prefs);
+      }
+      if (mounted) {
+        showAppSnackBar(context, '同步成功', severity: ToastSeverity.success);
+      }
+      final hidden = ref.read(appSettingsProvider).hiddenServiceFeatures;
+      bool visible(AppServiceFeature feature) => !hidden.contains(feature);
+      unawaited(
+        ToolsDataManager.instance.startBackgroundLoading(
+          studentId: loginResult.studentId ?? sid,
+          password: pwd,
+          prefs: prefs,
+          roomId: prefs.getSavedPowerRoomId(),
+          displayName: loginResult.studentName ?? '',
+          loadYktData: visible(AppServiceFeature.campusCard),
+          loadPowerData: visible(AppServiceFeature.power),
+          loadRepairData: visible(AppServiceFeature.repair),
+          loadNetAuthData: visible(AppServiceFeature.network),
+          loadJpData: visible(AppServiceFeature.teacherEvaluation),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
