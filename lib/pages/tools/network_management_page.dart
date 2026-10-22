@@ -92,8 +92,9 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
   Future<void> _unbind(NetAuthDevice device) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '解绑设备',
-      message: '确定要解绑 ${device.mac} 吗？',
+      title: '解绑此设备？',
+      message: '${device.mac} 将立即下线。',
+      confirmLabel: '解绑',
     );
     if (!confirmed || !mounted) return;
 

@@ -141,8 +141,9 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     if (!mounted) return;
     final confirm = await showAppConfirmDialog(
       context: context,
-      title: '给恩师们点赞',
-      message: '将自动对所有未评课程给予满分评价，确定继续吗？',
+      title: '给所有未评课程打满分？',
+      message: '将自动对所有未评课程给予满分评价，提交后不可修改。',
+      confirmLabel: '确认评价',
     );
     if (!confirm || !mounted) return;
     if (!_requireCampusNetwork()) return;

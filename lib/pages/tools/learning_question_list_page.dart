@@ -191,10 +191,10 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
     };
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '清空$collection',
+      title: '清空$collection？',
       message: widget.kind == LearningListKind.bank
-          ? '将清空当前题单的答题进度，错题集和收藏集会保留。'
-          : '确定清空全部$collection吗？',
+          ? '当前题单的答题进度将被清空，错题集和收藏集保留。'
+          : '全部$collection将被删除，无法恢复。',
       confirmLabel: '清空',
       destructive: true,
     );

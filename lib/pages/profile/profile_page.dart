@@ -1013,8 +1013,8 @@ class ProfilePageState extends ConsumerState<ProfilePage>
   Future<void> _logoutAfterConfirmation(BuildContext context) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '退出登录',
-      message: '退出将清除本地课表数据，确定继续吗？',
+      title: '退出登录？',
+      message: '本地课表数据会被清除，账号密码不受影响。',
       confirmLabel: '退出',
       destructive: true,
     );

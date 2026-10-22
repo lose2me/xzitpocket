@@ -600,10 +600,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       }
       final confirmed = await showAppConfirmDialog(
         context: context,
-        title: '同步并重建课表',
-        message:
-            '正在从教务系统获取最新课表。确认后会应用云端校历调整并覆盖当前的手动调整，'
-            '是否继续？',
+        title: '同步并重建课表？',
+        message: '拉取教务系统课表并应用云端校历调整，当前手动调整会被覆盖。',
         confirmLabel: '同步并重建',
         cancelLabel: '取消',
       );
@@ -1211,8 +1209,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   ) async {
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '删除课程',
-      message: '仅删除第$week周的这次课程，确定继续吗？',
+      title: '删除这节课？',
+      message: '仅删除第$week周的这次课程。',
       confirmLabel: '删除',
       destructive: true,
     );
@@ -1244,8 +1242,8 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     if (courseId.isEmpty) return;
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '全局删除课程',
-      message: '将删除“${course.title}”的全部关联课程，确定继续吗？',
+      title: '删除“${course.title}”？',
+      message: '该课程的全部关联记录都会被删除。',
       confirmLabel: '全局删除',
       destructive: true,
     );

@@ -110,7 +110,7 @@ void main() {
     await tester.tap(find.byIcon(FLucideIcons.trash2));
     await tester.pumpAndSettle();
 
-    expect(find.text('清空做题进度'), findsOneWidget);
+    expect(find.text('清空做题进度？'), findsOneWidget);
     await tester.tap(find.text('清空'));
     await tester.pumpAndSettle();
 

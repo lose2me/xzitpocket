@@ -171,8 +171,8 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     if (_busy) return;
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '清空备用课表',
-      message: '将删除当前备用课表，确定继续吗？',
+      title: '清空备用课表？',
+      message: '备用课表将被删除，无法恢复。',
       confirmLabel: '清空',
       destructive: true,
     );

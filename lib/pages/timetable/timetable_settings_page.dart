@@ -1483,9 +1483,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '清空个性化设置',
-      message: '将把所有个性化设置恢复为默认值，确定继续吗？',
-      confirmLabel: '清空',
+      title: '恢复默认设置？',
+      message: '所有个性化设置将恢复默认值。',
+      confirmLabel: '恢复默认',
       destructive: true,
     );
     if (!confirmed || !mounted) return;
