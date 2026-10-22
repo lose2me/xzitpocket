@@ -108,7 +108,6 @@ FDialogRouteStyleDelta appDialogRouteStyle() =>
 abstract final class AppDialogMetrics {
   static const double maxWidth = 320;
   static const double actionHeight = 50;
-  static const double inputActionHeight = 48;
 }
 
 class AppDialogDivider extends StatelessWidget {
@@ -158,6 +157,88 @@ class AppDialogTextAction extends StatelessWidget {
   }
 }
 
+/// Centered title + optional description shared by every dialog.
+class AppDialogHeader extends StatelessWidget {
+  final String title;
+  final String? message;
+
+  const AppDialogHeader({super.key, required this.title, this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final message = this.message;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: theme.typography.pageTitle.copyWith(height: 1.3),
+        ),
+        if (message != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.typography.bodySmall.copyWith(
+              height: 20 / 14,
+              color: theme.colors.mutedForeground,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Split text footer shared by every dialog.
+class AppDialogFooter extends StatelessWidget {
+  final String cancelLabel;
+  final String confirmLabel;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+  final bool destructive;
+
+  const AppDialogFooter({
+    super.key,
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.onCancel,
+    required this.onConfirm,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.theme.colors;
+    return SizedBox(
+      height: AppDialogMetrics.actionHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            child: AppDialogTextAction(
+              label: cancelLabel,
+              color: colors.mutedForeground,
+              onPress: onCancel,
+            ),
+          ),
+          const AppDialogDivider(vertical: true),
+          Expanded(
+            child: AppDialogTextAction(
+              label: confirmLabel,
+              emphasized: true,
+              color: destructive ? colors.destructive : colors.primary,
+              onPress: onConfirm,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Confirmation dialog with a split text footer.
 Future<bool> showAppConfirmDialog({
   required BuildContext context,
@@ -167,7 +248,6 @@ Future<bool> showAppConfirmDialog({
   String cancelLabel = '取消',
   bool destructive = false,
 }) async {
-  final colors = context.theme.colors;
   final result = await showFDialog<bool>(
     context: context,
     barrierDismissible: !destructive,
@@ -184,52 +264,15 @@ Future<bool> showAppConfirmDialog({
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: context.theme.typography.pageTitle.copyWith(
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: context.theme.typography.bodySmall.copyWith(
-                    height: 20 / 14,
-                    color: colors.mutedForeground,
-                  ),
-                ),
-              ],
-            ),
+            child: AppDialogHeader(title: title, message: message),
           ),
           const AppDialogDivider(),
-          SizedBox(
-            height: AppDialogMetrics.actionHeight,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: AppDialogTextAction(
-                    label: cancelLabel,
-                    color: colors.mutedForeground,
-                    onPress: () => Navigator.pop(context, false),
-                  ),
-                ),
-                const AppDialogDivider(vertical: true),
-                Expanded(
-                  child: AppDialogTextAction(
-                    label: confirmLabel,
-                    emphasized: true,
-                    color: destructive ? colors.destructive : colors.primary,
-                    onPress: () => Navigator.pop(context, true),
-                  ),
-                ),
-              ],
-            ),
+          AppDialogFooter(
+            cancelLabel: cancelLabel,
+            confirmLabel: confirmLabel,
+            destructive: destructive,
+            onCancel: () => Navigator.pop(context, false),
+            onConfirm: () => Navigator.pop(context, true),
           ),
         ],
       ),

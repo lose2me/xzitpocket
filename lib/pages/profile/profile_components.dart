@@ -732,97 +732,91 @@ class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '自定义颜色',
-              textAlign: TextAlign.center,
-              style: theme.typography.pageTitle,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            Center(
-              child: SizedBox.square(
-                dimension: 220,
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size = constraints.biggest;
-                    return GestureDetector(
-                      onPanDown: (details) =>
-                          _updateWheel(details.localPosition, size),
-                      onPanUpdate: (details) =>
-                          _updateWheel(details.localPosition, size),
-                      child: CustomPaint(
-                        painter: _ColorWheelPainter(color: _color),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('明度'),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Material(
-                    color: Colors.transparent,
-                    child: SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 7,
-                        ),
-                        overlayShape: SliderComponentShape.noOverlay,
-                      ),
-                      child: Slider(
-                        value: _color.value,
-                        onChanged: (value) =>
-                            setState(() => _color = _color.withValue(value)),
-                      ),
+                const AppDialogHeader(title: '自定义颜色'),
+                const SizedBox(height: AppSpacing.lg),
+                Center(
+                  child: SizedBox.square(
+                    dimension: 220,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final size = constraints.biggest;
+                        return GestureDetector(
+                          onPanDown: (details) =>
+                              _updateWheel(details.localPosition, size),
+                          onPanUpdate: (details) =>
+                              _updateWheel(details.localPosition, size),
+                          child: CustomPaint(
+                            painter: _ColorWheelPainter(color: _color),
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: _selectedColor,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: theme.colors.border),
+                const SizedBox(height: AppSpacing.md),
+                Row(
+                  children: [
+                    const Text('明度'),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 3,
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 7,
+                            ),
+                            overlayShape: SliderComponentShape.noOverlay,
+                          ),
+                          child: Slider(
+                            value: _color.value,
+                            onChanged: (value) => setState(
+                              () => _color = _color.withValue(value),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: _selectedColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.colors.border),
+                      ),
+                      child: const SizedBox.square(dimension: 26),
+                    ),
+                  ],
+                ),
+                Text(
+                  '#${_selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                  textAlign: TextAlign.center,
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.mutedForeground,
                   ),
-                  child: const SizedBox.square(dimension: 26),
                 ),
               ],
             ),
-            Text(
-              '#${_selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
-              textAlign: TextAlign.center,
-              style: theme.typography.bodySmall.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: double.infinity,
-              height: AppDialogMetrics.inputActionHeight,
-              child: FButton(
-                onPress: () => Navigator.pop(context, _selectedColor),
-                child: const Text('确定'),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppDialogTextAction(
-              label: '取消',
-              color: theme.colors.mutedForeground,
-              onPress: () => Navigator.pop(context),
-            ),
-          ],
-        ),
+          ),
+          const AppDialogDivider(),
+          AppDialogFooter(
+            cancelLabel: '取消',
+            confirmLabel: '确定',
+            onCancel: () => Navigator.pop(context),
+            onConfirm: () => Navigator.pop(context, _selectedColor),
+          ),
+        ],
       ),
     );
   }

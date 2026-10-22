@@ -1059,61 +1059,50 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        24,
-        24,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              '解锁题库',
-              textAlign: TextAlign.center,
-              style: theme.typography.pageTitle.copyWith(height: 1.3),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              20 + MediaQuery.viewInsetsOf(context).bottom,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              '「${widget.bankName}」需要 CDK 解锁后才能练习',
-              textAlign: TextAlign.center,
-              style: theme.typography.bodySmall.copyWith(
-                height: 20 / 14,
-                color: theme.colors.mutedForeground,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppDialogHeader(
+                  title: '解锁题库',
+                  message: '「${widget.bankName}」需要 CDK 解锁后才能练习',
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                AppTextField(
+                  controller: _controller,
+                  hint: '输入 CDK',
+                  prefix: const Icon(FLucideIcons.keyRound),
+                  textCapitalization: TextCapitalization.characters,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => unawaited(_submit()),
+                  enabled: !_redeeming,
+                  clearable: true,
+                ),
+              ],
             ),
-            const SizedBox(height: AppSpacing.lg),
-            AppTextField(
-              controller: _controller,
-              hint: '输入 CDK',
-              prefix: const Icon(FLucideIcons.keyRound),
-              textCapitalization: TextCapitalization.characters,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => unawaited(_submit()),
-              enabled: !_redeeming,
-              clearable: true,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              height: AppDialogMetrics.inputActionHeight,
-              child: FButton(
-                onPress: _redeeming ? null : () => unawaited(_submit()),
-                child: Text(_redeeming ? '兑换中...' : '兑换'),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppDialogTextAction(
-              label: '取消',
-              color: theme.colors.mutedForeground,
-              onPress: () => Navigator.pop(context),
-            ),
-          ],
-        ),
+          ),
+          const AppDialogDivider(),
+          AppDialogFooter(
+            cancelLabel: '取消',
+            confirmLabel: _redeeming ? '兑换中...' : '兑换',
+            onCancel: () => Navigator.pop(context),
+            onConfirm: () {
+              if (!_redeeming) unawaited(_submit());
+            },
+          ),
+        ],
       ),
     );
   }
