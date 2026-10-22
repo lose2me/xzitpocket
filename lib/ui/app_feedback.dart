@@ -116,6 +116,7 @@ FDialogRouteStyleDelta appDialogRouteStyle() => FDialogRouteStyleDelta.delta(
 );
 
 abstract final class AppDialogMetrics {
+  static const double radius = 20;
   static const double maxWidth = 320;
   static const double actionHeight = 50;
 }
@@ -154,29 +155,21 @@ class AppDialogTextAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     final background = this.background;
-    return FTappable(
-      onPress: onPress,
-      child: Center(
-        child: Container(
-          padding: background == null
-              ? EdgeInsets.zero
-              : const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-          decoration: background == null
-              ? null
-              : BoxDecoration(
-                  color: background,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-          child: Text(
-            label,
-            style: theme.typography.label.copyWith(
-              fontSize: 16,
-              color: color ?? theme.colors.primary,
-              fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
-            ),
-          ),
+    final text = Center(
+      child: Text(
+        label,
+        style: theme.typography.label.copyWith(
+          fontSize: 16,
+          color: color ?? theme.colors.primary,
+          fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
         ),
       ),
+    );
+    return FTappable(
+      onPress: onPress,
+      child: background == null
+          ? text
+          : ColoredBox(color: background, child: text),
     );
   }
 }
@@ -236,30 +229,36 @@ class AppDialogFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors;
-    return SizedBox(
-      height: AppDialogMetrics.actionHeight,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: AppDialogTextAction(
-              label: cancelLabel,
-              color: colors.mutedForeground,
-              onPress: onCancel,
+    final accent = destructive ? colors.destructive : colors.primary;
+    return ClipRRect(
+      // Keep the tinted confirm cell inside the card's rounded bottom corners.
+      borderRadius: const BorderRadius.vertical(
+        bottom: Radius.circular(AppDialogMetrics.radius),
+      ),
+      child: SizedBox(
+        height: AppDialogMetrics.actionHeight,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: AppDialogTextAction(
+                label: cancelLabel,
+                color: colors.mutedForeground,
+                onPress: onCancel,
+              ),
             ),
-          ),
-          const AppDialogDivider(vertical: true),
-          Expanded(
-            child: AppDialogTextAction(
-              label: confirmLabel,
-              emphasized: true,
-              color: destructive ? colors.destructive : colors.primary,
-              background: (destructive ? colors.destructive : colors.primary)
-                  .withValues(alpha: 0.12),
-              onPress: onConfirm,
+            const AppDialogDivider(vertical: true),
+            Expanded(
+              child: AppDialogTextAction(
+                label: confirmLabel,
+                emphasized: true,
+                color: accent,
+                background: accent.withValues(alpha: 0.10),
+                onPress: onConfirm,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
