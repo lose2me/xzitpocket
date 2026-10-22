@@ -108,7 +108,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
               maxWidth: AppLayout.contentMaxWidth,
               onRefresh: _refresh,
               child: AppStateView(
-                icon: FLucideIcons.library,
+                icon: FLucideIcons.packageOpen,
                 title: '暂无资源',
                 description: _error ?? '暂时没有可用的题库、试卷或电子教材',
               ),

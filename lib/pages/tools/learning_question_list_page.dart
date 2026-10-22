@@ -114,7 +114,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
       child: questions.isEmpty
           ? AppStateView(
               icon: switch (widget.kind) {
-                LearningListKind.bank => FLucideIcons.library,
+                LearningListKind.bank => FLucideIcons.fileQuestion,
                 LearningListKind.wrong => FLucideIcons.circleAlert,
                 LearningListKind.favorite => FLucideIcons.bookmark,
               },

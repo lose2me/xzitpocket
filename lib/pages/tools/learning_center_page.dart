@@ -260,7 +260,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           else if (textbookLoading)
             _buildLoading(theme)
           else
-            _buildUploadEmpty(theme, label: '暂无资源'),
+            _buildUploadEmpty(
+              theme,
+              label: '暂无资源',
+              icon: FLucideIcons.bookOpen,
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
         _buildSectionHeader(theme, 1, '题库', _expandedSections[1]),
@@ -274,7 +278,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           else if (bankLoading)
             _buildLoading(theme)
           else
-            _buildUploadEmpty(theme, label: '暂无题库', icon: FLucideIcons.library),
+            _buildUploadEmpty(
+              theme,
+              label: '暂无题库',
+              icon: FLucideIcons.fileQuestion,
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
         _buildSectionHeader(theme, 2, '试卷', _expandedSections[2]),
@@ -300,7 +308,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           else if (resourceLoading)
             _buildLoading(theme)
           else
-            _buildUploadEmpty(theme, label: '暂无资源'),
+            _buildUploadEmpty(
+              theme,
+              label: '暂无资源',
+              icon: FLucideIcons.fileText,
+            ),
           const SizedBox(height: AppSpacing.md),
         ],
       ],
