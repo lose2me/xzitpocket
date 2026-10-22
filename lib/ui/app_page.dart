@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
@@ -103,7 +105,12 @@ class AppPage extends StatelessWidget {
 }
 
 /// Pull-to-refresh wrapper matching the app's theme.
-class AppRefreshIndicator extends StatelessWidget {
+///
+/// [RefreshIndicator] freezes the indicator as soon as the pull is armed and
+/// keeps it there when the finger moves back up, so a pull can only be
+/// cancelled by releasing. Here the indicator tracks the drag in both
+/// directions and only refreshes when it is released fully extended.
+class AppRefreshIndicator extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final Widget child;
 
@@ -114,13 +121,185 @@ class AppRefreshIndicator extends StatelessWidget {
   });
 
   @override
+  State<AppRefreshIndicator> createState() => _AppRefreshIndicatorState();
+}
+
+// Fraction of the viewport that has to be pulled for a full-strength pull.
+const double _kRefreshDragExtent = 0.25;
+// The indicator overshoots its resting `displacement` by this factor.
+const double _kRefreshSizeFactor = 1.5;
+const double _kRefreshDisplacement = 40.0;
+const Duration _kRefreshSnapDuration = Duration(milliseconds: 150);
+const Duration _kRefreshFadeDuration = Duration(milliseconds: 200);
+
+class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
+    with TickerProviderStateMixin {
+  late final AnimationController _position = AnimationController(vsync: this);
+  late final AnimationController _scale = AnimationController(vsync: this);
+  late final Animation<double> _sizeFactor = _position.drive(
+    Tween<double>(begin: 0.0, end: _kRefreshSizeFactor),
+  );
+  late final Animation<double> _scaleFactor = _scale.drive(
+    Tween<double>(begin: 1.0, end: 0.0),
+  );
+
+  /// Pull distance in logical pixels; only user drags move it.
+  double _dragOffset = 0;
+  bool _dragging = false;
+  bool _refreshing = false;
+
+  @override
+  void dispose() {
+    _position.dispose();
+    _scale.dispose();
+    super.dispose();
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification.depth != 0 || _refreshing) return false;
+    if (notification is ScrollStartNotification) {
+      _dragging =
+          notification.dragDetails != null &&
+          notification.metrics.extentBefore == 0 &&
+          notification.metrics.axisDirection == AxisDirection.down;
+      _dragOffset = 0;
+      return false;
+    }
+    if (!_dragging) return false;
+
+    if (notification is ScrollEndNotification) {
+      _dragging = false;
+      if (_position.value >= 1.0) {
+        unawaited(_refresh());
+      } else {
+        unawaited(
+          _position.animateTo(
+            0.0,
+            duration: _kRefreshFadeDuration,
+            curve: Curves.easeOut,
+          ),
+        );
+      }
+      return false;
+    }
+
+    final double delta;
+    if (notification is ScrollUpdateNotification) {
+      // Ballistic updates after the finger lifts must not retract the pull.
+      if (notification.dragDetails == null) return false;
+      delta = -notification.scrollDelta!;
+    } else if (notification is OverscrollNotification) {
+      delta = -notification.overscroll;
+    } else {
+      return false;
+    }
+
+    // Pulling further only makes sense while the list is at its top. Moving
+    // back up always retracts the pull: by then the list itself is scrolling
+    // back to the top and must not wipe the indicator in one frame.
+    if (delta > 0 && notification.metrics.extentBefore > 0) return false;
+
+    _dragOffset += delta;
+    if (_dragOffset <= 0) {
+      _dragOffset = 0;
+      _position.value = 0;
+    } else {
+      _position.value =
+          (_dragOffset /
+                  (notification.metrics.viewportDimension *
+                      _kRefreshDragExtent))
+              .clamp(0.0, 1.0)
+              .toDouble();
+    }
+    return false;
+  }
+
+  Future<void> _refresh() async {
+    _refreshing = true;
+    await _position.animateTo(
+      1 / _kRefreshSizeFactor,
+      duration: _kRefreshSnapDuration,
+    );
+    if (!mounted) return;
+    setState(() {});
+    try {
+      await widget.onRefresh();
+    } finally {
+      if (mounted) {
+        await _scale.animateTo(1.0, duration: _kRefreshFadeDuration);
+        _position.value = 0;
+        _scale.value = 0;
+        _refreshing = false;
+        setState(() {});
+      }
+    }
+  }
+
+  bool _handleIndicatorNotification(
+    OverscrollIndicatorNotification notification,
+  ) {
+    if (notification.depth == 0 && _position.value > 0) {
+      notification.disallowIndicator();
+    }
+    return false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = context.theme;
-    return RefreshIndicator(
-      onRefresh: onRefresh,
-      color: theme.colors.primary,
-      backgroundColor: theme.colors.card,
-      child: child,
+    final color = theme.colors.primary;
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: NotificationListener<OverscrollIndicatorNotification>(
+        onNotification: _handleIndicatorNotification,
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_position, _scale]),
+          child: widget.child,
+          builder: (context, child) {
+            final value = _position.value;
+            return Stack(
+              children: [
+                child!,
+                if (value > 0)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: SizeTransition(
+                      alignment: Alignment.bottomCenter,
+                      sizeFactor: _sizeFactor,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          top: _kRefreshDisplacement,
+                        ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ScaleTransition(
+                            scale: _scaleFactor,
+                            child: RefreshProgressIndicator(
+                              semanticsLabel: MaterialLocalizations.of(context)
+                                  .refreshIndicatorSemanticLabel,
+                              value: _refreshing ? null : value * 0.75,
+                              color: Color.lerp(
+                                color.withAlpha(0),
+                                color,
+                                (value / (1 / _kRefreshSizeFactor)).clamp(
+                                  0.0,
+                                  1.0,
+                                ),
+                              ),
+                              backgroundColor: theme.colors.card,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 }

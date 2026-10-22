@@ -82,6 +82,55 @@ void main() {
       expect(refreshed, 1);
       await tester.pumpAndSettle();
     });
+
+    testWidgets('indicator follows the pull back up and cancels', (
+      tester,
+    ) async {
+      var refreshed = 0;
+      await _pumpRefresh(
+        tester,
+        AppPageListView(
+          onRefresh: () async => refreshed++,
+          children: [for (var i = 0; i < 60; i++) const SizedBox(height: 100)],
+        ),
+      );
+
+      final gesture = await tester.startGesture(const Offset(195, 400));
+      await tester.pump();
+      for (var i = 0; i < 30; i++) {
+        await gesture.moveBy(const Offset(0, 5));
+        await tester.pump();
+      }
+      final pulled = tester
+          .getTopLeft(find.byType(RefreshProgressIndicator))
+          .dy;
+
+      // Dragging back up without releasing must retract the indicator instead
+      // of leaving it stuck at the armed position or wiping it out at once
+      // when the list itself starts scrolling back to the top.
+      for (var i = 0; i < 6; i++) {
+        await gesture.moveBy(const Offset(0, -5));
+        await tester.pump();
+      }
+      final partiallyRetracted = tester
+          .getTopLeft(find.byType(RefreshProgressIndicator))
+          .dy;
+      expect(partiallyRetracted, lessThan(pulled));
+
+      for (var i = 0; i < 18; i++) {
+        await gesture.moveBy(const Offset(0, -5));
+        await tester.pump();
+      }
+      final retracted = tester
+          .getTopLeft(find.byType(RefreshProgressIndicator))
+          .dy;
+      expect(retracted, lessThan(partiallyRetracted - 20));
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(refreshed, 0);
+      expect(find.byType(RefreshProgressIndicator), findsNothing);
+    });
   });
 
   test('appRoute stores a stable route name', () {
