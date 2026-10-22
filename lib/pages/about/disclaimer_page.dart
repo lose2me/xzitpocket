@@ -7,7 +7,7 @@ import 'package:forui/forui.dart';
 
 import '../../providers/config_provider.dart';
 import '../../ui/app_components.dart';
-import '../../ui/app_markdown.dart';
+import 'about_markdown.dart';
 
 /// First-run disclaimer. Shown only while `disclaimer_accepted` is unset.
 /// Accepting persists the flag permanently; it is never cleared by
@@ -16,59 +16,52 @@ import '../../ui/app_markdown.dart';
 /// reappears. There is no back button and no system-back escape: the user
 /// must pick one of the two buttons.
 class DisclaimerPage extends ConsumerStatefulWidget {
-  const DisclaimerPage({super.key});
+  /// 首次安装的合规门禁为 true：显示「拒绝 / 同意并继续」。
+  ///
+  /// 从「附加页面」进入时传 false，仅作阅读，页面内不出现任何确认/取消按钮。
+  final bool showActions;
+
+  const DisclaimerPage({super.key, this.showActions = true});
 
   @override
   ConsumerState<DisclaimerPage> createState() => _DisclaimerPageState();
 }
 
 class _DisclaimerPageState extends ConsumerState<DisclaimerPage> {
-  static const _termsAsset = 'assets/about/disclaimer.md';
-  String? _terms;
-
-  @override
-  void initState() {
-    super.initState();
-    unawaited(_loadTerms());
-  }
-
-  Future<void> _loadTerms() async {
-    final content = await rootBundle.loadString(_termsAsset);
-    if (mounted) setState(() => _terms = content);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final terms = _terms;
+    final showActions = widget.showActions;
     return PopScope(
-      canPop: false,
+      canPop: !showActions,
       child: AppPage(
         title: '免责声明',
-        showBackButton: false,
+        showBackButton: !showActions,
         child: AppPageListView(
           showScrollbar: true,
           children: [
-            if (terms != null) AppMarkdown(data: terms),
-            // 按钮紧跟文章最下面（非固定底栏），不加额外样式。
-            const SizedBox(height: 32),
-            Row(
-              children: [
-                Expanded(
-                  child: FButton(
-                    variant: FButtonVariant.secondary,
-                    onPress: () => SystemNavigator.pop(),
-                    child: const Text('拒绝'),
+            const AboutMarkdown(asset: 'assets/about/disclaimer.md'),
+            // 首次安装才需要做出选择；阅读入口不显示任何按钮。
+            if (showActions) ...[
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.secondary,
+                      onPress: () => SystemNavigator.pop(),
+                      child: const Text('拒绝'),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FButton(
-                    onPress: () => unawaited(_accept()),
-                    child: const Text('同意并继续'),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FButton(
+                      onPress: () => unawaited(_accept()),
+                      child: const Text('同意并继续'),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ],
         ),
       ),

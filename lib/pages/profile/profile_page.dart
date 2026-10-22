@@ -22,6 +22,7 @@ import '../../utils/error_message.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../../ui/update_prompt.dart';
+import '../about/extra_pages_page.dart';
 import '../about/faq_page.dart';
 import '../about/open_source_license_page.dart';
 import '../../services/cas_service.dart';
@@ -263,6 +264,16 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           const ProfileSectionLabel(title: '软件信息'),
           ProfileSettingsGroup(
             children: [
+              ProfileSettingsTile(
+                icon: FLucideIcons.files,
+                title: '附加页面',
+                onTap: () => Navigator.of(context).push(
+                  appRoute(
+                    name: AppRouteNames.extraPages,
+                    builder: (_) => const ExtraPagesPage(),
+                  ),
+                ),
+              ),
               ProfileSettingsTile(
                 icon: FLucideIcons.bug,
                 title: '调试模式',
@@ -797,9 +808,9 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     final previousStudentId = prefs.getStudentId();
     ControlService.instance.updateLoginGate(sid);
     try {
-      await ControlService.instance
-          .initialize()
-          .timeout(const Duration(seconds: 4));
+      await ControlService.instance.initialize().timeout(
+        const Duration(seconds: 4),
+      );
       await ControlService.instance
           .refreshSchoolCalendarIfChanged(prefs)
           .timeout(const Duration(seconds: 4));
