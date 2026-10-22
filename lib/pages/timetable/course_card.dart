@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
@@ -178,6 +180,29 @@ class CourseCard extends StatelessWidget {
         ],
       ),
     );
+    // Courses from other weeks are demoted to a washed-out, hatched card so
+    // they read as "not this week" without losing the original color entirely.
+    Widget displayCard = card;
+    if (muted) {
+      displayCard = Stack(
+        children: [
+          card,
+          Positioned.fill(
+            key: const ValueKey('muted-course-wash'),
+            child: IgnorePointer(
+              child: ClipRRect(
+                borderRadius: borderRadius,
+                child: CustomPaint(
+                  painter: _MutedCoursePainter(
+                    dark: brightness == Brightness.dark,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     final decorated = borderType != 'none' && courseBorderOpacity > 0
         ? CustomPaint(
             foregroundPainter: _CourseBorderPainter(
@@ -187,9 +212,9 @@ class CourseCard extends StatelessWidget {
               dashed: borderType == 'dashed',
               density: dashedBorderDensity,
             ),
-            child: card,
+            child: displayCard,
           )
-        : card;
+        : displayCard;
     return Container(margin: EdgeInsets.all(outerPadding), child: decorated);
   }
 
@@ -238,6 +263,35 @@ class CourseCard extends StatelessWidget {
         .start;
     return start.startsWith('0') ? start.substring(1) : start;
   }
+}
+
+class _MutedCoursePainter extends CustomPainter {
+  final bool dark;
+
+  const _MutedCoursePainter({required this.dark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final wash = (dark ? const Color(0xFF000000) : const Color(0xFFFFFFFF))
+        .withValues(alpha: 0.618);
+    canvas.drawRect(Offset.zero & size, Paint()..color = wash);
+
+    final stripe = (dark ? const Color(0xFFFFFFFF) : const Color(0xFF000000))
+        .withValues(alpha: 0.06);
+    const period = 5.0;
+    final shader = ui.Gradient.linear(
+      Offset.zero,
+      const Offset(period, period),
+      [stripe, stripe, const Color(0x00000000), const Color(0x00000000)],
+      const [0.0, 0.45, 0.55, 1.0],
+      ui.TileMode.repeated,
+    );
+    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
+  }
+
+  @override
+  bool shouldRepaint(_MutedCoursePainter oldDelegate) =>
+      oldDelegate.dark != dark;
 }
 
 class _CourseBorderPainter extends CustomPainter {

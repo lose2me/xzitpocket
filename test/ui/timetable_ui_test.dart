@@ -46,6 +46,38 @@ void main() {
     expect(titleRect.center.dy, closeTo(cardRect.center.dy, 5));
   });
 
+  testWidgets('muted course card adds the diagonal wash layer', (tester) async {
+    final course = Course(
+      title: '非本周课程',
+      teacher: '',
+      weekday: 1,
+      sessions: const [1],
+      weeks: const [2],
+      campus: '',
+      place: '',
+      colorIndex: 0,
+    );
+    Future<void> pump({required bool muted}) => tester.pumpWidget(
+      _testApp(
+        SizedBox(
+          width: 140,
+          height: 120,
+          child: CourseCard(
+            course: course,
+            muted: muted,
+            borderColor: Colors.black,
+          ),
+        ),
+      ),
+    );
+
+    await pump(muted: false);
+    expect(find.byKey(const ValueKey('muted-course-wash')), findsNothing);
+
+    await pump(muted: true);
+    expect(find.byKey(const ValueKey('muted-course-wash')), findsOneWidget);
+  });
+
   testWidgets('course teacher text follows the template', (tester) async {
     final course = Course(
       title: '高等数学',

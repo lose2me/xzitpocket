@@ -351,9 +351,8 @@ class _TimetableGridState extends State<TimetableGrid> {
 
     final courseOpacity = widget.courseOpacity;
     final courseBorderOpacity = widget.courseBorderOpacity;
-    final nonCurrentCourseOpacity = (courseOpacity * 0.38)
-        .clamp(0.18, 0.4)
-        .toDouble();
+    // The muted card paints its own wash + hatch; keep the base color at the
+    // normal opacity so the result stays a pale tint instead of turning gray.
     final nonCurrentCourseBorderOpacity = (courseBorderOpacity * 0.32)
         .clamp(0.14, 0.34)
         .toDouble();
@@ -697,9 +696,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                   ? widget.countdownAnimation
                                                   : null,
                                               muted: !isCurrentWeek,
-                                              courseOpacity: isCurrentWeek
-                                                  ? courseOpacity
-                                                  : nonCurrentCourseOpacity,
+                                              courseOpacity: courseOpacity,
                                               courseBorderOpacity: isCurrentWeek
                                                   ? courseBorderOpacity
                                                   : nonCurrentCourseBorderOpacity,
