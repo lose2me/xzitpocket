@@ -107,7 +107,7 @@ FDialogStyleDelta appDialogStyle(BuildContext context) {
 FDialogRouteStyleDelta appDialogRouteStyle() => FDialogRouteStyleDelta.delta(
   barrierFilter: () =>
       (context, animation) => ImageFilter.compose(
-        outer: ImageFilter.blur(sigmaX: animation * 2, sigmaY: animation * 2),
+        outer: ImageFilter.blur(sigmaX: animation * 4, sigmaY: animation * 4),
         inner: ColorFilter.mode(
           context.theme.colors.barrier.withValues(alpha: animation * 0.30),
           BlendMode.srcOver,
