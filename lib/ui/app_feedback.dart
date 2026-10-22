@@ -138,6 +138,7 @@ class AppDialogTextAction extends StatelessWidget {
   final String label;
   final VoidCallback? onPress;
   final Color? color;
+  final Color? background;
   final bool emphasized;
 
   const AppDialogTextAction({
@@ -145,21 +146,34 @@ class AppDialogTextAction extends StatelessWidget {
     required this.label,
     required this.onPress,
     this.color,
+    this.background,
     this.emphasized = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final background = this.background;
     return FTappable(
       onPress: onPress,
       child: Center(
-        child: Text(
-          label,
-          style: theme.typography.label.copyWith(
-            fontSize: 16,
-            color: color ?? theme.colors.primary,
-            fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
+        child: Container(
+          padding: background == null
+              ? EdgeInsets.zero
+              : const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          decoration: background == null
+              ? null
+              : BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+          child: Text(
+            label,
+            style: theme.typography.label.copyWith(
+              fontSize: 16,
+              color: color ?? theme.colors.primary,
+              fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
+            ),
           ),
         ),
       ),
@@ -240,6 +254,8 @@ class AppDialogFooter extends StatelessWidget {
               label: confirmLabel,
               emphasized: true,
               color: destructive ? colors.destructive : colors.primary,
+              background: (destructive ? colors.destructive : colors.primary)
+                  .withValues(alpha: 0.12),
               onPress: onConfirm,
             ),
           ),
