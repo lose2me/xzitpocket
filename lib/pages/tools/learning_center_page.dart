@@ -833,6 +833,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       style: appDialogStyle(context),
       builder: (context, style, animation) => FDialog(
         animation: animation,
+        constraints: const BoxConstraints(
+          minWidth: 280,
+          maxWidth: AppDialogMetrics.maxWidth,
+        ),
         builder: (context, style) => _CdkRedeemSheet(
           bankName: name,
           onRedeem: (code) => repository.redeemCdk(code, bank.id),
@@ -1058,42 +1062,36 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
     final theme = context.theme;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        AppSpacing.xxl,
-        AppSpacing.xxl,
-        AppSpacing.xxl,
-        AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
+        20,
+        20,
+        20,
+        10 + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AppDialogIcon(
-              icon: FLucideIcons.keyRound,
-              color: theme.colors.primary,
-            ),
-            const SizedBox(height: AppSpacing.md),
             Text(
               '解锁题库',
-              textAlign: TextAlign.center,
               style: theme.typography.body.lg.copyWith(
-                fontSize: 17,
-                height: 24 / 17,
+                fontSize: 16,
+                height: 22 / 16,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0,
                 color: theme.colors.foreground,
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: 6),
             Text(
               '「${widget.bankName}」需要 CDK 解锁后才能练习',
-              textAlign: TextAlign.center,
               style: theme.typography.bodySmall.copyWith(
-                height: 21 / 14,
+                height: 20 / 14,
                 color: theme.colors.mutedForeground,
               ),
             ),
-            const SizedBox(height: AppSpacing.xxl),
+            const SizedBox(height: AppSpacing.lg),
             AppTextField(
               controller: _controller,
               hint: '输入 CDK',
@@ -1104,15 +1102,13 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
               enabled: !_redeeming,
               clearable: true,
             ),
-            const SizedBox(height: AppSpacing.xl),
-            SizedBox(
-              width: double.infinity,
-              height: AppDialogMetrics.actionHeight,
-              child: FButton(
-                variant: FButtonVariant.primary,
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerRight,
+              child: AppDialogTextAction(
+                label: _redeeming ? '兑换中...' : '兑换',
+                emphasized: true,
                 onPress: _redeeming ? null : () => unawaited(_submit()),
-                prefix: const Icon(FLucideIcons.unlock),
-                child: Text(_redeeming ? '兑换中...' : '兑换'),
               ),
             ),
           ],

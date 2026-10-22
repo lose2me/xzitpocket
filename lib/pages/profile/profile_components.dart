@@ -691,6 +691,10 @@ Future<Color?> showProfileColorPicker({
   style: appDialogStyle(context),
   builder: (context, style, animation) => FDialog(
     animation: animation,
+    constraints: const BoxConstraints(
+      minWidth: 280,
+      maxWidth: AppDialogMetrics.maxWidth,
+    ),
     builder: (context, style) =>
         _ProfileColorPickerDialog(initialColor: initialColor),
   ),
@@ -729,24 +733,18 @@ class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.xxl,
-        AppSpacing.xxl,
-        AppSpacing.xxl,
-        AppSpacing.xl,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 320),
+        constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               '自定义颜色',
-              textAlign: TextAlign.center,
               style: theme.typography.body.lg.copyWith(
-                fontSize: 17,
-                height: 24 / 17,
+                fontSize: 16,
+                height: 22 / 16,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0,
                 color: theme.colors.foreground,

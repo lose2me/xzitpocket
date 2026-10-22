@@ -10,7 +10,7 @@ void main() {
     child: MaterialApp(home: Scaffold(body: child)),
   );
 
-  testWidgets('destructive dialog shows the warning badge and cancels', (
+  testWidgets('destructive dialog uses flat text actions and cancels', (
     tester,
   ) async {
     bool? result;
@@ -37,7 +37,8 @@ void main() {
 
     expect(find.text('删除课程'), findsOneWidget);
     expect(find.text('仅删除第 3 周的这次课程。'), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.triangleAlert), findsOneWidget);
+    // Option 1 keeps the dialog flat: text actions only, no filled buttons.
+    expect(find.byType(FButton), findsNothing);
 
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
@@ -45,7 +46,7 @@ void main() {
     expect(result, isFalse);
   });
 
-  testWidgets('benign dialog has no warning badge and confirms', (
+  testWidgets('benign dialog uses flat text actions and confirms', (
     tester,
   ) async {
     bool? result;
@@ -69,7 +70,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(FLucideIcons.triangleAlert), findsNothing);
+    expect(find.byType(FButton), findsNothing);
 
     await tester.tap(find.text('解绑'));
     await tester.pumpAndSettle();
