@@ -598,10 +598,13 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         );
         return;
       }
+      final cloudEnabled = prefs.getUseCloudTimetableAdjustments();
       final confirmed = await showAppConfirmDialog(
         context: context,
         title: '同步并重建课表？',
-        message: '拉取教务系统课表并应用云端校历调整，当前手动调整会被覆盖。',
+        message: cloudEnabled
+            ? '拉取教务系统课表，并应用云端校历调整；当前手动调整会被覆盖。'
+            : '拉取教务系统课表；当前手动调整会被覆盖。',
         confirmLabel: '同步并重建',
         cancelLabel: '取消',
       );
