@@ -87,6 +87,78 @@ Future<T?> showAppSheet<T>({
   builder: (context) => AppSheetSurface(child: builder(context)),
 );
 
+/// Shared white card used by every centered dialog.
+FDialogStyleDelta appDialogStyle(BuildContext context) {
+  final colors = context.theme.colors;
+  return FDialogStyleDelta.delta(
+    insetPadding: const EdgeInsetsGeometryDelta.value(
+      EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+    ),
+    decoration: DecorationDelta.shapeDelta(
+      color: colors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+  );
+}
+
+/// Flat scrim (no blur) matching the reference design.
+FDialogRouteStyleDelta appDialogRouteStyle() =>
+    FDialogRouteStyleDelta.delta(barrierFilter: () => null);
+
+abstract final class AppDialogMetrics {
+  static const double maxWidth = 320;
+  static const double actionHeight = 50;
+  static const double inputActionHeight = 48;
+}
+
+class AppDialogDivider extends StatelessWidget {
+  final bool vertical;
+
+  const AppDialogDivider({super.key, this.vertical = false});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: vertical ? 1 : null,
+    height: vertical ? null : 1,
+    color: context.theme.colors.border.withValues(alpha: 0.55),
+  );
+}
+
+/// Text action used by the split footer of a confirmation dialog.
+class AppDialogTextAction extends StatelessWidget {
+  final String label;
+  final VoidCallback? onPress;
+  final Color? color;
+  final bool emphasized;
+
+  const AppDialogTextAction({
+    super.key,
+    required this.label,
+    required this.onPress,
+    this.color,
+    this.emphasized = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return FTappable(
+      onPress: onPress,
+      child: Center(
+        child: Text(
+          label,
+          style: theme.typography.label.copyWith(
+            fontSize: 16,
+            color: color ?? theme.colors.primary,
+            fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Confirmation dialog with a split text footer.
 Future<bool> showAppConfirmDialog({
   required BuildContext context,
   required String title,
@@ -95,56 +167,71 @@ Future<bool> showAppConfirmDialog({
   String cancelLabel = '取消',
   bool destructive = false,
 }) async {
+  final colors = context.theme.colors;
   final result = await showFDialog<bool>(
     context: context,
+    barrierDismissible: !destructive,
+    routeStyle: appDialogRouteStyle(),
+    style: appDialogStyle(context),
     builder: (context, style, animation) => FDialog(
       animation: animation,
-      builder: (context, style) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: double.infinity,
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                style: context.theme.typography.pageTitle,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              message,
-              style: context.theme.typography.bodySmall.copyWith(
-                color: context.theme.colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+      constraints: const BoxConstraints(
+        minWidth: 280,
+        maxWidth: AppDialogMetrics.maxWidth,
+      ),
+      builder: (context, style) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                FButton(
-                  variant: FButtonVariant.ghost,
-                  size: FButtonSizeVariant.sm,
-                  mainAxisSize: MainAxisSize.min,
-                  onPress: () => Navigator.pop(context, false),
-                  child: Text(cancelLabel),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: context.theme.typography.pageTitle.copyWith(
+                    height: 1.3,
+                  ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
-                FButton(
-                  // Confirmation actions use the active theme color so they
-                  // remain consistent with user-selected app themes.
-                  variant: FButtonVariant.secondary,
-                  size: FButtonSizeVariant.sm,
-                  mainAxisSize: MainAxisSize.min,
-                  onPress: () => Navigator.pop(context, true),
-                  child: Text(confirmLabel),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: context.theme.typography.bodySmall.copyWith(
+                    height: 20 / 14,
+                    color: colors.mutedForeground,
+                  ),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          const AppDialogDivider(),
+          SizedBox(
+            height: AppDialogMetrics.actionHeight,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: AppDialogTextAction(
+                    label: cancelLabel,
+                    color: colors.mutedForeground,
+                    onPress: () => Navigator.pop(context, false),
+                  ),
+                ),
+                const AppDialogDivider(vertical: true),
+                Expanded(
+                  child: AppDialogTextAction(
+                    label: confirmLabel,
+                    emphasized: true,
+                    color: destructive ? colors.destructive : colors.primary,
+                    onPress: () => Navigator.pop(context, true),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     ),
   );
