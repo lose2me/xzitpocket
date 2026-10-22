@@ -687,6 +687,8 @@ Future<Color?> showProfileColorPicker({
   required Color initialColor,
 }) => showFDialog<Color>(
   context: context,
+  routeStyle: appDialogRouteStyle(context),
+  style: appDialogStyle(context),
   builder: (context, style, animation) => FDialog(
     animation: animation,
     builder: (context, style) =>
@@ -727,7 +729,12 @@ class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Padding(
-      padding: const EdgeInsets.all(AppSpacing.xl),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xl,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 320),
         child: Column(
@@ -737,7 +744,13 @@ class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
             Text(
               '自定义颜色',
               textAlign: TextAlign.center,
-              style: theme.typography.pageTitle,
+              style: theme.typography.body.lg.copyWith(
+                fontSize: 17,
+                height: 24 / 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+                color: theme.colors.foreground,
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             Center(
@@ -801,25 +814,11 @@ class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Expanded(
-                  child: FButton(
-                    variant: FButtonVariant.outline,
-                    size: FButtonSizeVariant.sm,
-                    onPress: () => Navigator.pop(context),
-                    child: const Text('取消'),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: FButton(
-                    size: FButtonSizeVariant.sm,
-                    onPress: () => Navigator.pop(context, _selectedColor),
-                    child: const Text('确定'),
-                  ),
-                ),
-              ],
+            AppDialogActions(
+              cancelLabel: '取消',
+              confirmLabel: '确定',
+              onCancel: () => Navigator.pop(context),
+              onConfirm: () => Navigator.pop(context, _selectedColor),
             ),
           ],
         ),

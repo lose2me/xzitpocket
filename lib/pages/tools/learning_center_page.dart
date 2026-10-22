@@ -829,6 +829,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     }
     final redeemed = await showFDialog<bool>(
       context: context,
+      routeStyle: appDialogRouteStyle(context),
+      style: appDialogStyle(context),
       builder: (context, style, animation) => FDialog(
         animation: animation,
         builder: (context, style) => _CdkRedeemSheet(
@@ -1056,56 +1058,65 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
     final theme = context.theme;
     return Padding(
       padding: EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.sm,
-        AppSpacing.lg,
-        AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+        AppSpacing.xl + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            child: Center(
-              child: Text(
-                '解锁题库',
-                textAlign: TextAlign.center,
-                style: theme.typography.pageTitle.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AppDialogMetrics.maxWidth),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppDialogIcon(
+              icon: FLucideIcons.keyRound,
+              color: theme.colors.primary,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              '解锁题库',
+              textAlign: TextAlign.center,
+              style: theme.typography.body.lg.copyWith(
+                fontSize: 17,
+                height: 24 / 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0,
+                color: theme.colors.foreground,
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '「${widget.bankName}」需要 CDK 解锁后才能练习',
-            style: theme.typography.bodySmall.copyWith(
-              color: theme.colors.mutedForeground,
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              '「${widget.bankName}」需要 CDK 解锁后才能练习',
+              textAlign: TextAlign.center,
+              style: theme.typography.bodySmall.copyWith(
+                height: 21 / 14,
+                color: theme.colors.mutedForeground,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          AppTextField(
-            controller: _controller,
-            hint: '输入 CDK',
-            prefix: const Icon(FLucideIcons.keyRound),
-            textCapitalization: TextCapitalization.characters,
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => unawaited(_submit()),
-            enabled: !_redeeming,
-            clearable: true,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: FButton(
-              variant: FButtonVariant.primary,
-              onPress: _redeeming ? null : () => unawaited(_submit()),
-              prefix: const Icon(FLucideIcons.unlock),
-              child: Text(_redeeming ? '兑换中...' : '兑换'),
+            const SizedBox(height: AppSpacing.xxl),
+            AppTextField(
+              controller: _controller,
+              hint: '输入 CDK',
+              prefix: const Icon(FLucideIcons.keyRound),
+              textCapitalization: TextCapitalization.characters,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => unawaited(_submit()),
+              enabled: !_redeeming,
+              clearable: true,
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.xl),
+            SizedBox(
+              width: double.infinity,
+              height: AppDialogMetrics.actionHeight,
+              child: FButton(
+                variant: FButtonVariant.primary,
+                onPress: _redeeming ? null : () => unawaited(_submit()),
+                prefix: const Icon(FLucideIcons.unlock),
+                child: Text(_redeeming ? '兑换中...' : '兑换'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
