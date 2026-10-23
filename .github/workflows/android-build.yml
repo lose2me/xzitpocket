@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -54,7 +56,24 @@ jobs:
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test --reporter expanded
+        run: flutter test --reporter expanded --coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 14
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+      - name: Enforce coverage floor
+        run: dart tool/check_coverage.dart coverage/lcov.info 42
 
       - name: Prepare Android signing
         if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' && env.ANDROID_STORE_PASSWORD != '' && env.ANDROID_KEY_ALIAS != '' && env.ANDROID_KEY_PASSWORD != '' }}
