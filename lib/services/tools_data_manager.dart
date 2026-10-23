@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/academic.dart';
 import '../models/app_settings.dart';
 import '../models/learning_question.dart';
 import '../ui/date_range_calendar_sheet.dart' show studentHistoryStartDate;

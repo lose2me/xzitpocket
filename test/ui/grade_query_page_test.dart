@@ -5,8 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
+import 'package:xzitpocket/models/academic.dart';
 import 'package:xzitpocket/pages/tools/grade_query_page.dart';
-import 'package:xzitpocket/services/auth_service.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
 

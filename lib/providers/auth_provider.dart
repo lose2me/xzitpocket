@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/academic.dart';
 import '../models/course.dart';
 import '../models/app_settings.dart';
 import 'app_settings_provider.dart';

@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xzitpocket/services/auth_service.dart';
+import 'package:xzitpocket/models/academic.dart';
 
 void main() {
   test('academic cache accepts the current format', () {

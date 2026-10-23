@@ -7,8 +7,10 @@ import 'package:material_ui/material_ui.dart' show Scrollbar;
 import 'package:forui/forui.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 
+import '../../models/academic.dart';
 import '../../models/book_list.dart';
 import '../../services/auth_service.dart';
+import '../../services/book_list_parser.dart';
 import '../../services/cas_service.dart';
 import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';

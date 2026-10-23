@@ -6,10 +6,10 @@ import 'package:forui/forui.dart';
 
 import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
+import '../../models/academic.dart';
 import '../../models/app_settings.dart';
 import '../../models/resource_center.dart';
 import '../../providers/app_settings_provider.dart';
-import '../../services/auth_service.dart';
 import '../../services/credential_storage.dart';
 import '../../services/talker.dart';
 import '../../services/preferences_storage.dart';

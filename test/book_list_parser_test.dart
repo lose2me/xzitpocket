@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xzitpocket/services/auth_service.dart';
+import 'package:xzitpocket/models/academic.dart';
+import 'package:xzitpocket/services/book_list_parser.dart';
 
 void main() {
   test('parses the book list JSON envelope', () {
