@@ -119,24 +119,48 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final detail = _detail;
+    // The named page asks for the skeleton while refreshing, not just on the
+    // first load, so every pull replaces the timeline with placeholders.
     return AppPage(
       title: '报修进度',
-      child: _detail == null
+      child: detail == null || _isRefreshing
           ? AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
               safeArea: false,
+              pageGutter: true,
               onRefresh: _load,
-              child: _error == null
-                  ? const AppStateView(
-                      icon: FLucideIcons.hourglass,
-                      title: '正在加载详情',
-                    )
-                  : AppStateView(
+              child: detail == null && _error != null
+                  ? AppStateView(
                       icon: FLucideIcons.circleAlert,
                       title: _error!,
                       destructive: true,
-                    ),
+                    )
+                  : _buildSkeleton(),
             )
-          : _buildContent(_detail!),
+          : _buildContent(detail),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return AppSkeleton(
+      label: '正在加载报修进度',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: AppSpacing.lg,
+                bottom: AppSpacing.xxl,
+              ),
+              child: AppSkeletonBox(width: 168, height: 20),
+            ),
+          ),
+          for (var index = 0; index < 3; index++)
+            _SkeletonProcessStep(isLast: index == 2),
+        ],
+      ),
     );
   }
 
@@ -185,6 +209,68 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
       style: context.theme.typography.body.lg,
     ),
   );
+}
+
+class _SkeletonProcessStep extends StatelessWidget {
+  final bool isLast;
+
+  const _SkeletonProcessStep({required this.isLast});
+
+  @override
+  Widget build(BuildContext context) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            width: 24,
+            child: Column(
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: AppSkeletonBox(width: 10, height: 10, circle: true),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 1,
+                      color: context.theme.colors.border,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      AppSkeletonBox(width: 52, height: 16, radius: 2),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: AppSkeletonBox(width: 72, height: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  AppSkeletonBox(width: double.infinity, height: 12),
+                  SizedBox(height: 6),
+                  AppSkeletonBox(width: 160, height: 12),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _StatusBadge extends StatelessWidget {

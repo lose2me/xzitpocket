@@ -185,7 +185,9 @@ class _BookListPageState extends ConsumerState<BookListPage> {
     final result = _result;
     return AppPage(
       title: '教材查询',
-      child: result == null || result.isEmpty
+      child: result == null && _loading
+          ? _buildSkeleton()
+          : result == null || result.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
               pageGutter: true,
@@ -229,6 +231,46 @@ class _BookListPageState extends ConsumerState<BookListPage> {
                 for (final item in result.items) _buildBookCard(item),
               ],
             ),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.xs,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        AppSkeleton(
+          label: '正在加载教材',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AppSkeletonBox(
+                width: double.infinity,
+                height: 46,
+                radius: 8,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              const Center(child: AppSkeletonBox(width: 96, height: 12)),
+              const SizedBox(height: AppSpacing.md),
+              for (var index = 0; index < 5; index++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        AppSkeletonBox(width: 210, height: 16),
+                        SizedBox(height: AppSpacing.md),
+                        AppSkeletonBox(width: 132, height: 24, radius: 4),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

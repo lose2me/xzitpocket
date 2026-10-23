@@ -34,16 +34,25 @@ class RepairPage extends StatefulWidget {
 class _RepairPageState extends State<RepairPage> {
   late List<RepairRecord> _records;
   late RepairUserInfo _userInfo;
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     _records = widget.initialResult.records;
     _userInfo = widget.initialResult.userInfo;
-    unawaited(_load());
+    _loading = _records.isEmpty;
+    unawaited(_load(markLoading: false));
   }
 
-  Future<bool> _load({bool forceRefresh = false, bool showError = true}) async {
+  Future<bool> _load({
+    bool forceRefresh = false,
+    bool showError = true,
+    bool markLoading = true,
+  }) async {
+    if (markLoading && _records.isEmpty && !_loading) {
+      setState(() => _loading = true);
+    }
     try {
       final manager = ToolsDataManager.instance;
       RepairResult? result;
@@ -91,6 +100,8 @@ class _RepairPageState extends State<RepairPage> {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
       return false;
+    } finally {
+      if (mounted && _loading) setState(() => _loading = false);
     }
   }
 
@@ -129,7 +140,9 @@ class _RepairPageState extends State<RepairPage> {
           onPress: _openForm,
         ),
       ],
-      child: visible.isEmpty
+      child: _records.isEmpty && _loading
+          ? _buildSkeleton()
+          : visible.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
               onRefresh: () => _load(forceRefresh: true),
@@ -156,6 +169,54 @@ class _RepairPageState extends State<RepairPage> {
                 for (final record in visible) _buildRecordCard(theme, record),
               ],
             ),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.lg,
+      bottomPadding: AppSpacing.xxl,
+      onRefresh: () => _load(forceRefresh: true),
+      children: [
+        AppSkeleton(
+          label: '正在加载报修记录',
+          child: Column(
+            children: [
+              const Center(
+                child: AppSkeletonBox(width: 132, height: 12),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              for (var index = 0; index < 4; index++) _buildSkeletonCard(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSkeletonCard() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: AppCard(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Row(
+              children: [
+                AppSkeletonBox(width: 52, height: 16, radius: 2),
+                Spacer(),
+                AppSkeletonBox(width: 84, height: 12),
+              ],
+            ),
+            SizedBox(height: 10),
+            AppSkeletonBox(width: double.infinity, height: 12),
+            SizedBox(height: 6),
+            AppSkeletonBox(width: 188, height: 12),
+          ],
+        ),
+      ),
     );
   }
 

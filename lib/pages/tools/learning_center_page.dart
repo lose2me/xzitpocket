@@ -206,7 +206,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               ),
             ],
       child: loading
-          ? const AppStateView(icon: FLucideIcons.library, title: '正在加载资源')
+          ? _buildPageSkeleton()
           : repository.libraryUnavailable
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
@@ -258,7 +258,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (textbookLoading)
-            _buildLoading(theme)
+            _buildLoading()
           else
             _buildUploadEmpty(
               theme,
@@ -276,7 +276,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (bankLoading)
-            _buildLoading(theme)
+            _buildLoading()
           else
             _buildUploadEmpty(
               theme,
@@ -306,7 +306,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (resourceLoading)
-            _buildLoading(theme)
+            _buildLoading()
           else
             _buildUploadEmpty(
               theme,
@@ -398,14 +398,46 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
   }
 
-  Widget _buildLoading(FThemeData theme) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-    child: Center(
-      child: Text(
-        '正在加载…',
-        style: theme.typography.bodySmall.copyWith(
-          color: theme.colors.mutedForeground,
+  Widget _buildPageSkeleton() {
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.sm,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        AppSkeleton(
+          label: '正在加载资源',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(child: AppSkeletonBox(width: 168, height: 20)),
+              const SizedBox(height: AppSpacing.lg),
+              for (var index = 0; index < 3; index++) ...[
+                const AppSkeletonBox(width: 56, height: 14),
+                const SizedBox(height: AppSpacing.sm),
+                const AppSkeletonBox(
+                  width: double.infinity,
+                  height: 72,
+                  radius: 8,
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ],
+            ],
+          ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildLoading() => const AppSkeleton(
+    label: '正在加载',
+    child: Padding(
+      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+      child: Column(
+        children: [
+          AppSkeletonBox(width: double.infinity, height: 72, radius: 8),
+          SizedBox(height: AppSpacing.sm),
+          AppSkeletonBox(width: double.infinity, height: 72, radius: 8),
+        ],
       ),
     ),
   );

@@ -102,7 +102,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
         ),
       ],
       child: _loading
-          ? const AppStateView(icon: FLucideIcons.library, title: '正在加载资源')
+          ? _buildSkeleton()
           : _courses.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.contentMaxWidth,
@@ -114,6 +114,42 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
               ),
             )
           : _buildCourseList(context),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return AppPageBody(
+      maxWidth: AppLayout.contentMaxWidth,
+      child: AppSkeleton(
+        label: '正在加载资源',
+        child: Column(
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.sm,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: AppSkeletonBox(width: double.infinity, height: 46, radius: 8),
+            ),
+            Expanded(
+              child: ListView.separated(
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                  AppSpacing.md,
+                  AppSpacing.xxl,
+                ),
+                itemCount: 5,
+                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
+                itemBuilder: (_, _) => const _CourseCardSkeleton(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -211,6 +247,39 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
         name: AppRouteNames.learning,
         builder: (_) =>
             LearningCenterPage(repository: widget.repository, course: course),
+      ),
+    );
+  }
+}
+
+class _CourseCardSkeleton extends StatelessWidget {
+  const _CourseCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: const [
+          AppSkeletonBox(width: 46, height: 62, radius: 8),
+          SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSkeletonBox(width: 150, height: 14),
+                SizedBox(height: 8),
+                AppSkeletonBox(width: 92, height: 12),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

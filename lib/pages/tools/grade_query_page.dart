@@ -461,14 +461,60 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
   Widget _buildEmptyGradeState(FThemeData theme) {
     final loading = _loading && _result == null;
+    if (loading) {
+      return ListView(
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        children: [
+          AppSkeleton(
+            label: '正在加载成绩',
+            child: Column(
+              children: [
+                for (var index = 0; index < 6; index++)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: AppCard(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      child: Row(
+                        children: const [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                AppSkeletonBox(width: 148, height: 16),
+                                SizedBox(height: 8),
+                                AppSkeletonBox(width: 96, height: 12),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: AppSpacing.lg),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              AppSkeletonBox(width: 44, height: 10),
+                              SizedBox(height: 6),
+                              AppSkeletonBox(width: 52, height: 28),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            loading
-                ? FLucideIcons.hourglass
-                : _hideSemesterSelector
+            _hideSemesterSelector
                 ? FLucideIcons.clock3
                 : FLucideIcons.graduationCap,
             size: 48,
@@ -476,11 +522,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           ),
           const SizedBox(height: 12),
           Text(
-            loading
-                ? '正在加载成绩'
-                : _hideSemesterSelector
-                ? '暂未开始考试'
-                : '暂无成绩',
+            _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
             style: theme.typography.tileTitle.copyWith(
               color: theme.colors.mutedForeground,
             ),
@@ -583,18 +625,67 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
 
   // ── Academic Tab ──
 
+  Widget _buildAcademicSkeleton() {
+    return AppSkeleton(
+      label: '正在加载学业总览',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AppCard(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.lg,
+              vertical: AppSpacing.md,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                AppSkeletonBox(width: 120, height: 14),
+                SizedBox(height: AppSpacing.md),
+                AppSkeletonBox(width: double.infinity, height: 10, radius: 999),
+                SizedBox(height: AppSpacing.md),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    AppSkeletonBox(width: 92, height: 12),
+                    AppSkeletonBox(width: 72, height: 12),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          for (var index = 0; index < 4; index++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              child: AppCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                child: Row(
+                  children: const [
+                    Expanded(child: AppSkeletonBox(height: 14)),
+                    SizedBox(width: AppSpacing.lg),
+                    AppSkeletonBox(width: 56, height: 14),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAcademicTab(FThemeData theme) {
     final status = _academic;
     if (status == null) {
       return AppPageBody(
         maxWidth: AppLayout.resultMaxWidth,
         safeArea: false,
+        pageGutter: true,
         onRefresh: _loading ? null : () => _load(forceRefresh: true),
         child: _loading
-            ? const AppStateView(
-                icon: FLucideIcons.hourglass,
-                title: '正在加载学业总览',
-              )
+            ? _buildAcademicSkeleton()
             : const AppStateView(
                 icon: FLucideIcons.chartColumn,
                 title: '暂无学业数据',

@@ -41,7 +41,12 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MediaQuery(
-        data: const MediaQueryData(size: Size(390, 844)),
+        data: const MediaQueryData(
+          size: Size(390, 844),
+          // Keep the loading skeleton static so pumpAndSettle() does not wait
+          // for the perpetual pulse while the control requests are pending.
+          disableAnimations: true,
+        ),
         child: MaterialApp(
           localizationsDelegates: FLocalizations.localizationsDelegates,
           supportedLocales: FLocalizations.supportedLocales,
