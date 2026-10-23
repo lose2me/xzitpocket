@@ -34,10 +34,8 @@ dependencies:
   talker_flutter:
     path: third_party/talker_flutter
   talker_dio_logger: ^5.1.20
-  # 0.27.x pulls its own material_ui fork, which makes ThemeData/InputBorder
-  # incompatible with the Flutter Material types used in app.dart and
-  # profile_page.dart. Re-evaluate after those call sites are migrated.
-  forui: 0.25.0
+  material_ui: ^1.8.0
+  forui: ^0.27.6
   path_provider: ^2.1.6
   image_gallery_saver_plus: ^5.1.1
   two_dimensional_scrollables: ^0.5.5

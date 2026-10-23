@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 import 'package:talker_flutter/talker_flutter.dart';
@@ -172,9 +172,14 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         );
         // 「不受系统文字缩放影响」开关（默认开启）：作用于没有独立字号设置的
         // 全部文字；课表内部已有自己的 withNoTextScaling 与字号设置，不受影响。
-        return settings.ignoreSystemTextScale
+        final themed = settings.ignoreSystemTextScale
             ? MediaQuery.withNoTextScaling(child: transition)
             : transition;
+        // Vendored talker_flutter (and other legacy packages) still use
+        // package:flutter/material.dart. Bridge their theme and localizations
+        // until those dependencies move to package:material_ui.
+        // ignore: deprecated_member_use
+        return MaterialUiCompatibilityBridge(child: themed);
       },
       home: HomePage(key: HomePage.globalKey),
     );

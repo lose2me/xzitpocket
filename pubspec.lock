@@ -409,18 +409,18 @@ packages:
     dependency: "direct main"
     description:
       name: forui
-      sha256: bf2a76293044ec8fbe8869032a67e79b6dfb12a471c9c3ecacb45626e69744d2
+      sha256: "3ea0d75e66e4a01f0b878bdaaad391555b16dc027ac4ee76046045c882b921fa"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.25.0"
-  forui_assets:
+    version: "0.27.6"
+  forui_lucide:
     dependency: transitive
     description:
-      name: forui_assets
-      sha256: "43b219f28399786b8ac51c01048f583b3155c0e39ac163845b1e73c959240139"
+      name: forui_lucide
+      sha256: "63c660e4213309d9558cfc1c10ec52c13dab88cc2794dc41b8be769a7c86206c"
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "0.25.0"
+    version: "0.27.0"
   frontend_server_client:
     dependency: transitive
     description:
@@ -718,7 +718,7 @@ packages:
     source: hosted
     version: "0.13.0"
   material_ui:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: material_ui
       sha256: e4031746f96c8316864d9b92bce375f1320a36ed56e166307e1e1bda9d90b4ab

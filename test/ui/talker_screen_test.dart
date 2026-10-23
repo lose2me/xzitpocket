@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' as legacy;
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
@@ -14,7 +15,12 @@ void main() {
       ..debug('visible debug record');
 
     await tester.pumpWidget(
-      MaterialApp(home: TalkerScreen(talker: talker, isLogsExpanded: false)),
+      MaterialApp(
+        builder: (context, child) =>
+            // ignore: deprecated_member_use
+            MaterialUiCompatibilityBridge(child: child!),
+        home: TalkerScreen(talker: talker, isLogsExpanded: false),
+      ),
     );
     for (var frame = 0; frame < 20; frame++) {
       await tester.pump(const Duration(milliseconds: 16));
@@ -24,7 +30,9 @@ void main() {
     expect(record, findsOneWidget);
     expect(tester.getTopLeft(record).dy, lessThan(844));
     expect(
-      tester.widget<SliverAppBar>(find.byType(SliverAppBar)).expandedHeight,
+      tester
+          .widget<legacy.SliverAppBar>(find.byType(legacy.SliverAppBar))
+          .expandedHeight,
       lessThan(300),
     );
   });

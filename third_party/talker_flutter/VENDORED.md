@@ -12,6 +12,9 @@
     location) in debug builds.
 - Why vendored: upstream has no localized strings and does not contain the
   height fix, so the package cannot be replaced with the pub dependency yet.
+- It still imports `package:flutter/material.dart`; `app.dart` wraps the app in
+  `MaterialUiCompatibilityBridge` so the legacy Material widgets resolve the
+  `material_ui` theme and localizations.
 - Updating:
   1. Download the new pub.dev archive and diff its `lib/` against this copy.
   2. Re-apply the local changes above.

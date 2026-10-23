@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
-import 'package:flutter/material.dart' show Scrollbar;
+import 'package:material_ui/material_ui.dart' show Scrollbar;
 import 'package:forui/forui.dart';
 import 'package:two_dimensional_scrollables/two_dimensional_scrollables.dart';
 
