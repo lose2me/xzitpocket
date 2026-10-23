@@ -1142,10 +1142,10 @@ packages:
     dependency: transitive
     description:
       name: talker
-      sha256: "57b160b70123fdb28cc1035987e4718bce5715c724a40ff74d6466d1559de68a"
+      sha256: a6424cb72d428e28d37c3e51996b490de285b9c72f3d63bcdf0c0bec67fa6a33
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "5.1.20"
+    version: "5.1.21"
   talker_dio_logger:
     dependency: "direct main"
     description:
@@ -1160,15 +1160,15 @@ packages:
       path: "third_party/talker_flutter"
       relative: true
     source: path
-    version: "5.1.20"
+    version: "5.1.21"
   talker_logger:
     dependency: transitive
     description:
       name: talker_logger
-      sha256: b24550d115f209a1b84a697d65f5ec0fa9eb483735c802f18077692fa83cb5f8
+      sha256: ab79386b7def513e091136c2d3215fe7412ac5af6b83d49a6aaf6343a9ca64b3
       url: "https://pub.flutter-io.cn"
     source: hosted
-    version: "5.1.20"
+    version: "5.1.21"
   term_glyph:
     dependency: transitive
     description:
