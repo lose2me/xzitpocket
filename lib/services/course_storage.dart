@@ -58,7 +58,16 @@ class CourseStorage {
     required Iterable<SchoolDay> days,
     required DateTime semesterStart,
   }) async {
-    if (_originalCourseBox.isEmpty) return false;
+    // Timetables written before the original-snapshot feature have no
+    // baseline, so no adjustment could ever be applied. The current timetable
+    // is the only available snapshot in that case; adopt it so upgraded users
+    // are not stuck with an empty baseline forever.
+    if (_originalCourseBox.isEmpty) {
+      if (_courseBox.isEmpty) return false;
+      for (final course in _courseBox.values) {
+        await _originalCourseBox.add(course);
+      }
+    }
     final rules = days.where((day) => day.adjustment.isNotEmpty).toList();
     if (rules.isEmpty) return false;
 

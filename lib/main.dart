@@ -127,7 +127,13 @@ Future<void> _finishStartup(
   try {
     final calendarChanged = await ControlService.instance
         .refreshSchoolCalendarIfChanged(preferencesStorage);
-    if (calendarChanged &&
+    // A timetable saved before the original-snapshot feature has no baseline,
+    // so cloud rules have never been applied even though the calendar may be
+    // current. Repair it on this launch instead of waiting for a manual sync.
+    final missingBaseline =
+        courseStorage.getOriginalCourses().isEmpty &&
+        courseStorage.getCourses().isNotEmpty;
+    if ((calendarChanged || missingBaseline) &&
         preferencesStorage.getUseCloudTimetableAdjustments()) {
       await courseStorage.applyCloudAdjustments(
         days: semesterCalendar.days,
