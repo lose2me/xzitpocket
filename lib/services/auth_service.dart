@@ -1443,6 +1443,7 @@ class AuthService {
     'term': item['XQMMC'],
     'courseCode': item['KCH'],
     'name': item['KCMC'],
+    // URP 教务系统原始列名就是 XSXXXX（学时），不是占位符。
     'hours': item['XSXXXX'],
     'nature': item['KCXZMC'],
     'credit': item['XF'],
