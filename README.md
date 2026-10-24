@@ -5,9 +5,11 @@
 [![codecov](https://codecov.io/github/lose2me/xzitpocket/graph/badge.svg?token=QS3S74BSOX)](https://codecov.io/github/lose2me/xzitpocket)
 [![License: GPL](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://opensource.org/licenses/gpl-3-0)
 
+[![Codecov](https://codecov.io/github/lose2me/xzitpocket-control/graphs/icicle.svg?token=H8G1IF0RKQ)](https://codecov.io/github/lose2me/xzitpocket-control/graphs/icicle.svg?token=H8G1IF0RKQ)
+
 </div>
 
-[掌上徐工](https://github.com/lose2me/xzitpocket) 是一款开源，高性能，跨平台，以 MD3 风格为主的校园助手APP（非官方）。  
+[**掌上徐工**](https://github.com/lose2me/xzitpocket) 是一款开源，高性能，跨平台，以 Forui 风格为主的校园助手APP（非官方）。  
 
 > 当 ``WakeUp课程表`` 开始变更开发者，植入开屏广告时，我就知道我该做些什么了。
 
