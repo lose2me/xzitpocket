@@ -134,10 +134,10 @@ class _RepairPageState extends State<RepairPage> {
     return AppPage(
       title: '极速报修',
       actions: [
-        FHeaderAction(
-          icon: const Icon(FLucideIcons.plus),
-          semanticsLabel: '新建报修',
-          onPress: _openForm,
+        AppIconButton(
+          icon: FLucideIcons.plus,
+          tooltip: '新建报修',
+          onPress: () => unawaited(_openForm()),
         ),
       ],
       child: _records.isEmpty && _loading
