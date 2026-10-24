@@ -206,6 +206,8 @@ class _RepairDetailPageState extends State<RepairDetailPage> {
     child: Text(
       name,
       textAlign: TextAlign.center,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: context.theme.typography.body.lg,
     ),
   );

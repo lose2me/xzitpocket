@@ -183,9 +183,7 @@ class _RepairPageState extends State<RepairPage> {
           label: '正在加载报修记录',
           child: Column(
             children: [
-              const Center(
-                child: AppSkeletonBox(width: 132, height: 12),
-              ),
+              const Center(child: AppSkeletonBox(width: 132, height: 12)),
               const SizedBox(height: AppSpacing.sm),
               for (var index = 0; index < 4; index++) _buildSkeletonCard(),
             ],
@@ -274,7 +272,7 @@ class _RepairPageState extends State<RepairPage> {
               style: theme.typography.body.sm.copyWith(
                 fontWeight: FontWeight.w500,
               ),
-              maxLines: 2,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -282,6 +280,8 @@ class _RepairPageState extends State<RepairPage> {
               record.address.isNotEmpty
                   ? '${record.areaName}(${record.address})  ${record.itemName}'
                   : '${record.areaName}  ${record.itemName}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.typography.body.xs.copyWith(
                 color: theme.colors.mutedForeground,
               ),

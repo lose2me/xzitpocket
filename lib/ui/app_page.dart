@@ -45,12 +45,14 @@ class AppPage extends StatelessWidget {
         ? null
         : root
         ? FHeader(
-            title: Center(child: Text(title!)),
+            title: Center(
+              child: Text(title!, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
             style: headerStyle ?? FHeaderStyleDelta.context(),
             suffixes: actions,
           )
         : FHeader.nested(
-            title: Text(title!),
+            title: Text(title!, maxLines: 1, overflow: TextOverflow.ellipsis),
             titleAlignment: Alignment.center,
             prefixes: showBackButton
                 ? [

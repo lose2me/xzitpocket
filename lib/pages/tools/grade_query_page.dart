@@ -558,7 +558,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                     style: theme.typography.tileTitle.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4),

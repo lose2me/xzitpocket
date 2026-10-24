@@ -300,7 +300,12 @@ class _BookListPageState extends ConsumerState<BookListPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('《${item.textbookName}》', style: theme.typography.tileTitle),
+            Text(
+              '《${item.textbookName}》',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.typography.tileTitle,
+            ),
             const SizedBox(height: AppSpacing.md),
             LayoutBuilder(
               builder: (context, constraints) => Row(
