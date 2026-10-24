@@ -18,9 +18,22 @@ import 'services/talker.dart';
 import 'services/talker_network_reporter.dart';
 import 'services/tools_data_manager.dart';
 import 'services/widget_service.dart';
+import 'utils/orientation_lock.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Phones stay in portrait; tablets may rotate. The shortest side is used so
+  // a phone launched in landscape is still recognised as a phone.
+  final view = WidgetsBinding.instance.platformDispatcher.implicitView;
+  if (view != null) {
+    final logicalSize = Size(
+      view.physicalSize.width / view.devicePixelRatio,
+      view.physicalSize.height / view.devicePixelRatio,
+    );
+    await applyOrientationPolicy(logicalSize);
+  }
+
   await setupErrorHooks(talker);
   TalkerNetworkReporter.instance.initialize();
 
@@ -57,6 +70,12 @@ void main() async {
     } catch (error, stackTrace) {
       talker.warning('本地校历缓存无效，继续使用内置校历', error, stackTrace);
     }
+  }
+
+  // Restore the pending calendar-update reminder so the timetable banner
+  // survives a restart until the user dismisses it.
+  if (preferencesStorage.getSchoolCalendarUpdateNotice()) {
+    semesterCalendar.setCalendarUpdateNotice(true);
   }
 
   // Defer widget navigation until the first frame. A cold launch can deliver
