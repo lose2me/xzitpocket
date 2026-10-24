@@ -486,9 +486,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                AppSkeletonBox(width: 148, height: 16),
-                                SizedBox(height: 8),
-                                AppSkeletonBox(width: 96, height: 12),
+                                AppSkeletonBox(width: 148, height: 20),
+                                SizedBox(height: 4),
+                                AppSkeletonBox(width: 96, height: 16),
                               ],
                             ),
                           ),
@@ -496,9 +496,9 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              AppSkeletonBox(width: 44, height: 10),
-                              SizedBox(height: 6),
-                              AppSkeletonBox(width: 52, height: 28),
+                              AppSkeletonBox(width: 44, height: 16),
+                              SizedBox(height: 2),
+                              AppSkeletonBox(width: 52, height: 34),
                             ],
                           ),
                         ],

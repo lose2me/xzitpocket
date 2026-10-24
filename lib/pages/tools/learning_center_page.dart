@@ -249,12 +249,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   @override
   Widget build(BuildContext context) {
-    final loading = !repository.isLoaded;
     return AppPage(
       title: '',
-      actions: loading
-          ? const []
-          : _bankSelectionMode
+      actions: _bankSelectionMode
           ? [
               AppIconButton(
                 icon: FLucideIcons.trash2,
@@ -276,9 +273,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 tooltip: '收藏集',
               ),
             ],
-      child: loading
-          ? _buildPageSkeleton()
-          : repository.libraryUnavailable
+      // Never gate the whole page on repository.load(): the body already has
+      // per-section skeletons, so swapping a full-page skeleton for the body
+      // would move everything as soon as the bank cache/network resolves.
+      child: repository.libraryUnavailable
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
               onRefresh: _refreshLibrary,
@@ -498,36 +496,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildPageSkeleton() {
-    return AppPageListView(
-      maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.sm,
-      bottomPadding: AppSpacing.xxl,
-      children: [
-        AppSkeleton(
-          label: '正在加载资源',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Center(child: AppSkeletonBox(width: 168, height: 20)),
-              const SizedBox(height: AppSpacing.lg),
-              for (var index = 0; index < 3; index++) ...[
-                const AppSkeletonBox(width: 56, height: 14),
-                const SizedBox(height: AppSpacing.sm),
-                const AppSkeletonBox(
-                  width: double.infinity,
-                  height: 72,
-                  radius: 8,
-                ),
-                const SizedBox(height: AppSpacing.md),
-              ],
-            ],
-          ),
-        ),
-      ],
     );
   }
 

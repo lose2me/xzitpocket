@@ -381,7 +381,8 @@ class _CourseCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Container(
-      padding: const EdgeInsets.all(6),
+      // 7 + the 1dp border reproduces the 76dp real card height.
+      padding: const EdgeInsets.all(7),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colors.border),
         borderRadius: BorderRadius.circular(14),
