@@ -40,6 +40,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   ResourceCourse get course => widget.course;
 
   bool _refreshing = false;
+  bool _banksLoading = true;
   bool _bankSelectionMode = false;
   final List<bool> _expandedSections = [true, true, true];
   bool _detailsLoading = true;
@@ -53,26 +54,31 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   @override
   void initState() {
     super.initState();
+    // Restore synchronously so the first frame already has the cached rows;
+    // waiting for repository.load() used to flash the skeleton first.
+    _restoreCourseCache();
     repository.addListener(_onRepositoryUpdate);
     unawaited(_loadInitial());
   }
 
   Future<void> _loadInitial() async {
-    await repository.load();
-    if (!mounted) return;
-    // Show the cached course detail immediately; the bank sync no longer
-    // blocks the textbook/resource sections.
-    _restoreCourseCache();
-    unawaited(_syncBanks());
+    // Question banks and course files are independent; neither should delay
+    // the other's first paint.
+    unawaited(_loadBanks());
     await _loadCourseDetails();
   }
 
-  Future<void> _syncBanks() async {
+  Future<void> _loadBanks() async {
     try {
+      await repository.load();
+      if (!mounted) return;
       // Version compare happens inside sync; only changed banks are downloaded.
-      await repository.sync();
+      // load() already syncs on a cold cache, so only follow up on a cache hit.
+      if (repository.loadedFromCache) await repository.sync();
     } catch (error, stackTrace) {
       talker.warning('题库同步失败', error, stackTrace);
+    } finally {
+      if (mounted && _banksLoading) setState(() => _banksLoading = false);
     }
   }
 
@@ -81,10 +87,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       widget.preferencesStorage.getResourceCourseCache(course.code),
     );
     if (snapshot == null) return;
-    setState(() {
-      _resources = snapshot.resources;
-      _textbooks = snapshot.textbooks;
-    });
+    _resources = snapshot.resources;
+    _textbooks = snapshot.textbooks;
+    _detailsLoading = false;
+    unawaited(_refreshDownloadedStatuses());
   }
 
   /// Loads resources and textbooks unless the cached rows already match the
@@ -290,7 +296,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final theme = context.theme;
     final banks = _courseBanks();
     final textbookLoading = _detailsLoading && _textbooks.isEmpty;
-    final bankLoading = _detailsLoading && banks.isEmpty;
+    final bankLoading = _banksLoading && banks.isEmpty;
     final resourceLoading = _detailsLoading && _resources.isEmpty;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
@@ -323,7 +329,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (textbookLoading)
-            _buildLoading()
+            _buildLoading(course.textbookCount)
           else
             _buildUploadEmpty(
               theme,
@@ -341,7 +347,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (bankLoading)
-            _buildLoading()
+            _buildLoading(course.questionBankCount)
           else
             _buildUploadEmpty(
               theme,
@@ -371,7 +377,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               const SizedBox(height: AppSpacing.sm),
             ]
           else if (resourceLoading)
-            _buildLoading()
+            _buildLoading(course.resourceCount)
           else
             _buildUploadEmpty(
               theme,
@@ -493,19 +499,29 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
   }
 
-  Widget _buildLoading() => const AppSkeleton(
-    label: '正在加载',
-    child: Padding(
-      padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: Column(
-        children: [
-          AppSkeletonBox(width: double.infinity, height: 72, radius: 8),
-          SizedBox(height: AppSpacing.sm),
-          AppSkeletonBox(width: double.infinity, height: 72, radius: 8),
-        ],
+  /// Uses the course counts from the resource-centre list so the placeholder
+  /// has roughly the final height and the content does not jump in.
+  Widget _buildLoading(int expected) {
+    final rows = expected <= 0 ? 1 : expected.clamp(1, 6);
+    return AppSkeleton(
+      label: '正在加载',
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Column(
+          children: [
+            for (var index = 0; index < rows; index++) ...[
+              if (index > 0) const SizedBox(height: AppSpacing.sm),
+              const AppSkeletonBox(
+                width: double.infinity,
+                height: 72,
+                radius: 8,
+              ),
+            ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _buildCourseHeader(FThemeData theme) {
     final name = course.name.trim();
