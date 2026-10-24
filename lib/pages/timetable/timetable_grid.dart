@@ -10,6 +10,7 @@ import '../../models/course.dart';
 import '../../models/school_calendar.dart';
 import '../../ui/app_tokens.dart';
 import '../../ui/app_colors.dart';
+import '../../ui/scroll_debug_probe.dart';
 import '../../utils/course_text_template.dart';
 import 'course_card.dart';
 import 'time_column.dart';
@@ -217,6 +218,7 @@ class _TimetableGridState extends State<TimetableGrid> {
   _GridLayoutCacheKey? _layoutKey;
   Map<int, List<_DaySlot>>? _daySlots;
   late final ScrollController _scrollController;
+  final _scrollContentProbeKey = GlobalKey();
   int? _dragSourceWeekday;
   int? _dragHoverWeekday;
   bool _showBelowFoldIndicator = true;
@@ -586,10 +588,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                 }
               }
 
-              return SingleChildScrollView(
+              final scrollView = SingleChildScrollView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
                 child: SizedBox(
+                  key: ScrollDebugProbe.enabled ? _scrollContentProbeKey : null,
                   height: totalHeight,
                   child: Stack(
                     fit: StackFit.expand,
@@ -738,11 +741,11 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               countdownBarRounded:
                                                   widget.countdownBarRounded,
                                               countdownBarThickness:
-                                                  widget.countdownBarThickness,
+                                                  cardCountdownThickness,
                                               countdownBarTopPadding:
-                                                  widget.countdownBarTopPadding,
-                                              countdownBarBottomPadding: widget
-                                                  .countdownBarBottomPadding,
+                                                  cardCountdownTopPadding,
+                                              countdownBarBottomPadding:
+                                                  cardCountdownBottomPadding,
                                               dashedBorderDensity:
                                                   widget.dashedBorderDensity,
                                               centerHorizontal: widget
@@ -874,6 +877,12 @@ class _TimetableGridState extends State<TimetableGrid> {
                     ],
                   ),
                 ),
+              );
+              return ScrollDebugProbe(
+                controller: _scrollController,
+                contentKey: _scrollContentProbeKey,
+                label: 'timetable-week-${widget.week}',
+                child: scrollView,
               );
             },
           ),
