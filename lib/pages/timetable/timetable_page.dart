@@ -1629,13 +1629,14 @@ class _CalendarUpdateNoticeToast extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            height: 2,
+            height: 3,
             child: AnimatedBuilder(
               animation: progress,
               builder: (context, _) => Align(
                 alignment: Alignment.centerLeft,
                 child: FractionallySizedBox(
                   widthFactor: (1 - progress.value).clamp(0.0, 1.0),
+                  heightFactor: 1,
                   child: ColoredBox(color: colors.warning),
                 ),
               ),
