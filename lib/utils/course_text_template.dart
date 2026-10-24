@@ -2,8 +2,9 @@
 ///
 /// | 用途 | 写法 | 说明 |
 /// |---|---|---|
-/// | 变量 | `{课程}` `{教师}` `{地点}` `{时间}` | 花括号 |
+/// | 变量 | `{课程}` `{教师}` `{教室}` `{校区}` `{地点}` `{时间}` | 花括号；`{地点}` = 教室 + 换行 + 校区 |
 /// | 加粗 | `[b]文字[/b]` | |
+/// | 斜体 | `[i]文字[/i]` | |
 /// | 字号 | `[s12]文字[/s12]` | 数字为 px |
 /// | 颜色 | `[c#111827\|#f9fafb]文字[/c]` | `\|` 前亮色、后暗色 |
 /// | 靠左 | `[左]文字[/左]` | |
@@ -25,6 +26,7 @@ enum CourseTemplateAlign { left, center, right }
 class CourseTemplateSpan {
   final String text;
   final bool bold;
+  final bool italic;
   final double? fontSize;
   final Color? lightColor;
   final Color? darkColor;
@@ -32,6 +34,7 @@ class CourseTemplateSpan {
   const CourseTemplateSpan({
     required this.text,
     this.bold = false,
+    this.italic = false,
     this.fontSize,
     this.lightColor,
     this.darkColor,
@@ -100,6 +103,7 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
       CourseTemplateSpan(
         text: buffer.toString(),
         bold: style.bold,
+        italic: style.italic,
         fontSize: style.fontSize,
         lightColor: style.lightColor,
         darkColor: style.darkColor,
@@ -133,6 +137,7 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
             CourseTemplateSpan(
               text: value,
               bold: style.bold,
+              italic: style.italic,
               fontSize: style.fontSize,
               lightColor: style.lightColor,
               darkColor: style.darkColor,
@@ -183,12 +188,13 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
   );
 }
 
-const _knownVariables = {'课程', '教师', '地点', '时间'};
+const _knownVariables = {'课程', '教师', '地点', '校区', '教室', '时间'};
 
-enum _TemplateStyleKind { bold, size, color, align }
+enum _TemplateStyleKind { bold, italic, size, color, align }
 
 class _TemplateStyle {
   final bool bold;
+  final bool italic;
   final double? fontSize;
   final Color? lightColor;
   final Color? darkColor;
@@ -196,6 +202,7 @@ class _TemplateStyle {
 
   const _TemplateStyle({
     this.bold = false,
+    this.italic = false,
     this.fontSize,
     this.lightColor,
     this.darkColor,
@@ -205,6 +212,7 @@ class _TemplateStyle {
   /// 该标签引入的样式类型（每个开标签只引入一种）。
   _TemplateStyleKind? get kind {
     if (bold) return _TemplateStyleKind.bold;
+    if (italic) return _TemplateStyleKind.italic;
     if (fontSize != null) return _TemplateStyleKind.size;
     if (lightColor != null) return _TemplateStyleKind.color;
     if (align != null) return _TemplateStyleKind.align;
@@ -213,6 +221,7 @@ class _TemplateStyle {
 
   _TemplateStyle merge(_TemplateStyle child) => _TemplateStyle(
     bold: child.bold || bold,
+    italic: child.italic || italic,
     fontSize: child.fontSize ?? fontSize,
     lightColor: child.lightColor ?? lightColor,
     darkColor: child.darkColor ?? darkColor,
@@ -223,6 +232,7 @@ class _TemplateStyle {
 /// 解析闭合标签（`/b`、`/s12`、`/s`、`/c`、`/左`…），返回要关闭的样式类型。
 _TemplateStyleKind? _parseClosingTag(String tag) {
   if (tag == '/b') return _TemplateStyleKind.bold;
+  if (tag == '/i' || tag == '/斜') return _TemplateStyleKind.italic;
   if (tag == '/c') return _TemplateStyleKind.color;
   if (tag == '/左' || tag == '/中' || tag == '/右') {
     return _TemplateStyleKind.align;
@@ -235,6 +245,7 @@ _TemplateStyleKind? _parseClosingTag(String tag) {
 
 _TemplateStyle? _parseStyleTag(String tag) {
   if (tag == 'b') return const _TemplateStyle(bold: true);
+  if (tag == 'i' || tag == '斜') return const _TemplateStyle(italic: true);
   if (tag == '左') return const _TemplateStyle(align: CourseTemplateAlign.left);
   if (tag == '中') {
     return const _TemplateStyle(align: CourseTemplateAlign.center);
@@ -274,13 +285,15 @@ Color? _parseHexColor(String value) {
 String buildCourseTemplateAiPrompt(String currentTemplate) {
   const syntax = '''
 课程块文字模板语法（单行输入，渲染允许多行，\\n 表示换行，闭合标签与开标签同名）：
-- 变量：{课程} {教师} {地点} {时间}
+- 变量：{课程} {教师} {教室} {校区} {地点} {时间}
 - 加粗：[b]文字[/b]
+- 斜体：[i]文字[/i]（也可写 [斜]文字[/斜]）
 - 字号：[s12]文字[/s12]（数字为 px）
 - 颜色：[c#111827|#f9fafb]文字[/c]（| 前亮色、后暗色）
 - 靠左：[左]文字[/左]
 - 居中：[中]文字[/中]
 - 靠右：[右]文字[/右]
+- {地点} = 教室 + 换行 + 校区；只想显示其中一项时用 {教室} 或 {校区}
 - # 和 @ 均为普通字符，可直接书写''';
   return '$syntax\n\n当前模板：\n$currentTemplate\n\n请按此语法返回新模板。';
 }

@@ -78,6 +78,9 @@ class CourseCard extends StatelessWidget {
     final templateLines = parseCourseTemplate(textTemplate, {
       '课程': course.title,
       '教师': course.teacher,
+      '教室': course.place.trim(),
+      '校区': course.campus.trim(),
+      // 兼容旧模板：地点仍然表示「教室 + 换行 + 校区」。
       '地点': [
         course.place.trim(),
         course.campus.trim(),
@@ -245,6 +248,7 @@ class CourseCard extends StatelessWidget {
                 style: (span.bold ? boldStyle : detailStyle).copyWith(
                   fontSize: span.fontSize,
                   color: span.colorFor(brightness),
+                  fontStyle: span.italic ? FontStyle.italic : FontStyle.normal,
                 ),
               ),
           ],

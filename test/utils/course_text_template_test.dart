@@ -4,7 +4,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xzitpocket/utils/course_text_template.dart';
 
 void main() {
-  const values = {'课程': '高等数学', '教师': '张老师', '地点': '教101', '时间': '8:00'};
+  const values = {
+    '课程': '高等数学',
+    '教师': '张老师',
+    '教室': '教101',
+    '校区': '中心校区',
+    '地点': '教101\n中心校区',
+    '时间': '8:00',
+  };
 
   String plain(CourseTemplateLine line) =>
       line.spans.map((span) => span.text).join();
@@ -19,7 +26,7 @@ void main() {
       expect(lines, hasLength(2));
       expect(plain(lines[0]), '高等数学');
       expect(lines[0].spans.single.bold, isTrue);
-      expect(plain(lines[1]), '@教101');
+      expect(plain(lines[1]), '@教101\n中心校区');
       expect(lines[1].spans.any((span) => span.bold), isFalse);
     });
 
@@ -92,9 +99,27 @@ void main() {
     });
 
     test('# and @ are ordinary characters', () {
-      final lines = parseCourseTemplate(r'#1 @教 {地点}', values);
+      final lines = parseCourseTemplate(r'#1 @教 {教室}', values);
       expect(plain(lines.single), '#1 @教 教101');
       expect(lines.single.spans.every((span) => !span.bold), isTrue);
+    });
+
+    test('supports italic tags', () {
+      final english = parseCourseTemplate(
+        r'[i]{课程}[/i]',
+        values,
+      ).single.spans.single;
+      final chinese = parseCourseTemplate(
+        r'[斜]{教师}[/斜]',
+        values,
+      ).single.spans.single;
+      expect(english.italic, isTrue);
+      expect(chinese.italic, isTrue);
+    });
+
+    test('exposes classroom and campus separately', () {
+      final lines = parseCourseTemplate(r'{教室}\n{校区}', values);
+      expect(lines.map(plain).toList(), ['教101', '中心校区']);
     });
 
     test('unknown tags render as literal text', () {
@@ -140,6 +165,9 @@ void main() {
       final prompt = buildCourseTemplateAiPrompt(r'[b]{课程}[/]');
       expect(prompt, contains('{课程}'));
       expect(prompt, contains('[b]'));
+      expect(prompt, contains('[i]'));
+      expect(prompt, contains('{教室}'));
+      expect(prompt, contains('{校区}'));
       expect(prompt, contains(r'[s12]'));
       expect(prompt, contains(r'[c#111827|#f9fafb]'));
       expect(prompt, contains('[左]'));
