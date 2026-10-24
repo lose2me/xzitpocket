@@ -123,6 +123,7 @@ class HomePageState extends ConsumerState<HomePage> {
         _backgroundPageController.jumpToPage(0);
       }
       TimetablePage.globalKey.currentState?.jumpToCurrentWeek(animate: animate);
+      TimetablePage.globalKey.currentState?.showCalendarUpdateNoticeOnEnter();
     });
   }
 
@@ -194,6 +195,11 @@ class HomePageState extends ConsumerState<HomePage> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               final refresh = ToolsPage.globalKey.currentState?.refreshData();
               if (refresh != null) unawaited(refresh);
+            });
+          } else if (targetTab == 0) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              TimetablePage.globalKey.currentState
+                  ?.showCalendarUpdateNoticeOnEnter();
             });
           }
         },

@@ -68,8 +68,14 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   late final AnimationController _conflictCountdownController;
   late final AnimationController _dayActionPulseController;
   late final AnimationController _scheduleFlipController;
+  late final AnimationController _noticeSlideController;
+  late final AnimationController _noticeProgressController;
+  Timer? _noticeTimer;
+  bool _noticeVisible = false;
+  static const _noticeDuration = Duration(seconds: 6);
   final _timetableViewportKey = GlobalKey();
   bool _isSyncing = false;
+  bool _pageRefreshActive = false;
   bool _switchingSchedule = false;
   int _conflictRotationTick = 0;
   double _lastConflictCountdownValue = 0;
@@ -114,10 +120,19 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       vsync: this,
       duration: const Duration(milliseconds: 520),
     );
+    _noticeSlideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
+    _noticeProgressController = AnimationController(
+      vsync: this,
+      duration: _noticeDuration,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0) {
         ref.read(selectedWeekProvider.notifier).set(initialWeek);
       }
+      _showNoticeIfNeeded();
     });
   }
 
@@ -127,6 +142,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _conflictCountdownController.dispose();
     _dayActionPulseController.dispose();
     _scheduleFlipController.dispose();
+    _noticeTimer?.cancel();
+    _noticeSlideController.dispose();
+    _noticeProgressController.dispose();
     _edgePageTimer?.cancel();
     _dayActionTimer?.cancel();
     _pageController.dispose();
@@ -135,6 +153,11 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   void _onCalendarChanged() {
     if (!mounted) return;
+    if (!semesterCalendar.calendarUpdateNotice) {
+      unawaited(_hideNotice());
+    } else if (TickerMode.valuesOf(context).enabled) {
+      _showNoticeIfNeeded();
+    }
     final maxWeek = _maxDisplayWeek();
     final selected = ref.read(selectedWeekProvider);
     final week = selected.clamp(1, maxWeek).toInt();
@@ -472,6 +495,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   void refreshForResume() {
     if (mounted) {
       setState(() {});
+      showCalendarUpdateNoticeOnEnter();
     }
   }
 
@@ -553,6 +577,57 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       }
     }
     return max;
+  }
+
+  Future<void> _dismissCalendarUpdateNotice() async {
+    semesterCalendar.setCalendarUpdateNotice(false);
+    await ref
+        .read(preferencesStorageProvider)
+        .setSchoolCalendarUpdateNotice(false);
+  }
+
+  /// Called by HomePage every time the timetable tab becomes active.
+  void showCalendarUpdateNoticeOnEnter() {
+    if (!mounted || !semesterCalendar.calendarUpdateNotice) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _showNoticeIfNeeded();
+    });
+  }
+
+  void _showNoticeIfNeeded() {
+    if (!mounted) return;
+    if (!semesterCalendar.calendarUpdateNotice) {
+      unawaited(_hideNotice());
+      return;
+    }
+    // TickerMode is disabled for pages that are not the active tab; showing
+    // then would let the countdown expire while the user is elsewhere.
+    if (!TickerMode.valuesOf(context).enabled) return;
+    _noticeTimer?.cancel();
+    _noticeProgressController.forward(from: 0);
+    _noticeSlideController.forward(from: 0);
+    if (!_noticeVisible) {
+      setState(() => _noticeVisible = true);
+    }
+    _noticeTimer = Timer(_noticeDuration, () => unawaited(_hideNotice()));
+  }
+
+  Future<void> _hideNotice() async {
+    _noticeTimer?.cancel();
+    _noticeTimer = null;
+    _noticeProgressController.stop();
+    if (!_noticeVisible) return;
+    await _noticeSlideController.reverse();
+    // A new show() may have restarted the slide while the reverse was
+    // finishing; only hide if the controller really reached the bottom.
+    if (mounted && _noticeVisible && _noticeSlideController.isDismissed) {
+      setState(() => _noticeVisible = false);
+    }
+  }
+
+  Future<void> _dismissNoticePermanently() async {
+    await _hideNotice();
+    await _dismissCalendarUpdateNotice();
   }
 
   Future<void> _onSync() async {
@@ -786,281 +861,339 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           onPointerUp: (_) => _onDayDragEnd(),
           onPointerCancel: (_) => _onDayDragEnd(),
           child: SafeArea(
-            child: Column(
+            child: Stack(
               children: [
-                TimetableWeekHeader(
-                  onJumpToCurrentWeek: jumpToCurrentWeek,
-                  onToggleSchedule: _toggleSchedule,
-                ),
-                Expanded(
-                  child:
-                      (secondarySchedule.active
-                              ? AsyncValue.data(secondarySchedule.courses)
-                              : coursesAsync)
-                          .when(
-                            data: (courses) {
-                              final showingSecondary = secondarySchedule.active;
-                              final displayedCourses = showingSecondary
-                                  ? secondarySchedule.courses
-                                  : courses;
-                              if (displayedCourses.isEmpty) {
-                                return _buildScheduleTransition(
-                                  AppPageBody(
-                                    maxWidth: AppLayout.contentMaxWidth,
-                                    safeArea: false,
-                                    onRefresh: _onSync,
-                                    child: _buildEmptyView(
-                                      secondary: showingSecondary,
-                                    ),
-                                  ),
-                                );
-                              }
-                              final maxDisplayWeek = _maxDisplayWeek(
-                                displayedCourses,
-                              );
-                              // 实验时段（带 T）无课时默认不显示。
-                              final labSections = <int>{
-                                for (final slot in kTimeSlots)
-                                  if (slot.lab) slot.index,
-                              };
-                              final hideLab =
-                                  labSections.isNotEmpty &&
-                                  !displayedCourses.any(
-                                    (c) => c.sessions.any(labSections.contains),
+                Column(
+                  children: [
+                    TimetableWeekHeader(
+                      onJumpToCurrentWeek: jumpToCurrentWeek,
+                      onToggleSchedule: _toggleSchedule,
+                    ),
+                    Expanded(
+                      child:
+                          (secondarySchedule.active
+                                  ? AsyncValue.data(secondarySchedule.courses)
+                                  : coursesAsync)
+                              .when(
+                                data: (courses) {
+                                  final showingSecondary =
+                                      secondarySchedule.active;
+                                  final displayedCourses = showingSecondary
+                                      ? secondarySchedule.courses
+                                      : courses;
+                                  if (displayedCourses.isEmpty) {
+                                    return _buildScheduleTransition(
+                                      AppPageBody(
+                                        maxWidth: AppLayout.contentMaxWidth,
+                                        safeArea: false,
+                                        onRefresh: _onSync,
+                                        child: _buildEmptyView(
+                                          secondary: showingSecondary,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  final maxDisplayWeek = _maxDisplayWeek(
+                                    displayedCourses,
                                   );
-                              final timetable = Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  PageView.builder(
-                                    key: _timetableViewportKey,
-                                    controller: _pageController,
-                                    physics: const _ResponsivePagePhysics(),
-                                    itemCount: maxDisplayWeek,
-                                    // Pre-build the neighbouring weeks while the current page is
-                                    // idle so the left/right swipe only moves an already-built
-                                    // grid instead of doing the (heavy) layout synchronously in
-                                    // the middle of the gesture.
-                                    allowImplicitScrolling: true,
-                                    onPageChanged: (page) {
-                                      ref
-                                          .read(selectedWeekProvider.notifier)
-                                          .set(page + 1);
-                                    },
-                                    itemBuilder: (context, index) {
-                                      final week = index + 1;
-                                      final pendingDayAction =
-                                          _dayActionIndicator(week);
-                                      return RepaintBoundary(
-                                        child: AppRefreshIndicator(
-                                          onRefresh: _onSync,
-                                          child: TimetableGrid(
-                                            courses: displayedCourses,
-                                            week: week,
-                                            rotationTick: _conflictRotationTick,
-                                            showNonCurrentWeekCourses:
-                                                showNonCurrentWeekCourses,
-                                            showWeekendColumns:
-                                                showWeekendColumns,
-                                            calendar: semesterCalendar,
-                                            hiddenSlots: hideLab
-                                                ? labSections
-                                                : const {},
-                                            countdownAnimation:
-                                                _conflictCountdownController,
-                                            dayActionAnimation:
-                                                _dayActionPulseController,
-                                            borderColor: courseBorderColor,
-                                            courseBorderColor: settings
-                                                .timetableCourseBorderColor,
-                                            borderWidth: settings
-                                                .timetableCourseBorderWidth,
-                                            courseOpacity: courseOpacity,
-                                            courseBorderOpacity: settings
-                                                .timetableCourseBorderOpacity,
-                                            courseTextSize: gridSettings
-                                                .timetableCourseTextSize,
-                                            timeTextSize: gridSettings
-                                                .timetableTimeTextSize,
-                                            dateTextSize: gridSettings
-                                                .timetableDateTextSize,
-                                            dayTextMarkerSize: gridSettings
-                                                .timetableDayTextMarkerSize,
-                                            gridOpacity:
-                                                settings.timetableGridOpacity,
-                                            gridLineColor:
-                                                settings.timetableGridLineColor,
-                                            gridLineWidth:
-                                                settings.timetableGridLineWidth,
-                                            showHeaderDivider: !hasBackground,
-                                            showGridLines:
-                                                settings.showTimetableGridLines,
-                                            showTodayGridLines:
-                                                settings.showTodayGridLines,
-                                            todayLineColor: settings
-                                                .timetableTodayLineColor,
-                                            todayLineWidth: settings
-                                                .timetableTodayLineWidth,
-                                            todayLineOpacity: settings
-                                                .timetableTodayLineOpacity,
-                                            showTodayHorizontalGridLines: settings
-                                                .showTodayHorizontalGridLines,
-                                            sectionHeight:
-                                                gridSettings
-                                                    .timetableSectionHeightIsCustom
-                                                ? gridSettings
-                                                      .timetableSectionHeight
-                                                : 0,
-                                            visibleSlots:
-                                                gridSettings
-                                                    .timetableSectionHeightIsCustom
-                                                ? 9
-                                                : kAdaptiveSectionCount,
-                                            timeColumnWidth: gridSettings
-                                                .timetableTimeColumnWidth,
-                                            dayHeaderHeight: gridSettings
-                                                .timetableDayHeaderHeight,
-                                            courseCornerRadius: settings
-                                                .timetableCourseCornerRadius,
-                                            courseInnerPadding: gridSettings
-                                                .timetableCourseInnerPadding,
-                                            courseOuterPadding: gridSettings
-                                                .timetableCourseOuterPadding,
-                                            courseTextTemplate: settings
-                                                .timetableCourseTextTemplate,
-                                            countdownBarLengthRatio: settings
-                                                .timetableCountdownBarLengthRatio,
-                                            countdownBarRounded: settings
-                                                .timetableCountdownBarRounded,
-                                            countdownBarThickness: settings
-                                                .timetableCountdownBarThickness,
-                                            countdownBarTopPadding: gridSettings
-                                                .timetableCountdownBarTopPadding,
-                                            countdownBarBottomPadding: gridSettings
-                                                .timetableCountdownBarBottomPadding,
-                                            showCurrentTimeLine:
-                                                settings.showCurrentTimeLine,
-                                            dashedBorderDensity: settings
-                                                .timetableDashedBorderDensity,
-                                            hideSectionTime: settings
-                                                .timetableHideSectionTime,
-                                            hideDateUnderDay: settings
-                                                .timetableHideDateUnderDay,
-                                            showDayColorMarkers: settings
-                                                .timetableDayColorMarkers,
-                                            showDayTextMarkers: settings
-                                                .timetableDayTextMarkers,
-                                            dayTextMarkerPosition: settings
-                                                .timetableDayTextMarkerPosition,
-                                            dayTextMarkerPadding: gridSettings
-                                                .timetableDayTextMarkerPadding,
-                                            textAlignCenterHorizontal: settings
-                                                .timetableTextAlignCenterHorizontal,
-                                            textAlignCenterVertical: settings
-                                                .timetableTextAlignCenterVertical,
-                                            borderType: settings
-                                                .timetableBorderType
-                                                .storageValue,
-                                            pageTextColor: pageTextColor,
-                                            pageTextOpacity: settings
-                                                .timetablePageTextOpacity,
-                                            courseTextOpacity: settings
-                                                .timetableCourseTextOpacity,
-                                            onCourseTap: showingSecondary
-                                                ? null
-                                                : (course, sourceIndex) {
-                                                    final notifier = ref.read(
-                                                      scheduleProvider.notifier,
-                                                    );
-                                                    final key = notifier
-                                                        .keyForCourse(
-                                                          course,
-                                                          sourceIndex:
-                                                              sourceIndex,
-                                                        );
-                                                    if (key == null) return;
-                                                    _showCourseDetail(
-                                                      context,
-                                                      course,
-                                                      key,
-                                                      week,
-                                                    );
-                                                  },
-                                            onEmptyTap: showingSecondary
-                                                ? null
-                                                : (weekday, session) =>
-                                                      _onEmptySlotTap(
-                                                        context,
-                                                        weekday,
-                                                        session,
-                                                      ),
-                                            onDayDoubleTap: showingSecondary
-                                                ? null
-                                                : (weekday) => _requestClearDay(
-                                                    weekday,
-                                                    week,
-                                                  ),
-                                            onDayTripleTap: showingSecondary
-                                                ? null
-                                                : (weekday) =>
-                                                      _requestRestoreDay(
-                                                        weekday,
-                                                        week,
-                                                      ),
-                                            onDayDrop: showingSecondary
-                                                ? null
-                                                : (data, targetWeekday) =>
-                                                      _requestMoveDay(
-                                                        data,
-                                                        targetWeekday,
-                                                        week,
-                                                      ),
-                                            onDayDragUpdate: showingSecondary
-                                                ? null
-                                                : _onDayDragUpdate,
-                                            onDayDragStart: showingSecondary
-                                                ? null
-                                                : _onDayDragStart,
-                                            onDayDragEnd: showingSecondary
-                                                ? null
-                                                : _onDayDragEnd,
-                                            pendingDayAction: showingSecondary
-                                                ? null
-                                                : pendingDayAction,
-                                            onPendingDayActionCancel:
-                                                _cancelDayAction,
-                                            suppressDayDrop:
-                                                showingSecondary ||
-                                                _edgeTriggerSide != null,
-                                          ),
+                                  // 实验时段（带 T）无课时默认不显示。
+                                  final labSections = <int>{
+                                    for (final slot in kTimeSlots)
+                                      if (slot.lab) slot.index,
+                                  };
+                                  final hideLab =
+                                      labSections.isNotEmpty &&
+                                      !displayedCourses.any(
+                                        (c) => c.sessions.any(
+                                          labSections.contains,
                                         ),
                                       );
-                                    },
-                                  ),
-                                  if (_dayDragActive)
-                                    IgnorePointer(
-                                      child: _buildEdgeTriggerOverlay(context),
+                                  final timetable = Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      PageView.builder(
+                                        key: _timetableViewportKey,
+                                        controller: _pageController,
+                                        physics: _pageRefreshActive
+                                            ? const NeverScrollableScrollPhysics()
+                                            : const _ResponsivePagePhysics(),
+                                        itemCount: maxDisplayWeek,
+                                        // Pre-build the neighbouring weeks while the current page is
+                                        // idle so the left/right swipe only moves an already-built
+                                        // grid instead of doing the (heavy) layout synchronously in
+                                        // the middle of the gesture.
+                                        allowImplicitScrolling: true,
+                                        onPageChanged: (page) {
+                                          ref
+                                              .read(
+                                                selectedWeekProvider.notifier,
+                                              )
+                                              .set(page + 1);
+                                        },
+                                        itemBuilder: (context, index) {
+                                          final week = index + 1;
+                                          final pendingDayAction =
+                                              _dayActionIndicator(week);
+                                          return RepaintBoundary(
+                                            child: AppRefreshIndicator(
+                                              onRefresh: _onSync,
+                                              // Includes dragging and cancelled
+                                              // pulls, until fully retracted.
+                                              onRefreshingChanged: (active) {
+                                                if (!mounted ||
+                                                    _pageRefreshActive ==
+                                                        active) {
+                                                  return;
+                                                }
+                                                setState(
+                                                  () => _pageRefreshActive =
+                                                      active,
+                                                );
+                                              },
+                                              child: TimetableGrid(
+                                                courses: displayedCourses,
+                                                week: week,
+                                                rotationTick:
+                                                    _conflictRotationTick,
+                                                showNonCurrentWeekCourses:
+                                                    showNonCurrentWeekCourses,
+                                                showWeekendColumns:
+                                                    showWeekendColumns,
+                                                calendar: semesterCalendar,
+                                                hiddenSlots: hideLab
+                                                    ? labSections
+                                                    : const {},
+                                                countdownAnimation:
+                                                    _conflictCountdownController,
+                                                dayActionAnimation:
+                                                    _dayActionPulseController,
+                                                borderColor: courseBorderColor,
+                                                courseBorderColor: settings
+                                                    .timetableCourseBorderColor,
+                                                borderWidth: settings
+                                                    .timetableCourseBorderWidth,
+                                                courseOpacity: courseOpacity,
+                                                courseBorderOpacity: settings
+                                                    .timetableCourseBorderOpacity,
+                                                courseTextSize: gridSettings
+                                                    .timetableCourseTextSize,
+                                                timeTextSize: gridSettings
+                                                    .timetableTimeTextSize,
+                                                dateTextSize: gridSettings
+                                                    .timetableDateTextSize,
+                                                dayTextMarkerSize: gridSettings
+                                                    .timetableDayTextMarkerSize,
+                                                gridOpacity: settings
+                                                    .timetableGridOpacity,
+                                                gridLineColor: settings
+                                                    .timetableGridLineColor,
+                                                gridLineWidth: settings
+                                                    .timetableGridLineWidth,
+                                                showHeaderDivider:
+                                                    !hasBackground,
+                                                showGridLines: settings
+                                                    .showTimetableGridLines,
+                                                showTodayGridLines:
+                                                    settings.showTodayGridLines,
+                                                todayLineColor: settings
+                                                    .timetableTodayLineColor,
+                                                todayLineWidth: settings
+                                                    .timetableTodayLineWidth,
+                                                todayLineOpacity: settings
+                                                    .timetableTodayLineOpacity,
+                                                showTodayHorizontalGridLines:
+                                                    settings
+                                                        .showTodayHorizontalGridLines,
+                                                sectionHeight:
+                                                    gridSettings
+                                                        .timetableSectionHeightIsCustom
+                                                    ? gridSettings
+                                                          .timetableSectionHeight
+                                                    : 0,
+                                                visibleSlots:
+                                                    gridSettings
+                                                        .timetableSectionHeightIsCustom
+                                                    ? 9
+                                                    : kAdaptiveSectionCount,
+                                                timeColumnWidth: gridSettings
+                                                    .timetableTimeColumnWidth,
+                                                dayHeaderHeight: gridSettings
+                                                    .timetableDayHeaderHeight,
+                                                courseCornerRadius: settings
+                                                    .timetableCourseCornerRadius,
+                                                courseInnerPadding: gridSettings
+                                                    .timetableCourseInnerPadding,
+                                                courseOuterPadding: gridSettings
+                                                    .timetableCourseOuterPadding,
+                                                courseTextTemplate: settings
+                                                    .timetableCourseTextTemplate,
+                                                countdownBarLengthRatio: settings
+                                                    .timetableCountdownBarLengthRatio,
+                                                countdownBarRounded: settings
+                                                    .timetableCountdownBarRounded,
+                                                countdownBarThickness: settings
+                                                    .timetableCountdownBarThickness,
+                                                countdownBarTopPadding: gridSettings
+                                                    .timetableCountdownBarTopPadding,
+                                                countdownBarBottomPadding:
+                                                    gridSettings
+                                                        .timetableCountdownBarBottomPadding,
+                                                showCurrentTimeLine: settings
+                                                    .showCurrentTimeLine,
+                                                dashedBorderDensity: settings
+                                                    .timetableDashedBorderDensity,
+                                                hideSectionTime: settings
+                                                    .timetableHideSectionTime,
+                                                hideDateUnderDay: settings
+                                                    .timetableHideDateUnderDay,
+                                                showDayColorMarkers: settings
+                                                    .timetableDayColorMarkers,
+                                                showDayTextMarkers: settings
+                                                    .timetableDayTextMarkers,
+                                                dayTextMarkerPosition: settings
+                                                    .timetableDayTextMarkerPosition,
+                                                dayTextMarkerPadding: gridSettings
+                                                    .timetableDayTextMarkerPadding,
+                                                textAlignCenterHorizontal: settings
+                                                    .timetableTextAlignCenterHorizontal,
+                                                textAlignCenterVertical: settings
+                                                    .timetableTextAlignCenterVertical,
+                                                borderType: settings
+                                                    .timetableBorderType
+                                                    .storageValue,
+                                                pageTextColor: pageTextColor,
+                                                pageTextOpacity: settings
+                                                    .timetablePageTextOpacity,
+                                                courseTextOpacity: settings
+                                                    .timetableCourseTextOpacity,
+                                                onCourseTap: showingSecondary
+                                                    ? null
+                                                    : (course, sourceIndex) {
+                                                        final notifier = ref
+                                                            .read(
+                                                              scheduleProvider
+                                                                  .notifier,
+                                                            );
+                                                        final key = notifier
+                                                            .keyForCourse(
+                                                              course,
+                                                              sourceIndex:
+                                                                  sourceIndex,
+                                                            );
+                                                        if (key == null) return;
+                                                        _showCourseDetail(
+                                                          context,
+                                                          course,
+                                                          key,
+                                                          week,
+                                                        );
+                                                      },
+                                                onEmptyTap: showingSecondary
+                                                    ? null
+                                                    : (weekday, session) =>
+                                                          _onEmptySlotTap(
+                                                            context,
+                                                            weekday,
+                                                            session,
+                                                          ),
+                                                onDayDoubleTap: showingSecondary
+                                                    ? null
+                                                    : (weekday) =>
+                                                          _requestClearDay(
+                                                            weekday,
+                                                            week,
+                                                          ),
+                                                onDayTripleTap: showingSecondary
+                                                    ? null
+                                                    : (weekday) =>
+                                                          _requestRestoreDay(
+                                                            weekday,
+                                                            week,
+                                                          ),
+                                                onDayDrop: showingSecondary
+                                                    ? null
+                                                    : (data, targetWeekday) =>
+                                                          _requestMoveDay(
+                                                            data,
+                                                            targetWeekday,
+                                                            week,
+                                                          ),
+                                                onDayDragUpdate:
+                                                    showingSecondary
+                                                    ? null
+                                                    : _onDayDragUpdate,
+                                                onDayDragStart: showingSecondary
+                                                    ? null
+                                                    : _onDayDragStart,
+                                                onDayDragEnd: showingSecondary
+                                                    ? null
+                                                    : _onDayDragEnd,
+                                                pendingDayAction:
+                                                    showingSecondary
+                                                    ? null
+                                                    : pendingDayAction,
+                                                onPendingDayActionCancel:
+                                                    _cancelDayAction,
+                                                suppressDayDrop:
+                                                    showingSecondary ||
+                                                    _edgeTriggerSide != null,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      if (_dayDragActive)
+                                        IgnorePointer(
+                                          child: _buildEdgeTriggerOverlay(
+                                            context,
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                  return _buildScheduleTransition(timetable);
+                                },
+                                loading: () =>
+                                    const Center(child: FCircularProgress()),
+                                error: (e, _) => AppPageBody(
+                                  maxWidth: AppLayout.contentMaxWidth,
+                                  safeArea: false,
+                                  onRefresh: _onSync,
+                                  child: Center(
+                                    child: AppStateView(
+                                      icon: FLucideIcons.triangleAlert,
+                                      title: '加载失败',
+                                      description: describeError(e),
+                                      destructive: true,
                                     ),
-                                ],
-                              );
-                              return _buildScheduleTransition(timetable);
-                            },
-                            loading: () =>
-                                const Center(child: FCircularProgress()),
-                            error: (e, _) => AppPageBody(
-                              maxWidth: AppLayout.contentMaxWidth,
-                              safeArea: false,
-                              onRefresh: _onSync,
-                              child: Center(
-                                child: AppStateView(
-                                  icon: FLucideIcons.triangleAlert,
-                                  title: '加载失败',
-                                  description: describeError(e),
-                                  destructive: true,
+                                  ),
                                 ),
                               ),
+                    ),
+                  ],
+                ),
+                if (_noticeVisible)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: SlideTransition(
+                      position:
+                          Tween<Offset>(
+                            begin: const Offset(0, 1),
+                            end: Offset.zero,
+                          ).animate(
+                            CurvedAnimation(
+                              parent: _noticeSlideController,
+                              curve: Curves.easeOutCubic,
+                              reverseCurve: Curves.easeInCubic,
                             ),
                           ),
-                ),
+                      child: _CalendarUpdateNoticeToast(
+                        progress: _noticeProgressController,
+                        onDismiss: _dismissNoticePermanently,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1476,6 +1609,90 @@ class TimetablePageState extends ConsumerState<TimetablePage>
               );
             }
           },
+        ),
+      ),
+    );
+  }
+}
+
+/// 「云端课程有所调整」提醒：从底部滑入的 toast，带倒计时与手动关闭。
+class _CalendarUpdateNoticeToast extends StatelessWidget {
+  final Animation<double> progress;
+  final VoidCallback onDismiss;
+
+  const _CalendarUpdateNoticeToast({
+    required this.progress,
+    required this.onDismiss,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.theme.colors.semantic;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        0,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.warningContainer,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0x22000000),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 6, 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      FLucideIcons.triangleAlert,
+                      size: 18,
+                      color: colors.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '云端课程有所调整，建议重建课表',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.theme.typography.bodySmall.copyWith(
+                          color: colors.onWarningContainer,
+                        ),
+                      ),
+                    ),
+                    AppIconButton(
+                      icon: FLucideIcons.x,
+                      onPress: onDismiss,
+                      tooltip: '关闭提醒',
+                      iconColor: colors.onWarningContainer,
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedBuilder(
+                animation: progress,
+                builder: (context, _) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: (1 - progress.value).clamp(0.0, 1.0),
+                    child: Container(height: 3, color: colors.warning),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

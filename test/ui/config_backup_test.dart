@@ -7,6 +7,7 @@ import 'package:forui/forui.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/course.dart';
+import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/pages/profile/config_backup_page.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/pages/timetable/timetable_page.dart';
@@ -78,6 +79,41 @@ void main() {
       semanticsEnabled: false,
     );
   }
+
+  testWidgets('calendar update notice auto hides and returns until dismissed', (
+    tester,
+  ) async {
+    semesterCalendar.setCalendarUpdateNotice(true);
+    addTearDown(() => semesterCalendar.setCalendarUpdateNotice(false));
+    await tester.pumpWidget(
+      _app(container, TimetablePage(key: TimetablePage.globalKey)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('云端课程有所调整，建议重建课表'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
+    // Auto-hide keeps the pending notice so the next visit shows it again.
+    expect(semesterCalendar.calendarUpdateNotice, isTrue);
+
+    TimetablePage.globalKey.currentState?.showCalendarUpdateNoticeOnEnter();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('云端课程有所调整，建议重建课表'), findsOneWidget);
+
+    final closeButton = tester.widget<AppIconButton>(
+      find.byWidgetPredicate(
+        (widget) => widget is AppIconButton && widget.icon == FLucideIcons.x,
+      ),
+    );
+    closeButton.onPress!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
+    expect(semesterCalendar.calendarUpdateNotice, isFalse);
+  }, semanticsEnabled: false);
 
   testWidgets(
     'schedule flipping keeps one viewport and the secondary timetable is read-only',
