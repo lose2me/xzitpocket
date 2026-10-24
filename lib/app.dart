@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:talker_flutter/talker_flutter.dart';
 
 import 'constants/semester_config.dart';
@@ -19,7 +20,10 @@ import 'services/course_upload.dart';
 import 'services/talker.dart';
 import 'services/tools_data_manager.dart';
 import 'services/widget_service.dart';
+import 'ui/app_feedback.dart';
+import 'ui/app_routes.dart';
 import 'ui/app_theme.dart';
+import 'ui/update_prompt.dart';
 import 'utils/snackbar_helper.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -33,12 +37,55 @@ class App extends ConsumerStatefulWidget {
 
 class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   double? _toastOpacity;
+  bool _updatePromptRunning = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_syncCoursesToControl());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_maybePromptUpdate());
+    });
+  }
+
+  /// Checks the test release channel once per app version and shows the update
+  /// dialog at most once for that version. The profile page keeps showing the
+  /// update card regardless.
+  Future<void> _maybePromptUpdate() async {
+    if (_updatePromptRunning || !mounted) return;
+    _updatePromptRunning = true;
+    try {
+      final prefs = ref.read(preferencesStorageProvider);
+      final info = await PackageInfo.fromPlatform();
+      final cached = ControlService.instance.cachedRelease(prefs, info.version);
+      final result = await ControlService.instance.checkForUpdateState(
+        prefs: prefs,
+      );
+      final release = result.reachable ? result.release : cached;
+      if (release == null || !mounted) return;
+      if (prefs.getUpdatePromptedVersion() == release.latestVersion) return;
+      final update = await showAppConfirmDialog(
+        context: context,
+        title: '发现新版本 ${release.latestVersion}',
+        message: '当前版本 ${info.version}，是否前往更新？',
+        confirmLabel: '去更新',
+        cancelLabel: '稍后',
+      );
+      await prefs.setUpdatePromptedVersion(release.latestVersion);
+      if (!update || !mounted) return;
+      await Navigator.of(context).push(
+        appRoute(
+          name: AppRouteNames.appUpdate,
+          builder: (_) =>
+              AppUpdatePage(release: release, currentVersion: info.version),
+        ),
+      );
+    } catch (error, stackTrace) {
+      talker.warning('启动更新检查失败', error, stackTrace);
+    } finally {
+      _updatePromptRunning = false;
+    }
   }
 
   @override
@@ -75,6 +122,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       unawaited(_refreshSchoolCalendarAndWidget());
       unawaited(_syncCoursesToControl());
       unawaited(ControlService.instance.track('foreground'));
+      unawaited(_maybePromptUpdate());
     }
   }
 
@@ -128,6 +176,16 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(configProvider.select((config) => config.studentId), (
+      previous,
+      next,
+    ) {
+      if ((next ?? '').isNotEmpty && previous != next) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          unawaited(_maybePromptUpdate());
+        });
+      }
+    });
     final settings = ref.watch(appSettingsProvider);
     if (_toastOpacity != settings.toastOpacity) {
       _toastOpacity = settings.toastOpacity;
