@@ -68,6 +68,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   late final AnimationController _conflictCountdownController;
   late final AnimationController _dayActionPulseController;
   late final AnimationController _scheduleFlipController;
+  late final AnimationController _noticeSlideController;
   late final AnimationController _noticeProgressController;
   Timer? _noticeTimer;
   bool _noticeVisible = false;
@@ -119,6 +120,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       vsync: this,
       duration: const Duration(milliseconds: 520),
     );
+    _noticeSlideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+    );
     _noticeProgressController = AnimationController(
       vsync: this,
       duration: _noticeDuration,
@@ -138,6 +143,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _dayActionPulseController.dispose();
     _scheduleFlipController.dispose();
     _noticeTimer?.cancel();
+    _noticeSlideController.dispose();
     _noticeProgressController.dispose();
     _edgePageTimer?.cancel();
     _dayActionTimer?.cancel();
@@ -588,6 +594,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     if (!TickerMode.valuesOf(context).enabled) return;
     _noticeTimer?.cancel();
     _noticeProgressController.forward(from: 0);
+    _noticeSlideController.forward(from: 0);
     if (!_noticeVisible) {
       setState(() => _noticeVisible = true);
     }
@@ -599,7 +606,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _noticeTimer = null;
     _noticeProgressController.stop();
     if (!_noticeVisible) return;
-    setState(() => _noticeVisible = false);
+    await _noticeSlideController.reverse();
+    if (mounted && _noticeVisible && _noticeSlideController.isDismissed) {
+      setState(() => _noticeVisible = false);
+    }
   }
 
   Future<void> _dismissNoticePermanently() async {
@@ -848,9 +858,23 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                     ),
                     if (_noticeVisible)
                       Positioned.fill(
-                        child: _CalendarUpdateNoticeToast(
-                          progress: _noticeProgressController,
-                          onDismiss: _dismissNoticePermanently,
+                        child: SlideTransition(
+                          // 从原位置下方滑入，收起时向下滑出，仍在原位置。
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(0, 1),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: _noticeSlideController,
+                                  curve: Curves.easeOutCubic,
+                                  reverseCurve: Curves.easeInCubic,
+                                ),
+                              ),
+                          child: _CalendarUpdateNoticeToast(
+                            progress: _noticeProgressController,
+                            onDismiss: _dismissNoticePermanently,
+                          ),
                         ),
                       ),
                   ],
