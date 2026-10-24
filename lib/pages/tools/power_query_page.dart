@@ -219,7 +219,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
     final metrics = <_MetricItem>[
       _MetricItem(
-        _showMoney ? '剩余金额' : '剩余电量',
+        _showMoney ? '剩余金额' : '昨日剩余',
         '${_formatAmount(_baseResult.available)} ${_showMoney ? '元' : '度'}',
       ),
       _MetricItem('电价(改变单位)', _formatPrice(), interactive: true),
