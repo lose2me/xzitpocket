@@ -2,6 +2,7 @@
 
 # XzitPocket - 掌上徐工
 
+[![codecov](https://codecov.io/github/lose2me/xzitpocket/graph/badge.svg?token=QS3S74BSOX)](https://codecov.io/github/lose2me/xzitpocket)
 [![License: GPL](https://img.shields.io/badge/License-GPLv3-yellow.svg)](https://opensource.org/licenses/gpl-3-0)
 
 </div>
