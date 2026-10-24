@@ -327,7 +327,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
   }
 
   String _formatAmount(String value) {
-    if (!_showMoney) return value;
+    if (!_showMoney) return powerAmountAsKwh(value);
     return powerAmountAsMoney(value, _baseResult.price);
   }
 
@@ -409,11 +409,17 @@ class _MetricItem {
   const _MetricItem(this.label, this.value, {this.interactive = false});
 }
 
-/// 电量 → 金额换算（度 × 电价，保留 2 位小数）；无法解析时返回 `-`。
+/// 电量 → 金额换算（度 × 电价，保留 1 位小数）；无法解析时返回 `-`。
 /// 电费页与服务页电费卡共用，保证两处单位数值一致。
 String powerAmountAsMoney(String amount, String price) {
   final parsedAmount = double.tryParse(amount);
   final parsedPrice = double.tryParse(price);
   if (parsedAmount == null || parsedPrice == null) return '-';
-  return (parsedAmount * parsedPrice).toStringAsFixed(2);
+  return (parsedAmount * parsedPrice).toStringAsFixed(1);
+}
+
+/// 电量显示统一保留 1 位小数；无法解析时原样返回。
+String powerAmountAsKwh(String amount) {
+  final parsed = double.tryParse(amount);
+  return parsed == null ? amount : parsed.toStringAsFixed(1);
 }

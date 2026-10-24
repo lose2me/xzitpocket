@@ -18,9 +18,15 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('powerAmountAsMoney', () {
-    test('converts kWh to money with two decimals', () {
-      expect(powerAmountAsMoney('100', '0.55'), '55.00');
-      expect(powerAmountAsMoney('12.5', '0.546'), '6.83');
+    test('converts kWh to money with one decimal', () {
+      expect(powerAmountAsMoney('100', '0.55'), '55.0');
+      expect(powerAmountAsMoney('10', '0.55'), '5.5');
+    });
+
+    test('formats kWh with one decimal', () {
+      expect(powerAmountAsKwh('12.34'), '12.3');
+      expect(powerAmountAsKwh('7'), '7.0');
+      expect(powerAmountAsKwh(''), '');
     });
 
     test('falls back to a placeholder for unparsable values', () {

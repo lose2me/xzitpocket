@@ -816,7 +816,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     } else if (data != null) {
       statusText = showMoney
           ? '${powerAmountAsMoney(data.available, data.price)} 元'
-          : '${data.available} 度';
+          : '${powerAmountAsKwh(data.available)} 度';
       statusStyle = theme.typography.metric;
     } else if (_manager.powerLoading) {
       statusText = '';
