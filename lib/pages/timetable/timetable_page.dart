@@ -850,34 +850,37 @@ class TimetablePageState extends ConsumerState<TimetablePage>
           child: SafeArea(
             child: Column(
               children: [
-                Stack(
-                  children: [
-                    TimetableWeekHeader(
-                      onJumpToCurrentWeek: jumpToCurrentWeek,
-                      onToggleSchedule: _toggleSchedule,
-                    ),
-                    if (_noticeVisible)
-                      Positioned.fill(
-                        child: SlideTransition(
-                          // 从原位置下方滑入，收起时向下滑出，仍在原位置。
-                          position:
-                              Tween<Offset>(
-                                begin: const Offset(0, 1),
-                                end: Offset.zero,
-                              ).animate(
-                                CurvedAnimation(
-                                  parent: _noticeSlideController,
-                                  curve: Curves.easeOutCubic,
-                                  reverseCurve: Curves.easeInCubic,
+                ClipRect(
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      TimetableWeekHeader(
+                        onJumpToCurrentWeek: jumpToCurrentWeek,
+                        onToggleSchedule: _toggleSchedule,
+                      ),
+                      if (_noticeVisible)
+                        Positioned.fill(
+                          child: SlideTransition(
+                            // 从原位置下方滑入，收起时向下滑出，仍在原位置。
+                            position:
+                                Tween<Offset>(
+                                  begin: const Offset(0, 1),
+                                  end: Offset.zero,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: _noticeSlideController,
+                                    curve: Curves.easeOutCubic,
+                                    reverseCurve: Curves.easeInCubic,
+                                  ),
                                 ),
-                              ),
-                          child: _CalendarUpdateNoticeToast(
-                            progress: _noticeProgressController,
-                            onDismiss: _dismissNoticePermanently,
+                            child: _CalendarUpdateNoticeToast(
+                              progress: _noticeProgressController,
+                              onDismiss: _dismissNoticePermanently,
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
                 Expanded(
                   child:
