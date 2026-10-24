@@ -149,8 +149,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     if (!mounted) return;
     if (!semesterCalendar.calendarUpdateNotice) {
       unawaited(_hideNotice());
-    } else if (TickerMode.valuesOf(context).enabled) {
-      _showNoticeIfNeeded();
     }
     final maxWeek = _maxDisplayWeek();
     final selected = ref.read(selectedWeekProvider);
@@ -489,7 +487,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   void refreshForResume() {
     if (mounted) {
       setState(() {});
-      showCalendarUpdateNoticeOnEnter();
     }
   }
 
@@ -578,14 +575,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     await ref
         .read(preferencesStorageProvider)
         .setSchoolCalendarUpdateNotice(false);
-  }
-
-  /// Called by HomePage every time the timetable tab becomes active.
-  void showCalendarUpdateNoticeOnEnter() {
-    if (!mounted || !semesterCalendar.calendarUpdateNotice) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _showNoticeIfNeeded();
-    });
   }
 
   void _showNoticeIfNeeded() {
