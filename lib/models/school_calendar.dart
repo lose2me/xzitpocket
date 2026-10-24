@@ -239,10 +239,20 @@ class SemesterCalendar extends ChangeNotifier {
   static final _fallbackEnd = DateTime(2027, 1, 10);
 
   List<SchoolDay> _days;
+  bool _calendarUpdateNotice = false;
 
   SemesterCalendar(List<SchoolDay> days) : _days = _sortedDays(days);
 
   List<SchoolDay> get days => List.unmodifiable(_days);
+
+  /// Whether to show the 「云端课程有所调整」 reminder above the timetable.
+  bool get calendarUpdateNotice => _calendarUpdateNotice;
+
+  void setCalendarUpdateNotice(bool notice) {
+    if (_calendarUpdateNotice == notice) return;
+    _calendarUpdateNotice = notice;
+    notifyListeners();
+  }
 
   DateTime get start =>
       _days.isEmpty ? _fallbackStart : _mondayOf(_days.first.date);
@@ -346,6 +356,21 @@ List<SchoolDay> _parseSchoolDays(Object? decoded) {
     }
   }
   return sorted;
+}
+
+/// Whether the cloud course adjustments (holidays and make-up days) differ
+/// between two calendar snapshots. Display-only names are ignored.
+bool schoolCalendarRulesChanged(
+  Iterable<SchoolDay> previous,
+  Iterable<SchoolDay> next,
+) {
+  final before = {
+    for (final day in previous) _dateOnly(day.date): day.adjustment,
+  };
+  for (final day in next) {
+    if ((before[_dateOnly(day.date)] ?? '') != day.adjustment) return true;
+  }
+  return false;
 }
 
 /// A downloaded calendar payload: the semester days plus the timetable periods

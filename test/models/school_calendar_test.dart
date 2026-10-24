@@ -162,6 +162,22 @@ void main() {
     );
   });
 
+  test('detects holiday and make-up-day changes between snapshots', () {
+    final previous = [
+      SchoolDay(date: DateTime(2026, 9, 25), name: '中秋'),
+      SchoolDay(date: DateTime(2026, 10, 1), name: '国庆'),
+      SchoolDay(date: DateTime(2026, 10, 11)),
+    ];
+    final next = [
+      SchoolDay(date: DateTime(2026, 9, 25), name: '中秋', adjustment: '/'),
+      SchoolDay(date: DateTime(2026, 10, 1), name: '国庆', adjustment: '/'),
+      SchoolDay(date: DateTime(2026, 10, 11), adjustment: '20260925'),
+    ];
+
+    expect(schoolCalendarRulesChanged(previous, next), isTrue);
+    expect(schoolCalendarRulesChanged(next, next), isFalse);
+  });
+
   test('decodes control timetable periods alongside the calendar', () {
     final payload = schoolCalendarPayloadFromJson(
       '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
@@ -198,18 +214,21 @@ void main() {
     );
   });
 
-  test('falls back to built-in periods when slots are missing or malformed', () {
-    final missing = schoolCalendarPayloadFromJson(
-      '{"days":[{"date":"2027-02-22","name":"","adjustment":""}]}',
-    );
-    expect(missing.slots, kDefaultTimeSlots);
+  test(
+    'falls back to built-in periods when slots are missing or malformed',
+    () {
+      final missing = schoolCalendarPayloadFromJson(
+        '{"days":[{"date":"2027-02-22","name":"","adjustment":""}]}',
+      );
+      expect(missing.slots, kDefaultTimeSlots);
 
-    final malformed = schoolCalendarPayloadFromJson(
-      '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
-      '"slots":[{"index":2,"start":"07:30","end":"08:15"}]}',
-    );
-    expect(malformed.slots, kDefaultTimeSlots);
-  });
+      final malformed = schoolCalendarPayloadFromJson(
+        '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
+        '"slots":[{"index":2,"start":"07:30","end":"08:15"}]}',
+      );
+      expect(malformed.slots, kDefaultTimeSlots);
+    },
+  );
 
   test('roundtrips the calendar payload including periods', () {
     final json = schoolCalendarPayloadToJson(
