@@ -485,6 +485,26 @@ class _TimetableGridState extends State<TimetableGrid> {
               final cellHeight = widget.sectionHeight > 0
                   ? widget.sectionHeight
                   : constraints.maxHeight / widget.visibleSlots;
+              final cellWidth =
+                  (constraints.maxWidth - effectiveTimeColumnWidth) / dayCount;
+              final cardScale = timetableCellScale(
+                cellWidth: cellWidth,
+                cellHeight: cellHeight,
+              );
+              // Course-card metrics follow the real cell box so the same
+              // settings occupy the same fraction on 5/7-column and tall/short
+              // layouts.
+              final cardTextSize = widget.courseTextSize * cardScale;
+              final cardCornerRadius = widget.courseCornerRadius * cardScale;
+              final cardInnerPadding = widget.courseInnerPadding * cardScale;
+              final cardOuterPadding = widget.courseOuterPadding * cardScale;
+              final cardBorderWidth = widget.borderWidth * cardScale;
+              final cardCountdownThickness =
+                  widget.countdownBarThickness * cardScale;
+              final cardCountdownTopPadding =
+                  widget.countdownBarTopPadding * cardScale;
+              final cardCountdownBottomPadding =
+                  widget.countdownBarBottomPadding * cardScale;
               // 未自定义时把真实算出的自适应高度回传（课表或设置页探针）。
               if (widget.sectionHeight <= 0 &&
                   cellHeight.isFinite &&
@@ -703,16 +723,14 @@ class _TimetableGridState extends State<TimetableGrid> {
                                               borderColor:
                                                   widget.courseBorderColor ??
                                                   widget.borderColor,
-                                              borderWidth: widget.borderWidth,
-                                              textSize: widget.courseTextSize,
+                                              borderWidth: cardBorderWidth,
+                                              textSize: cardTextSize,
+                                              textScale: cardScale,
                                               textOpacity:
                                                   widget.courseTextOpacity,
-                                              cornerRadius:
-                                                  widget.courseCornerRadius,
-                                              innerPadding:
-                                                  widget.courseInnerPadding,
-                                              outerPadding:
-                                                  widget.courseOuterPadding,
+                                              cornerRadius: cardCornerRadius,
+                                              innerPadding: cardInnerPadding,
+                                              outerPadding: cardOuterPadding,
                                               textTemplate:
                                                   widget.courseTextTemplate,
                                               countdownBarLengthRatio: widget

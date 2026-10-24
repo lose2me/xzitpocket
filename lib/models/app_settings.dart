@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:material_ui/material_ui.dart';
 
 import '../utils/course_text_template.dart';
@@ -215,7 +217,6 @@ class AppSettings {
   final double timetableDayTextMarkerPadding;
   final double timetableCountdownBarLengthRatio;
   final bool timetableCountdownBarRounded;
-  final bool ignoreSystemTextScale;
   final bool timetableTextAlignCenterHorizontal;
   final bool timetableTextAlignCenterVertical;
   final TimetableBorderType timetableBorderType;
@@ -307,7 +308,6 @@ class AppSettings {
     this.timetableCountdownBarTopPadding = 0.0,
     this.timetableCountdownBarBottomPadding = 4.0,
     this.showCurrentTimeLine = true,
-    this.ignoreSystemTextScale = true,
     this.timetableTextAlignCenterHorizontal = false,
     this.timetableTextAlignCenterVertical = false,
     this.timetableBorderType = TimetableBorderType.solid,
@@ -393,7 +393,6 @@ class AppSettings {
     double? timetableCountdownBarTopPadding,
     double? timetableCountdownBarBottomPadding,
     bool? showCurrentTimeLine,
-    bool? ignoreSystemTextScale,
     bool? timetableTextAlignCenterHorizontal,
     bool? timetableTextAlignCenterVertical,
     TimetableBorderType? timetableBorderType,
@@ -529,8 +528,6 @@ class AppSettings {
           timetableCountdownBarBottomPadding ??
           this.timetableCountdownBarBottomPadding,
       showCurrentTimeLine: showCurrentTimeLine ?? this.showCurrentTimeLine,
-      ignoreSystemTextScale:
-          ignoreSystemTextScale ?? this.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:
           timetableTextAlignCenterHorizontal ??
           this.timetableTextAlignCenterHorizontal,
@@ -654,21 +651,18 @@ class AppSettings {
   AppSettings scaledForViewport(Size viewport) {
     if (viewport.isEmpty) return this;
     final scale = timetableViewportScale(viewport);
+    // Course-card metrics are deliberately NOT scaled here: the grid scales
+    // them from the actual cell box (width/height, 5/7 columns) instead.
     return copyWith(
       timetableSectionHeight: timetableSectionHeight * scale.y,
       timetableDayHeaderHeight: timetableDayHeaderHeight * scale.y,
       timetableTimeColumnWidth: timetableTimeColumnWidth * scale.x,
-      timetableCourseInnerPadding: timetableCourseInnerPadding * scale.y,
-      timetableCourseOuterPadding: timetableCourseOuterPadding * scale.y,
-      timetableCountdownBarTopPadding:
-          timetableCountdownBarTopPadding * scale.y,
-      timetableCountdownBarBottomPadding:
-          timetableCountdownBarBottomPadding * scale.y,
-      timetableCourseTextSize: timetableCourseTextSize * scale.text,
       timetableTimeTextSize: timetableTimeTextSize * scale.text,
       timetableDateTextSize: timetableDateTextSize * scale.text,
       timetableDayTextMarkerSize: timetableDayTextMarkerSize * scale.text,
       timetableDayTextMarkerPadding: timetableDayTextMarkerPadding * scale.text,
+      timetableGridLineWidth: timetableGridLineWidth * scale.text,
+      timetableTodayLineWidth: timetableTodayLineWidth * scale.text,
     );
   }
 }
@@ -720,4 +714,29 @@ double estimateAdaptiveSectionHeight({double dayHeaderHeight = 40.0}) {
   // 字号跟随较小的一维，保证文字始终能放进课节/单元格，不会溢出。
   final text = x < y ? x : y;
   return (x: x, y: y, text: text);
+}
+
+/// 参考课块尺寸：390×844、5 列、默认字号/padding 下的单格大小。
+const kReferenceCourseCellWidth = 68.0;
+const kReferenceCourseCellHeight = 60.0;
+const kMinCellScale = 0.8;
+const kMaxCellScale = 1.4;
+
+/// 课块内部（文字、padding、圆角、边框、倒计时条）的相对缩放。
+/// 用实际格子的宽高而不是整个窗口，5/7 列和不同可用高度都会自动适配。
+double timetableCellScale({
+  required double cellWidth,
+  required double cellHeight,
+}) {
+  if (!cellWidth.isFinite ||
+      !cellHeight.isFinite ||
+      cellWidth <= 0 ||
+      cellHeight <= 0) {
+    return 1.0;
+  }
+  final scale = math.min(
+    cellWidth / kReferenceCourseCellWidth,
+    cellHeight / kReferenceCourseCellHeight,
+  );
+  return scale.clamp(kMinCellScale, kMaxCellScale).toDouble();
 }

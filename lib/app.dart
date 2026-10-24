@@ -228,11 +228,9 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
           theme: theme,
           child: child!,
         );
-        // 「不受系统文字缩放影响」开关（默认开启）：作用于没有独立字号设置的
-        // 全部文字；课表内部已有自己的 withNoTextScaling 与字号设置，不受影响。
-        final themed = settings.ignoreSystemTextScale
-            ? MediaQuery.withNoTextScaling(child: transition)
-            : transition;
+        // The app always ignores the system text scale so its own layout
+        // metrics stay consistent across devices.
+        final themed = MediaQuery.withNoTextScaling(child: transition);
         // Vendored talker_flutter (and other legacy packages) still use
         // package:flutter/material.dart. Bridge their theme and localizations
         // until those dependencies move to package:material_ui.

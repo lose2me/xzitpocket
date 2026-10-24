@@ -124,7 +124,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCountdownBarBottomPadding: _storage
           .getTimetableCountdownBarBottomPadding(),
       showCurrentTimeLine: _storage.getShowCurrentTimeLine(),
-      ignoreSystemTextScale: _storage.getIgnoreSystemTextScale(),
       timetableTextAlignCenterHorizontal: _storage
           .getTimetableTextAlignCenterHorizontal(),
       timetableTextAlignCenterVertical: _storage
@@ -477,11 +476,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setShowCurrentTimeLine(value);
   }
 
-  Future<void> setIgnoreSystemTextScale(bool value) async {
-    state = state.copyWith(ignoreSystemTextScale: value);
-    await _storage.setIgnoreSystemTextScale(value);
-  }
-
   Future<void> setTimetableTextAlignCenterHorizontal(bool value) async {
     state = state.copyWith(timetableTextAlignCenterHorizontal: value);
     await _storage.setTimetableTextAlignCenterHorizontal(value);
@@ -765,7 +759,6 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCountdownBarBottomPadding:
           defaults.timetableCountdownBarBottomPadding,
       showCurrentTimeLine: defaults.showCurrentTimeLine,
-      ignoreSystemTextScale: defaults.ignoreSystemTextScale,
       timetableTextAlignCenterHorizontal:
           defaults.timetableTextAlignCenterHorizontal,
       timetableTextAlignCenterVertical:

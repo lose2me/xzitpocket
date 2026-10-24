@@ -1290,21 +1290,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setToastOpacity(value),
                         ),
-                        ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.text,
-                          title: '忽略系统字体缩放',
-                          value: settings.ignoreSystemTextScale,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setIgnoreSystemTextScale(value),
-                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    const ProfileSettingsHint(
-                      '开启后，未单独设置字号的文字不随系统字体大小缩放；'
-                      '课表课程块、课程改动标记等已有独立字号设置的文字不受影响。',
-                    ),
                   ]),
                 ),
               ],

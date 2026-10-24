@@ -181,7 +181,6 @@ void main() {
       expect(storage.getTimetableDayTextMarkerPadding(), 2.0);
       expect(storage.getTimetableCountdownBarLengthRatio(), 0.75);
       expect(storage.getTimetableCountdownBarRounded(), isTrue);
-      expect(storage.getIgnoreSystemTextScale(), isTrue);
     });
 
     test('roundtrips timetable appearance settings', () async {
@@ -210,7 +209,6 @@ void main() {
       await storage.setTimetableDayTextMarkerPadding(4);
       await storage.setTimetableCountdownBarLengthRatio(0.5);
       await storage.setTimetableCountdownBarRounded(false);
-      await storage.setIgnoreSystemTextScale(false);
       await storage.setTimetableSectionHeight(72);
       await storage.setTimetableDashedBorderDensity(1.5);
       await storage.setTimetablePageTextColor(0xFF111111);
@@ -262,7 +260,6 @@ void main() {
       expect(storage.getTimetableDayTextMarkerPadding(), 4.0);
       expect(storage.getTimetableCountdownBarLengthRatio(), 0.5);
       expect(storage.getTimetableCountdownBarRounded(), isFalse);
-      expect(storage.getIgnoreSystemTextScale(), isFalse);
       expect(storage.getTimetableSectionHeight(), 72.0);
       expect(storage.hasTimetableSectionHeight(), isTrue);
       expect(storage.getTimetableDashedBorderDensity(), 1.5);
@@ -433,7 +430,6 @@ void main() {
       await storage.setTimetableDayTextMarkerPadding(4);
       await storage.setTimetableCountdownBarLengthRatio(0.5);
       await storage.setTimetableCountdownBarRounded(false);
-      await storage.setIgnoreSystemTextScale(false);
       await storage.setTimetableSectionHeight(72);
       await storage.setTimetableDashedBorderDensity(1.8);
       await storage.setCourseReminderEnabled(true);
@@ -489,7 +485,6 @@ void main() {
       expect(storage.getTimetableDayTextMarkerPadding(), 2.0);
       expect(storage.getTimetableCountdownBarLengthRatio(), 0.75);
       expect(storage.getTimetableCountdownBarRounded(), isTrue);
-      expect(storage.getIgnoreSystemTextScale(), isTrue);
       // 重置后课节高度回到默认值，且清除自定义标记。
       expect(storage.getTimetableSectionHeight(), 60.0);
       expect(storage.hasTimetableSectionHeight(), isFalse);

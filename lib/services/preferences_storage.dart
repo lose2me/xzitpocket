@@ -43,6 +43,8 @@ class PreferencesStorage {
     'uploaded_courses_hash',
     // 题库缓存改为按题库 updated_at 失效后废弃的时间戳。
     'learning_question_bank_cache_time',
+    // 现在全局固定忽略系统字体缩放，不再作为可配置项。
+    'ignore_system_text_scale',
   };
 
   /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
@@ -118,7 +120,6 @@ class PreferencesStorage {
     'timetable_countdown_bar_top_padding': double,
     'timetable_countdown_bar_bottom_padding': double,
     'show_current_time_line': bool,
-    'ignore_system_text_scale': bool,
     // 页面与文字
     'timetable_hide_section_time': bool,
     'timetable_hide_date_under_day': bool,
@@ -326,7 +327,6 @@ class PreferencesStorage {
     'timetable_countdown_bar_top_padding',
     'timetable_countdown_bar_bottom_padding',
     'show_current_time_line',
-    'ignore_system_text_scale',
     'timetable_text_align_center_horizontal',
     'timetable_text_align_center_vertical',
     'timetable_border_type',
@@ -813,12 +813,6 @@ class PreferencesStorage {
   Future<void> setShowCurrentTimeLine(bool value) =>
       _prefs.setBool('show_current_time_line', value);
 
-  bool getIgnoreSystemTextScale() =>
-      _prefs.getBool('ignore_system_text_scale') ?? true;
-
-  Future<void> setIgnoreSystemTextScale(bool value) =>
-      _prefs.setBool('ignore_system_text_scale', value);
-
   double getTimetableDashedBorderDensity() =>
       (_prefs.getDouble('timetable_dashed_border_density') ?? 1.0)
           .clamp(0.5, 2.0)
@@ -1228,7 +1222,6 @@ class PreferencesStorage {
       _prefs.remove('timetable_countdown_bar_top_padding'),
       _prefs.remove('timetable_countdown_bar_bottom_padding'),
       _prefs.remove('show_current_time_line'),
-      _prefs.remove('ignore_system_text_scale'),
       _prefs.remove('timetable_text_align_center_horizontal'),
       _prefs.remove('timetable_text_align_center_vertical'),
       _prefs.remove('timetable_border_type'),

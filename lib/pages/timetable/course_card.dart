@@ -14,6 +14,7 @@ class CourseCard extends StatelessWidget {
   final double courseOpacity;
   final double courseBorderOpacity;
   final double textSize;
+  final double textScale;
   final double textOpacity;
   final Color borderColor;
   final double borderWidth;
@@ -39,6 +40,7 @@ class CourseCard extends StatelessWidget {
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
     this.textSize = 12.0,
+    this.textScale = 1.0,
     this.textOpacity = 1.0,
     required this.borderColor,
     this.borderWidth = 0.5,
@@ -246,7 +248,9 @@ class CourseCard extends StatelessWidget {
               TextSpan(
                 text: span.text,
                 style: (span.bold ? boldStyle : detailStyle).copyWith(
-                  fontSize: span.fontSize,
+                  fontSize: span.fontSize == null
+                      ? null
+                      : span.fontSize! * textScale,
                   color: span.colorFor(brightness),
                   fontStyle: span.italic ? FontStyle.italic : FontStyle.normal,
                 ),
