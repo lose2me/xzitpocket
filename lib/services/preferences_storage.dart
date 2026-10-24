@@ -9,7 +9,7 @@ class PreferencesStorage {
   /// Bumped whenever stored preference semantics change incompatibly.
   /// Persisted next to the installed versionCode so migrations can react to
   /// both app upgrades and schema changes.
-  static const settingsSchemaVersion = 1;
+  static const settingsSchemaVersion = 2;
 
   /// Keys removed by past releases. They are dropped on the next migration so
   /// upgraded installs keep no stale entries.
@@ -227,6 +227,14 @@ class PreferencesStorage {
           legacyTemplate,
         );
         cleaned = true;
+      }
+      final rawTemplate = _prefs.getString('timetable_course_text_template');
+      if (rawTemplate != null) {
+        final migrated = migrateLegacyLocationVariable(rawTemplate);
+        if (migrated != rawTemplate) {
+          await _prefs.setString('timetable_course_text_template', migrated);
+          cleaned = true;
+        }
       }
       for (final key in _deprecatedKeys) {
         if (_prefs.containsKey(key)) {
@@ -702,14 +710,19 @@ class PreferencesStorage {
     value.clamp(0.1, 1.0).toDouble(),
   );
 
-  String? getTimetableCourseTextTemplate() =>
-      _prefs.getString('timetable_course_text_template');
+  String? getTimetableCourseTextTemplate() {
+    final value = _prefs.getString('timetable_course_text_template');
+    return value == null ? null : migrateLegacyLocationVariable(value);
+  }
 
   Future<void> setTimetableCourseTextTemplate(String? value) async {
     if (value == null || value.isEmpty) {
       await _prefs.remove('timetable_course_text_template');
     } else {
-      await _prefs.setString('timetable_course_text_template', value);
+      await _prefs.setString(
+        'timetable_course_text_template',
+        migrateLegacyLocationVariable(value),
+      );
     }
   }
 

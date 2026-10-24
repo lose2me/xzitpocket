@@ -82,11 +82,6 @@ class CourseCard extends StatelessWidget {
       '教师': course.teacher,
       '教室': course.place.trim(),
       '校区': course.campus.trim(),
-      // 兼容旧模板：地点仍然表示「教室 + 换行 + 校区」。
-      '地点': [
-        course.place.trim(),
-        course.campus.trim(),
-      ].where((part) => part.isNotEmpty).join('\n'),
       '时间': _startTime(course.startSession),
     }).where((line) => !line.skip).toList();
     final brightness = context.theme.colors.brightness;

@@ -113,7 +113,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         ),
         const SizedBox(height: AppSpacing.md),
         const ProfileSettingsHint(
-          '变量：{课程} {教师} {教室} {校区} {地点} {时间}（{地点}=教室+换行+校区）；'
+          '变量：{课程} {教师} {教室} {校区} {时间}；'
           '样式（闭合标签与开标签同名）：[b]加粗[/b]、[i]斜体[/i]、'
           '[s12]字号(px)[/s12]、[c#亮色|#暗色]颜色[/c]、[左][中][右]对齐[/左]。'
           '# 和 @ 均为普通字符。含变量的行在变量为空时整行省略。',

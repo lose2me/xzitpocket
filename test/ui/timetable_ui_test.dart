@@ -199,8 +199,8 @@ void main() {
       return tester.getTopLeft(find.text('@教室')).dy;
     }
 
-    final normalTop = await placeTop(template: r'[b]{课程}[/]\n@{地点}');
-    final blankLineTop = await placeTop(template: r'[b]{课程}[/]\n\n@{地点}');
+    final normalTop = await placeTop(template: r'[b]{课程}[/]\n@{教室}');
+    final blankLineTop = await placeTop(template: r'[b]{课程}[/]\n\n@{教室}');
 
     expect(blankLineTop, greaterThan(normalTop + 8));
   });
@@ -228,14 +228,14 @@ void main() {
             course: course,
             borderColor: Colors.black,
             centerHorizontal: true,
-            textTemplate: r'[b]{课程}[/]\n{时间}\n@{地点}\n{教师}',
+            textTemplate: r'[b]{课程}[/]\n{时间}\n@{教室}\n{校区}\n{教师}',
           ),
         ),
       ),
     );
 
-    // {地点} 将地点与校区合并为同一样式段（内部换行）。
-    for (final label in ['课程名称很长需要换行', '8:00', '@教室101\n中心校区', '张老师']) {
+    // {教室} 和 {校区} 各占一行。
+    for (final label in ['课程名称很长需要换行', '8:00', '@教室101', '中心校区', '张老师']) {
       expect(tester.widget<Text>(find.text(label)).textAlign, TextAlign.center);
     }
   });

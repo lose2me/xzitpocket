@@ -121,7 +121,7 @@ void main() {
       expect(settings.widgetHideTeacher, isFalse);
       expect(settings.widgetHideLocation, isFalse);
       expect(settings.widgetHideDate, isFalse);
-      expect(settings.timetableCourseTextTemplate, r'[b]{课程}[/b]\n@{地点}');
+      expect(settings.timetableCourseTextTemplate, r'[b]{课程}[/b]\n@{教室}\n{校区}');
       expect(settings.timetableCountdownBarLengthRatio, 0.75);
       expect(settings.timetableCountdownBarRounded, isTrue);
       expect(settings.timetableBackgroundPath, isNull);

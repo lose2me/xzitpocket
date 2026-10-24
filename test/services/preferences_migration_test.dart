@@ -131,11 +131,27 @@ void main() {
       expect(cleaned, isTrue);
       expect(
         storage.getTimetableCourseTextTemplate(),
-        r'[b]{课程}[/b]\n{时间}\n{地点}\n【{教师}】',
+        r'[b]{课程}[/b]\n{时间}\n{教室}\n{校区}\n【{教师}】',
       );
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.containsKey('timetable_show_start_time'), isFalse);
       expect(prefs.containsKey('timetable_hide_teacher'), isFalse);
+    });
+
+    test('migrates the removed location variable', () async {
+      await initStorage({
+        'installed_version_code': '2000',
+        'settings_schema_version': 1,
+        'timetable_course_text_template': r'[b]{课程}[/b]\n@{地点}',
+      });
+
+      final cleaned = await storage.migrateForVersionCode('2100');
+
+      expect(cleaned, isTrue);
+      expect(
+        storage.getTimetableCourseTextTemplate(),
+        r'[b]{课程}[/b]\n@{教室}\n{校区}',
+      );
     });
 
     test('keeps an existing template untouched during migration', () async {

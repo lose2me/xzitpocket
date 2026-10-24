@@ -2,7 +2,7 @@
 ///
 /// | 用途 | 写法 | 说明 |
 /// |---|---|---|
-/// | 变量 | `{课程}` `{教师}` `{教室}` `{校区}` `{地点}` `{时间}` | 花括号；`{地点}` = 教室 + 换行 + 校区 |
+/// | 变量 | `{课程}` `{教师}` `{教室}` `{校区}` `{时间}` | 花括号 |
 /// | 加粗 | `[b]文字[/b]` | |
 /// | 斜体 | `[i]文字[/i]` | |
 /// | 字号 | `[s12]文字[/s12]` | 数字为 px |
@@ -17,8 +17,8 @@ library;
 
 import 'dart:ui' show Brightness, Color;
 
-/// 默认模板：等价旧版默认展示（课程名加粗一行 + @地点 明细行）。
-const kDefaultCourseTextTemplate = r'[b]{课程}[/b]\n@{地点}';
+/// 默认模板：等价旧版默认展示（课程名加粗一行 + @教室/校区 明细行）。
+const kDefaultCourseTextTemplate = r'[b]{课程}[/b]\n@{教室}\n{校区}';
 
 enum CourseTemplateAlign { left, center, right }
 
@@ -188,7 +188,7 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
   );
 }
 
-const _knownVariables = {'课程', '教师', '地点', '校区', '教室', '时间'};
+const _knownVariables = {'课程', '教师', '校区', '教室', '时间'};
 
 enum _TemplateStyleKind { bold, italic, size, color, align }
 
@@ -285,7 +285,7 @@ Color? _parseHexColor(String value) {
 String buildCourseTemplateAiPrompt(String currentTemplate) {
   const syntax = '''
 课程块文字模板语法（单行输入，渲染允许多行，\\n 表示换行，闭合标签与开标签同名）：
-- 变量：{课程} {教师} {教室} {校区} {地点} {时间}
+- 变量：{课程} {教师} {教室} {校区} {时间}
 - 加粗：[b]文字[/b]
 - 斜体：[i]文字[/i]（也可写 [斜]文字[/斜]）
 - 字号：[s12]文字[/s12]（数字为 px）
@@ -293,7 +293,6 @@ String buildCourseTemplateAiPrompt(String currentTemplate) {
 - 靠左：[左]文字[/左]
 - 居中：[中]文字[/中]
 - 靠右：[右]文字[/右]
-- {地点} = 教室 + 换行 + 校区；只想显示其中一项时用 {教室} 或 {校区}
 - # 和 @ 均为普通字符，可直接书写''';
   return '$syntax\n\n当前模板：\n$currentTemplate\n\n请按此语法返回新模板。';
 }
@@ -310,9 +309,17 @@ String composeLegacyTemplate({
   final lines = <String>['[b]{课程}[/b]'];
   if (addBlankLineAfterTitle) lines.add('');
   if (showStartTime) lines.add('{时间}');
-  if (!hideLocation) lines.add('${removeLocationAt ? '' : '@'}{地点}');
+  if (!hideLocation) {
+    lines.add('${removeLocationAt ? '' : '@'}{教室}');
+    lines.add('{校区}');
+  }
   if (!hideTeacher) {
     lines.add(hideTeacherBrackets ? '{教师}' : '【{教师}】');
   }
   return lines.join('\\n');
 }
+
+/// 把已删除的 `{地点}` 变量迁移为 `{教室}` + 换行 + `{校区}`。
+/// 用于升级旧模板和个人设置导入。
+String migrateLegacyLocationVariable(String template) =>
+    template.replaceAll('{地点}', r'{教室}\n{校区}');

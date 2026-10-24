@@ -9,7 +9,6 @@ void main() {
     '教师': '张老师',
     '教室': '教101',
     '校区': '中心校区',
-    '地点': '教101\n中心校区',
     '时间': '8:00',
   };
 
@@ -17,16 +16,17 @@ void main() {
       line.spans.map((span) => span.text).join();
 
   group('parseCourseTemplate', () {
-    test('default template renders bold title and @location lines', () {
+    test('default template renders title, classroom and campus', () {
       final lines = parseCourseTemplate(
         kDefaultCourseTextTemplate,
         values,
       ).where((line) => !line.skip).toList();
 
-      expect(lines, hasLength(2));
+      expect(lines, hasLength(3));
       expect(plain(lines[0]), '高等数学');
       expect(lines[0].spans.single.bold, isTrue);
-      expect(plain(lines[1]), '@教101\n中心校区');
+      expect(plain(lines[1]), '@教101');
+      expect(plain(lines[2]), '中心校区');
       expect(lines[1].spans.any((span) => span.bold), isFalse);
     });
 
@@ -134,9 +134,9 @@ void main() {
     });
 
     test('lines whose variables are all empty are skipped', () {
-      final lines = parseCourseTemplate(r'[b]{课程}[/]\n@{地点}', {
+      final lines = parseCourseTemplate(r'[b]{课程}[/]\n@{教室}', {
         ...values,
-        '地点': '',
+        '教室': '',
       });
       expect(lines, hasLength(2));
       expect(lines[0].skip, isFalse);
@@ -144,7 +144,7 @@ void main() {
     });
 
     test('lines with at least one non-empty variable are kept', () {
-      final lines = parseCourseTemplate(r'{课程} {地点}', {...values, '地点': ''});
+      final lines = parseCourseTemplate(r'{课程} {教室}', {...values, '教室': ''});
       expect(lines.single.skip, isFalse);
     });
 
@@ -203,7 +203,7 @@ void main() {
         removeLocationAt: true,
         addBlankLineAfterTitle: true,
       );
-      expect(template, r'[b]{课程}[/b]\n\n{时间}\n{地点}\n【{教师}】');
+      expect(template, r'[b]{课程}[/b]\n\n{时间}\n{教室}\n{校区}\n【{教师}】');
     });
   });
 }
