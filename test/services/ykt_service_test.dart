@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xzitpocket/pages/tools/campus_card_page.dart';
 import 'package:xzitpocket/services/ykt_service.dart';
 
 void main() {
@@ -37,9 +38,38 @@ void main() {
     ]);
   });
 
-  test('matches the web transaction balance display', () {
-    expect(yktTransactionDisplayBalance('6.21', '-1'), '7.21');
-    expect(yktTransactionDisplayBalance('7.57', '6'), '1.57');
-    expect(yktTransactionDisplayBalance('unknown', '-1'), 'unknown');
+  test('uses the latest consumption row for the uncommitted amount', () {
+    final txns = [
+      YktTransaction(
+        time: '2026-10-24 19:09:24',
+        location: '转账前置机',
+        amount: '100',
+        balance: '36.57',
+        type: '支付宝转账',
+      ),
+      YktTransaction(
+        time: '2026-10-24 17:43:00',
+        location: '东校区直饮水',
+        amount: '-0.19',
+        balance: '36.57',
+        type: '持卡人消费',
+      ),
+    ];
+
+    expect(yktUncommittedAmount('38.91', txns), '2.34 元');
+  });
+
+  test('has no uncommitted amount without a consumption row', () {
+    final txns = [
+      YktTransaction(
+        time: '2026-10-24 19:09:24',
+        location: '转账前置机',
+        amount: '100',
+        balance: '36.57',
+        type: '支付宝转账',
+      ),
+    ];
+
+    expect(yktUncommittedAmount('38.91', txns), '--');
   });
 }

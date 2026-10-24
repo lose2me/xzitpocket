@@ -75,17 +75,6 @@ DateTime? _parseYktTransactionTime(String raw) {
       DateTime.tryParse(value.replaceAll('/', '-'));
 }
 
-/// Matches the campus-card website's transaction detail balance display.
-/// The API's [balance] is the post-transaction value while the web table
-/// displays the balance before the transaction.
-String yktTransactionDisplayBalance(String balance, String amount) {
-  final after = double.tryParse(balance.trim());
-  final delta = double.tryParse(amount.trim());
-  if (after == null || delta == null) return balance;
-  final before = after - delta;
-  return before.toStringAsFixed(2);
-}
-
 class YktDetailResult {
   final YktBalanceResult balance;
   final List<YktTransaction> transactions;
@@ -204,10 +193,10 @@ class YktService {
                           ?.toString() ??
                       '',
                   amount: '${item['jye'] ?? ''}',
-                  balance: yktTransactionDisplayBalance(
-                    '${item['ye'] ?? ''}',
-                    '${item['jye'] ?? ''}',
-                  ),
+                  // Raw API ledger balance. It is not a per-row display value:
+                  // transfer rows repeat a batch snapshot, and the official
+                  // web table only shows the current balance on its first row.
+                  balance: '${item['ye'] ?? ''}',
                   type: '${item['jylxm'] ?? ''}',
                 ),
               );

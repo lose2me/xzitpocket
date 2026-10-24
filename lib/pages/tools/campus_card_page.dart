@@ -12,14 +12,19 @@ import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../../ui/date_range_calendar_sheet.dart';
 
-/// 未圈存金额 = 卡内余额 − 最后一笔交易的「余」（需求 4）。
-/// [txns] 需按时间倒序（最新在前）。无交易或数值不可解析时返回占位 `--`。
+/// 未圈存金额 = 卡内余额 − 最近一笔消费在流水里的余额（需求 4）。
+/// [txns] 需按时间倒序（最新在前）。转账/充值行只是批次余额快照，跳过不用；
+/// 无消费记录或数值不可解析时返回占位 `--`。
 String yktUncommittedAmount(String balance, List<YktTransaction> txns) {
-  if (txns.isEmpty) return '--';
   final balanceValue = double.tryParse(balance.trim());
-  final lastRemainder = double.tryParse(txns.first.balance.trim());
-  if (balanceValue == null || lastRemainder == null) return '--';
-  return '${(balanceValue - lastRemainder).toStringAsFixed(2)} 元';
+  if (balanceValue == null) return '--';
+  for (final txn in txns) {
+    if (!txn.amount.trim().startsWith('-')) continue;
+    final ledger = double.tryParse(txn.balance.trim());
+    if (ledger == null) continue;
+    return '${(balanceValue - ledger).toStringAsFixed(2)} 元';
+  }
+  return '--';
 }
 
 class CampusCardPage extends StatefulWidget {
@@ -251,7 +256,14 @@ class _CampusCardPageState extends State<CampusCardPage> {
           _buildRangeField(theme),
           const SizedBox(height: AppSpacing.lg),
           if (_txns.isNotEmpty) ...[
-            for (final t in _txns.take(_visibleCount)) _buildTxnTile(theme, t),
+            for (var index = 0; index < _visibleCount; index++)
+              _buildTxnTile(
+                theme,
+                _txns[index],
+                // Matches the campus-card website: only the first row shows the
+                // card's current balance, the rest have no balance column.
+                remainder: index == 0 ? bal.balance : null,
+              ),
             if (_visibleCount < _txns.length) ...[
               const SizedBox(height: AppSpacing.md),
               const Center(
@@ -298,7 +310,11 @@ class _CampusCardPageState extends State<CampusCardPage> {
     );
   }
 
-  Widget _buildTxnTile(FThemeData theme, YktTransaction t) {
+  Widget _buildTxnTile(
+    FThemeData theme,
+    YktTransaction t, {
+    String? remainder,
+  }) {
     final isNeg = t.amount.startsWith('-');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -344,9 +360,9 @@ class _CampusCardPageState extends State<CampusCardPage> {
                         : theme.colors.semantic.success,
                   ),
                 ),
-                if (t.balance.isNotEmpty)
+                if (remainder != null && remainder.trim().isNotEmpty)
                   Text(
-                    '余 ${t.balance}',
+                    '余 $remainder',
                     style: theme.typography.body.sm.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
