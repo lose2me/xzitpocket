@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 
 import '../models/academic.dart';
 import '../models/app_settings.dart';
-import '../models/learning_question.dart';
 import '../ui/date_range_calendar_sheet.dart' show studentHistoryStartDate;
 import '../utils/in_flight_operation.dart';
 import 'auth_service.dart';
@@ -1075,36 +1074,18 @@ class ToolsDataManager extends ChangeNotifier {
   Future<void> _loadLearningBanks() async {
     final prefs = _savedPrefs;
     if (prefs == null) return;
+    // Once a cache exists the foreground LearningRepository owns refreshes;
+    // a background write here could race and overwrite a newer snapshot.
+    if (prefs.getLearningQuestionBankCache()?.isNotEmpty ?? false) return;
     try {
-      final existing = _decodeLearningBanks(
-        prefs.getLearningQuestionBankCache(),
-      );
       final banks = await ControlService.instance.syncLearningQuestionBanks(
-        existing,
+        const {},
       );
       await prefs.setLearningQuestionBankCache(
         jsonEncode([for (final bank in banks) bank.toJson()]),
       );
     } catch (error, stackTrace) {
       talker.warning('学习中心后台加载失败', error, stackTrace);
-    }
-  }
-
-  Map<String, LearningQuestionBank> _decodeLearningBanks(String? raw) {
-    if (raw == null || raw.isEmpty) return const {};
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! List) return const {};
-      final result = <String, LearningQuestionBank>{};
-      for (final item in decoded) {
-        if (item is! Map<String, dynamic>) continue;
-        final bank = LearningQuestionBank.fromJson(item);
-        if (bank.id.isNotEmpty) result[bank.id] = bank;
-      }
-      return result;
-    } catch (error, stackTrace) {
-      talker.warning('题库缓存解析失败', error, stackTrace);
-      return const {};
     }
   }
 }

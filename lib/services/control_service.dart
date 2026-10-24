@@ -36,7 +36,21 @@ class ControlRelease {
 class ControlConfigVersions {
   final String schoolCalendar;
 
-  const ControlConfigVersions({required this.schoolCalendar});
+  /// Revision of all resource-centre content. A matching value lets the app
+  /// skip the course-list request and reuse its cache.
+  final String resourceCenter;
+
+  const ControlConfigVersions({
+    required this.schoolCalendar,
+    this.resourceCenter = '',
+  });
+}
+
+class ResourceCenterResult {
+  final String version;
+  final List<ResourceCourse> courses;
+
+  const ResourceCenterResult({required this.version, required this.courses});
 }
 
 class ResourceUploadTicket {
@@ -62,6 +76,12 @@ class UploadStats {
     downloadCount: _asInt(json['download_count']) ?? 0,
     studentId: json['student_id']?.toString() ?? '',
   );
+
+  Map<String, dynamic> toJson() => {
+    'contribution_count': contributionCount,
+    'download_count': downloadCount,
+    'student_id': studentId,
+  };
 }
 
 class ControlApiException implements Exception {
@@ -92,7 +112,10 @@ class ControlService {
   Future<String?>? _refreshFuture;
   Future<void>? _loginFuture;
   Future<bool>? _healthFuture;
+  final Map<String, ({String url, DateTime expiresAt})> _signedURLCache = {};
   Future<ControlConfigVersions>? _configVersionsFuture;
+  ControlConfigVersions? _configVersionsCache;
+  DateTime? _configVersionsCheckedAt;
   Future<bool>? _schoolCalendarRefreshFuture;
   Future<String?>? _loginBlockFuture;
   PackageInfo? _packageInfo;
@@ -547,6 +570,9 @@ class ControlService {
         );
       } on ControlApiException catch (error) {
         if (error.code != 'question_bank_locked') rethrow;
+        // Keep the questions already cached so collections and progress
+        // survive the lock; they stay hidden until the bank is unlocked.
+        final lockedQuestions = existing[id]?.questions ?? const [];
         banks.add(
           LearningQuestionBank.fromJson({
             'id': summaryBank.id,
@@ -555,7 +581,9 @@ class ControlService {
             'courseCodes': summary['courseCodes'],
             'locked': true,
             'updatedAt': updatedAt,
-            'questions': const [],
+            'questions': [
+              for (final question in lockedQuestions) question.toJson(),
+            ],
           }),
         );
       }
@@ -618,56 +646,91 @@ class ControlService {
     return UploadStats.fromJson(response);
   }
 
-  Future<List<ResourceCourse>> fetchResourceCourses() async {
+  Future<ResourceCenterResult> fetchResourceCourses() async {
     final response = await _userGet('/api/v1/resource-center/courses');
     final items = response['items'];
-    if (items is! List) return const [];
-    return [
-      for (final item in items.whereType<Map>())
-        ResourceCourse.fromJson(_stringMap(item)),
-    ];
+    return ResourceCenterResult(
+      version: response['version']?.toString() ?? '',
+      courses: items is! List
+          ? const []
+          : [
+              for (final item in items.whereType<Map>())
+                ResourceCourse.fromJson(_stringMap(item)),
+            ],
+    );
   }
 
-  Future<List<CourseResourceItem>> fetchCourseResources(
-    String courseCode,
-  ) async {
+  Future<({List<CourseResourceItem> items, int total, String version})>
+  fetchCourseResources(String courseCode) async {
     final response = await _userGet(
       '/api/v1/resources?course_code=${Uri.encodeQueryComponent(courseCode)}',
     );
     final items = response['items'];
-    if (items is! List) return const [];
-    return [
-      for (final item in items.whereType<Map>())
-        CourseResourceItem.fromJson(_stringMap(item)),
-    ];
+    final resources = items is! List
+        ? const <CourseResourceItem>[]
+        : [
+            for (final item in items.whereType<Map>())
+              CourseResourceItem.fromJson(_stringMap(item)),
+          ];
+    return (
+      items: resources,
+      total: _asInt(response['total']) ?? resources.length,
+      version: response['version']?.toString() ?? '',
+    );
   }
 
-  Future<List<CourseTextbookItem>> fetchCourseTextbooks(
-    String courseCode,
-  ) async {
+  Future<({List<CourseTextbookItem> items, int total, String version})>
+  fetchCourseTextbooks(String courseCode) async {
     final response = await _userGet(
       '/api/v1/textbooks?course_code=${Uri.encodeQueryComponent(courseCode)}',
     );
     final items = response['items'];
-    if (items is! List) return const [];
-    return [
-      for (final item in items.whereType<Map>())
-        CourseTextbookItem.fromJson(_stringMap(item)),
-    ];
+    final textbooks = items is! List
+        ? const <CourseTextbookItem>[]
+        : [
+            for (final item in items.whereType<Map>())
+              CourseTextbookItem.fromJson(_stringMap(item)),
+          ];
+    return (
+      items: textbooks,
+      total: _asInt(response['total']) ?? textbooks.length,
+      version: response['version']?.toString() ?? '',
+    );
   }
 
-  Future<String> fetchResourceURL(String id) async {
-    final response = await _userGet(
-      '/api/v1/resources/${Uri.encodeComponent(id)}/url',
-    );
-    return response['url']?.toString() ?? '';
-  }
+  Future<String> fetchResourceURL(String id) => _signedURL(
+    'resource:$id',
+    '/api/v1/resources/${Uri.encodeComponent(id)}/url',
+  );
 
-  Future<String> fetchTextbookURL(String id, {String kind = 'pdf'}) async {
-    final response = await _userGet(
-      '/api/v1/textbooks/${Uri.encodeComponent(id)}/url?kind=${Uri.encodeQueryComponent(kind)}',
-    );
-    return response['url']?.toString() ?? '';
+  Future<String> fetchTextbookURL(
+    String id, {
+    String kind = 'pdf',
+  }) => _signedURL(
+    'textbook:$id:$kind',
+    '/api/v1/textbooks/${Uri.encodeComponent(id)}/url?kind=${Uri.encodeQueryComponent(kind)}',
+  );
+
+  /// Reuses a signed CDN URL until shortly before it expires. This avoids
+  /// re-signing (and re-counting a download) when a failed download is retried.
+  Future<String> _signedURL(String cacheKey, String path) async {
+    final cached = _signedURLCache[cacheKey];
+    if (cached != null &&
+        cached.url.isNotEmpty &&
+        cached.expiresAt.isAfter(
+          DateTime.now().toUtc().add(const Duration(seconds: 60)),
+        )) {
+      return cached.url;
+    }
+    final response = await _userGet(path);
+    final url = response['url']?.toString() ?? '';
+    if (url.isEmpty) return '';
+    final now = DateTime.now().toUtc();
+    final expiresAt =
+        DateTime.tryParse(response['expires_at']?.toString() ?? '')?.toUtc() ??
+        now.add(const Duration(minutes: 5));
+    _signedURLCache[cacheKey] = (url: url, expiresAt: expiresAt);
+    return url;
   }
 
   /// Creates a short-lived COS upload ticket. The PDF is then PUT directly to
@@ -869,8 +932,18 @@ class ControlService {
     return _stringMap(data);
   }
 
-  Future<ControlRelease?> checkForUpdate({PreferencesStorage? prefs}) async {
-    if (!_communicationAllowed) return null;
+  Future<ControlRelease?> checkForUpdate({PreferencesStorage? prefs}) async =>
+      (await checkForUpdateState(prefs: prefs)).release;
+
+  /// Like [checkForUpdate], but also reports whether control answered. The
+  /// profile page keeps showing a cached release when the request failed
+  /// instead of dropping the update card.
+  Future<({ControlRelease? release, bool reachable})> checkForUpdateState({
+    PreferencesStorage? prefs,
+  }) async {
+    if (!_communicationAllowed) {
+      return (release: null, reachable: false);
+    }
     try {
       final info = await _getPackageInfo();
       final response = await _request('GET', '/api/v1/app/release-test');
@@ -884,7 +957,7 @@ class ControlService {
       if (latestVersion.isEmpty ||
           downloadUrl == null ||
           !isAllowedControlDownloadUrl(controlUri, downloadUrl)) {
-        return null;
+        return (release: null, reachable: true);
       }
       // Persist the fetched update data keyed by its server version so the
       // update page can render it without another round trip.
@@ -898,16 +971,21 @@ class ControlService {
           }),
         );
       }
-      if (!isControlVersionNewer(latestVersion, info.version)) return null;
-      return ControlRelease(
-        latestVersion: latestVersion,
-        downloadUrl: downloadUrl,
-        changelog: changelog,
-        updatedAt: updatedAt,
+      if (!isControlVersionNewer(latestVersion, info.version)) {
+        return (release: null, reachable: true);
+      }
+      return (
+        release: ControlRelease(
+          latestVersion: latestVersion,
+          downloadUrl: downloadUrl,
+          changelog: changelog,
+          updatedAt: updatedAt,
+        ),
+        reachable: true,
       );
     } catch (error, stackTrace) {
       talker.warning('检查新版本失败', error, stackTrace);
-      return null;
+      return (release: null, reachable: false);
     }
   }
 
@@ -942,11 +1020,21 @@ class ControlService {
     }
   }
 
-  Future<ControlConfigVersions> fetchConfigVersions() {
+  static const _configVersionsTTL = Duration(seconds: 30);
+
+  Future<ControlConfigVersions> fetchConfigVersions({bool force = false}) {
     if (!isConfigured) {
       return Future.error(
         const ControlApiException('control_not_configured', 'Control 服务地址未配置'),
       );
+    }
+    final cached = _configVersionsCache;
+    final checkedAt = _configVersionsCheckedAt;
+    if (!force &&
+        cached != null &&
+        checkedAt != null &&
+        DateTime.now().difference(checkedAt) < _configVersionsTTL) {
+      return Future.value(cached);
     }
     final pending = _configVersionsFuture;
     if (pending != null) return pending;
@@ -962,19 +1050,26 @@ class ControlService {
   Future<ControlConfigVersions> _fetchConfigVersions() async {
     final response = await _request('GET', '/api/v1/config/versions');
     _serviceAvailable = true;
-    return ControlConfigVersions(
+    final versions = ControlConfigVersions(
       schoolCalendar: response['schoolCalendar']?.toString() ?? '',
+      resourceCenter: response['resourceCenter']?.toString() ?? '',
     );
+    _configVersionsCache = versions;
+    _configVersionsCheckedAt = DateTime.now();
+    return versions;
   }
 
   /// Downloads the school calendar only when control reports a version the
   /// local cache does not have. Returns true when [semesterCalendar] changed;
   /// the caller decides whether to re-apply cloud course adjustments.
-  Future<bool> refreshSchoolCalendarIfChanged(PreferencesStorage prefs) {
+  Future<bool> refreshSchoolCalendarIfChanged(
+    PreferencesStorage prefs, {
+    bool force = false,
+  }) {
     if (!_communicationAllowed) return Future.value(false);
     final pending = _schoolCalendarRefreshFuture;
     if (pending != null) return pending;
-    final future = _refreshSchoolCalendarIfChanged(prefs);
+    final future = _refreshSchoolCalendarIfChanged(prefs, force: force);
     _schoolCalendarRefreshFuture = future;
     return future.whenComplete(() {
       if (identical(_schoolCalendarRefreshFuture, future)) {
@@ -983,34 +1078,46 @@ class ControlService {
     });
   }
 
-  Future<bool> _refreshSchoolCalendarIfChanged(PreferencesStorage prefs) async {
+  Future<bool> _refreshSchoolCalendarIfChanged(
+    PreferencesStorage prefs, {
+    bool force = false,
+  }) async {
     if (!isConfigured) return false;
     await initialize();
     late final ControlConfigVersions versions;
     try {
-      versions = await fetchConfigVersions();
+      versions = await fetchConfigVersions(force: force);
     } catch (_) {
       _serviceAvailable = false;
       return false;
     }
     final cachedCalendar = prefs.getSchoolCalendarCache();
-    if (cachedCalendar != null &&
-        prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
+    var previousDays = const <SchoolDay>[];
+    if (cachedCalendar != null) {
       try {
-        schoolCalendarPayloadFromJson(cachedCalendar);
-        return false;
+        previousDays = schoolCalendarDaysFromJson(cachedCalendar);
+        if (prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
+          // A matching version must still have a valid payload before it can
+          // suppress a refresh.
+          schoolCalendarPayloadFromJson(cachedCalendar);
+          return false;
+        }
       } on FormatException {
-        // A matching version must still have a valid payload before it can
-        // suppress a refresh.
+        // Invalid cache: fall through and download a fresh calendar.
       }
     }
     final payload = await fetchSchoolCalendar();
+    final rulesChanged = schoolCalendarRulesChanged(previousDays, payload.days);
     semesterCalendar.replaceDays(payload.days);
     semesterCalendar.replaceSlots(payload.slots);
     await prefs.setSchoolCalendarCache(
       schoolCalendarPayloadToJson(days: payload.days, slots: payload.slots),
     );
     await prefs.setSchoolCalendarVersion(versions.schoolCalendar);
+    if (rulesChanged) {
+      await prefs.setSchoolCalendarUpdateNotice(true);
+      semesterCalendar.setCalendarUpdateNotice(true);
+    }
     return true;
   }
 
@@ -1465,6 +1572,7 @@ class ControlService {
     _sessionStudentId = null;
     _accessExpiresAt = null;
     _refreshExpiresAt = null;
+    _signedURLCache.clear();
   }
 
   void _resetDevice() {

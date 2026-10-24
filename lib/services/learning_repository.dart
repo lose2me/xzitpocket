@@ -52,21 +52,23 @@ class LearningRepository extends ChangeNotifier {
   bool _loadedFromCache = false;
   bool _loadedFromNetwork = false;
 
-  // Question ids that belong to a disabled/draft bank. They are retained in
-  // local state so collections reappear when the bank is re-enabled.
-  Set<String> get _hiddenQuestionIds => {
+  // Question ids that must not be listed or quizzed: banks hidden from the
+  // app (disabled/draft) and banks the user can no longer unlock (CDK lock).
+  // Their questions stay in local state so collections and progress reappear
+  // when the bank becomes available again.
+  Set<String> get _unavailableQuestionIds => {
     for (final bank in _banks)
-      if (bank.hidden)
+      if (bank.hidden || bank.locked)
         for (final question in bank.questions) question.id,
   };
 
-  /// Questions of currently published banks. Hidden banks keep their saved
-  /// collections, but their questions are not listed or quizzed.
+  /// Questions of currently published banks. Hidden and locked banks keep
+  /// their saved collections, but their questions are not listed or quizzed.
   List<LearningQuestion> get questions {
-    final hidden = _hiddenQuestionIds;
-    if (hidden.isEmpty) return List.unmodifiable(_questions);
+    final unavailable = _unavailableQuestionIds;
+    if (unavailable.isEmpty) return List.unmodifiable(_questions);
     return List.unmodifiable(
-      _questions.where((question) => !hidden.contains(question.id)),
+      _questions.where((question) => !unavailable.contains(question.id)),
     );
   }
 
@@ -84,11 +86,12 @@ class LearningRepository extends ChangeNotifier {
   bool get loadedFromNetwork => _loadedFromNetwork;
 
   int get answeredCount {
-    final hidden = _hiddenQuestionIds;
+    final unavailable = _unavailableQuestionIds;
     return _questions
         .where(
           (question) =>
-              !hidden.contains(question.id) && _judgedIds.contains(question.id),
+              !unavailable.contains(question.id) &&
+              _judgedIds.contains(question.id),
         )
         .length;
   }

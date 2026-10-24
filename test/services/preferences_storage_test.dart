@@ -113,16 +113,40 @@ void main() {
       await storage.init();
     });
 
-    test('stores and clears the question bank cache timestamp', () async {
+    test('stores and clears the question bank cache', () async {
       await storage.setLearningQuestionBankCache('[{"id":"bank-1"}]');
 
       expect(storage.getLearningQuestionBankCache(), '[{"id":"bank-1"}]');
-      expect(storage.getLearningQuestionBankCacheTime(), isNotNull);
 
       await storage.clearLearningQuestionBankCache();
 
       expect(storage.getLearningQuestionBankCache(), isNull);
-      expect(storage.getLearningQuestionBankCacheTime(), isNull);
+    });
+  });
+
+  group('resource centre and update prompt caches', () {
+    late PreferencesStorage storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = PreferencesStorage();
+      await storage.init();
+    });
+
+    test('clears the course list, course details and prompt version', () async {
+      await storage.setResourceCenterCache('{"version":"v1","courses":[]}');
+      await storage.setResourceCourseCache('C1', '{"version":"v1"}');
+      await storage.setUpdatePromptedVersion('2.2.0');
+
+      expect(storage.getResourceCenterCache(), isNotNull);
+      expect(storage.getResourceCourseCache('C1'), isNotNull);
+      expect(storage.getUpdatePromptedVersion(), '2.2.0');
+
+      await storage.clearUserToolCaches();
+
+      expect(storage.getResourceCenterCache(), isNull);
+      expect(storage.getResourceCourseCache('C1'), isNull);
+      expect(storage.getUpdatePromptedVersion(), isNull);
     });
   });
 

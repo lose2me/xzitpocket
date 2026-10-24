@@ -9,6 +9,14 @@ class ResourceCourse {
   /// course has no cover yet.
   final String coverUrl;
 
+  /// Server version of the cover image only, so adding an unrelated resource
+  /// does not invalidate the downloaded cover.
+  final String coverVersion;
+
+  /// Server content version of the course's resources and textbooks. Used to
+  /// decide whether a cached course detail is still current.
+  final String version;
+
   const ResourceCourse({
     required this.code,
     required this.name,
@@ -16,6 +24,8 @@ class ResourceCourse {
     this.resourceCount = 0,
     this.textbookCount = 0,
     this.coverUrl = '',
+    this.coverVersion = '',
+    this.version = '',
   });
 
   factory ResourceCourse.fromJson(Map<String, dynamic> json) => ResourceCourse(
@@ -25,7 +35,20 @@ class ResourceCourse {
     resourceCount: _asInt(json['resource_count']),
     textbookCount: _asInt(json['textbook_count']),
     coverUrl: json['cover_url']?.toString() ?? '',
+    coverVersion: json['cover_version']?.toString() ?? '',
+    version: json['version']?.toString() ?? '',
   );
+
+  Map<String, dynamic> toJson() => {
+    'code': code,
+    'name': name,
+    'question_bank_count': questionBankCount,
+    'resource_count': resourceCount,
+    'textbook_count': textbookCount,
+    'cover_url': coverUrl,
+    'cover_version': coverVersion,
+    'version': version,
+  };
 }
 
 class CourseResourceItem {
@@ -36,6 +59,9 @@ class CourseResourceItem {
   final String format;
   final int sizeBytes;
 
+  /// Server update time, used when deciding whether a cached row is current.
+  final String updatedAt;
+
   const CourseResourceItem({
     required this.id,
     required this.name,
@@ -43,6 +69,7 @@ class CourseResourceItem {
     this.hasPdf = false,
     this.format = 'pdf',
     this.sizeBytes = 0,
+    this.updatedAt = '',
   });
 
   factory CourseResourceItem.fromJson(Map<String, dynamic> json) {
@@ -54,8 +81,19 @@ class CourseResourceItem {
       hasPdf: json['has_pdf'] == true,
       format: format == 'doc' || format == 'docx' ? format : 'pdf',
       sizeBytes: _asInt(json['size_bytes']),
+      updatedAt: json['updated_at']?.toString() ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'tags': tags,
+    'has_pdf': hasPdf,
+    'format': format,
+    'size_bytes': sizeBytes,
+    'updated_at': updatedAt,
+  };
 }
 
 class UploadTextbook {
@@ -92,6 +130,14 @@ class UploadTextbook {
     hasPdf: json['has_pdf'] == true,
   );
 
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'tags': tags,
+    'course_codes': courseCodes,
+    'has_pdf': hasPdf,
+  };
+
   factory UploadTextbook.fromCourseTextbook(
     CourseTextbookItem item,
     String courseCode,
@@ -112,6 +158,9 @@ class CourseTextbookItem {
   final bool hasCover;
   final int sizeBytes;
 
+  /// Server update time, used when deciding whether a cached row is current.
+  final String updatedAt;
+
   const CourseTextbookItem({
     required this.id,
     required this.name,
@@ -119,6 +168,7 @@ class CourseTextbookItem {
     this.hasPdf = false,
     this.hasCover = false,
     this.sizeBytes = 0,
+    this.updatedAt = '',
   });
 
   factory CourseTextbookItem.fromJson(Map<String, dynamic> json) =>
@@ -129,7 +179,18 @@ class CourseTextbookItem {
         hasPdf: json['has_pdf'] == true,
         hasCover: json['has_cover'] == true,
         sizeBytes: _asInt(json['size_bytes']),
+        updatedAt: json['updated_at']?.toString() ?? '',
       );
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'tags': tags,
+    'has_pdf': hasPdf,
+    'has_cover': hasCover,
+    'size_bytes': sizeBytes,
+    'updated_at': updatedAt,
+  };
 }
 
 /// Course numbers are shown at most 10 characters wide in the app.

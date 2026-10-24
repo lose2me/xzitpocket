@@ -250,6 +250,160 @@ void main() {
     expect(detailRequests, 2);
   });
 
+  test('resource centre responses expose cache versions', () async {
+    await service.initialize();
+    await login();
+    adapter.handler = (options) {
+      switch (options.uri.path) {
+        case '/api/v1/resource-center/courses':
+          return _json({
+            'version': 'c1.1700000000000:r1.1700000000001:t0.0:q0.0:tc1:qc0',
+            'items': [
+              {
+                'code': 'C1',
+                'name': '高等数学',
+                'resource_count': 1,
+                'version': 'r1.1700000000001:t0.0:c0',
+              },
+            ],
+          });
+        case '/api/v1/resources':
+          return _json({
+            'version': 'r1.1700000000001:t0.0:c0',
+            'total': 1,
+            'items': [
+              {
+                'id': 'res-1',
+                'name': '期末试卷.pdf',
+                'has_pdf': true,
+                'updated_at': '2026-10-06T00:00:00.001Z',
+              },
+            ],
+          });
+        case '/api/v1/textbooks':
+          return _json({
+            'version': 'r1.1700000000001:t1.1700000000002:c0',
+            'total': 0,
+            'items': [],
+          });
+      }
+      return null;
+    };
+
+    final center = await service.fetchResourceCourses();
+    expect(center.version, startsWith('c1.'));
+    expect(center.courses.single.version, 'r1.1700000000001:t0.0:c0');
+
+    final resources = await service.fetchCourseResources('C1');
+    expect(resources.version, center.courses.single.version);
+    expect(resources.total, 1);
+    expect(resources.items.single.updatedAt, '2026-10-06T00:00:00.001Z');
+
+    final textbooks = await service.fetchCourseTextbooks('C1');
+    expect(textbooks.version, 'r1.1700000000001:t1.1700000000002:c0');
+  });
+
+  test('a locked bank keeps its cached questions', () async {
+    await service.initialize();
+    await login();
+    var locked = false;
+    adapter.handler = (options) {
+      if (options.uri.path == '/api/v1/question-banks') {
+        return _json({
+          'items': [
+            {
+              'id': 'QB-001',
+              'name': '受保护题库',
+              'requiresCDK': true,
+              'updated_at': locked
+                  ? '2026-10-06T00:00:00.002Z'
+                  : '2026-10-06T00:00:00.001Z',
+            },
+          ],
+          'total': 1,
+          'hidden': [],
+        });
+      }
+      if (options.uri.path == '/api/v1/question-banks/QB-001') {
+        if (locked) return _error(403, 'question_bank_locked');
+        return _json({
+          'questionBank': {
+            'id': 'QB-001',
+            'name': '受保护题库',
+            'requiresCDK': true,
+            'questions': [
+              {
+                'questionNumber': 1,
+                'type': '单选题',
+                'title': '第1题',
+                'questionText': '题干',
+                'options': [
+                  {'label': 'A', 'text': '选项 A'},
+                ],
+                'correctAnswer': 'A',
+              },
+            ],
+          },
+        });
+      }
+      return null;
+    };
+
+    final first = (await service.syncLearningQuestionBanks(const {})).single;
+    expect(first.questions, hasLength(1));
+    locked = true;
+    final second = (await service.syncLearningQuestionBanks({first.id: first}))
+        .single;
+    expect(second.locked, isTrue);
+    expect(second.questions, hasLength(1));
+  });
+
+  test('config version lookups are throttled until forced', () async {
+    await service.initialize();
+    await login();
+    var requests = 0;
+    adapter.handler = (options) {
+      if (options.uri.path == '/api/v1/config/versions') {
+        requests++;
+        return _json({'schoolCalendar': 'v1', 'resourceCenter': 'r1'});
+      }
+      return null;
+    };
+
+    expect((await service.fetchConfigVersions()).resourceCenter, 'r1');
+    expect((await service.fetchConfigVersions()).resourceCenter, 'r1');
+    expect(requests, 1);
+    expect(
+      (await service.fetchConfigVersions(force: true)).resourceCenter,
+      'r1',
+    );
+    expect(requests, 2);
+  });
+
+  test('signed resource URLs are reused until they expire', () async {
+    await service.initialize();
+    await login();
+    var requests = 0;
+    adapter.handler = (options) {
+      if (options.uri.path == '/api/v1/resources/res-1/url') {
+        requests++;
+        return _json({
+          'url': 'https://dl.xuda.live/papers/res-1.pdf?sign=a&t=1',
+          'expires_at': DateTime.now()
+              .toUtc()
+              .add(const Duration(minutes: 30))
+              .toIso8601String(),
+        });
+      }
+      return null;
+    };
+
+    final first = await service.fetchResourceURL('res-1');
+    final second = await service.fetchResourceURL('res-1');
+    expect(first, second);
+    expect(requests, 1);
+  });
+
   group('login gate', () {
     test('blocks all background communication while logged out', () async {
       service.updateLoginGate(null);
@@ -295,9 +449,7 @@ void main() {
     var calendarRequests = 0;
     adapter.handler = (options) {
       if (options.uri.path == '/api/v1/config/versions') {
-        return _json({
-          'schoolCalendar': '2026-10-06T00:00:00.00${revision}Z',
-        });
+        return _json({'schoolCalendar': '2026-10-06T00:00:00.00${revision}Z'});
       }
       if (options.uri.path == '/api/v1/school-calendar') {
         calendarRequests++;
@@ -313,11 +465,59 @@ void main() {
 
     expect(await service.refreshSchoolCalendarIfChanged(prefs), isTrue);
     revision = 2;
-    expect(await service.refreshSchoolCalendarIfChanged(prefs), isTrue);
+    expect(
+      await service.refreshSchoolCalendarIfChanged(prefs, force: true),
+      isTrue,
+    );
     expect(semesterCalendar.days.single.name, '校历 2');
     expect(prefs.getSchoolCalendarVersion(), '2026-10-06T00:00:00.002Z');
     expect(await service.refreshSchoolCalendarIfChanged(prefs), isFalse);
     expect(calendarRequests, 2);
+  });
+
+  test('calendar refresh queues a notice when rules change', () async {
+    final originalDays = semesterCalendar.days.toList();
+    addTearDown(() {
+      semesterCalendar.replaceDays(originalDays);
+      semesterCalendar.setCalendarUpdateNotice(false);
+    });
+    final prefs = PreferencesStorage();
+    await prefs.init();
+    var revision = 1;
+    adapter.handler = (options) {
+      if (options.uri.path == '/api/v1/config/versions') {
+        return _json({'schoolCalendar': '2026-10-06T00:00:00.00${revision}Z'});
+      }
+      if (options.uri.path == '/api/v1/school-calendar') {
+        return _json({
+          'days': [
+            {
+              'date': '2026-10-06',
+              'name': revision == 1 ? '' : '国庆',
+              'adjustment': revision == 1 ? '' : '/',
+            },
+          ],
+          'updatedAt': '2026-10-06T00:00:00.00${revision}Z',
+        });
+      }
+      return null;
+    };
+
+    expect(await service.refreshSchoolCalendarIfChanged(prefs), isTrue);
+    expect(semesterCalendar.calendarUpdateNotice, isFalse);
+
+    revision = 2;
+    expect(
+      await service.refreshSchoolCalendarIfChanged(prefs, force: true),
+      isTrue,
+    );
+    expect(semesterCalendar.calendarUpdateNotice, isTrue);
+    expect(prefs.getSchoolCalendarUpdateNotice(), isTrue);
+
+    semesterCalendar.setCalendarUpdateNotice(false);
+    await prefs.setSchoolCalendarUpdateNotice(false);
+    expect(await service.refreshSchoolCalendarIfChanged(prefs), isFalse);
+    expect(semesterCalendar.calendarUpdateNotice, isFalse);
   });
 }
 

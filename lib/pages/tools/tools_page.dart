@@ -265,6 +265,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
         name: AppRouteNames.learning,
         builder: (_) => ResourceCenterPage(
           repository: repository,
+          preferencesStorage: ref.read(preferencesStorageProvider),
           localCourses: localCourses,
         ),
       ),

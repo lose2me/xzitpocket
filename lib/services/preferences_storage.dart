@@ -39,6 +39,10 @@ class PreferencesStorage {
     'timetable_last_custom_countdown_bar_color',
     // 倒计时内边距拆分为上/下边距后废弃。
     'timetable_countdown_bar_padding',
+    // 课程上报改为一律上传后废弃的本地去重哈希。
+    'uploaded_courses_hash',
+    // 题库缓存改为按题库 updated_at 失效后废弃的时间戳。
+    'learning_question_bank_cache_time',
   };
 
   /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
@@ -154,10 +158,10 @@ class PreferencesStorage {
     'hidden_service_features': List<String>,
     'school_calendar_cache': String,
     'school_calendar_version': String,
-    // 书单/课程上报去重
-    'uploaded_courses_hash': String,
+    'school_calendar_update_notice': bool,
     // 版本更新数据（按版本持久化）
     'app_release_cache': String,
+    'update_prompted_version': String,
     // 备用课表
     'secondary_schedule_json': String,
     'secondary_schedule_title': String,
@@ -184,14 +188,20 @@ class PreferencesStorage {
     'netauth_cache': String,
     'netauth_cache_time': int,
     'learning_question_bank_cache': String,
-    'learning_question_bank_cache_time': int,
     'learning_state_cache': String,
+    // 资源中心
+    'resource_center_cache': String,
+    'resource_upload_textbooks_cache': String,
+    'resource_upload_textbooks_cache_time': int,
+    'resource_upload_stats_cache': String,
+    'resource_upload_stats_cache_time': int,
   };
 
   /// Dynamic per-repair cache key prefixes and their expected types.
   static const _knownKeyPrefixTypes = <String, Type>{
     'repair_detail_cache_time_': int,
     'repair_detail_cache_': String,
+    'resource_course_cache_': String,
   };
 
   /// Migrates stored preferences after an app upgrade. Returns true when any
@@ -457,9 +467,6 @@ class PreferencesStorage {
     await _prefs.remove('college_name');
     await _prefs.remove('class_name');
     await _prefs.remove('major_name');
-    // Upload dedup hash is scoped to the logged-in account; a different
-    // account must be able to report its own (possibly identical) data.
-    await _prefs.remove('uploaded_courses_hash');
   }
 
   // ── Settings ──
@@ -1274,17 +1281,16 @@ class PreferencesStorage {
   Future<void> setSchoolCalendarVersion(String value) =>
       _prefs.setString('school_calendar_version', value);
 
-  // ── Course upload dedup ──
+  /// Pending 「云端课程有所调整」 reminder; cleared once the user dismisses
+  /// the timetable banner.
+  bool getSchoolCalendarUpdateNotice() =>
+      _prefs.getBool('school_calendar_update_notice') ?? false;
 
-  /// Content hash of the last course upload, so repeated logins skip the
-  /// upload when nothing changed.
-  String? getUploadedCoursesHash() => _prefs.getString('uploaded_courses_hash');
-
-  Future<void> setUploadedCoursesHash(String? value) async {
-    if (value == null || value.isEmpty) {
-      await _prefs.remove('uploaded_courses_hash');
+  Future<void> setSchoolCalendarUpdateNotice(bool value) async {
+    if (value) {
+      await _prefs.setBool('school_calendar_update_notice', true);
     } else {
-      await _prefs.setString('uploaded_courses_hash', value);
+      await _prefs.remove('school_calendar_update_notice');
     }
   }
 
@@ -1299,6 +1305,14 @@ class PreferencesStorage {
       await _prefs.setString('app_release_cache', json);
     }
   }
+
+  /// Latest version the startup update prompt was already shown for. It is
+  /// device state, so the same version never pops twice.
+  String? getUpdatePromptedVersion() =>
+      _prefs.getString('update_prompted_version');
+
+  Future<void> setUpdatePromptedVersion(String version) =>
+      _prefs.setString('update_prompted_version', version);
 
   Set<String> getHiddenServiceFeatures() =>
       (_prefs.getStringList('hidden_service_features') ?? const <String>[])
@@ -1427,18 +1441,78 @@ class PreferencesStorage {
   Future<void> setNetauthCache(String json) =>
       _setCache('netauth_cache', 'netauth_cache_time', json);
 
+  // ── Resource centre cache ──
+
+  String? getResourceCenterCache() => _prefs.getString('resource_center_cache');
+
+  Future<void> setResourceCenterCache(String json) =>
+      _prefs.setString('resource_center_cache', json);
+
+  String? getResourceCourseCache(String code) =>
+      _prefs.getString('resource_course_cache_${_safeCacheKey(code)}');
+
+  Future<void> setResourceCourseCache(String code, String json) =>
+      _prefs.setString('resource_course_cache_${_safeCacheKey(code)}', json);
+
+  String _safeCacheKey(String value) =>
+      value.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+
+  // ── Resource upload page cache ──
+
+  String? getResourceUploadTextbooksCache() =>
+      _prefs.getString('resource_upload_textbooks_cache');
+  int? getResourceUploadTextbooksCacheTime() =>
+      _prefs.getInt('resource_upload_textbooks_cache_time');
+  Future<void> setResourceUploadTextbooksCache(String json) => _setCache(
+    'resource_upload_textbooks_cache',
+    'resource_upload_textbooks_cache_time',
+    json,
+  );
+
+  String? getResourceUploadStatsCache() =>
+      _prefs.getString('resource_upload_stats_cache');
+  int? getResourceUploadStatsCacheTime() =>
+      _prefs.getInt('resource_upload_stats_cache_time');
+  Future<void> setResourceUploadStatsCache(String json) => _setCache(
+    'resource_upload_stats_cache',
+    'resource_upload_stats_cache_time',
+    json,
+  );
+
+  Future<void> clearResourceCenterCaches() async {
+    final keys = _prefs
+        .getKeys()
+        .where(
+          (key) =>
+              key == 'resource_center_cache' ||
+              key.startsWith('resource_course_cache_'),
+        )
+        .toList();
+    for (final key in keys) {
+      await _prefs.remove(key);
+    }
+  }
+
+  Future<void> clearResourceUploadCaches() async {
+    await Future.wait([
+      _clearCache(
+        'resource_upload_textbooks_cache',
+        'resource_upload_textbooks_cache_time',
+      ),
+      _clearCache(
+        'resource_upload_stats_cache',
+        'resource_upload_stats_cache_time',
+      ),
+    ]);
+  }
+
   // ── Learning center cache ──
 
   String? getLearningQuestionBankCache() =>
       _prefs.getString('learning_question_bank_cache');
-  int? getLearningQuestionBankCacheTime() =>
-      _prefs.getInt('learning_question_bank_cache_time');
 
-  Future<void> setLearningQuestionBankCache(String json) => _setCache(
-    'learning_question_bank_cache',
-    'learning_question_bank_cache_time',
-    json,
-  );
+  Future<void> setLearningQuestionBankCache(String json) =>
+      _prefs.setString('learning_question_bank_cache', json);
 
   String? getLearningStateCache() => _prefs.getString('learning_state_cache');
 
@@ -1494,6 +1568,9 @@ class PreferencesStorage {
       _clearCache('netauth_cache', 'netauth_cache_time'),
       _clearRepairDetailCaches(),
       clearLearningCache(),
+      clearResourceCenterCaches(),
+      clearResourceUploadCaches(),
+      _prefs.remove('update_prompted_version'),
     ]);
   }
 

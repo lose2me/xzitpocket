@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,6 +10,7 @@ import 'package:forui/forui.dart';
 
 import '../../models/resource_center.dart';
 import '../../services/control_service.dart';
+import '../../services/preferences_storage.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 
@@ -75,10 +77,12 @@ class ResourceUploadPage extends StatefulWidget {
   final String initialKind;
   final String? initialCourseCode;
   final bool courseScoped;
+  final PreferencesStorage preferencesStorage;
 
   const ResourceUploadPage({
     super.key,
     required this.courses,
+    required this.preferencesStorage,
     this.initialKind = 'resource',
     this.initialCourseCode,
     this.courseScoped = false,
@@ -113,21 +117,68 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     return widget.courses.first.code;
   }
 
+  static const _statsTTL = Duration(minutes: 5);
+  static const _textbooksTTL = Duration(minutes: 10);
+
   @override
   void initState() {
     super.initState();
     _kind = widget.initialKind == 'textbook' ? 'textbook' : 'resource';
     _statsLoading = !widget.courseScoped;
     _textbooksLoading = _kind == 'textbook';
+    _restoreCaches();
     if (!widget.courseScoped) unawaited(_loadStats());
     if (_kind == 'textbook') unawaited(_loadTextbooks());
   }
 
-  Future<void> _loadStats() async {
+  /// Shows the last successful upload summary immediately; the requests below
+  /// only refresh it once the TTL expires.
+  void _restoreCaches() {
+    final prefs = widget.preferencesStorage;
+    if (!widget.courseScoped) {
+      final raw = prefs.getResourceUploadStatsCache();
+      if (raw != null && raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            _stats = UploadStats.fromJson(decoded.cast<String, dynamic>());
+            _statsLoading = false;
+          }
+        } catch (_) {}
+      }
+    }
     if (widget.courseScoped) return;
+    final rawBooks = prefs.getResourceUploadTextbooksCache();
+    if (rawBooks == null || rawBooks.isEmpty) return;
+    try {
+      final decoded = jsonDecode(rawBooks);
+      if (decoded is! List) return;
+      final items = [
+        for (final item in decoded)
+          if (item is Map)
+            UploadTextbook.fromJson(item.cast<String, dynamic>()),
+      ];
+      _textbooks = items;
+      _selectedTextbook = items.isEmpty ? null : items.first;
+      _textbooksLoading = false;
+    } catch (_) {}
+  }
+
+  Future<void> _loadStats({bool force = false}) async {
+    if (widget.courseScoped) return;
+    final prefs = widget.preferencesStorage;
+    if (!force &&
+        _stats != null &&
+        PreferencesStorage.isCacheValid(
+          prefs.getResourceUploadStatsCacheTime(),
+          _statsTTL,
+        )) {
+      return;
+    }
     if (!_statsLoading) setState(() => _statsLoading = true);
     try {
       final stats = await ControlService.instance.fetchUploadStats();
+      await prefs.setResourceUploadStatsCache(jsonEncode(stats.toJson()));
       if (!mounted) return;
       setState(() => _stats = stats);
     } catch (_) {
@@ -139,18 +190,32 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Future<void> _loadTextbooks({bool force = false}) async {
     if (_kind != 'textbook') return;
-    if (!force && _textbooks.isNotEmpty) return;
+    final prefs = widget.preferencesStorage;
+    if (!force && _textbooks.isNotEmpty) {
+      if (widget.courseScoped ||
+          PreferencesStorage.isCacheValid(
+            prefs.getResourceUploadTextbooksCacheTime(),
+            _textbooksTTL,
+          )) {
+        return;
+      }
+    }
     if (!_textbooksLoading) setState(() => _textbooksLoading = true);
     try {
       final items = widget.courseScoped
           ? [
               for (final item
-                  in await ControlService.instance.fetchCourseTextbooks(
+                  in (await ControlService.instance.fetchCourseTextbooks(
                     _courseCode,
-                  ))
+                  )).items)
                 UploadTextbook.fromCourseTextbook(item, _courseCode),
             ]
           : await ControlService.instance.fetchUploadTextbooks();
+      if (!widget.courseScoped) {
+        await prefs.setResourceUploadTextbooksCache(
+          jsonEncode([for (final item in items) item.toJson()]),
+        );
+      }
       if (!mounted) return;
       setState(() {
         _textbooks = items;
@@ -161,10 +226,9 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _textbooks = const [];
-        _selectedTextbook = null;
-      });
+      // Keep a previously loaded list; a transient failure must not wipe the
+      // textbook picker the user is already looking at.
+      if (_textbooks.isEmpty) setState(() => _selectedTextbook = null);
     } finally {
       if (mounted) setState(() => _textbooksLoading = false);
     }
@@ -172,7 +236,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Future<void> _refreshAll() async {
     await Future.wait([
-      if (!widget.courseScoped) _loadStats(),
+      if (!widget.courseScoped) _loadStats(force: true),
       if (_kind == 'textbook') _loadTextbooks(force: true),
     ]);
   }
@@ -344,7 +408,9 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       }
     });
     if (failed.isEmpty) {
-      Navigator.of(context).pop(true);
+      // Counters and the textbook list may have changed.
+      await widget.preferencesStorage.clearResourceUploadCaches();
+      if (mounted) Navigator.of(context).pop(true);
       return;
     }
     final message = failed.length == 1
@@ -543,6 +609,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             const SizedBox(height: 2),
             Text(
               book.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.typography.body.md.copyWith(
                 fontWeight: FontWeight.w600,
               ),
@@ -1028,7 +1096,7 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
             Expanded(
               child: Text(
                 widget.format(option),
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.typography.body.md.copyWith(
                   fontSize: 13,

@@ -1066,10 +1066,14 @@ class _ProfileUpdateCardState extends ConsumerState<_ProfileUpdateCard> {
         _loading = false;
       });
     }
-    final release = await ControlService.instance.checkForUpdate(prefs: prefs);
+    final result = await ControlService.instance.checkForUpdateState(
+      prefs: prefs,
+    );
     if (!mounted) return;
     setState(() {
-      _release = release;
+      // Keep showing the cached release when control was unreachable; only
+      // an answer from the server may remove the update card.
+      if (result.reachable) _release = result.release;
       _currentVersion = info.version;
       _loading = false;
     });

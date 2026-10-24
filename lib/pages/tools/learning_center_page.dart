@@ -9,6 +9,8 @@ import '../../models/learning_question.dart';
 import '../../models/resource_center.dart';
 import '../../services/control_service.dart';
 import '../../services/learning_repository.dart';
+import '../../services/preferences_storage.dart';
+import '../../services/resource_center_cache.dart';
 import '../../services/resource_download_service.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
@@ -20,11 +22,13 @@ import 'learning_quiz_page.dart';
 class LearningCenterPage extends StatefulWidget {
   final LearningRepository repository;
   final ResourceCourse course;
+  final PreferencesStorage preferencesStorage;
 
   const LearningCenterPage({
     super.key,
     required this.repository,
     required this.course,
+    required this.preferencesStorage,
   });
 
   @override
@@ -56,37 +60,94 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Future<void> _loadInitial() async {
     await repository.load();
     if (!mounted) return;
+    // Show the cached course detail immediately; the bank sync no longer
+    // blocks the textbook/resource sections.
+    _restoreCourseCache();
+    unawaited(_syncBanks());
+    await _loadCourseDetails();
+  }
+
+  Future<void> _syncBanks() async {
     try {
       // Version compare happens inside sync; only changed banks are downloaded.
       await repository.sync();
     } catch (error, stackTrace) {
       talker.warning('题库同步失败', error, stackTrace);
     }
-    await _loadCourseDetails();
   }
 
-  Future<void> _loadCourseDetails() async {
+  void _restoreCourseCache() {
+    final snapshot = ResourceCourseSnapshot.decode(
+      widget.preferencesStorage.getResourceCourseCache(course.code),
+    );
+    if (snapshot == null) return;
+    setState(() {
+      _resources = snapshot.resources;
+      _textbooks = snapshot.textbooks;
+    });
+  }
+
+  /// Loads resources and textbooks unless the cached rows already match the
+  /// course version returned by control. Failures keep whatever is on screen.
+  Future<void> _loadCourseDetails({bool force = false}) async {
     if (!mounted) return;
+    if (!force) {
+      final cached = ResourceCourseSnapshot.decode(
+        widget.preferencesStorage.getResourceCourseCache(course.code),
+      );
+      if (cached != null &&
+          cached.version.isNotEmpty &&
+          cached.version == course.version) {
+        setState(() {
+          _resources = cached.resources;
+          _textbooks = cached.textbooks;
+          _detailsLoading = false;
+        });
+        unawaited(_refreshDownloadedStatuses());
+        return;
+      }
+    }
     setState(() => _detailsLoading = true);
     try {
       final control = ControlService.instance;
-      final results = await Future.wait([
+      final results = await Future.wait<Object>([
         control.fetchCourseResources(course.code),
         control.fetchCourseTextbooks(course.code),
       ]);
+      final resources =
+          results[0]
+              as ({List<CourseResourceItem> items, int total, String version});
+      final textbooks =
+          results[1]
+              as ({List<CourseTextbookItem> items, int total, String version});
+      final version = resources.version.isNotEmpty
+          ? resources.version
+          : textbooks.version;
+      final snapshot = ResourceCourseSnapshot(
+        version: version,
+        resources: resources.items,
+        textbooks: textbooks.items,
+      );
+      await widget.preferencesStorage.setResourceCourseCache(
+        course.code,
+        snapshot.encode(),
+      );
       if (!mounted) return;
       setState(() {
-        _resources = results[0] as List<CourseResourceItem>;
-        _textbooks = results[1] as List<CourseTextbookItem>;
+        _resources = resources.items;
+        _textbooks = textbooks.items;
       });
       unawaited(_refreshDownloadedStatuses());
     } catch (error, stackTrace) {
       talker.warning('课程资源加载失败', error, stackTrace);
       if (!mounted) return;
-      setState(() {
-        _resources = const [];
-        _textbooks = const [];
-      });
+      showAppSnackBar(
+        context,
+        _resources.isEmpty && _textbooks.isEmpty
+            ? '资源加载失败，请稍后重试'
+            : '刷新失败，正在显示已缓存的数据',
+        severity: ToastSeverity.warning,
+      );
     } finally {
       if (mounted) setState(() => _detailsLoading = false);
     }
@@ -106,8 +167,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     try {
-      await repository.refresh();
-      await _loadCourseDetails();
+      // Refresh banks and the course detail in parallel; each keeps its cached
+      // state when its own request fails.
+      await Future.wait([
+        repository.refresh(),
+        _loadCourseDetails(force: true),
+      ]);
       if (mounted && showToast) {
         showAppSnackBar(context, '资源已刷新', severity: ToastSeverity.success);
       }
@@ -452,7 +517,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         Text(
           title,
           textAlign: TextAlign.center,
-          maxLines: 2,
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: theme.typography.body.lg.copyWith(
             fontSize: 20,
@@ -523,7 +588,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   children: [
                     Text(
                       _documentFileName(entry.title, entry.format),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
                         fontSize: 16,
@@ -796,7 +861,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   children: [
                     Text(
                       name,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
                         fontSize: 16,

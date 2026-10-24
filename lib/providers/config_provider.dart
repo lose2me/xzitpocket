@@ -7,6 +7,7 @@ import '../services/course_storage.dart';
 import '../services/credential_storage.dart';
 import '../services/control_service.dart';
 import '../services/preferences_storage.dart';
+import '../services/resource_center_cache.dart';
 import '../services/tools_data_manager.dart';
 
 final courseStorageProvider = Provider<CourseStorage>((ref) {
@@ -62,8 +63,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
       await Future.wait([
         _storage.clearUserToolCaches(),
         _storage.clearPowerCache(),
-        // Never reuse another account's upload-dedup state.
-        _storage.setUploadedCoursesHash(null),
+        ResourceCoverCache.instance.clear(),
       ]);
     }
     await Future.wait([
@@ -103,6 +103,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
       _storage.clearSavedPowerRoomId(),
       _storage.clearUserToolCaches(),
       _storage.clearPowerCache(),
+      ResourceCoverCache.instance.clear(),
       CredentialStorage.clearPassword(),
     ]);
     ref.read(savedRoomIdProvider.notifier).set(null);

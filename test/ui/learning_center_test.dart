@@ -39,6 +39,7 @@ void main() {
     WidgetTester tester,
     LearningRepository repository,
   ) async {
+    final preferencesStorage = await storage();
     await tester.pumpWidget(
       MediaQuery(
         data: const MediaQueryData(
@@ -57,6 +58,7 @@ void main() {
           home: LearningCenterPage(
             repository: repository,
             course: const ResourceCourse(code: '', name: '测试课程'),
+            preferencesStorage: preferencesStorage,
           ),
         ),
       ),

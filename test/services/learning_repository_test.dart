@@ -102,6 +102,42 @@ void main() {
     },
   );
 
+  test('keeps progress while a bank is locked and restores it later', () async {
+    final seeded = repository();
+    await seeded.load();
+    final question = seeded.questions.first;
+    await seeded.toggleFavorite(question.id);
+    await seeded.submitAnswer(question.id, {'not-correct'});
+    expect(seeded.favoriteIds, contains(question.id));
+    expect(seeded.wrongIds, contains(question.id));
+
+    var locked = true;
+    final value = LearningRepository(
+      preferencesStorage: storage,
+      bankSyncFetcher: (existing) async => [
+        LearningQuestionBank(
+          id: question.bankId,
+          name: question.bankName,
+          locked: locked,
+          questions: existing[question.bankId]?.questions ?? const [],
+        ),
+      ],
+    );
+    await value.load();
+    await value.sync();
+
+    expect(value.questions, isEmpty);
+    expect(value.favoriteIds, contains(question.id));
+    expect(value.wrongIds, contains(question.id));
+
+    locked = false;
+    await value.sync();
+
+    expect(value.questions.map((item) => item.id), contains(question.id));
+    expect(value.isFavorite(question.id), isTrue);
+    expect(value.isJudged(question.id), isTrue);
+  });
+
   test('locks a judged answer and keeps the wrong set', () async {
     final value = repository();
     await value.load();
