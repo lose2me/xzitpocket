@@ -295,9 +295,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildCourseBody(BuildContext context) {
     final theme = context.theme;
     final banks = _courseBanks();
-    final textbookLoading = _detailsLoading && _textbooks.isEmpty;
-    final bankLoading = _banksLoading && banks.isEmpty;
-    final resourceLoading = _detailsLoading && _resources.isEmpty;
+    // Counts come from the resource-centre list; a zero count can render its
+    // empty state immediately instead of a shorter skeleton that jumps when
+    // the (taller) empty state replaces it.
+    final textbookLoading =
+        _detailsLoading && _textbooks.isEmpty && course.textbookCount > 0;
+    final bankLoading =
+        _banksLoading && banks.isEmpty && course.questionBankCount > 0;
+    final resourceLoading =
+        _detailsLoading && _resources.isEmpty && course.resourceCount > 0;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
       topPadding: AppSpacing.sm,
@@ -309,84 +315,110 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           child: _buildCourseHeader(theme),
         ),
         _buildSectionHeader(theme, 0, '教材', _expandedSections[0]),
-        if (_expandedSections[0]) ...[
-          const SizedBox(height: AppSpacing.sm),
-          if (_textbooks.isNotEmpty)
-            for (final item in _textbooks) ...[
-              _buildPdfTile(
-                theme,
-                _PdfEntry(
-                  id: item.id,
-                  title: item.name,
-                  sizeBytes: item.sizeBytes,
-                  hasPdf: item.hasPdf,
-                  format: 'pdf',
-                  urlLoader: () =>
-                      ControlService.instance.fetchTextbookURL(item.id),
+        _buildAnimatedSection(
+          expanded: _expandedSections[0],
+          children: [
+            if (_textbooks.isNotEmpty)
+              for (final item in _textbooks) ...[
+                _buildPdfTile(
+                  theme,
+                  _PdfEntry(
+                    id: item.id,
+                    title: item.name,
+                    sizeBytes: item.sizeBytes,
+                    hasPdf: item.hasPdf,
+                    format: 'pdf',
+                    urlLoader: () =>
+                        ControlService.instance.fetchTextbookURL(item.id),
+                  ),
+                  color: theme.colors.destructive,
                 ),
-                color: theme.colors.destructive,
+                const SizedBox(height: AppSpacing.sm),
+              ]
+            else if (textbookLoading)
+              _buildLoading(course.textbookCount)
+            else
+              _buildUploadEmpty(
+                theme,
+                label: '暂无资源',
+                icon: FLucideIcons.bookOpen,
               ),
-              const SizedBox(height: AppSpacing.sm),
-            ]
-          else if (textbookLoading)
-            _buildLoading(course.textbookCount)
-          else
-            _buildUploadEmpty(
-              theme,
-              label: '暂无资源',
-              icon: FLucideIcons.bookOpen,
-            ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+          ],
+        ),
         _buildSectionHeader(theme, 1, '题库', _expandedSections[1]),
-        if (_expandedSections[1]) ...[
-          const SizedBox(height: AppSpacing.sm),
-          if (banks.isNotEmpty)
-            for (final bank in banks) ...[
-              _buildBankCard(theme, bank),
-              const SizedBox(height: AppSpacing.sm),
-            ]
-          else if (bankLoading)
-            _buildLoading(course.questionBankCount)
-          else
-            _buildUploadEmpty(
-              theme,
-              label: '暂无题库',
-              icon: FLucideIcons.fileQuestion,
-            ),
-          const SizedBox(height: AppSpacing.md),
-        ],
-        _buildSectionHeader(theme, 2, '试卷', _expandedSections[2]),
-        if (_expandedSections[2]) ...[
-          const SizedBox(height: AppSpacing.sm),
-          if (_resources.isNotEmpty)
-            for (final item in _resources) ...[
-              _buildPdfTile(
+        _buildAnimatedSection(
+          expanded: _expandedSections[1],
+          children: [
+            if (banks.isNotEmpty)
+              for (final bank in banks) ...[
+                _buildBankCard(theme, bank),
+                const SizedBox(height: AppSpacing.sm),
+              ]
+            else if (bankLoading)
+              _buildLoading(course.questionBankCount)
+            else
+              _buildUploadEmpty(
                 theme,
-                _PdfEntry(
-                  id: item.id,
-                  title: item.name,
-                  sizeBytes: item.sizeBytes,
-                  hasPdf: item.hasPdf,
-                  format: item.format,
-                  urlLoader: () =>
-                      ControlService.instance.fetchResourceURL(item.id),
-                ),
-                color: theme.colors.semantic.info,
+                label: '暂无题库',
+                icon: FLucideIcons.fileQuestion,
               ),
-              const SizedBox(height: AppSpacing.sm),
-            ]
-          else if (resourceLoading)
-            _buildLoading(course.resourceCount)
-          else
-            _buildUploadEmpty(
-              theme,
-              label: '暂无资源',
-              icon: FLucideIcons.fileText,
-            ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+          ],
+        ),
+        _buildSectionHeader(theme, 2, '试卷', _expandedSections[2]),
+        _buildAnimatedSection(
+          expanded: _expandedSections[2],
+          children: [
+            if (_resources.isNotEmpty)
+              for (final item in _resources) ...[
+                _buildPdfTile(
+                  theme,
+                  _PdfEntry(
+                    id: item.id,
+                    title: item.name,
+                    sizeBytes: item.sizeBytes,
+                    hasPdf: item.hasPdf,
+                    format: item.format,
+                    urlLoader: () =>
+                        ControlService.instance.fetchResourceURL(item.id),
+                  ),
+                  color: theme.colors.semantic.info,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ]
+            else if (resourceLoading)
+              _buildLoading(course.resourceCount)
+            else
+              _buildUploadEmpty(
+                theme,
+                label: '暂无资源',
+                icon: FLucideIcons.fileText,
+              ),
+          ],
+        ),
       ],
+    );
+  }
+
+  /// Animates content height changes (skeleton → rows, empty → rows, expand /
+  /// collapse) so the section headers below glide instead of jumping.
+  Widget _buildAnimatedSection({
+    required bool expanded,
+    required List<Widget> children,
+  }) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: expanded
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: AppSpacing.sm),
+                ...children,
+                const SizedBox(height: AppSpacing.md),
+              ],
+            )
+          : const SizedBox.shrink(),
     );
   }
 
@@ -509,13 +541,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Column(
           children: [
+            // Real rows are followed by an 8dp gap each; match it so replacing
+            // the skeleton changes no height at all.
             for (var index = 0; index < rows; index++) ...[
-              if (index > 0) const SizedBox(height: AppSpacing.sm),
               const AppSkeletonBox(
                 width: double.infinity,
-                height: 72,
+                height: 68,
                 radius: 8,
               ),
+              const SizedBox(height: AppSpacing.sm),
             ],
           ],
         ),
