@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
@@ -130,6 +132,126 @@ void main() {
       await tester.pumpAndSettle();
       expect(refreshed, 0);
       expect(find.byType(RefreshProgressIndicator), findsNothing);
+    });
+
+    testWidgets('locks the page until the indicator retracts', (tester) async {
+      final gate = Completer<void>();
+      final states = <bool>[];
+      await _pumpRefresh(
+        tester,
+        AppRefreshIndicator(
+          onRefresh: () => gate.future,
+          onRefreshingChanged: states.add,
+          child: ListView(
+            children: [
+              for (var i = 0; i < 60; i++) const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      );
+
+      await tester.drag(find.byType(ListView), const Offset(0, 320));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(states, [true]);
+      final locked = tester.widget<IgnorePointer>(
+        find
+            .descendant(
+              of: find.byType(AppRefreshIndicator),
+              matching: find.byType(IgnorePointer),
+            )
+            .first,
+      );
+      expect(locked.ignoring, isTrue);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(states, [true, false]);
+      final unlocked = tester.widget<IgnorePointer>(
+        find
+            .descendant(
+              of: find.byType(AppRefreshIndicator),
+              matching: find.byType(IgnorePointer),
+            )
+            .first,
+      );
+      expect(unlocked.ignoring, isFalse);
+    });
+
+    testWidgets('stays locked while a cancelled pull retracts', (tester) async {
+      await _pumpRefresh(
+        tester,
+        AppPageListView(
+          onRefresh: () async {},
+          children: [for (var i = 0; i < 60; i++) const SizedBox(height: 100)],
+        ),
+      );
+
+      bool locked() => tester
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(AppRefreshIndicator),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring;
+
+      final gesture = await tester.startGesture(const Offset(195, 400));
+      await tester.pump();
+      // 100px < the 200px trigger threshold: this pull will be cancelled.
+      for (var i = 0; i < 20; i++) {
+        await gesture.moveBy(const Offset(0, 5));
+        await tester.pump();
+      }
+      expect(locked(), isFalse);
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(locked(), isTrue);
+
+      // Swiping up while the indicator retracts must not scroll the page.
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position;
+      final offset = position.pixels;
+      await tester.drag(
+        find.byType(ListView),
+        const Offset(0, -80),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(position.pixels, offset);
+
+      await tester.pumpAndSettle();
+      expect(locked(), isFalse);
+    });
+
+    testWidgets('disables the platform overscroll stretch', (tester) async {
+      await _pumpRefresh(
+        tester,
+        ListView(
+          children: [for (var i = 0; i < 10; i++) const SizedBox(height: 100)],
+        ),
+      );
+      expect(find.byType(StretchingOverscrollIndicator), findsOneWidget);
+
+      await _pumpRefresh(
+        tester,
+        AppRefreshIndicator(
+          onRefresh: () async {},
+          child: ListView(
+            children: [
+              for (var i = 0; i < 10; i++) const SizedBox(height: 100),
+            ],
+          ),
+        ),
+      );
+      expect(find.byType(StretchingOverscrollIndicator), findsNothing);
     });
   });
 

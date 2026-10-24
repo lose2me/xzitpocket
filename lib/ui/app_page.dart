@@ -108,18 +108,23 @@ class AppPage extends StatelessWidget {
 
 /// Pull-to-refresh wrapper matching the app's theme.
 ///
-/// [RefreshIndicator] freezes the indicator as soon as the pull is armed and
-/// keeps it there when the finger moves back up, so a pull can only be
-/// cancelled by releasing. Here the indicator tracks the drag in both
-/// directions and only refreshes when it is released fully extended.
+/// The scrollable keeps its own drag recognizer. Refresh physics consumes the
+/// entire pull gesture before it can change the scroll offset, including any
+/// upward movement after the indicator has retracted to zero.
 class AppRefreshIndicator extends StatefulWidget {
   final Future<void> Function() onRefresh;
   final Widget child;
+
+  /// Notifies ancestors that are outside the refresh viewport (e.g. a
+  /// [PageView]) to lock from the first pull until release and full retraction.
+  /// This includes pulls that are cancelled without running [onRefresh].
+  final ValueChanged<bool>? onRefreshingChanged;
 
   const AppRefreshIndicator({
     super.key,
     required this.onRefresh,
     required this.child,
+    this.onRefreshingChanged,
   });
 
   @override
@@ -148,7 +153,25 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
   /// Pull distance in logical pixels; only user drags move it.
   double _dragOffset = 0;
   bool _dragging = false;
+  bool _dragCancelled = false;
   bool _refreshing = false;
+  bool _active = false;
+  late ScrollBehavior _scrollBehavior;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final behavior = ScrollConfiguration.of(context);
+    // Keep the same physics instance through animation rebuilds. Replacing
+    // scroll physics mid-drag can recreate the child's ScrollPosition.
+    _scrollBehavior = behavior.copyWith(
+      overscroll: false,
+      physics: _RefreshScrollPhysics(
+        owner: this,
+        parent: behavior.getScrollPhysics(context),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -157,103 +180,115 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
     super.dispose();
   }
 
+  void _setActive(bool value) {
+    if (_active == value) return;
+    setState(() => _active = value);
+    if (const bool.fromEnvironment('APP_REFRESH_TRACE')) {
+      debugPrint('[refresh] active=$value');
+    }
+    widget.onRefreshingChanged?.call(value);
+  }
+
+  // Called before ScrollPosition applies the user's delta. Notifications alone
+  // are too late to prevent the list from moving when the finger reverses.
+  bool _consumeUserOffset(ScrollMetrics metrics, double delta) {
+    if (metrics.axisDirection != AxisDirection.down) return false;
+    if (_active && !_dragging) return true;
+    if (!_dragging) {
+      if (delta <= 0 || metrics.pixels > metrics.minScrollExtent) return false;
+      _dragOffset = 0;
+      _dragCancelled = false;
+      _dragging = true;
+      _setActive(true);
+    }
+
+    // Keep owning the gesture even when this reaches zero. Only ScrollEnd can
+    // release it, so reversing further cannot start scrolling the content.
+    _dragOffset = (_dragOffset + delta).clamp(0.0, double.infinity);
+    final extent = metrics.viewportDimension * _kRefreshDragExtent;
+    _position.value = extent > 0 ? (_dragOffset / extent).clamp(0.0, 1.0) : 0;
+    if (const bool.fromEnvironment('APP_REFRESH_TRACE')) {
+      debugPrint(
+        '[refresh] delta=$delta pixels=${metrics.pixels} '
+        'pull=$_dragOffset indicator=${_position.value} consumed=true',
+      );
+    }
+    return true;
+  }
+
   bool _handleScrollNotification(ScrollNotification notification) {
-    if (notification.depth != 0 || _refreshing) return false;
-    if (notification is ScrollStartNotification) {
-      _dragging =
-          notification.dragDetails != null &&
-          notification.metrics.extentBefore == 0 &&
-          notification.metrics.axisDirection == AxisDirection.down;
-      _dragOffset = 0;
-      return false;
-    }
-    if (!_dragging) return false;
-
-    if (notification is ScrollEndNotification) {
-      _dragging = false;
-      if (_position.value >= 1.0) {
-        unawaited(_refresh());
-      } else {
-        unawaited(
-          _position.animateTo(
-            0.0,
-            duration: _kRefreshFadeDuration,
-            curve: Curves.easeOut,
-          ),
-        );
-      }
+    if (notification.depth != 0 ||
+        notification.metrics.axisDirection != AxisDirection.down ||
+        notification is! ScrollEndNotification ||
+        !_dragging) {
       return false;
     }
 
-    final double delta;
-    if (notification is ScrollUpdateNotification) {
-      // Ballistic updates after the finger lifts must not retract the pull.
-      if (notification.dragDetails == null) return false;
-      delta = -notification.scrollDelta!;
-    } else if (notification is OverscrollNotification) {
-      delta = -notification.overscroll;
+    _dragging = false;
+    // Flutter may produce DragEndDetails even for PointerCancelEvent after the
+    // drag recognizer wins. The outer Listener records cancellation first.
+    if (!_dragCancelled &&
+        notification.dragDetails != null &&
+        _position.value >= 1.0) {
+      unawaited(_refresh());
     } else {
-      return false;
-    }
-
-    // Pulling further only makes sense while the list is at its top. Moving
-    // back up always retracts the pull: by then the list itself is scrolling
-    // back to the top and must not wipe the indicator in one frame.
-    if (delta > 0 && notification.metrics.extentBefore > 0) return false;
-
-    _dragOffset += delta;
-    if (_dragOffset <= 0) {
-      _dragOffset = 0;
-      _position.value = 0;
-    } else {
-      _position.value =
-          (_dragOffset /
-                  (notification.metrics.viewportDimension *
-                      _kRefreshDragExtent))
-              .clamp(0.0, 1.0)
-              .toDouble();
+      unawaited(_retract());
     }
     return false;
   }
 
   Future<void> _refresh() async {
-    _refreshing = true;
-    await _position.animateTo(
-      1 / _kRefreshSizeFactor,
-      duration: _kRefreshSnapDuration,
-    );
-    if (!mounted) return;
-    setState(() {});
+    setState(() => _refreshing = true);
     try {
+      await _position
+          .animateTo(1 / _kRefreshSizeFactor, duration: _kRefreshSnapDuration)
+          .orCancel;
+      if (!mounted) return;
       await widget.onRefresh();
+    } on TickerCanceled {
+      // Disposing during the snap must not leave a pending animation future.
     } finally {
-      if (mounted) {
-        await _scale.animateTo(1.0, duration: _kRefreshFadeDuration);
-        _position.value = 0;
-        _scale.value = 0;
-        _refreshing = false;
-        setState(() {});
-      }
+      if (mounted) await _retract(refreshed: true);
     }
   }
 
-  bool _handleIndicatorNotification(
-    OverscrollIndicatorNotification notification,
-  ) {
-    if (notification.depth == 0 && _position.value > 0) {
-      notification.disallowIndicator();
+  Future<void> _retract({bool refreshed = false}) async {
+    // The gesture recognizer stays alive while dragging; after release this
+    // rebuild blocks new pointer sequences throughout the retract animation.
+    setState(() {});
+    try {
+      if (refreshed) {
+        await _scale.animateTo(1.0, duration: _kRefreshFadeDuration).orCancel;
+      } else if (_position.value > 0) {
+        await _position
+            .animateTo(
+              0.0,
+              duration: _kRefreshFadeDuration,
+              curve: Curves.easeOut,
+            )
+            .orCancel;
+      }
+      if (!mounted) return;
+      _position.value = 0;
+      _scale.value = 0;
+      _refreshing = false;
+      _dragOffset = 0;
+      _setActive(false);
+    } on TickerCanceled {
+      // The widget was disposed while the indicator was retracting.
     }
-    return false;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
     final color = theme.colors.primary;
-    return NotificationListener<ScrollNotification>(
-      onNotification: _handleScrollNotification,
-      child: NotificationListener<OverscrollIndicatorNotification>(
-        onNotification: _handleIndicatorNotification,
+    return Listener(
+      onPointerCancel: (_) {
+        if (_dragging) _dragCancelled = true;
+      },
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScrollNotification,
         child: AnimatedBuilder(
           animation: Listenable.merge([_position, _scale]),
           child: widget.child,
@@ -261,7 +296,13 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
             final value = _position.value;
             return Stack(
               children: [
-                child!,
+                IgnorePointer(
+                  ignoring: _active && !_dragging,
+                  child: ScrollConfiguration(
+                    behavior: _scrollBehavior,
+                    child: child!,
+                  ),
+                ),
                 if (value > 0)
                   Positioned(
                     top: 0,
@@ -304,6 +345,44 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
       ),
     );
   }
+}
+
+/// Consume refresh deltas before setPixels, and suppress the release fling.
+/// Clamping boundaries also prevent iOS bouncing from moving the content.
+/// Child physics must delegate to their parent (AlwaysScrollable does).
+class _RefreshScrollPhysics extends ClampingScrollPhysics {
+  final _AppRefreshIndicatorState owner;
+
+  const _RefreshScrollPhysics({required this.owner, super.parent});
+
+  @override
+  _RefreshScrollPhysics applyTo(ScrollPhysics? ancestor) =>
+      _RefreshScrollPhysics(owner: owner, parent: buildParent(ancestor));
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) =>
+      position.axisDirection == AxisDirection.down ||
+      super.shouldAcceptUserOffset(position);
+
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) =>
+      owner._consumeUserOffset(position, offset)
+      ? 0
+      : super.applyPhysicsToUserOffset(position, offset);
+
+  @override
+  double applyBoundaryConditions(ScrollMetrics position, double value) =>
+      owner._active && position.axisDirection == AxisDirection.down
+      ? value - position.pixels
+      : super.applyBoundaryConditions(position, value);
+
+  @override
+  Simulation? createBallisticSimulation(
+    ScrollMetrics position,
+    double velocity,
+  ) => owner._active && position.axisDirection == AxisDirection.down
+      ? null
+      : super.createBallisticSimulation(position, velocity);
 }
 
 class AppContentFrame extends StatelessWidget {
