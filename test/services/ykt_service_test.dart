@@ -38,28 +38,44 @@ void main() {
     ]);
   });
 
-  test('uses the latest consumption row for the uncommitted amount', () {
+  test('sums transactions newer than the balance snapshot', () {
+    YktTransaction txn(String amount, String balance) => YktTransaction(
+      time: '2026-10-24 19:00:00',
+      location: '',
+      amount: amount,
+      balance: balance,
+      type: '',
+    );
+    final txns = [
+      txn('100', '36.57'),
+      txn('-30', '36.57'),
+      txn('-0.19', '36.57'),
+      txn('-1.88', '34.69'),
+      txn('-0.2', '36.76'),
+      txn('-0.04', '38.83'),
+      txn('-0.04', '38.87'),
+      txn('-1.87', '36.96'),
+      txn('-1.36', '38.91'),
+    ];
+
+    expect(yktUncommittedAmount('38.91', txns), '65.78 元');
+  });
+
+  test('returns zero when the newest transaction is the snapshot', () {
     final txns = [
       YktTransaction(
         time: '2026-10-24 19:09:24',
-        location: '转账前置机',
+        location: '',
         amount: '100',
-        balance: '36.57',
+        balance: '38.91',
         type: '支付宝转账',
-      ),
-      YktTransaction(
-        time: '2026-10-24 17:43:00',
-        location: '东校区直饮水',
-        amount: '-0.19',
-        balance: '36.57',
-        type: '持卡人消费',
       ),
     ];
 
-    expect(yktUncommittedAmount('38.91', txns), '2.34 元');
+    expect(yktUncommittedAmount('38.91', txns), '0.00 元');
   });
 
-  test('has no uncommitted amount without a consumption row', () {
+  test('has no uncommitted amount without a matching snapshot', () {
     final txns = [
       YktTransaction(
         time: '2026-10-24 19:09:24',

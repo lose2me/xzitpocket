@@ -12,19 +12,29 @@ import '../../utils/snackbar_helper.dart';
 import '../../ui/app_components.dart';
 import '../../ui/date_range_calendar_sheet.dart';
 
-/// 未圈存金额 = 卡内余额 − 最近一笔消费在流水里的余额（需求 4）。
-/// [txns] 需按时间倒序（最新在前）。转账/充值行只是批次余额快照，跳过不用；
-/// 无消费记录或数值不可解析时返回占位 `--`。
+/// 未圈存金额 = 卡内余额之后、尚未计入该余额的流水净额（需求 4）。
+///
+/// 一卡通中心的余额是最后一次结算的快照；之后的新流水（充值/消费/代扣）还没
+/// 写回该余额。这里找到余额快照在流水中的位置，把比它更新的流水金额相加。
+/// [txns] 需按时间倒序（最新在前）。找不到快照或无流水时返回占位 `--`。
 String yktUncommittedAmount(String balance, List<YktTransaction> txns) {
   final balanceValue = double.tryParse(balance.trim());
-  if (balanceValue == null) return '--';
-  for (final txn in txns) {
-    if (!txn.amount.trim().startsWith('-')) continue;
-    final ledger = double.tryParse(txn.balance.trim());
-    if (ledger == null) continue;
-    return '${(balanceValue - ledger).toStringAsFixed(2)} 元';
+  if (balanceValue == null || txns.isEmpty) return '--';
+  var snapshot = -1;
+  for (var index = 0; index < txns.length; index++) {
+    final ledger = double.tryParse(txns[index].balance.trim());
+    if (ledger != null && (ledger - balanceValue).abs() < 0.005) {
+      snapshot = index;
+      break;
+    }
   }
-  return '--';
+  if (snapshot < 0) return '--';
+  if (snapshot == 0) return '0.00 元';
+  var pending = 0.0;
+  for (var index = 0; index < snapshot; index++) {
+    pending += double.tryParse(txns[index].amount.trim()) ?? 0;
+  }
+  return '${pending.toStringAsFixed(2)} 元';
 }
 
 class CampusCardPage extends StatefulWidget {
