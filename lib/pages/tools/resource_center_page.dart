@@ -15,6 +15,7 @@ import '../../ui/app_components.dart';
 import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_center_page.dart';
+import 'learning_question_list_page.dart';
 import 'resource_upload_page.dart';
 
 class ResourceCenterPage extends StatefulWidget {
@@ -213,48 +214,46 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
           tooltip: '上传教材或试卷',
         ),
       ],
-      child: _loading
-          ? _buildSkeleton()
-          : _courses.isEmpty
-          ? AppPageBody(
-              maxWidth: AppLayout.resultMaxWidth,
-              pageGutter: true,
-              onRefresh: _refresh,
-              child: AppStateView(
-                icon: FLucideIcons.packageOpen,
-                title: '暂无资源',
-                description: _error ?? '暂时没有可用的题库、试卷或电子教材',
-              ),
-            )
-          : _buildCourseList(context),
-    );
-  }
-
-  Widget _buildSkeleton() {
-    return AppPageBody(
-      maxWidth: AppLayout.resultMaxWidth,
-      pageGutter: true,
-      child: AppSkeleton(
-        label: '正在加载资源',
+      child: AppPageBody(
+        maxWidth: AppLayout.resultMaxWidth,
+        pageGutter: true,
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(0, AppSpacing.lg, 0, AppSpacing.md),
-              child: AppSkeletonBox(
-                width: double.infinity,
-                height: 46,
-                radius: 8,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                0,
+                AppSpacing.lg,
+                0,
+                AppSpacing.md,
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.outline,
+                      onPress: () => _openCollection(LearningListKind.wrong),
+                      prefix: const Icon(FLucideIcons.circleAlert),
+                      child: const Text('错题集'),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: FButton(
+                      variant: FButtonVariant.outline,
+                      onPress: () => _openCollection(LearningListKind.favorite),
+                      prefix: const Icon(FLucideIcons.bookmark),
+                      child: const Text('收藏集'),
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(
-              child: ListView.separated(
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-                itemCount: 5,
-                separatorBuilder: (_, _) =>
-                    const SizedBox(height: AppSpacing.md),
-                itemBuilder: (_, _) => const _CourseCardSkeleton(),
-              ),
+              child: _loading
+                  ? _buildSkeleton()
+                  : _courses.isEmpty
+                  ? _buildEmpty()
+                  : _buildCourseList(context),
             ),
           ],
         ),
@@ -262,62 +261,109 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
     );
   }
 
-  Widget _buildCourseList(BuildContext context) {
-    final courses = _filteredCourses;
-    return AppPageBody(
-      maxWidth: AppLayout.resultMaxWidth,
-      pageGutter: true,
+  Widget _buildEmpty() => LayoutBuilder(
+    builder: (context, constraints) => AppRefreshIndicator(
+      onRefresh: _refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: SizedBox(
+          height: constraints.maxHeight,
+          child: AppStateView(
+            icon: FLucideIcons.packageOpen,
+            title: '暂无资源',
+            description: _error ?? '暂时没有可用的题库、试卷或电子教材',
+          ),
+        ),
+      ),
+    ),
+  );
+
+  void _openCollection(LearningListKind kind) {
+    Navigator.of(context).push(
+      appRoute(
+        name: kind == LearningListKind.wrong
+            ? AppRouteNames.learningWrongQuestions
+            : AppRouteNames.learningFavorites,
+        builder: (_) =>
+            LearningQuestionListPage(repository: widget.repository, kind: kind),
+      ),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return AppSkeleton(
+      label: '正在加载资源',
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              0,
-              AppSpacing.lg,
-              0,
-              AppSpacing.md,
-            ),
-            child: AppTextField(
-              controller: _searchController,
-              hint: '搜索课程名或课程编号',
-              prefix: const Icon(FLucideIcons.search),
-              clearable: true,
-              onChanged: (value) => setState(() => _query = value),
+          const Padding(
+            padding: EdgeInsets.only(bottom: AppSpacing.md),
+            child: AppSkeletonBox(
+              width: double.infinity,
+              height: 46,
+              radius: 8,
             ),
           ),
           Expanded(
-            child: courses.isEmpty
-                ? const AppStateView(
-                    icon: FLucideIcons.searchX,
-                    title: '没有匹配的课程',
-                    description: '换个关键词再试试',
-                  )
-                : AppRefreshIndicator(
-                    onRefresh: _refresh,
-                    child: Scrollbar(
-                      controller: _scrollController,
-                      thumbVisibility: false,
-                      child: ListView.separated(
-                        controller: _scrollController,
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
-                        itemCount: courses.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(height: AppSpacing.md),
-                        itemBuilder: (context, index) {
-                          final course = courses[index];
-                          return _CourseCard(
-                            course: course,
-                            coverPath: _covers[course.code],
-                            onTap: () =>
-                                unawaited(_openCourse(context, course)),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
+            child: ListView.separated(
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+              itemCount: 5,
+              separatorBuilder: (_, _) =>
+                  const SizedBox(height: AppSpacing.md),
+              itemBuilder: (_, _) => const _CourseCardSkeleton(),
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCourseList(BuildContext context) {
+    final courses = _filteredCourses;
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+          child: AppTextField(
+            controller: _searchController,
+            hint: '搜索课程名或课程编号',
+            prefix: const Icon(FLucideIcons.search),
+            clearable: true,
+            onChanged: (value) => setState(() => _query = value),
+          ),
+        ),
+        Expanded(
+          child: courses.isEmpty
+              ? const AppStateView(
+                  icon: FLucideIcons.searchX,
+                  title: '没有匹配的课程',
+                  description: '换个关键词再试试',
+                )
+              : AppRefreshIndicator(
+                  onRefresh: _refresh,
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: false,
+                    child: ListView.separated(
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                      itemCount: courses.length,
+                      separatorBuilder: (_, _) =>
+                          const SizedBox(height: AppSpacing.md),
+                      itemBuilder: (context, index) {
+                        final course = courses[index];
+                        return _CourseCard(
+                          course: course,
+                          coverPath: _covers[course.code],
+                          onTap: () => unawaited(_openCourse(context, course)),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+        ),
+      ],
     );
   }
 

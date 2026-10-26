@@ -698,6 +698,13 @@ class ControlService {
     );
   }
 
+  Future<ResourceAIResult> fetchResourceAI(String id) async {
+    final response = await _userGet(
+      '/api/v1/resources/${Uri.encodeComponent(id)}/ai',
+    );
+    return ResourceAIResult.fromJson(response);
+  }
+
   Future<String> fetchResourceURL(String id) => _signedURL(
     'resource:$id',
     '/api/v1/resources/${Uri.encodeComponent(id)}/url',

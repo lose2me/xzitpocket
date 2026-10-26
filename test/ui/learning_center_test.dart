@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/learning_question.dart';
 import 'package:xzitpocket/models/resource_center.dart';
 import 'package:xzitpocket/pages/tools/learning_center_page.dart';
+import 'package:xzitpocket/pages/tools/learning_question_list_page.dart';
 import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
@@ -66,6 +67,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> pumpQuestionList(
+    WidgetTester tester,
+    LearningRepository repository,
+    LearningListKind kind,
+  ) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(
+          size: Size(390, 844),
+          disableAnimations: true,
+        ),
+        child: MaterialApp(
+          localizationsDelegates: FLocalizations.localizationsDelegates,
+          supportedLocales: FLocalizations.supportedLocales,
+          builder: (context, child) => FTheme(
+            data: AppTheme.light,
+            child: FToaster(child: FTooltipGroup(child: child!)),
+          ),
+          home: LearningQuestionListPage(
+            repository: repository,
+            kind: kind,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('shows online learning questions and navigation', (tester) async {
     var fetchCount = 0;
     final repository = LearningRepository(
@@ -84,8 +113,10 @@ void main() {
     expect(find.text('最新题库'), findsNothing);
     expect(find.text('课程资源'), findsNothing);
     expect(find.text('题库'), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.circleAlert), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.bookmark), findsOneWidget);
+    expect(find.text('测试课程'), findsOneWidget);
+    // 错题集/收藏集已经移到资源中心，课程页不再提供入口。
+    expect(find.byIcon(FLucideIcons.circleAlert), findsNothing);
+    expect(find.byIcon(FLucideIcons.bookmark), findsNothing);
     expect(find.text('兑换通用 CDK'), findsNothing);
     expect(find.textContaining('进度 0%'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.check), findsNothing);
@@ -176,16 +207,14 @@ void main() {
       fetcher: () async => [remoteQuestion],
     );
 
-    await pumpCenter(tester, repository);
-    await tester.tap(find.byIcon(FLucideIcons.circleAlert));
-    await tester.pumpAndSettle();
+    await pumpQuestionList(tester, repository, LearningListKind.wrong);
 
     expect(find.text('错题集'), findsOneWidget);
     expect(find.text('这里还没有题目'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.circleAlert), findsWidgets);
   });
 
-  testWidgets('bank selection hides the collection shortcuts', (tester) async {
+  testWidgets('bank selection only shows the clear action', (tester) async {
     final repository = LearningRepository(
       preferencesStorage: await storage(),
       fetcher: () async => [remoteQuestion],
@@ -195,16 +224,10 @@ void main() {
     await tester.longPress(find.text('在线题库'));
     await tester.pumpAndSettle();
 
+    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
+    // The collection shortcuts live in the resource centre now.
     expect(find.byIcon(FLucideIcons.circleAlert), findsNothing);
     expect(find.byIcon(FLucideIcons.bookmark), findsNothing);
-    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
-
-    await tester.tap(find.text('在线题库'));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(FLucideIcons.circleAlert), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.bookmark), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
   });
 
   testWidgets('groups banks and opens CDK sheet from a locked bank', (
@@ -255,9 +278,7 @@ void main() {
     await repository.load();
     await repository.submitAnswer(remoteQuestion.id, {'B'});
 
-    await pumpCenter(tester, repository);
-    await tester.tap(find.byIcon(FLucideIcons.circleAlert));
-    await tester.pumpAndSettle();
+    await pumpQuestionList(tester, repository, LearningListKind.wrong);
 
     expect(find.text('错题集'), findsOneWidget);
     expect(find.textContaining('在线题目'), findsOneWidget);
@@ -284,9 +305,7 @@ void main() {
     await repository.load();
     await repository.toggleFavorite(remoteQuestion.id);
 
-    await pumpCenter(tester, repository);
-    await tester.tap(find.byIcon(FLucideIcons.bookmark));
-    await tester.pumpAndSettle();
+    await pumpQuestionList(tester, repository, LearningListKind.favorite);
 
     expect(find.text('收藏集'), findsOneWidget);
     expect(find.textContaining('在线题目'), findsOneWidget);

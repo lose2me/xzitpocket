@@ -62,6 +62,12 @@ class CourseResourceItem {
   /// Server update time, used when deciding whether a cached row is current.
   final String updatedAt;
 
+  /// Whether a succeeded AI analysis exists for this paper.
+  final bool hasAi;
+
+  /// Server update time of the latest succeeded AI analysis.
+  final String aiUpdatedAt;
+
   const CourseResourceItem({
     required this.id,
     required this.name,
@@ -70,6 +76,8 @@ class CourseResourceItem {
     this.format = 'pdf',
     this.sizeBytes = 0,
     this.updatedAt = '',
+    this.hasAi = false,
+    this.aiUpdatedAt = '',
   });
 
   factory CourseResourceItem.fromJson(Map<String, dynamic> json) {
@@ -82,6 +90,8 @@ class CourseResourceItem {
       format: format == 'doc' || format == 'docx' ? format : 'pdf',
       sizeBytes: _asInt(json['size_bytes']),
       updatedAt: json['updated_at']?.toString() ?? '',
+      hasAi: json['has_ai'] == true,
+      aiUpdatedAt: json['ai_updated_at']?.toString() ?? '',
     );
   }
 
@@ -93,7 +103,53 @@ class CourseResourceItem {
     'format': format,
     'size_bytes': sizeBytes,
     'updated_at': updatedAt,
+    'has_ai': hasAi,
+    'ai_updated_at': aiUpdatedAt,
   };
+}
+
+/// AI analysis of one paper.
+class ResourceAIResult {
+  final bool available;
+  final String status;
+  final String markdown;
+  final String updatedAt;
+  final int outputSize;
+  final int totalPages;
+  final int solvable;
+  final String precheckNote;
+  final String pdfUrl;
+  final String error;
+
+  const ResourceAIResult({
+    this.available = false,
+    this.status = '',
+    this.markdown = '',
+    this.updatedAt = '',
+    this.outputSize = 0,
+    this.totalPages = 0,
+    this.solvable = 0,
+    this.precheckNote = '',
+    this.pdfUrl = '',
+    this.error = '',
+  });
+
+  bool get processing =>
+      status == 'queued' || status == 'running' || status == 'paused';
+
+  factory ResourceAIResult.fromJson(Map<String, dynamic> json) =>
+      ResourceAIResult(
+        available: json['available'] == true,
+        status: json['status']?.toString() ?? '',
+        markdown: json['markdown']?.toString() ?? '',
+        updatedAt: json['updated_at']?.toString() ?? '',
+        outputSize: _asInt(json['output_size']),
+        totalPages: _asInt(json['total_pages']),
+        solvable: _asInt(json['solvable']),
+        precheckNote: json['precheck_note']?.toString() ?? '',
+        pdfUrl: json['pdf_url']?.toString() ?? '',
+        error: json['error']?.toString() ?? '',
+      );
 }
 
 class UploadTextbook {

@@ -8,6 +8,7 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/pages/timetable/timetable_settings_page.dart';
+import 'package:xzitpocket/providers/app_settings_provider.dart';
 import 'package:xzitpocket/providers/config_provider.dart';
 import 'package:xzitpocket/services/course_storage.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
@@ -108,5 +109,44 @@ void main() {
     await tester.tap(find.text('课程预览'));
     await tester.pumpAndSettle();
     expect(find.byType(TimetableGrid), findsNothing);
+  });
+
+  testWidgets('template editor focuses and saves after validating', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildHostApp());
+    await tester.tap(find.text('打开个性化设置'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('课程块'));
+    await tester.pumpAndSettle();
+
+    final field = find.byKey(const ValueKey('course-template-input'));
+    final save = find.byKey(const ValueKey('course-template-save'));
+    expect(field, findsOneWidget);
+
+    await tester.tap(field);
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    await tester.enterText(field, '[b]{课程}');
+    await tester.tap(save);
+    await tester.pump();
+    expect(tester.testTextInput.isVisible, isTrue);
+    expect(
+      ProviderScope.containerOf(
+        tester.element(field),
+      ).read(appSettingsProvider).timetableCourseTextTemplate,
+      isNot('[b]{课程}'),
+    );
+
+    await tester.enterText(field, r'[b]{课程}[/b]');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(
+      ProviderScope.containerOf(
+        tester.element(field),
+      ).read(appSettingsProvider).timetableCourseTextTemplate,
+      r'[b]{课程}[/b]',
+    );
   });
 }

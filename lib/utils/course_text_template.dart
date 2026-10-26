@@ -281,6 +281,64 @@ Color? _parseHexColor(String value) {
   return parsed == null ? null : Color(parsed);
 }
 
+/// 校验用户输入的模板。返回 null 表示格式正确，否则返回给用户看的错误。
+///
+/// 只校验花括号变量与方括号标签；普通文字不限制。未知标签按错误处理，
+/// 避免 `[bb]`、`[s0]` 这类拼写问题静默渲染成普通文本。
+String? validateCourseTemplate(String template) {
+  final text = template.replaceAll('\\n', '\n');
+  final stack = <({String tag, _TemplateStyleKind kind})>[];
+  var index = 0;
+  while (index < text.length) {
+    final char = text[index];
+    if (char == '{') {
+      final end = text.indexOf('}', index + 1);
+      if (end < 0) return '变量缺少右花括号 }';
+      final name = text.substring(index + 1, end);
+      if (!_knownVariables.contains(name)) return '未知变量 {$name}';
+      index = end + 1;
+      continue;
+    }
+    if (char == '[') {
+      final end = text.indexOf(']', index + 1);
+      if (end < 0) return '标签缺少右方括号 ]';
+      final tag = text.substring(index + 1, end);
+      if (tag == '/') {
+        if (stack.isEmpty) return '多余的闭合标签 [/]';
+        stack.removeLast();
+        index = end + 1;
+        continue;
+      }
+      final closing = _parseClosingTag(tag);
+      if (closing != null) {
+        final at = stack.lastIndexWhere((entry) => entry.kind == closing);
+        if (at < 0) return '闭合标签 [$tag] 没有对应的开标签';
+        stack.removeAt(at);
+        index = end + 1;
+        continue;
+      }
+      final style = _parseStyleTag(tag);
+      if (style != null) {
+        stack.add((tag: tag, kind: style.kind!));
+        index = end + 1;
+        continue;
+      }
+      if (tag.startsWith('s')) {
+        return '字号标签 [$tag] 无效，应为 [s12]…[/s12]（1–72）';
+      }
+      if (tag.startsWith('c')) {
+        return '颜色标签 [$tag] 无效，应为 [c#111827|#f9fafb]…[/c]';
+      }
+      return '无法识别的标签 [$tag]';
+    }
+    index++;
+  }
+  if (stack.isNotEmpty) {
+    return '标签 [${stack.last.tag}] 没有闭合';
+  }
+  return null;
+}
+
 /// 「复制 AI 提示词」输出：语法表 + 当前模板 + 指令。
 String buildCourseTemplateAiPrompt(String currentTemplate) {
   const syntax = '''

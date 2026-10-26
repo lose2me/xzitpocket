@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/learning_question.dart';
 import '../../services/learning_repository.dart';
+import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import 'learning_quiz_page.dart';
 
@@ -11,13 +14,11 @@ enum LearningListKind { bank, wrong, favorite }
 class LearningQuestionListPage extends StatefulWidget {
   final LearningRepository repository;
   final LearningListKind kind;
-  final String courseCode;
 
   const LearningQuestionListPage({
     super.key,
     required this.repository,
     required this.kind,
-    this.courseCode = '',
   });
 
   @override
@@ -32,6 +33,16 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
   void initState() {
     super.initState();
     repository.addListener(_onRepositoryUpdate);
+    if (!repository.isLoaded) unawaited(_ensureRepository());
+  }
+
+  Future<void> _ensureRepository() async {
+    try {
+      await repository.load();
+      if (repository.loadedFromCache) await repository.sync();
+    } catch (error, stackTrace) {
+      talker.warning('题库同步失败', error, stackTrace);
+    }
   }
 
   @override
@@ -56,16 +67,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           if (repository.favoriteIds.contains(question.id)) question,
       ],
     };
-    final courseCode = widget.courseCode.trim();
-    if (courseCode.isEmpty) return questions;
-    final bankIds = {
-      for (final bank in repository.banks)
-        if (bank.courseCodes.contains(courseCode)) bank.id,
-    };
-    return [
-      for (final question in questions)
-        if (bankIds.contains(question.bankId)) question,
-    ];
+    return questions;
   }
 
   List<_QuestionBankGroup> get _groupedQuestions {
@@ -111,7 +113,9 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           tooltip: '刷题设置',
         ),
       ],
-      child: questions.isEmpty
+      child: !repository.isLoaded
+          ? _buildSkeleton()
+          : questions.isEmpty
           ? AppStateView(
               icon: switch (widget.kind) {
                 LearningListKind.bank => FLucideIcons.fileQuestion,
@@ -204,23 +208,40 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
           questions.map((question) => question.id),
         );
       case LearningListKind.wrong:
-        if (widget.courseCode.trim().isEmpty) {
-          await repository.clearWrongQuestions();
-        } else {
-          await repository.removeWrongQuestions(
-            questions.map((question) => question.id),
-          );
-        }
+        await repository.clearWrongQuestions();
       case LearningListKind.favorite:
-        if (widget.courseCode.trim().isEmpty) {
-          await repository.clearFavorites();
-        } else {
-          await repository.removeFavorites(
-            questions.map((question) => question.id),
-          );
-        }
+        await repository.clearFavorites();
     }
   }
+
+  Widget _buildSkeleton() => AppPageListView(
+    maxWidth: AppLayout.resultMaxWidth,
+    bottomPadding: AppSpacing.xxl,
+    children: [
+      AppSkeleton(
+        label: '正在加载题目',
+        child: Column(
+          children: [
+            for (var index = 0; index < 4; index++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                child: AppCard(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      AppSkeletonBox(width: 180, height: 16),
+                      SizedBox(height: AppSpacing.sm),
+                      AppSkeletonBox(width: double.infinity, height: 14),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ],
+  );
 
   Future<void> _openModeSettings() async {
     final mode = await showAppSheet<LearningQuizMode>(

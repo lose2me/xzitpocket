@@ -93,23 +93,35 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       children: [
         const ProfileSectionLabel(title: '课程块文字'),
         AppTextField(
+          key: const ValueKey('course-template-input'),
           controller: _templateController,
           focusNode: _templateFocusNode,
           label: '文字模板（单行输入，\\n 换行）',
           hint: kDefaultCourseTextTemplate,
+          description: '修改后点「保存」生效，保存时会校验格式。',
           maxLines: 1,
-          onChanged: (value) => unawaited(
-            ref
-                .read(appSettingsProvider.notifier)
-                .setTimetableCourseTextTemplate(value),
-          ),
         ),
         const SizedBox(height: AppSpacing.md),
-        FButton(
-          variant: FButtonVariant.outline,
-          onPress: _copyTemplateAiPrompt,
-          prefix: const Icon(FLucideIcons.copy),
-          child: const Text('复制 AI 提示词'),
+        Row(
+          children: [
+            Expanded(
+              child: FButton(
+                variant: FButtonVariant.outline,
+                onPress: _copyTemplateAiPrompt,
+                prefix: const Icon(FLucideIcons.copy),
+                child: const Text('复制 AI 提示词'),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: FButton(
+                key: const ValueKey('course-template-save'),
+                onPress: _saveTemplate,
+                prefix: const Icon(FLucideIcons.save),
+                child: const Text('保存'),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: AppSpacing.md),
         const ProfileSettingsHint(
@@ -121,6 +133,25 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
         const SizedBox(height: AppSpacing.xl),
         const ProfileSectionLabel(title: '课程块'),
       ],
+    );
+  }
+
+  Future<void> _saveTemplate() async {
+    final value = _templateController.text;
+    final error = validateCourseTemplate(value);
+    if (error != null) {
+      showAppSnackBar(context, error, severity: ToastSeverity.error);
+      return;
+    }
+    _templateFocusNode.unfocus();
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setTimetableCourseTextTemplate(value);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      value.trim().isEmpty ? '已恢复默认模板' : '模板已保存',
+      severity: ToastSeverity.success,
     );
   }
 

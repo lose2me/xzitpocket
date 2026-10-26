@@ -206,4 +206,32 @@ void main() {
       expect(template, r'[b]{课程}[/b]\n\n{时间}\n{教室}\n{校区}\n【{教师}】');
     });
   });
+
+  group('validateCourseTemplate', () {
+    test('accepts the default and nested styles', () {
+      expect(validateCourseTemplate(kDefaultCourseTextTemplate), isNull);
+      expect(
+        validateCourseTemplate(
+          r'[b][c#111827|#f9fafb]{课程}[/c][/b]\n[中][s12]{教室}[/s12][/中]',
+        ),
+        isNull,
+      );
+      expect(validateCourseTemplate(''), isNull);
+    });
+
+    test('rejects unknown variables and unclosed tags', () {
+      expect(validateCourseTemplate('{科目}'), contains('未知变量'));
+      expect(validateCourseTemplate('{课程'), contains('右花括号'));
+      expect(validateCourseTemplate('[b]{课程}'), contains('没有闭合'));
+      expect(validateCourseTemplate('{课程}[/b]'), contains('没有对应的开标签'));
+      expect(validateCourseTemplate('[/]'), contains('多余的闭合标签'));
+    });
+
+    test('rejects invalid sizes, colors and unknown tags', () {
+      expect(validateCourseTemplate('[s0]x[/s0]'), contains('字号标签'));
+      expect(validateCourseTemplate('[s80]x[/s80]'), contains('字号标签'));
+      expect(validateCourseTemplate('[c#12]x[/c]'), contains('颜色标签'));
+      expect(validateCourseTemplate('[bb]x[/bb]'), contains('无法识别的标签'));
+    });
+  });
 }

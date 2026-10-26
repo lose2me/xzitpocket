@@ -15,8 +15,8 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
-import 'learning_question_list_page.dart';
 import 'learning_quiz_page.dart';
+import 'resource_ai_page.dart';
 
 class LearningCenterPage extends StatefulWidget {
   final LearningRepository repository;
@@ -246,10 +246,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (mounted) _exitBankSelectionMode();
   }
 
+  String get _title {
+    final name = course.name.trim();
+    if (name.isNotEmpty) return name;
+    final code = shortCourseCode(course.code);
+    return code.isNotEmpty ? code : '课程';
+  }
+
   @override
   Widget build(BuildContext context) {
     return AppPage(
-      title: '',
+      title: _title,
       actions: _bankSelectionMode
           ? [
               AppIconButton(
@@ -260,18 +267,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 tooltip: '清空已选题库进度',
               ),
             ]
-          : [
-              AppIconButton(
-                icon: FLucideIcons.circleAlert,
-                onPress: () => _openCollection(LearningListKind.wrong),
-                tooltip: '错题集',
-              ),
-              AppIconButton(
-                icon: FLucideIcons.bookmark,
-                onPress: () => _openCollection(LearningListKind.favorite),
-                tooltip: '收藏集',
-              ),
-            ],
+          : const [],
       // Never gate the whole page on repository.load(): the body already has
       // per-section skeletons, so swapping a full-page skeleton for the body
       // would move everything as soon as the bank cache/network resolves.
@@ -306,10 +302,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       bottomPadding: AppSpacing.xxl,
       onRefresh: _refreshLibrary,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-          child: _buildCourseHeader(theme),
-        ),
         _buildSectionHeader(theme, 0, '教材', _expandedSections[0]),
         _buildAnimatedSection(
           expanded: _expandedSections[0],
@@ -378,6 +370,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                     format: item.format,
                     urlLoader: () =>
                         ControlService.instance.fetchResourceURL(item.id),
+                    onOpenAI: item.hasAi ? () => _openAI(item) : null,
                   ),
                   color: theme.colors.semantic.info,
                 ),
@@ -528,42 +521,24 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
   }
 
-  Widget _buildCourseHeader(FThemeData theme) {
-    final name = course.name.trim();
-    final code = shortCourseCode(course.code);
-    final title = name.isNotEmpty ? name : (code.isNotEmpty ? code : '课程');
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: theme.typography.pageTitle,
-        ),
-        if (name.isNotEmpty && code.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            code,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.typography.caption.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
   List<_QuestionBankGroup> _courseBanks() {
     if (course.code.isEmpty) return _allBankGroups();
     return [
       for (final bank in _allBankGroups())
         if (bank.courseCodes.contains(course.code)) bank,
     ];
+  }
+
+  void _openAI(CourseResourceItem item) {
+    Navigator.of(context).push(
+      appRoute(
+        name: AppRouteNames.resourceAI,
+        builder: (_) => ResourceAIPage(
+          resourceId: item.id,
+          resourceName: item.name,
+        ),
+      ),
+    );
   }
 
   Widget _buildPdfTile(
@@ -610,6 +585,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ),
           ),
           const SizedBox(width: AppSpacing.md),
+          if (entry.onOpenAI != null) ...[
+            AppIconButton(
+              icon: FLucideIcons.sparkles,
+              onPress: entry.onOpenAI,
+              tooltip: 'AI 解析',
+              size: FButtonSizeVariant.xs,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+          ],
           if (downloading)
             SizedBox(
               width: 42,
@@ -861,24 +845,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     );
   }
 
-  void _openCollection(LearningListKind kind) {
-    _exitBankSelectionMode();
-    unawaited(
-      Navigator.of(context).push(
-        appRoute(
-          name: kind == LearningListKind.wrong
-              ? AppRouteNames.learningWrongQuestions
-              : AppRouteNames.learningFavorites,
-          builder: (_) => LearningQuestionListPage(
-            repository: repository,
-            kind: kind,
-            courseCode: course.code,
-          ),
-        ),
-      ),
-    );
-  }
-
   int _bankProgressPercent(_QuestionBankGroup bank) {
     if (bank.questions.isEmpty) return 0;
     final judged = bank.questions
@@ -965,6 +931,7 @@ class _PdfEntry {
   final bool hasPdf;
   final String format;
   final Future<String> Function() urlLoader;
+  final VoidCallback? onOpenAI;
 
   const _PdfEntry({
     required this.id,
@@ -974,6 +941,7 @@ class _PdfEntry {
     required this.hasPdf,
     required this.format,
     required this.urlLoader,
+    this.onOpenAI,
   });
 }
 
