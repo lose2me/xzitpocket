@@ -25,12 +25,16 @@ class YktTransaction {
   final String balance;
   final String type;
 
+  /// Raw `zd` (交易终端). 转账/代扣经过「转帐前置机」，需要刷卡圈存后才写进卡片。
+  final String terminal;
+
   const YktTransaction({
     required this.time,
     required this.location,
     required this.amount,
     required this.balance,
     required this.type,
+    this.terminal = '',
   });
 
   Map<String, dynamic> toJson() => {
@@ -39,6 +43,7 @@ class YktTransaction {
     'amount': amount,
     'balance': balance,
     'type': type,
+    'terminal': terminal,
   };
 
   factory YktTransaction.fromJson(Map<String, dynamic> j) => YktTransaction(
@@ -47,6 +52,7 @@ class YktTransaction {
     amount: j['amount'] as String,
     balance: j['balance'] as String,
     type: j['type'] as String,
+    terminal: j['terminal'] as String? ?? '',
   );
 }
 
@@ -198,6 +204,7 @@ class YktService {
                   // web table only shows the current balance on its first row.
                   balance: '${item['ye'] ?? ''}',
                   type: '${item['jylxm'] ?? ''}',
+                  terminal: '${item['zd'] ?? ''}',
                 ),
               );
             }

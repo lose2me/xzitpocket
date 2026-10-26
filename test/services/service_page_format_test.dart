@@ -5,14 +5,18 @@ import 'package:xzitpocket/pages/tools/power_query_page.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 import 'package:xzitpocket/services/ykt_service.dart';
 
-YktTransaction _txn({required String balance, String amount = '-5.00'}) =>
-    YktTransaction(
-      time: '2026-10-01 12:00:00',
-      location: '食堂',
-      amount: amount,
-      balance: balance,
-      type: '消费',
-    );
+YktTransaction _txn({
+  required String balance,
+  String amount = '-5.00',
+  String terminal = '二期食堂',
+}) => YktTransaction(
+  time: '2026-10-01 12:00:00',
+  location: '食堂',
+  amount: amount,
+  balance: balance,
+  type: '持卡人消费',
+  terminal: terminal,
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -36,16 +40,19 @@ void main() {
   });
 
   group('yktUncommittedAmount', () {
-    test('sums transactions newer than the balance snapshot', () {
+    test('sums transfers that have not been written to the card', () {
       final txns = [
-        _txn(balance: '30.00', amount: '-5.00'),
-        _txn(balance: '50.00', amount: '-10.00'),
+        _txn(balance: '50.00', amount: '20.00', terminal: '转帐前置机'),
+        _txn(balance: '50.00', amount: '-5.00'),
       ];
-      expect(yktUncommittedAmount('50.00', txns), '-5.00 元');
+      expect(yktUncommittedAmount('50.00', txns), '20.00 元');
     });
 
-    test('gives a placeholder when no transaction matches the balance', () {
-      expect(yktUncommittedAmount('50.00', [_txn(balance: '15.00')]), '--');
+    test('leaves already written transactions out', () {
+      expect(
+        yktUncommittedAmount('50.00', [_txn(balance: '50.00', amount: '-5.00')]),
+        '0.00 元',
+      );
     });
 
     test('gives a placeholder without transactions', () {
