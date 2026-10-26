@@ -299,26 +299,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _detailsLoading && _resources.isEmpty && course.resourceCount > 0;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
-      topPadding:
-          course.name.trim().isNotEmpty &&
-              shortCourseCode(course.code).isNotEmpty
-          ? AppSpacing.sm
-          : AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
       onRefresh: _refreshLibrary,
       children: [
-        if (course.name.trim().isNotEmpty &&
-            shortCourseCode(course.code).isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
-            child: Text(
-              shortCourseCode(course.code),
-              textAlign: TextAlign.center,
-              style: theme.typography.caption.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-          ),
         _buildSectionHeader(theme, 0, '教材', _expandedSections[0]),
         _buildAnimatedSection(
           expanded: _expandedSections[0],

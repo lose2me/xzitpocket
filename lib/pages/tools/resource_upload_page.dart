@@ -96,6 +96,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   String _kind = 'resource';
   late String _courseCode = _initialCourseCode();
   final List<_PickedPdf> _files = [];
+  _PickedPdf? _manualFile;
   bool _uploading = false;
   int _sent = 0;
   int _total = 0;
@@ -295,6 +296,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
     var overflow = 0;
     setState(() {
+      _manualFile = null;
       if (!multiple) {
         _files
           ..clear()
@@ -322,7 +324,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   void _removeFile(_PickedPdf picked) {
     if (_uploading) return;
-    setState(() => _files.remove(picked));
+    setState(() {
+      _files.remove(picked);
+      _manualFile = null;
+    });
   }
 
   Future<void> _submit() async {
@@ -365,12 +370,13 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       }
     }
     final queue = List<_PickedPdf>.of(_files);
+    final manual = queue.length == 1 ? _manualFile : null;
     setState(() {
       _uploading = true;
       _uploadIndex = 1;
       _uploadCount = queue.length;
       _sent = 0;
-      _total = queue.first.size;
+      _total = queue.first.size + (manual?.size ?? 0);
     });
     final failed = <_PickedPdf>[];
     String? firstError;
@@ -380,12 +386,13 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         setState(() {
           _uploadIndex = index + 1;
           _sent = 0;
-          _total = picked.size;
+          _total = picked.size + (manual?.size ?? 0);
         });
       }
       final itemName = _kind == 'resource' ? _nameFromFile(picked.name) : name;
       final error = await _uploadOne(
         picked,
+        manual: manual,
         courseCode: courseCode,
         name: itemName,
         tags: tags,
@@ -408,6 +415,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       }
     });
     if (failed.isEmpty) {
+      if (mounted) setState(() => _manualFile = null);
       // Counters and the textbook list may have changed.
       await widget.preferencesStorage.clearResourceUploadCaches();
       if (mounted) Navigator.of(context).pop(true);
@@ -421,6 +429,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Future<String?> _uploadOne(
     _PickedPdf picked, {
+    _PickedPdf? manual,
     required String courseCode,
     required String name,
     required String tags,
@@ -431,6 +440,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     final format = _kind == 'resource' ? _fileFormat(picked.name) : 'pdf';
     try {
       final fileMd5 = await _fileMd5(picked.path);
+      final manualMd5 = manual == null ? '' : await _fileMd5(manual.path);
       ticket = await ControlService.instance.createResourceUploadTicket(
         kind: _kind,
         courseCode: courseCode,
@@ -440,6 +450,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         format: format,
         md5: fileMd5,
         sizeBytes: picked.size,
+        manualMd5: manualMd5,
+        manualSizeBytes: manual?.size ?? 0,
       );
       await ControlService.instance.uploadToSignedUrl(
         ticket.uploadUrl,
@@ -450,10 +462,26 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           if (!mounted) return;
           setState(() {
             _sent = sent;
-            if (total > 0) _total = total;
+            final manualSize = manual?.size ?? 0;
+            if (total > 0) _total = total + manualSize;
           });
         },
       );
+      if (manual != null && ticket.manualUploadUrl.isNotEmpty) {
+        await ControlService.instance.uploadToSignedUrl(
+          ticket.manualUploadUrl,
+          filePath: manual.path,
+          sizeBytes: manual.size,
+          contentType: 'application/pdf',
+          onProgress: (sent, total) {
+            if (!mounted) return;
+            setState(() {
+              _sent = picked.size + sent;
+              if (total > 0) _total = picked.size + total;
+            });
+          },
+        );
+      }
       uploaded = true;
       await ControlService.instance.completeResourceUpload(ticket.id);
       return null;
@@ -485,6 +513,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         bottomPadding: AppSpacing.xxl,
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
         onRefresh: _refreshAll,
         children: [
           if (!scoped) ...[
@@ -520,6 +549,19 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             const SizedBox(height: AppSpacing.md),
           ],
           _buildFilePicker(theme),
+          if (_kind == 'resource' && _files.length == 1) ...[
+            const SizedBox(height: AppSpacing.md),
+            _buildManualAnalysisPicker(theme),
+          ] else if (_kind == 'resource' && _files.length > 1)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.sm),
+              child: Text(
+                '多份试卷暂不支持同时上传原版解析',
+                style: theme.typography.caption.copyWith(
+                  color: theme.colors.mutedForeground,
+                ),
+              ),
+            ),
           if (_uploading) ...[
             const SizedBox(height: AppSpacing.md),
             ClipRRect(
@@ -638,6 +680,145 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           _courseName(code).toLowerCase().contains(query),
       enabled: !_uploading,
       onChanged: (value) => setState(() => _courseCode = value),
+    );
+  }
+
+  Future<void> _pickManualFile() async {
+    if (_uploading) return;
+    try {
+      final picked = await openFiles(acceptedTypeGroups: [_pdfTypeGroup]);
+      if (!mounted || picked.isEmpty) return;
+      final file = picked.first;
+      final size = await file.length();
+      if (!mounted) return;
+      if (size <= 0 || size > _maxUploadBytes) {
+        showAppSnackBar(
+          context,
+          '原版解析 PDF 无效或超过 80 MB',
+          severity: ToastSeverity.warning,
+        );
+        return;
+      }
+      setState(() => _manualFile = _PickedPdf(file, size));
+    } catch (_) {
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          '无法打开文件选择器，请稍后重试',
+          severity: ToastSeverity.error,
+        );
+      }
+    }
+  }
+
+  Widget _buildManualAnalysisPicker(FThemeData theme) {
+    final manual = _manualFile;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '原版解析（可选）',
+          style: theme.typography.bodySmall.copyWith(
+            color: theme.colors.mutedForeground,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        if (manual == null)
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _uploading ? null : () => unawaited(_pickManualFile()),
+            child: CustomPaint(
+              painter: DashedBorderPainter(color: theme.colors.border),
+              child: SizedBox(
+                width: double.infinity,
+                height: 92,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        FLucideIcons.fileUp,
+                        size: 20,
+                        color: theme.colors.mutedForeground,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        _uploading ? '上传中…' : '选择原版解析 PDF',
+                        style: theme.typography.bodySmall.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '仅单份试卷可附带，支持 PDF，不超过 80 MB',
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.mutedForeground.withValues(
+                            alpha: 0.8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              border: Border.all(color: theme.colors.border),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  FLucideIcons.fileText,
+                  size: 18,
+                  color: theme.colors.mutedForeground,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        manual.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.typography.bodySmall.copyWith(
+                          color: theme.colors.foreground,
+                        ),
+                      ),
+                      Text(
+                        _formatSize(manual.size),
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.mutedForeground,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!_uploading)
+                  IconButton(
+                    onPressed: () => setState(() => _manualFile = null),
+                    icon: const Icon(FLucideIcons.x, size: 18),
+                    color: theme.colors.mutedForeground,
+                    tooltip: '移除原版解析',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -776,6 +957,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                 setState(() {
                   _kind = kind;
                   _files.clear();
+                  if (kind != 'resource') _manualFile = null;
                 });
                 if (kind == 'textbook') unawaited(_loadTextbooks());
               },

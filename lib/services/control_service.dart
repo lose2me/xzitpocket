@@ -56,8 +56,13 @@ class ResourceCenterResult {
 class ResourceUploadTicket {
   final String id;
   final String uploadUrl;
+  final String manualUploadUrl;
 
-  const ResourceUploadTicket({required this.id, required this.uploadUrl});
+  const ResourceUploadTicket({
+    required this.id,
+    required this.uploadUrl,
+    this.manualUploadUrl = '',
+  });
 }
 
 class UploadStats {
@@ -755,6 +760,8 @@ class ControlService {
     String targetId = '',
     String format = 'pdf',
     String md5 = '',
+    String manualMd5 = '',
+    int manualSizeBytes = 0,
   }) async {
     if (kind != 'textbook' && kind != 'resource') {
       throw const ControlApiException('invalid_kind', '资料类型无效');
@@ -772,6 +779,8 @@ class ControlService {
         'format': format,
         'md5': md5,
         'size_bytes': sizeBytes,
+        if (manualMd5.isNotEmpty) 'manual_md5': manualMd5,
+        if (manualSizeBytes > 0) 'manual_size_bytes': manualSizeBytes,
       },
       headers: {'Authorization': 'Bearer $token'},
     );
@@ -780,7 +789,11 @@ class ControlService {
     if (id.isEmpty || uploadUrl.isEmpty) {
       throw const ControlApiException('invalid_upload_ticket', '服务端返回的上传信息无效');
     }
-    return ResourceUploadTicket(id: id, uploadUrl: uploadUrl);
+    return ResourceUploadTicket(
+      id: id,
+      uploadUrl: uploadUrl,
+      manualUploadUrl: response['manual_upload_url']?.toString() ?? '',
+    );
   }
 
   /// Uploads the selected file straight to COS. The signed URL is scoped to
