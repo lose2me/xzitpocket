@@ -47,9 +47,15 @@ class AppIconButton extends StatelessWidget {
 
 /// 状态标签：与极速报修的样式一致（小号白字 + 状态底色）。
 class AppStatusChip extends StatelessWidget {
-  const AppStatusChip({super.key, required this.status, this.color});
+  const AppStatusChip({
+    super.key,
+    required this.status,
+    this.suffix,
+    this.color,
+  });
 
   final String status;
+  final String? suffix;
   final Color? color;
 
   @override
@@ -59,7 +65,7 @@ class AppStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(color: color ?? appStatusColor(status)),
       child: Text(
-        status,
+        suffix == null || suffix!.isEmpty ? status : '$status  $suffix',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: theme.typography.body.xs.copyWith(

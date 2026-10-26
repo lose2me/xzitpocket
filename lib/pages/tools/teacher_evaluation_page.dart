@@ -263,7 +263,10 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
           children: [
             Row(
               children: [
-                AppStatusChip(status: task.status),
+                AppStatusChip(
+                  status: task.status,
+                  suffix: '${task.completed}/${task.total}',
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Text(
@@ -285,13 +288,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
               overflow: TextOverflow.ellipsis,
               style: theme.typography.body.sm.copyWith(
                 fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              '已完成 ${task.completed}/${task.total}',
-              style: theme.typography.body.xs.copyWith(
-                color: theme.colors.mutedForeground,
               ),
             ),
             if (courses.isNotEmpty) ...[
@@ -324,7 +320,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                 ),
               if (hidden > 0 || expanded)
                 Align(
-                  alignment: Alignment.centerLeft,
+                  alignment: Alignment.center,
                   child: FTappable(
                     onPress: () => setState(() {
                       if (expanded) {
@@ -362,7 +358,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                           size: FCircularProgressSizeVariant.sm,
                         )
                       : const Icon(FLucideIcons.thumbsUp),
-                  child: Text(task.pending > 0 ? '给恩师们点赞' : '已全部完成'),
+                  child: Text(task.pending > 0 ? '给恩师们点赞' : '恩师都收到了'),
                 ),
               ),
             ],
@@ -373,8 +369,37 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   }
 
   String _taskTimeLabel(JpTask task) {
-    if (task.startTime.isEmpty) return task.endTime;
-    if (task.endTime.isEmpty) return task.startTime;
-    return '${task.startTime} ~ ${task.endTime}';
+    final start = _parseTaskDate(task.startTime);
+    final end = _parseTaskDate(task.endTime);
+    if (start == null || end == null) {
+      final rawStart = task.startTime.trim();
+      final rawEnd = task.endTime.trim();
+      if (rawStart.isEmpty) return rawEnd;
+      if (rawEnd.isEmpty) return rawStart;
+      return '$rawStart~$rawEnd';
+    }
+    final nowYear = DateTime.now().year;
+    final showYear = !(start.year == end.year && start.year == nowYear);
+    if (start == end) return _formatTaskDate(start, showYear: showYear);
+    return '${_formatTaskDate(start, showYear: showYear)}~'
+        '${_formatTaskDate(end, showYear: showYear)}';
   }
+
+  /// Parses the leading yyyy-M-d of the server timestamp, ignoring the clock.
+  ({int year, int month, int day})? _parseTaskDate(String raw) {
+    final match = RegExp(
+      r'(\d{4})-(\d{1,2})-(\d{1,2})',
+    ).firstMatch(raw.trim());
+    if (match == null) return null;
+    final year = int.tryParse(match.group(1)!);
+    final month = int.tryParse(match.group(2)!);
+    final day = int.tryParse(match.group(3)!);
+    if (year == null || month == null || day == null) return null;
+    return (year: year, month: month, day: day);
+  }
+
+  String _formatTaskDate(
+    ({int year, int month, int day}) date, {
+    required bool showYear,
+  }) => '${showYear ? '${date.year}年' : ''}${date.month}月${date.day}日';
 }
