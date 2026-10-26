@@ -320,7 +320,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                 ),
               if (hidden > 0 || expanded)
                 Align(
-                  alignment: Alignment.centerRight,
+                  alignment: Alignment.centerLeft,
                   child: FTappable(
                     onPress: () => setState(() {
                       if (expanded) {
