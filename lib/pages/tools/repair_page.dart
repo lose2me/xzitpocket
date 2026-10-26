@@ -241,22 +241,7 @@ class _RepairPageState extends State<RepairPage> {
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(color: _statusColor(record.status)),
-                  child: Text(
-                    record.status,
-                    style: theme.typography.body.xs.copyWith(
-                      fontSize: 11,
-                      height: 1.1,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFFFFFFF),
-                    ),
-                  ),
-                ),
+                AppStatusChip(status: record.status),
                 const Spacer(),
                 Text(
                   record.createTime,
@@ -292,13 +277,5 @@ class _RepairPageState extends State<RepairPage> {
     );
   }
 
-  /// 状态对应颜色：绿=完成，黄=处理中，灰=已提交/早期，红=其他。
-  Color _statusColor(String status) {
-    return switch (status) {
-      '已完工' || '已关闭' || '已评价' => const Color(0xFF4CAF50), // 绿
-      '已接单' || '已转单' || '处理中' || '维修中' => const Color(0xFFFBC02D), // 黄
-      '已上报' || '已上传照片' || '已上传图片' || '待接单' => const Color(0xFF9E9E9E), // 灰
-      _ => const Color(0xFFF44336), // 红
-    };
-  }
+
 }

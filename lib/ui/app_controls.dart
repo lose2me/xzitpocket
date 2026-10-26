@@ -45,6 +45,45 @@ class AppIconButton extends StatelessWidget {
   }
 }
 
+/// 状态标签：与极速报修的样式一致（小号白字 + 状态底色）。
+class AppStatusChip extends StatelessWidget {
+  const AppStatusChip({super.key, required this.status, this.color});
+
+  final String status;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(color: color ?? appStatusColor(status)),
+      child: Text(
+        status,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.typography.body.xs.copyWith(
+          fontSize: 11,
+          height: 1.1,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFFFFFFFF),
+        ),
+      ),
+    );
+  }
+}
+
+/// 状态色：绿=完成，黄=处理中/进行中，灰=待处理，红=其他。
+Color appStatusColor(String status) => switch (status) {
+  '已完工' || '已关闭' || '已评价' || '已完成' || '已结束' || '已截止' =>
+    const Color(0xFF4CAF50),
+  '已接单' || '已转单' || '处理中' || '维修中' || '进行中' =>
+    const Color(0xFFFBC02D),
+  '已上报' || '已上传照片' || '已上传图片' || '待接单' || '未开始' =>
+    const Color(0xFF9E9E9E),
+  _ => const Color(0xFFF44336),
+};
+
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;

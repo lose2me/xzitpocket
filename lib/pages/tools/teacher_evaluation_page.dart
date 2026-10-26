@@ -30,8 +30,9 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   bool _isLoading = false;
   bool _isEvaluating = false;
   JpStatusResult? _status;
-  int _currentPage = 0;
-  final _pageController = PageController();
+  final Set<String> _expandedTasks = {};
+
+  static const _collapsedCourseCount = 5;
 
   List<JpTask> get _sortedTasks {
     if (_status == null) return [];
@@ -55,7 +56,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   @override
   void dispose() {
     _manager.removeListener(_onCampusNetworkChanged);
-    _pageController.dispose();
     super.dispose();
   }
 
@@ -107,12 +107,8 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
       setState(() {
         if (changed) {
           _status = result;
-          _currentPage = 0;
         }
       });
-      if (changed && _pageController.hasClients) {
-        _pageController.jumpToPage(0);
-      }
     } on AuthException catch (e, stackTrace) {
       talker.error('教师评价详情刷新失败', e, stackTrace);
       if (!mounted) return;
@@ -194,14 +190,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
     }
   }
 
-  void _goToPage(int page) {
-    _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
@@ -227,18 +215,19 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                           : '未连接校园网，教师评价暂不可用')
                     : null,
               )
-            : Column(
+            : AppPageListView(
+                maxWidth: AppLayout.resultMaxWidth,
+                topPadding: AppSpacing.lg,
+                bottomPadding: AppSpacing.xxl,
+                onRefresh: _campusAvailable
+                    ? () => _loadStatus(forceRefresh: true)
+                    : null,
                 children: [
                   // 离线但有缓存任务时正常展示缓存，并给出居中小字提示
                   //（样式与电费页一致，需求 9）。
                   if (!_campusAvailable)
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.sm,
-                        AppSpacing.md,
-                        AppSpacing.sm,
-                        0,
-                      ),
+                      padding: const EdgeInsets.only(bottom: AppSpacing.md),
                       child: Text(
                         _manager.campusNetworkStatus ==
                                 CampusNetworkStatus.checking
@@ -250,141 +239,142 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                         ),
                       ),
                     ),
-                  Expanded(
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: tasks.length,
-                      onPageChanged: (i) => setState(() => _currentPage = i),
-                      itemBuilder: (_, i) => _buildTaskPage(theme, tasks[i]),
-                    ),
-                  ),
-                  if (tasks.length > 1)
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        AppLayout.pageGutter(context),
-                        0,
-                        AppLayout.pageGutter(context),
-                        AppSpacing.lg,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          AppIconButton(
-                            icon: FLucideIcons.chevronLeft,
-                            onPress: _currentPage > 0
-                                ? () => _goToPage(_currentPage - 1)
-                                : null,
-                            tooltip: '上一项',
-                            size: FButtonSizeVariant.xs,
-                          ),
-                          Text(
-                            '${_currentPage + 1} / ${tasks.length}',
-                            style: theme.typography.body.md,
-                          ),
-                          AppIconButton(
-                            icon: FLucideIcons.chevronRight,
-                            onPress: _currentPage < tasks.length - 1
-                                ? () => _goToPage(_currentPage + 1)
-                                : null,
-                            tooltip: '下一项',
-                            size: FButtonSizeVariant.xs,
-                          ),
-                        ],
-                      ),
-                    ),
+                  for (final task in tasks) _buildTaskCard(theme, task),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildTaskPage(FThemeData theme, JpTask task) {
-    return AppPageListView(
-      maxWidth: AppLayout.resultMaxWidth,
-      safeArea: false,
-      topPadding: AppSpacing.lg,
-      bottomPadding: AppSpacing.xxl,
-      onRefresh: _campusAvailable
-          ? () => _loadStatus(forceRefresh: true)
-          : null,
-      children: [
-        _buildTaskCard(theme, task),
-        if (task.status == '进行中') ...[
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: FButton(
-              onPress: _isEvaluating || task.pending == 0 || !_campusAvailable
-                  ? null
-                  : () => _autoEvaluate(task),
-              prefix: _isEvaluating
-                  ? const FCircularProgress(
-                      size: FCircularProgressSizeVariant.sm,
-                    )
-                  : const Icon(FLucideIcons.thumbsUp),
-              child: Text(task.pending > 0 ? '给恩师们点赞' : '已全部完成'),
+  Widget _buildTaskCard(FThemeData theme, JpTask task) {
+    final expanded = _expandedTasks.contains(task.taskId);
+    final courses = task.courses;
+    final visible = expanded || courses.length <= _collapsedCourseCount
+        ? courses
+        : courses.take(_collapsedCourseCount).toList();
+    final hidden = courses.length - visible.length;
+    final time = _taskTimeLabel(task);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: AppCard(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AppStatusChip(status: task.status),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: Text(
+                    time,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.typography.body.xs.copyWith(
+                      color: theme.colors.mutedForeground,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ],
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              task.taskName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.typography.body.sm.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '已完成 ${task.completed}/${task.total}',
+              style: theme.typography.body.xs.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            if (courses.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.sm),
+              for (final course in visible)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: Row(
+                    children: [
+                      Icon(
+                        course.done
+                            ? FLucideIcons.circleCheck
+                            : FLucideIcons.circle,
+                        size: 16,
+                        color: course.done
+                            ? theme.colors.primary
+                            : theme.colors.mutedForeground,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          '${course.courseName}(${course.teacherName})',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.typography.body.md,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (hidden > 0 || expanded)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FTappable(
+                    onPress: () => setState(() {
+                      if (expanded) {
+                        _expandedTasks.remove(task.taskId);
+                      } else {
+                        _expandedTasks.add(task.taskId);
+                      }
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.xs,
+                        horizontal: AppSpacing.xs,
+                      ),
+                      child: Text(
+                        expanded ? '收起' : '展开剩余 $hidden 门',
+                        style: theme.typography.body.xs.copyWith(
+                          color: theme.colors.primary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+            if (task.status == '进行中') ...[
+              const SizedBox(height: AppSpacing.md),
+              SizedBox(
+                width: double.infinity,
+                child: FButton(
+                  onPress: _isEvaluating || task.pending == 0 || !_campusAvailable
+                      ? null
+                      : () => _autoEvaluate(task),
+                  prefix: _isEvaluating
+                      ? const FCircularProgress(
+                          size: FCircularProgressSizeVariant.sm,
+                        )
+                      : const Icon(FLucideIcons.thumbsUp),
+                  child: Text(task.pending > 0 ? '给恩师们点赞' : '已全部完成'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildTaskCard(FThemeData theme, JpTask task) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            task.taskName,
-            style: theme.typography.tileTitle.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${task.startTime} ~ ${task.endTime}  ${task.completed}/${task.total}',
-            style: theme.typography.body.sm.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
-          ),
-          if (task.courses.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ...task.courses.map(
-              (c) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Row(
-                  children: [
-                    Icon(
-                      c.done ? FLucideIcons.circleCheck : FLucideIcons.circle,
-                      size: 18,
-                      color: c.done
-                          ? theme.colors.primary
-                          : theme.colors.mutedForeground,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${c.courseName}(${c.teacherName})',
-                        style: theme.typography.body.md,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-          Align(
-            alignment: Alignment.bottomRight,
-            child: FBadge(
-              variant: task.status == '进行中'
-                  ? FBadgeVariant.primary
-                  : FBadgeVariant.secondary,
-              child: Text(task.status),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _taskTimeLabel(JpTask task) {
+    if (task.startTime.isEmpty) return task.endTime;
+    if (task.endTime.isEmpty) return task.startTime;
+    return '${task.startTime} ~ ${task.endTime}';
   }
 }
