@@ -680,6 +680,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         if (await file.exists()) {
           await ResourceDownloadService.instance.open(
             file,
+            fileName: _documentFileName(entry.title, entry.format),
             format: entry.format,
           );
           return;
@@ -763,16 +764,20 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       'doc' => 'doc',
       _ => 'pdf',
     };
-    final trimmed = name.trim();
-    final lower = trimmed.toLowerCase();
+    var base = name.trim();
+    final lower = base.toLowerCase();
     for (final extension in const ['.pdf', '.docx', '.doc']) {
       if (lower.endsWith(extension)) {
-        if (extension == '.$normalized') return trimmed;
-        return '${trimmed.substring(0, trimmed.length - extension.length)}.$normalized';
+        base = base.substring(0, base.length - extension.length);
+        break;
       }
     }
-    if (trimmed.isEmpty) return '资料.$normalized';
-    return '$trimmed.$normalized';
+    // The name is used for the Downloads entry and the shared file, so strip
+    // separators and control characters that would break either path.
+    final safe = base
+        .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
+        .trim();
+    return '${safe.isEmpty ? '资料' : safe}.$normalized';
   }
 
   List<_QuestionBankGroup> _allBankGroups() {

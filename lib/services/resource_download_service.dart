@@ -68,11 +68,34 @@ class ResourceDownloadService {
     return temp.rename(file.path);
   }
 
-  Future<void> open(File file, {String format = 'pdf'}) =>
-      _channel.invokeMethod<void>('openLocalFile', {
-        'path': file.path,
-        'mime': _mimeFor(format),
-      });
+  /// Opens [file] with the system viewer. The cached copy is named after the
+  /// resource id, so a title-named copy is handed to the viewer instead and the
+  /// document shows a readable name.
+  Future<void> open(File file, {String fileName = '', String format = 'pdf'}) async {
+    var target = file;
+    final displayName = _safeFileName(fileName);
+    if (displayName.isNotEmpty) {
+      final base = await getApplicationSupportDirectory();
+      final dir = Directory(p.join(base.path, 'resource_center', 'open'));
+      if (await dir.exists()) {
+        await for (final entity in dir.list()) {
+          try {
+            await entity.delete(recursive: true);
+          } catch (_) {}
+        }
+      } else {
+        await dir.create(recursive: true);
+      }
+      target = await file.copy(p.join(dir.path, displayName));
+    }
+    await _channel.invokeMethod<void>('openLocalFile', {
+      'path': target.path,
+      'mime': _mimeFor(format),
+    });
+  }
+
+  String _safeFileName(String name) =>
+      name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_').trim();
 
   /// Copies [file] into the system Downloads folder without a picker and
   /// returns the display path (for example `Download/试卷.pdf`). Android 10+
