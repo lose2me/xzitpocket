@@ -203,7 +203,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
             ? () => _loadStatus(forceRefresh: true)
             : null,
         child: _isLoading && _status == null
-            ? const Center(child: FCircularProgress())
+            ? _buildSkeleton()
             : tasks.isEmpty
             ? AppStateView(
                 icon: FLucideIcons.messageSquareMore,
@@ -217,7 +217,6 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
               )
             : AppPageListView(
                 maxWidth: AppLayout.resultMaxWidth,
-                topPadding: AppSpacing.lg,
                 bottomPadding: AppSpacing.xxl,
                 onRefresh: _campusAvailable
                     ? () => _loadStatus(forceRefresh: true)
@@ -243,6 +242,45 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                 ],
               ),
       ),
+    );
+  }
+
+  Widget _buildSkeleton() {
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        AppSkeleton(
+          label: '正在加载评教任务',
+          child: Column(
+            children: [
+              for (var index = 0; index < 3; index++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: AppCard(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Row(
+                          children: [
+                            AppSkeletonBox(width: 64, height: 16, radius: 4),
+                            Spacer(),
+                            AppSkeletonBox(width: 96, height: 14),
+                          ],
+                        ),
+                        SizedBox(height: AppSpacing.sm),
+                        AppSkeletonBox(width: 168, height: 18),
+                        SizedBox(height: AppSpacing.sm),
+                        AppSkeletonBox(width: double.infinity, height: 14),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -274,20 +312,20 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                     textAlign: TextAlign.right,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: theme.typography.body.xs.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               task.taskName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.typography.body.sm.copyWith(
-                fontWeight: FontWeight.w500,
+              style: theme.typography.tileTitle.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
             if (courses.isNotEmpty) ...[
@@ -312,7 +350,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                           '${course.courseName}(${course.teacherName})',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.typography.body.md,
+                          style: theme.typography.bodyText,
                         ),
                       ),
                     ],
@@ -339,7 +377,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                         children: [
                           Text(
                             expanded ? '收起' : '展开剩余 $hidden 门',
-                            style: theme.typography.body.xs.copyWith(
+                            style: theme.typography.bodySmall.copyWith(
                               color: theme.colors.primary,
                               fontWeight: FontWeight.w500,
                             ),
@@ -363,7 +401,8 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
               SizedBox(
                 width: double.infinity,
                 child: FButton(
-                  onPress: _isEvaluating || task.pending == 0 || !_campusAvailable
+                  onPress:
+                      _isEvaluating || task.pending == 0 || !_campusAvailable
                       ? null
                       : () => _autoEvaluate(task),
                   prefix: _isEvaluating
@@ -400,9 +439,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
 
   /// Parses the leading yyyy-M-d of the server timestamp, ignoring the clock.
   ({int year, int month, int day})? _parseTaskDate(String raw) {
-    final match = RegExp(
-      r'(\d{4})-(\d{1,2})-(\d{1,2})',
-    ).firstMatch(raw.trim());
+    final match = RegExp(r'(\d{4})-(\d{1,2})-(\d{1,2})').firstMatch(raw.trim());
     if (match == null) return null;
     final year = int.tryParse(match.group(1)!);
     final month = int.tryParse(match.group(2)!);

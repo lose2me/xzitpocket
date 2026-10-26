@@ -229,7 +229,7 @@ class _SkeletonProcessStep extends StatelessWidget {
             child: Column(
               children: [
                 const Padding(
-                  padding: EdgeInsets.only(top: 2),
+                  padding: EdgeInsets.only(top: AppSpacing.micro),
                   child: AppSkeletonBox(width: 10, height: 10, circle: true),
                 ),
                 if (!isLast)
@@ -242,10 +242,10 @@ class _SkeletonProcessStep extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.sm),
           const Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: 18),
+              padding: EdgeInsets.only(bottom: AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -261,53 +261,15 @@ class _SkeletonProcessStep extends StatelessWidget {
                       ),
                     ],
                   ),
-                  SizedBox(height: 8),
+                  SizedBox(height: AppSpacing.sm),
                   AppSkeletonBox(width: double.infinity, height: 12),
-                  SizedBox(height: 6),
+                  SizedBox(height: AppSpacing.sm),
                   AppSkeletonBox(width: 160, height: 12),
                 ],
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  final String status;
-
-  const _StatusBadge({required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = context.theme;
-    final background = switch (status) {
-      '已完工' || '已关闭' || '已评价' => const Color(0xFF4CAF50),
-      '已接单' || '已转单' || '处理中' || '维修中' => const Color(0xFFFBC02D),
-      '已上报' ||
-      '已上传照片' ||
-      '已上传图片' ||
-      '待接单' ||
-      '已提交' ||
-      '提交报修' ||
-      '报修' => const Color(0xFF9E9E9E),
-      _ => const Color(0xFFF44336),
-    };
-    return DecoratedBox(
-      decoration: BoxDecoration(color: background),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: Text(
-          status,
-          style: theme.typography.body.xs.copyWith(
-            fontSize: 11,
-            height: 1.1,
-            color: const Color(0xFFFFFFFF),
-            fontWeight: FontWeight.w700,
-          ),
-        ),
       ),
     );
   }
@@ -334,7 +296,7 @@ class _ProcessStepTile extends StatelessWidget {
             child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.only(top: AppSpacing.micro),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: step.current ? color : theme.colors.muted,
@@ -361,25 +323,24 @@ class _ProcessStepTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 18),
+              padding: const EdgeInsets.only(bottom: AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      _StatusBadge(status: step.name),
-                      const SizedBox(width: 8),
+                      AppStatusChip(status: step.name),
+                      const SizedBox(width: AppSpacing.sm),
                       if (step.time.isNotEmpty)
                         Expanded(
                           child: Text(
                             step.time,
                             textAlign: TextAlign.end,
-                            style: theme.typography.body.xs.copyWith(
-                              fontSize: 11,
+                            style: theme.typography.caption.copyWith(
                               height: 1.1,
                               color: theme.colors.mutedForeground,
                             ),
@@ -389,13 +350,13 @@ class _ProcessStepTile extends StatelessWidget {
                   ),
                   if (step.operatorName.isNotEmpty || step.note.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 5),
+                      padding: const EdgeInsets.only(top: AppSpacing.xs),
                       child: Text(
                         [
                           step.operatorName,
                           step.note,
                         ].where((value) => value.trim().isNotEmpty).join(' · '),
-                        style: theme.typography.body.xs.copyWith(
+                        style: theme.typography.bodySmall.copyWith(
                           color: theme.colors.mutedForeground,
                         ),
                       ),

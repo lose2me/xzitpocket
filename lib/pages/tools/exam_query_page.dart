@@ -32,6 +32,7 @@ class ExamQueryPage extends StatefulWidget {
 
 class _ExamQueryPageState extends State<ExamQueryPage> {
   late ExamResult _result;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
@@ -46,6 +47,8 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
   }
 
   Future<void> _refresh({bool showError = true}) async {
+    if (_isRefreshing) return;
+    setState(() => _isRefreshing = true);
     try {
       final result = await ToolsDataManager.instance.refreshExam(
         widget.studentId,
@@ -72,6 +75,8 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
       if (mounted && showError) {
         showAppSnackBar(context, '刷新失败', severity: ToastSeverity.error);
       }
+    } finally {
+      if (mounted) setState(() => _isRefreshing = false);
     }
   }
 
@@ -105,18 +110,20 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
 
     return AppPage(
       title: '考试安排',
-      child: exams.isEmpty
+      child: _isRefreshing && exams.isEmpty
+          ? _buildSkeleton()
+          : exams.isEmpty
           ? AppPageBody(
               maxWidth: AppLayout.resultMaxWidth,
               onRefresh: () => _refresh(),
               child: const AppStateView(
                 icon: FLucideIcons.calendarCheck,
                 title: '暂无考试安排',
+                description: '下拉刷新',
               ),
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,
-              topPadding: AppSpacing.lg,
               bottomPadding: AppSpacing.xxl,
               onRefresh: () => _refresh(),
               children: [
@@ -136,9 +143,41 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
     );
   }
 
+  Widget _buildSkeleton() {
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      bottomPadding: AppSpacing.xxl,
+      children: [
+        AppSkeleton(
+          label: '正在加载考试安排',
+          child: Column(
+            children: [
+              const Center(child: AppSkeletonBox(width: 176, height: 14)),
+              const SizedBox(height: AppSpacing.md),
+              for (var index = 0; index < 4; index++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        AppSkeletonBox(width: 180, height: 18),
+                        SizedBox(height: AppSpacing.sm),
+                        AppSkeletonBox(width: 132, height: 14),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildExamCard(FThemeData theme, ExamItem exam) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: AppCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,27 +188,27 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                   child: Text(
                     exam.title,
                     style: theme.typography.tileTitle.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
                 if (exam.location.isNotEmpty) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   Icon(
                     FLucideIcons.mapPin,
                     size: 16,
                     color: theme.colors.mutedForeground,
                   ),
-                  const SizedBox(width: 2),
+                  const SizedBox(width: AppSpacing.micro),
                   Text(
                     exam.location,
-                    style: theme.typography.body.sm.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
                 ],
                 if (exam.isResit) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   FBadge(
                     variant: FBadgeVariant.destructive,
                     child: const Text('补考'),
@@ -180,7 +219,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
             const SizedBox(height: AppSpacing.sm),
             if (exam.time.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(top: 4),
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
                 child: Row(
                   children: [
                     Icon(
@@ -188,11 +227,11 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                       size: 16,
                       color: theme.colors.mutedForeground,
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppSpacing.sm),
                     Expanded(
                       child: Text(
                         exam.time,
-                        style: theme.typography.body.md.copyWith(
+                        style: theme.typography.bodySmall.copyWith(
                           color: theme.colors.mutedForeground,
                         ),
                       ),
@@ -200,7 +239,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                     if (_daysUntil(exam.time) case final days? when days >= 0)
                       Text(
                         '$days 天',
-                        style: theme.typography.body.md.copyWith(
+                        style: theme.typography.bodySmall.copyWith(
                           color: theme.colors.mutedForeground,
                         ),
                       ),

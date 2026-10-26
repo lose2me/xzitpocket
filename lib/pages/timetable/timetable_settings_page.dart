@@ -1313,7 +1313,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   /// 每个分类大项独立一页，可左右滑动；预览固定在上方（需求 10）。
   Widget _tabList(List<Widget> children) => AppPageListView(
     maxWidth: AppLayout.resultMaxWidth,
-    topPadding: AppSpacing.md,
     bottomPadding: AppSpacing.xxl,
     safeArea: false,
     children: children,

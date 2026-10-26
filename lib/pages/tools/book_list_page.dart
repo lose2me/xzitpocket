@@ -196,7 +196,7 @@ class _BookListPageState extends ConsumerState<BookListPage> {
                 children: [
                   if (_selectedSemester != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.xs),
+                      padding: const EdgeInsets.only(top: AppSpacing.lg),
                       child: _buildSemesterSelector(),
                     ),
                   const Expanded(
@@ -210,7 +210,6 @@ class _BookListPageState extends ConsumerState<BookListPage> {
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,
-              topPadding: AppSpacing.xs,
               bottomPadding: AppSpacing.xxl,
               onRefresh: _refresh,
               children: [
@@ -237,7 +236,6 @@ class _BookListPageState extends ConsumerState<BookListPage> {
   Widget _buildSkeleton() {
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.xs,
       bottomPadding: AppSpacing.xxl,
       children: [
         AppSkeleton(
@@ -304,9 +302,11 @@ class _BookListPageState extends ConsumerState<BookListPage> {
               '《${item.textbookName}》',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.typography.tileTitle,
+              style: theme.typography.tileTitle.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             LayoutBuilder(
               builder: (context, constraints) => Row(
                 children: [
@@ -489,16 +489,19 @@ class _CourseTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.micro,
+      ),
       decoration: BoxDecoration(
         color: theme.colors.primary.withAlpha(24),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: theme.typography.caption.copyWith(
+        style: theme.typography.badge.copyWith(
           color: theme.colors.primary,
           fontWeight: FontWeight.w500,
         ),
@@ -516,14 +519,18 @@ class _TextbookTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.micro,
+      ),
       decoration: BoxDecoration(
         color: theme.colors.muted,
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
-        style: theme.typography.caption.copyWith(
+        style: theme.typography.badge.copyWith(
+          fontWeight: FontWeight.w400,
           color: theme.colors.mutedForeground,
         ),
       ),

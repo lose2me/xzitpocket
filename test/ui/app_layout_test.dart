@@ -13,14 +13,14 @@ void main() {
       await _pumpList(tester, width: 390);
 
       final list = tester.widget<ListView>(find.byType(ListView));
-      expect(list.padding, const EdgeInsets.fromLTRB(16, 12, 16, 20));
+      expect(list.padding, const EdgeInsets.fromLTRB(16, 16, 16, 24));
     });
 
     testWidgets('uses medium page gutter from 600dp', (tester) async {
       await _pumpList(tester, width: 700);
 
       final list = tester.widget<ListView>(find.byType(ListView));
-      expect(list.padding, const EdgeInsets.fromLTRB(24, 12, 24, 20));
+      expect(list.padding, const EdgeInsets.fromLTRB(24, 16, 24, 24));
     });
 
     testWidgets('centers expanded content at its maximum width', (
@@ -29,7 +29,7 @@ void main() {
       await _pumpList(tester, width: 1200);
 
       final list = tester.widget<ListView>(find.byType(ListView));
-      expect(list.padding, const EdgeInsets.fromLTRB(120, 12, 120, 20));
+      expect(list.padding, const EdgeInsets.fromLTRB(120, 16, 120, 24));
     });
   });
 

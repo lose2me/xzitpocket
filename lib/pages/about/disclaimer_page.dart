@@ -37,12 +37,13 @@ class _DisclaimerPageState extends ConsumerState<DisclaimerPage> {
         title: '免责声明',
         showBackButton: !showActions,
         child: AppPageListView(
+          maxWidth: AppLayout.resultMaxWidth,
           showScrollbar: true,
           children: [
             const AboutMarkdown(asset: 'assets/about/disclaimer.md'),
             // 首次安装才需要做出选择；阅读入口不显示任何按钮。
             if (showActions) ...[
-              const SizedBox(height: 32),
+              const SizedBox(height: AppSpacing.xxl),
               Row(
                 children: [
                   Expanded(
@@ -52,7 +53,7 @@ class _DisclaimerPageState extends ConsumerState<DisclaimerPage> {
                       child: const Text('拒绝'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: FButton(
                       onPress: () => unawaited(_accept()),

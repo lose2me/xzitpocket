@@ -17,7 +17,7 @@ class ResourceTag extends StatelessWidget {
     required this.background,
     required this.foreground,
     this.height = 18,
-    this.fontSize = 10,
+    this.fontSize = 11,
   });
 
   @override
@@ -32,9 +32,8 @@ class ResourceTag extends StatelessWidget {
           widthFactor: 1,
           child: Text(
             label,
-            style: context.theme.typography.bodySmall.copyWith(
+            style: context.theme.typography.badge.copyWith(
               fontSize: fontSize,
-              fontWeight: FontWeight.w600,
               color: foreground,
             ),
           ),

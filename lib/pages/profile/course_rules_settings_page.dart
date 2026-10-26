@@ -247,8 +247,7 @@ class _CourseRulesSettingsPageState
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       for (var index = 0; index < rows.length; index++) ...[
-        if (index > 0)
-          Divider(height: AppSpacing.lg, color: context.theme.colors.border),
+        if (index > 0) const FDivider(),
         _buildAdjustmentRow(rows[index]),
       ],
     ],

@@ -536,18 +536,8 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     return AppPage(
       title: '便捷服务',
       root: true,
-      headerStyle: FHeaderStyleDelta.delta(
-        titleTextStyle: TextStyleDelta.value(
-          context.theme.typography.display.xl.copyWith(
-            color: context.theme.colors.foreground,
-            fontWeight: FontWeight.w600,
-            height: 1,
-          ),
-        ),
-      ),
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         onRefresh: _refreshPower,
         children: cards,
@@ -565,10 +555,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
   }) {
     final enabled = onTap != null && !loading;
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       onPress: enabled ? onTap : null,
       child: Row(
         children: [
@@ -654,10 +641,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     }
 
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       onPress: _openExamQuery,
       child: Row(
         children: [
@@ -732,10 +716,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     final balance = _manager.ykt?.balance;
 
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       onPress: _openYkt,
       child: Row(
         children: [
@@ -829,10 +810,7 @@ class ToolsPageState extends ConsumerState<ToolsPage>
     }
 
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       onPress: (studentId == null || studentId.isEmpty)
           ? _requireLogin
           : hasRoom && data != null

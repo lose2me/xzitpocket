@@ -153,27 +153,17 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.xl),
           Text(
             '绑定设备 (${_devices.length}/${_info.maxDevices})',
             style: theme.typography.pageTitle,
           ),
           const SizedBox(height: AppSpacing.md),
           if (_devices.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.xxl),
-              child: Center(
-                child: Text(
-                  '暂无绑定设备',
-                  style: theme.typography.bodyText.copyWith(
-                    color: theme.colors.mutedForeground,
-                  ),
-                ),
-              ),
-            )
+            const AppStateView(icon: FLucideIcons.wifiOff, title: '暂无绑定设备')
           else
             ..._devices.map((d) => _buildDeviceTile(theme, d)),
-          const SizedBox(height: AppSpacing.xxl),
+          const SizedBox(height: AppSpacing.xl),
           FButton(
             variant: FButtonVariant.secondary,
             onPress: () => Navigator.of(context).push(
@@ -195,23 +185,20 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
 
   Widget _buildMetricCell(FThemeData theme, String label, String value) {
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: theme.typography.body.sm.copyWith(
+            style: theme.typography.bodySmall.copyWith(
               color: theme.colors.mutedForeground,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             value,
-            style: theme.typography.body.sm.copyWith(
+            style: theme.typography.bodyText.copyWith(
               fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
@@ -226,12 +213,9 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
     final isUnbinding = _unbindingMac == device.mac;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
             Icon(
@@ -241,28 +225,29 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
                   : theme.colors.mutedForeground,
               size: 20,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     device.mac,
-                    style: theme.typography.body.md.copyWith(
-                      fontWeight: FontWeight.w500,
+                    style: theme.typography.tileTitle.copyWith(
+                      fontWeight: FontWeight.w600,
                       fontFamily: 'monospace',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     '${device.type}  ${device.ip}',
-                    style: theme.typography.body.sm.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.micro),
                   Text(
                     device.lastTime,
-                    style: theme.typography.body.sm.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),

@@ -484,7 +484,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       title: title,
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         onRefresh: _refreshAll,
         children: [
@@ -525,8 +524,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             const SizedBox(height: AppSpacing.md),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: _total > 0 ? (_sent / _total).clamp(0.0, 1.0) : null,
+              child: FDeterminateProgress(
+                value: _total > 0 ? (_sent / _total).clamp(0.0, 1.0) : 0,
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
@@ -578,10 +577,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     }
     if (_textbooks.isEmpty) {
       return AppCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Text(
           widget.courseScoped ? '该课程暂无关联教材' : '暂无可上传的教材',
           style: theme.typography.bodySmall.copyWith(
@@ -593,10 +589,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     final book = _selectedTextbook;
     if (widget.courseScoped && _textbooks.length == 1 && book != null) {
       return AppCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -693,8 +686,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                       multiple
                           ? '支持 PDF / DOCX / DOC，可多选，单个不超过 80 MB'
                           : '仅支持单个 PDF，不超过 80 MB',
-                      style: theme.typography.bodySmall.copyWith(
-                        fontSize: 11,
+                      style: theme.typography.caption.copyWith(
                         color: theme.colors.mutedForeground.withValues(
                           alpha: 0.8,
                         ),
@@ -718,7 +710,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       ),
       decoration: BoxDecoration(
         border: Border.all(color: theme.colors.border),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         children: [
@@ -742,8 +734,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                 ),
                 Text(
                   _formatSize(picked.size),
-                  style: theme.typography.bodySmall.copyWith(
-                    fontSize: 11,
+                  style: theme.typography.caption.copyWith(
                     color: theme.colors.mutedForeground,
                   ),
                 ),
@@ -789,7 +780,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                 if (kind == 'textbook') unawaited(_loadTextbooks());
               },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
@@ -801,8 +792,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           child: Center(
             child: Text(
               label,
-              style: theme.typography.body.md.copyWith(
-                fontSize: 13,
+              style: theme.typography.tabLabel.copyWith(
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 color: selected
                     ? theme.colors.primary
@@ -817,10 +807,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Widget _buildMetricCell(FThemeData theme, String label, String value) {
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -833,7 +820,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           const SizedBox(height: AppSpacing.xs),
           Text(
             value,
-            style: theme.typography.body.sm.copyWith(
+            style: theme.typography.bodyText.copyWith(
               fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
@@ -1051,10 +1038,7 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
                 clipBehavior: Clip.antiAlias,
                 child: matches.isEmpty
                     ? Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: AppSpacing.md,
-                        ),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Text(
                           '未找到匹配项',
                           style: theme.typography.bodySmall.copyWith(
@@ -1090,7 +1074,7 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
       child: Container(
         width: double.infinity,
         color: selected ? theme.colors.secondary : null,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
             Expanded(
@@ -1098,8 +1082,7 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
                 widget.format(option),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.typography.body.md.copyWith(
-                  fontSize: 13,
+                style: theme.typography.bodySmall.copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   color: selected
                       ? theme.colors.primary

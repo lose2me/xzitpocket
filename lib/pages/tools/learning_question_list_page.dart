@@ -125,7 +125,6 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
             )
           : AppPageListViewBuilder(
               maxWidth: AppLayout.resultMaxWidth,
-              topPadding: AppSpacing.lg,
               bottomPadding: AppSpacing.xxl,
               itemCount: rows.length,
               itemBuilder: (context, index) {
@@ -310,7 +309,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
               children: [
                 Text(
                   '${widget.kind == LearningListKind.wrong ? '[错题] ' : ''}${question.questionNumber ?? index + 1}.${question.questionText}',
-                  style: theme.typography.bodySmall.copyWith(fontSize: 14),
+                  style: theme.typography.bodySmall,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -357,16 +356,18 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
     Color background, {
     Color? textColor,
   }) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.sm,
+      vertical: AppSpacing.micro,
+    ),
     decoration: BoxDecoration(
       color: background,
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(4),
     ),
     child: Text(
       text,
-      style: theme.typography.caption.copyWith(
+      style: theme.typography.badge.copyWith(
         color: textColor ?? theme.colors.mutedForeground,
-        fontWeight: FontWeight.w600,
       ),
     ),
   );

@@ -103,6 +103,22 @@ extension AppTypographyTokens on FTypography {
     letterSpacing: 0,
   );
 
+  /// Tab 栏文字：Forui FTabs 与自带 Tab 栏共用。
+  TextStyle get tabLabel => body.xs.copyWith(
+    fontSize: 13,
+    height: 1.3,
+    fontWeight: FontWeight.w500,
+    letterSpacing: 0,
+  );
+
+  /// 标签/徽标文字：状态 chip、资源标签、课程标签共用。
+  TextStyle get badge => body.xs2.copyWith(
+    fontSize: 11,
+    height: 1.2,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0,
+  );
+
   TextStyle get metric => body.xl.copyWith(
     fontSize: 22,
     height: 28 / 22,

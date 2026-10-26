@@ -158,8 +158,7 @@ class AppDialogTextAction extends StatelessWidget {
     final text = Center(
       child: Text(
         label,
-        style: theme.typography.label.copyWith(
-          fontSize: 16,
+        style: theme.typography.bodyText.copyWith(
           color: color ?? theme.colors.primary,
           fontWeight: emphasized ? FontWeight.w600 : FontWeight.w500,
         ),

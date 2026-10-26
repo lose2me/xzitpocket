@@ -835,7 +835,6 @@ class _LearningQuizPageState extends State<LearningQuizPage> {
   Widget _buildMemorizeFlow(FThemeData theme) => AppPageListView(
     controller: _flowScrollController,
     maxWidth: AppLayout.resultMaxWidth,
-    topPadding: AppSpacing.lg,
     bottomPadding: AppSpacing.xxl,
     children: [
       for (var index = 0; index < widget.questionIds.length; index++)

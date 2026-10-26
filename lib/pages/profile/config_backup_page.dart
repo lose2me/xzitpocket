@@ -254,7 +254,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
               ? null
               : () => _import(suffix: _personalizationSuffix),
         ),
-        const SizedBox(height: AppSpacing.xxl),
+        const SizedBox(height: AppSpacing.xl),
         _section(
           title: '备用课表',
           fieldKey: const ValueKey('config_backup_schedule_code'),

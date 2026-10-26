@@ -207,7 +207,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     onTap: _pickRange,
     suffix: _isRefreshing
         ? const Padding(
-            padding: EdgeInsets.only(right: 5),
+            padding: EdgeInsets.only(right: AppSpacing.xs),
             child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
           )
         : null,
@@ -237,7 +237,6 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       child: AppPageListView(
         controller: _scrollController,
         maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.lg,
         bottomPadding: AppSpacing.xxl,
         onRefresh: () => _refresh(),
         children: [
@@ -255,18 +254,15 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
           ],
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.roomId ?? '电费查询',
-                style: theme.typography.pageTitle.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
+              if (widget.roomId != null && widget.roomId!.isNotEmpty) ...[
+                Text(widget.roomId!, style: theme.typography.pageTitle),
+                const SizedBox(height: AppSpacing.md),
+              ],
               AppAdaptiveGrid(
                 children: [
                   for (final metric in metrics) _buildMetricCell(theme, metric),
@@ -286,7 +282,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                   Text(
                     '每日用电明细',
                     style: theme.typography.tileTitle.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const Spacer(),
@@ -307,7 +303,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
                 const SizedBox(height: AppSpacing.xl),
                 Text(
                   '该月暂无用电明细',
-                  style: theme.typography.body.md.copyWith(
+                  style: theme.typography.caption.copyWith(
                     color: theme.colors.mutedForeground,
                   ),
                 ),
@@ -343,10 +339,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
 
   Widget _buildMetricCell(FThemeData theme, _MetricItem item) {
     Widget card = AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -356,7 +349,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
               color: theme.colors.mutedForeground,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(item.value, style: theme.typography.metric),
         ],
       ),
@@ -381,17 +374,14 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.md),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
-            Expanded(child: Text(item.date, style: theme.typography.body.md)),
+            Expanded(child: Text(item.date, style: theme.typography.bodyText)),
             Text(
               '${_formatAmount(item.usage)} ${_showMoney ? '元' : '度'}',
-              style: theme.typography.body.md.copyWith(
-                fontWeight: FontWeight.w700,
+              style: theme.typography.bodyText.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

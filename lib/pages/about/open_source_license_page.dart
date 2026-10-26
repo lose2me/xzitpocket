@@ -109,7 +109,7 @@ class _LicensePageHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+      padding: const EdgeInsets.only(bottom: AppSpacing.lg),
       child: Column(
         children: [
           Text(
@@ -124,7 +124,7 @@ class _LicensePageHeader extends StatelessWidget {
             Text(
               '版本 $version',
               textAlign: TextAlign.center,
-              style: theme.typography.body.sm.copyWith(
+              style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.mutedForeground,
               ),
             ),
@@ -133,7 +133,7 @@ class _LicensePageHeader extends StatelessWidget {
           Text(
             'Powered by Flutter',
             textAlign: TextAlign.center,
-            style: theme.typography.body.sm.copyWith(
+            style: theme.typography.bodySmall.copyWith(
               color: theme.colors.mutedForeground,
             ),
           ),
@@ -162,7 +162,7 @@ class _LicensePackageTile extends StatelessWidget {
       title: Text(packageName),
       details: Text(
         '$licenseCount 份许可证',
-        style: theme.typography.body.sm.copyWith(
+        style: theme.typography.bodySmall.copyWith(
           color: theme.colors.mutedForeground,
         ),
       ),

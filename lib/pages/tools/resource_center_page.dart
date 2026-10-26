@@ -39,6 +39,7 @@ class ResourceCenterPage extends StatefulWidget {
 
 class _ResourceCenterPageState extends State<ResourceCenterPage> {
   final _searchController = TextEditingController();
+  final _scrollController = ScrollController();
   List<ResourceCourse> _courses = const [];
   Map<String, String> _covers = const {};
   ResourceCenterSnapshot? _snapshot;
@@ -77,6 +78,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -215,7 +217,8 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
           ? _buildSkeleton()
           : _courses.isEmpty
           ? AppPageBody(
-              maxWidth: AppLayout.contentMaxWidth,
+              maxWidth: AppLayout.resultMaxWidth,
+              pageGutter: true,
               onRefresh: _refresh,
               child: AppStateView(
                 icon: FLucideIcons.packageOpen,
@@ -229,18 +232,14 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
 
   Widget _buildSkeleton() {
     return AppPageBody(
-      maxWidth: AppLayout.contentMaxWidth,
+      maxWidth: AppLayout.resultMaxWidth,
+      pageGutter: true,
       child: AppSkeleton(
         label: '正在加载资源',
         child: Column(
           children: [
             const Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpacing.md,
-                AppSpacing.sm,
-                AppSpacing.md,
-                AppSpacing.sm,
-              ),
+              padding: EdgeInsets.fromLTRB(0, AppSpacing.lg, 0, AppSpacing.md),
               child: AppSkeletonBox(
                 width: double.infinity,
                 height: 46,
@@ -250,12 +249,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
             Expanded(
               child: ListView.separated(
                 physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.md,
-                  AppSpacing.xs,
-                  AppSpacing.md,
-                  AppSpacing.xxl,
-                ),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
                 itemCount: 5,
                 separatorBuilder: (_, _) =>
                     const SizedBox(height: AppSpacing.md),
@@ -269,18 +263,18 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   }
 
   Widget _buildCourseList(BuildContext context) {
-    final theme = context.theme;
     final courses = _filteredCourses;
     return AppPageBody(
-      maxWidth: AppLayout.contentMaxWidth,
+      maxWidth: AppLayout.resultMaxWidth,
+      pageGutter: true,
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
+              0,
+              AppSpacing.lg,
+              0,
               AppSpacing.md,
-              AppSpacing.sm,
-              AppSpacing.md,
-              AppSpacing.sm,
             ),
             child: AppTextField(
               controller: _searchController,
@@ -292,35 +286,33 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
           ),
           Expanded(
             child: courses.isEmpty
-                ? Center(
-                    child: Text(
-                      '没有匹配的课程',
-                      style: theme.typography.bodySmall.copyWith(
-                        color: theme.colors.mutedForeground,
-                      ),
-                    ),
+                ? const AppStateView(
+                    icon: FLucideIcons.searchX,
+                    title: '没有匹配的课程',
+                    description: '换个关键词再试试',
                   )
                 : AppRefreshIndicator(
                     onRefresh: _refresh,
-                    child: ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.xs,
-                        AppSpacing.md,
-                        AppSpacing.xxl,
+                    child: Scrollbar(
+                      controller: _scrollController,
+                      thumbVisibility: false,
+                      child: ListView.separated(
+                        controller: _scrollController,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xxl),
+                        itemCount: courses.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppSpacing.md),
+                        itemBuilder: (context, index) {
+                          final course = courses[index];
+                          return _CourseCard(
+                            course: course,
+                            coverPath: _covers[course.code],
+                            onTap: () =>
+                                unawaited(_openCourse(context, course)),
+                          );
+                        },
                       ),
-                      itemCount: courses.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: AppSpacing.md),
-                      itemBuilder: (context, index) {
-                        final course = courses[index];
-                        return _CourseCard(
-                          course: course,
-                          coverPath: _covers[course.code],
-                          onTap: () => unawaited(_openCourse(context, course)),
-                        );
-                      },
                     ),
                   ),
           ),
@@ -379,16 +371,10 @@ class _CourseCardSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.theme;
-    return Container(
-      // 7 + the 1dp border reproduces the 76dp real card height.
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colors.border),
-        borderRadius: BorderRadius.circular(14),
-      ),
+    return const AppCard(
+      padding: EdgeInsets.all(AppSpacing.md),
       child: Row(
-        children: const [
+        children: [
           AppSkeletonBox(width: 46, height: 62, radius: 8),
           SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -396,8 +382,8 @@ class _CourseCardSkeleton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppSkeletonBox(width: 150, height: 14),
-                SizedBox(height: 8),
+                AppSkeletonBox(width: 150, height: 16),
+                SizedBox(height: AppSpacing.sm),
                 AppSkeletonBox(width: 92, height: 12),
               ],
             ),
@@ -451,54 +437,43 @@ class _CourseCard extends StatelessWidget {
           foreground: theme.colors.semantic.info,
         ),
     ];
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            border: Border.all(color: theme.colors.border),
-            borderRadius: BorderRadius.circular(14),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      onPress: onTap,
+      child: Row(
+        children: [
+          _CourseCover(
+            url: course.coverUrl,
+            localPath: coverPath,
+            width: 46,
+            height: 62,
           ),
-          child: Row(
-            children: [
-              _CourseCover(
-                url: course.coverUrl,
-                localPath: coverPath,
-                width: 46,
-                height: 62,
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.typography.body.md.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (tags.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: 4,
-                        children: tags,
-                      ),
-                    ],
-                  ],
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.typography.tileTitle.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-            ],
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: 4,
+                    children: tags,
+                  ),
+                ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -303,7 +303,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _detailsLoading && _resources.isEmpty && course.resourceCount > 0;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.sm,
       bottomPadding: AppSpacing.xxl,
       onRefresh: _refreshLibrary,
       children: [
@@ -448,7 +447,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       },
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.only(top: 10, bottom: 4),
+        padding: const EdgeInsets.only(
+          top: AppSpacing.md,
+          bottom: AppSpacing.xs,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -515,7 +517,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             for (var index = 0; index < rows; index++) ...[
               const AppSkeletonBox(
                 width: double.infinity,
-                height: 68,
+                height: 78,
                 radius: 8,
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -538,10 +540,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           textAlign: TextAlign.center,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: theme.typography.body.lg.copyWith(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-          ),
+          style: theme.typography.pageTitle,
         ),
         if (name.isNotEmpty && code.isNotEmpty) ...[
           const SizedBox(height: 2),
@@ -550,9 +549,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: theme.typography.bodySmall.copyWith(
+            style: theme.typography.caption.copyWith(
               color: theme.colors.mutedForeground,
-              fontSize: 11,
             ),
           ),
         ],
@@ -580,74 +578,56 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final meta = downloading
         ? (progress > 0 ? '下载中 ${(progress * 100).round()}%' : '下载中…')
         : [if (size.isNotEmpty) size, downloaded ? '已下载' : '未下载'].join('  ');
-    return Material(
-      color: theme.colors.card,
-      borderRadius: BorderRadius.circular(12),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: entry.hasPdf && !downloading
-            ? () => unawaited(_handlePdf(entry))
-            : null,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.colors.border.withValues(alpha: 0.55),
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      onPress: entry.hasPdf && !downloading
+          ? () => unawaited(_handlePdf(entry))
+          : null,
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _documentFileName(
+                    entry.title,
+                    entry.format,
+                    courseCode: entry.courseCode,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.typography.tileTitle,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  meta,
+                  style: theme.typography.bodySmall.copyWith(
+                    color: theme.colors.mutedForeground,
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _documentFileName(
-                        entry.title,
-                        entry.format,
-                        courseCode: entry.courseCode,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.typography.body.md.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      meta,
-                      style: theme.typography.bodySmall.copyWith(
-                        color: theme.colors.mutedForeground,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+          const SizedBox(width: AppSpacing.md),
+          if (downloading)
+            SizedBox(
+              width: 42,
+              height: 54,
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    value: progress > 0 ? progress : null,
+                    strokeWidth: 2,
+                  ),
                 ),
               ),
-              const SizedBox(width: 12),
-              if (downloading)
-                SizedBox(
-                  width: 42,
-                  height: 54,
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        value: progress > 0 ? progress : null,
-                        strokeWidth: 2,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                _DocumentIcon(color: color, label: entry.format.toUpperCase()),
-            ],
-          ),
-        ),
+            )
+          else
+            _DocumentIcon(color: color, label: entry.format.toUpperCase()),
+        ],
       ),
     );
   }
@@ -764,9 +744,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     }
     // The name is used for the Downloads entry and the shared file, so strip
     // separators and control characters that would break either path.
-    final safe = base
-        .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
-        .trim();
+    final safe = base.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_').trim();
     final title = safe.isEmpty ? '资料' : safe;
     final code = courseCode
         .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
@@ -836,7 +814,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ? null
             : () => _enterBankSelectionMode(bank),
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          padding: const EdgeInsets.all(AppSpacing.md),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
@@ -859,18 +837,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.typography.body.md.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        height: 1.3,
-                      ),
+                      style: theme.typography.tileTitle,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       meta,
                       style: theme.typography.bodySmall.copyWith(
                         color: theme.colors.mutedForeground,
-                        fontSize: 12,
                       ),
                     ),
                   ],

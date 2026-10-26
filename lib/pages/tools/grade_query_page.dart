@@ -252,6 +252,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         onRefresh: () => _load(forceRefresh: true),
         child: Column(
           children: [
+            const SizedBox(height: AppSpacing.lg),
             _buildHeader(theme, grades),
             Expanded(child: _buildEmptyGradeState(theme)),
           ],
@@ -263,7 +264,6 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       safeArea: false,
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
-        topPadding: AppSpacing.xs,
         bottomPadding: AppSpacing.xxl,
         safeArea: false,
         onRefresh: () => _load(forceRefresh: true),
@@ -287,7 +287,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     final gpa = totalCredit > 0 ? weightedSum / totalCredit : 0.0;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, AppSpacing.xs, 0, AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -295,10 +295,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           if (grades.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.md),
             AppCard(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
+              padding: const EdgeInsets.all(AppSpacing.md),
               child: Column(
                 children: [
                   _buildSummaryRow(theme, totalCredit, gpa),
@@ -358,13 +355,13 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       children: [
         Text(
           '该学期学分 ${totalCredit.toStringAsFixed(1)}',
-          style: theme.typography.body.xs.copyWith(
+          style: theme.typography.bodySmall.copyWith(
             color: theme.colors.mutedForeground,
           ),
         ),
         Text(
           '该学期绩点 ${gpa.toStringAsFixed(2)} / 5.0',
-          style: theme.typography.body.xs.copyWith(
+          style: theme.typography.bodySmall.copyWith(
             color: theme.colors.mutedForeground,
           ),
         ),
@@ -447,7 +444,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                           _scoreBandLabels[index],
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: theme.typography.body.xs.copyWith(
+                          style: theme.typography.bodySmall.copyWith(
                             color: theme.colors.mutedForeground,
                           ),
                         ),
@@ -476,10 +473,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: AppCard(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg,
-                        vertical: AppSpacing.md,
-                      ),
+                      padding: const EdgeInsets.all(AppSpacing.md),
                       child: Row(
                         children: const [
                           Expanded(
@@ -511,26 +505,12 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         ],
       );
     }
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _hideSemesterSelector
-                ? FLucideIcons.clock3
-                : FLucideIcons.graduationCap,
-            size: 48,
-            color: theme.colors.mutedForeground,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
-            style: theme.typography.tileTitle.copyWith(
-              color: theme.colors.mutedForeground,
-            ),
-          ),
-        ],
-      ),
+    return AppStateView(
+      icon: _hideSemesterSelector
+          ? FLucideIcons.clock3
+          : FLucideIcons.graduationCap,
+      title: _hideSemesterSelector ? '暂未开始考试' : '暂无成绩',
+      description: '下拉刷新',
     );
   }
 
@@ -542,10 +522,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -556,7 +533,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                   Text(
                     grade.name,
                     style: theme.typography.tileTitle.copyWith(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -564,7 +541,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                   const SizedBox(height: 4),
                   Text(
                     details.isEmpty ? '课程信息暂缺' : details,
-                    style: theme.typography.body.xs.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                     maxLines: 1,
@@ -581,7 +558,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
                 children: [
                   Text(
                     '${_fmtNum(grade.credit)} 学分',
-                    style: theme.typography.body.xs.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
@@ -634,10 +611,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AppCard(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
@@ -660,10 +634,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpacing.sm),
               child: AppCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
+                padding: const EdgeInsets.all(AppSpacing.md),
                 child: Row(
                   children: const [
                     Expanded(child: AppSkeletonBox(height: 14)),
@@ -703,34 +674,27 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
       safeArea: false,
-      topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
       onRefresh: () => _load(forceRefresh: true),
       children: [
         AppCard(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: _buildGpaRow(theme, status),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         AppCard(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 child: Column(
                   children: [
                     Row(
                       children: [
                         Text(
                           '总学分进度 ${(progress * 100).toStringAsFixed(1)}%',
-                          style: theme.typography.body.sm.copyWith(
+                          style: theme.typography.bodySmall.copyWith(
                             color: theme.colors.mutedForeground,
                           ),
                         ),
@@ -797,7 +761,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
               const SizedBox(height: 2),
               Text(
                 '${status.gpa.toStringAsFixed(2)} / 5.0',
-                style: theme.typography.body.sm.copyWith(
+                style: theme.typography.bodySmall.copyWith(
                   color: theme.colors.mutedForeground,
                 ),
               ),
@@ -811,7 +775,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           color: theme.colors.primary,
           center: Text(
             '$pct%',
-            style: theme.typography.body.xs.copyWith(
+            style: theme.typography.bodySmall.copyWith(
               fontWeight: FontWeight.w600,
               fontSize: 9,
             ),
@@ -950,7 +914,7 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
     final expanded = widget.expanded;
 
     final header = Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 6),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
       child: Row(
         children: [
           SizedBox(
@@ -994,7 +958,7 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
                   const SizedBox(height: 2),
                   Text(
                     '已${_fmtNum(cat.earnedCredits)} / 需${_fmtNum(cat.reqCredits)}',
-                    style: theme.typography.body.xs.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
@@ -1010,7 +974,7 @@ class _AcademicCategoryNodeState extends State<_AcademicCategoryNode> {
               color: theme.colors.primary,
               center: Text(
                 '$pct%',
-                style: theme.typography.body.xs.copyWith(
+                style: theme.typography.bodySmall.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: 8,
                 ),
@@ -1333,7 +1297,7 @@ class _AcademicCourseTableState extends State<_AcademicCourseTable> {
                             textAlign: header
                                 ? TextAlign.center
                                 : TextAlign.start,
-                            style: theme.typography.body.xs.copyWith(
+                            style: theme.typography.bodySmall.copyWith(
                               color: header
                                   ? theme.colors.foreground
                                   : theme.colors.mutedForeground,

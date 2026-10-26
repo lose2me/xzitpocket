@@ -9,14 +9,6 @@ import '../../ui/app_components.dart';
 class SchoolCalendarPage extends StatelessWidget {
   const SchoolCalendarPage({super.key});
 
-  static const _weekendBackground = Color(0xFFFFF3D6);
-  static const _weekendForeground = Color(0xFF8A5A00);
-  static const _holidayBackground = Color(0xFFDDF4E5);
-  static const _holidayForeground = Color(0xFF216E3A);
-  static const _makeupBackground = Color(0xFFFBE3E3);
-  static const _makeupForeground = Color(0xFFB42318);
-  static const _todayBorder = Color(0xFF3B82F6);
-
   static const _weekdayLabels = ['一', '二', '三', '四', '五', '六', '日'];
   static const _weekLabelWidth = 28.0;
   static const _rowHeight = 46.0;
@@ -45,7 +37,6 @@ class SchoolCalendarPage extends StatelessWidget {
           title: '学校校历',
           child: AppPageListView(
             maxWidth: AppLayout.resultMaxWidth,
-            topPadding: 0,
             bottomPadding: AppSpacing.xxl,
             children: [
               // 图例靠左，右侧提示文字；整体上移。
@@ -54,13 +45,26 @@ class SchoolCalendarPage extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _legendDot(theme, _weekendBackground, '周末'),
+                      _legendDot(theme, theme.colors.muted, '周末'),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, _makeupBackground, '调休'),
+                      _legendDot(
+                        theme,
+                        theme.colors.semantic.makeupBackground,
+                        '调休',
+                      ),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, _holidayBackground, '放假'),
+                      _legendDot(
+                        theme,
+                        theme.colors.semantic.holidayBackground,
+                        '放假',
+                      ),
                       const SizedBox(width: AppSpacing.sm),
-                      _legendDot(theme, _todayBorder, '今日', outlined: true),
+                      _legendDot(
+                        theme,
+                        theme.colors.primary,
+                        '今日',
+                        outlined: true,
+                      ),
                     ],
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -222,19 +226,19 @@ class SchoolCalendarPage extends StatelessWidget {
         day.date.month == now.month &&
         day.date.day == now.day;
 
-    // Calendar status colors stay fixed across app themes so the legend and
-    // date cells keep the same meaning in light and dark mode.
+    // 校历状态色走主题语义色，暗色模式下自动切换。
+    final semantic = theme.colors.semantic;
     final Color bg;
     final Color fg;
     if (isHoliday) {
-      bg = _holidayBackground;
-      fg = _holidayForeground;
+      bg = semantic.holidayBackground;
+      fg = semantic.holidayForeground;
     } else if (isMakeupClass) {
-      bg = _makeupBackground;
-      fg = _makeupForeground;
+      bg = semantic.makeupBackground;
+      fg = semantic.makeupForeground;
     } else if (isWeekend) {
-      bg = _weekendBackground;
-      fg = _weekendForeground;
+      bg = theme.colors.muted;
+      fg = theme.colors.mutedForeground;
     } else {
       bg = theme.colors.card;
       fg = theme.colors.foreground;
@@ -251,7 +255,7 @@ class SchoolCalendarPage extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: isToday ? _todayBorder : theme.colors.border,
+          color: isToday ? theme.colors.primary : theme.colors.border,
           width: isToday ? 1.5 : 0.5,
         ),
       ),

@@ -150,6 +150,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           _buildVersionLine(theme),
           const SizedBox(height: AppSpacing.md),
           const _ProfileUpdateCard(),
+          const SizedBox(height: AppSpacing.md),
           const ProfileSectionLabel(title: '用户信息'),
           ProfileSettingsGroup(
             children: [
@@ -293,15 +294,11 @@ class ProfilePageState extends ConsumerState<ProfilePage>
             ],
           ),
           const SizedBox(height: AppSpacing.xxl),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: FButton(
-              variant: FButtonVariant.primary,
-              onPress: () => _logout(context),
-              prefix: const Icon(FLucideIcons.logOut),
-              child: const Text('退出登录'),
-            ),
+          FButton(
+            variant: FButtonVariant.primary,
+            onPress: () => _logout(context),
+            prefix: const Icon(FLucideIcons.logOut),
+            child: const Text('退出登录'),
           ),
         ],
       ),
@@ -403,7 +400,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
             const SizedBox(width: AppSpacing.xs),
             Text(
               label,
-              style: theme.typography.body.sm.copyWith(
+              style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.mutedForeground,
               ),
             ),

@@ -149,23 +149,23 @@ class _RepairPageState extends State<RepairPage> {
               child: const AppStateView(
                 icon: FLucideIcons.wrench,
                 title: '暂无报修记录',
+                description: '下拉刷新',
               ),
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,
-              topPadding: AppSpacing.lg,
               bottomPadding: AppSpacing.xxl,
               onRefresh: () => _load(forceRefresh: true),
               children: [
                 Center(
                   child: Text(
                     '点击可查看处理进度',
-                    style: theme.typography.body.xs.copyWith(
+                    style: theme.typography.caption.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.md),
                 for (final record in visible) _buildRecordCard(theme, record),
               ],
             ),
@@ -175,7 +175,6 @@ class _RepairPageState extends State<RepairPage> {
   Widget _buildSkeleton() {
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
-      topPadding: AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
       onRefresh: () => _load(forceRefresh: true),
       children: [
@@ -183,8 +182,8 @@ class _RepairPageState extends State<RepairPage> {
           label: '正在加载报修记录',
           child: Column(
             children: [
-              const Center(child: AppSkeletonBox(width: 132, height: 12)),
-              const SizedBox(height: AppSpacing.sm),
+              const Center(child: AppSkeletonBox(width: 132, height: 16)),
+              const SizedBox(height: AppSpacing.md),
               for (var index = 0; index < 4; index++) _buildSkeletonCard(),
             ],
           ),
@@ -208,9 +207,9 @@ class _RepairPageState extends State<RepairPage> {
                 AppSkeletonBox(width: 84, height: 12),
               ],
             ),
-            SizedBox(height: 6),
+            SizedBox(height: AppSpacing.sm),
             AppSkeletonBox(width: double.infinity, height: 20),
-            SizedBox(height: 4),
+            SizedBox(height: AppSpacing.xs),
             AppSkeletonBox(width: 188, height: 16),
           ],
         ),
@@ -245,17 +244,17 @@ class _RepairPageState extends State<RepairPage> {
                 const Spacer(),
                 Text(
                   record.createTime,
-                  style: theme.typography.body.xs.copyWith(
+                  style: theme.typography.bodySmall.copyWith(
                     color: theme.colors.mutedForeground,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               record.content,
-              style: theme.typography.body.sm.copyWith(
-                fontWeight: FontWeight.w500,
+              style: theme.typography.tileTitle.copyWith(
+                fontWeight: FontWeight.w600,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -267,7 +266,7 @@ class _RepairPageState extends State<RepairPage> {
                   : '${record.areaName}  ${record.itemName}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: theme.typography.body.xs.copyWith(
+              style: theme.typography.bodySmall.copyWith(
                 color: theme.colors.mutedForeground,
               ),
             ),
@@ -276,6 +275,4 @@ class _RepairPageState extends State<RepairPage> {
       ),
     );
   }
-
-
 }

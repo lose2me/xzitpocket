@@ -131,8 +131,7 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
     final tutorial = _tutorials[index];
     return AppPageListView(
       maxWidth: AppLayout.formMaxWidth,
-      topPadding: AppSpacing.lg,
-      bottomPadding: AppSpacing.section,
+      bottomPadding: AppSpacing.xxl,
       safeArea: false,
       children: [
         AppTextField(
@@ -141,7 +140,7 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
           prefix: const Icon(FLucideIcons.userRound),
           textInputAction: TextInputAction.next,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         AppTextField(
           controller: _pwdCtrl,
           label: '宽带密码',
@@ -152,21 +151,18 @@ class _OperatorBindingPageState extends State<OperatorBindingPage> {
             if (!_loading) unawaited(_submit());
           },
         ),
-        const SizedBox(height: 20),
-        SizedBox(
-          height: 48,
-          child: FButton(
-            onPress: _loading ? null : _submit,
-            prefix: _loading
-                ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-                : null,
-            child: const Text('绑定'),
-          ),
+        const SizedBox(height: AppSpacing.xl),
+        FButton(
+          onPress: _loading ? null : _submit,
+          prefix: _loading
+              ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+              : null,
+          child: const Text('绑定'),
         ),
         if (tutorial != null && tutorial.trim().isNotEmpty) ...[
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xxl),
           const FDivider(),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           AppMarkdown(data: tutorial),
         ],
       ],

@@ -3,6 +3,7 @@ import 'package:forui/forui.dart';
 
 import '../models/app_settings.dart';
 import 'app_colors.dart';
+import 'app_tokens.dart';
 
 abstract final class AppTheme {
   static final light = lightFor(AppThemeColor.teal);
@@ -257,11 +258,7 @@ abstract final class AppTheme {
         border: Border(bottom: BorderSide(color: colors.border)),
       ),
       labelTextStyle: FVariants.from(
-        typography.body.md.copyWith(
-          color: colors.mutedForeground,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        typography.tabLabel.copyWith(color: colors.mutedForeground),
         variants: {
           [FTabVariant.selected]: TextStyleDelta.delta(
             color: colors.primary,

@@ -1147,8 +1147,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                               );
                               return _buildScheduleTransition(timetable);
                             },
-                            loading: () =>
-                                const Center(child: FCircularProgress()),
+                            loading: () => _buildTimetableSkeleton(),
                             error: (e, _) => AppPageBody(
                               maxWidth: AppLayout.contentMaxWidth,
                               safeArea: false,
@@ -1172,6 +1171,81 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     );
   }
 
+  /// 课表首次加载的骨架：保留时间列与 5 列网格的形状，避免整屏 spinner。
+  Widget _buildTimetableSkeleton() {
+    final muted = context.theme.colors.muted;
+    return AppPageBody(
+      maxWidth: AppLayout.contentMaxWidth,
+      safeArea: false,
+      child: AppSkeleton(
+        label: '正在加载课表',
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const SizedBox(width: 40),
+                  for (var day = 0; day < 5; day++)
+                    const Expanded(
+                      child: Center(
+                        child: AppSkeletonBox(width: 24, height: 12),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: 40,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          for (var slot = 0; slot < 6; slot++)
+                            const AppSkeletonBox(width: 18, height: 10),
+                        ],
+                      ),
+                    ),
+                    for (var day = 0; day < 5; day++) ...[
+                      const SizedBox(width: AppSpacing.xs),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            for (var slot = 0; slot < 6; slot++)
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpacing.xs,
+                                  ),
+                                  child: (day + slot) % 3 == 0
+                                      ? DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: muted,
+                                            borderRadius: BorderRadius.circular(
+                                              6,
+                                            ),
+                                          ),
+                                        )
+                                      : const SizedBox.expand(),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showCourseDetail(
     BuildContext context,
     Course course,
@@ -1184,7 +1258,12 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         builder: (ctx) {
           return SafeArea(
             child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,

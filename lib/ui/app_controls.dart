@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
 
+import 'app_colors.dart';
 import 'app_tokens.dart';
 
 class AppIconButton extends StatelessWidget {
@@ -45,7 +46,7 @@ class AppIconButton extends StatelessWidget {
   }
 }
 
-/// 状态标签：与极速报修的样式一致（小号白字 + 状态底色）。
+/// 状态标签：小号深色/浅色字 + 语义底色（暗色模式自动跟随）。
 class AppStatusChip extends StatelessWidget {
   const AppStatusChip({
     super.key,
@@ -61,40 +62,65 @@ class AppStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = context.theme;
+    final style = appStatusStyle(context, status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color ?? appStatusColor(status)),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.micro,
+      ),
+      decoration: BoxDecoration(
+        color: color ?? style.background,
+        borderRadius: BorderRadius.circular(4),
+      ),
       child: Text(
-        suffix == null || suffix!.isEmpty ? status : '$status  $suffix',
+        suffix == null || suffix!.isEmpty ? status : '$status $suffix',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: theme.typography.body.xs.copyWith(
-          fontSize: 11,
-          height: 1.1,
-          fontWeight: FontWeight.w600,
-          color: const Color(0xFFFFFFFF),
-        ),
+        style: theme.typography.badge.copyWith(color: style.foreground),
       ),
     );
   }
 }
 
 /// 状态色：绿=完成，黄=处理中/进行中，灰=待处理，红=其他。
-Color appStatusColor(String status) => switch (status) {
-  '已完工' || '已关闭' || '已评价' || '已完成' || '已结束' || '已截止' =>
-    const Color(0xFF4CAF50),
-  '已接单' || '已转单' || '处理中' || '维修中' || '进行中' =>
-    const Color(0xFFFBC02D),
-  '已上报' || '已上传照片' || '已上传图片' || '待接单' || '未开始' =>
-    const Color(0xFF9E9E9E),
-  _ => const Color(0xFFF44336),
-};
+/// 统一走语义色，保证亮/暗色对比度与列表、详情一致。
+({Color background, Color foreground}) appStatusStyle(
+  BuildContext context,
+  String status,
+) {
+  final colors = context.theme.colors;
+  final semantic = colors.semantic;
+  return switch (status) {
+    '已完工' || '已关闭' || '已评价' || '已完成' || '已结束' || '已截止' => (
+      background: semantic.successContainer,
+      foreground: semantic.onSuccessContainer,
+    ),
+    '已接单' || '已转单' || '处理中' || '维修中' || '进行中' => (
+      background: semantic.warningContainer,
+      foreground: semantic.onWarningContainer,
+    ),
+    '已上报' ||
+    '已提交' ||
+    '提交报修' ||
+    '报修' ||
+    '已上传照片' ||
+    '已上传图片' ||
+    '待接单' ||
+    '未开始' => (background: colors.muted, foreground: colors.mutedForeground),
+    _ => (
+      background: colors.destructive,
+      foreground: colors.destructiveForeground,
+    ),
+  };
+}
 
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
   final VoidCallback? onPress;
 
+  /// 内容卡（16）。紧凑行卡/指标卡请显式传
+  /// `EdgeInsets.all(AppSpacing.md)`（12）。
   const AppCard({
     super.key,
     required this.child,
@@ -340,10 +366,10 @@ class AppOptionSheet<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = context.theme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
         AppSpacing.md,
-        AppSpacing.sm,
-        AppSpacing.md,
+        AppSpacing.lg,
         AppSpacing.lg,
       ),
       child: SingleChildScrollView(
@@ -357,8 +383,8 @@ class AppOptionSheet<T> extends StatelessWidget {
                 child: Text(
                   title,
                   textAlign: TextAlign.center,
-                  style: theme.typography.pageTitle.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: theme.typography.tileTitle.copyWith(
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
@@ -371,7 +397,7 @@ class AppOptionSheet<T> extends StatelessWidget {
                 selected: option.value == value,
                 onTap: () => Navigator.pop(context, option.value),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
             ],
           ],
         ),
@@ -399,7 +425,7 @@ class _AppOptionTile<T> extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: selected ? theme.colors.secondary : theme.colors.card,
           borderRadius: BorderRadius.circular(12),
@@ -418,7 +444,7 @@ class _AppOptionTile<T> extends StatelessWidget {
                         ? theme.colors.primary
                         : theme.colors.mutedForeground,
                   ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.md),
             ],
             Expanded(
               child: Column(

@@ -23,6 +23,7 @@ class ExtraPagesPage extends StatelessWidget {
             FTabEntry(
               label: const Text('常见问题'),
               child: AppPageListView(
+                maxWidth: AppLayout.resultMaxWidth,
                 safeArea: false,
                 showScrollbar: true,
                 children: const [AboutMarkdown(asset: 'assets/about/faq.md')],
@@ -31,6 +32,7 @@ class ExtraPagesPage extends StatelessWidget {
             FTabEntry(
               label: const Text('免责声明'),
               child: AppPageListView(
+                maxWidth: AppLayout.resultMaxWidth,
                 safeArea: false,
                 showScrollbar: true,
                 children: const [

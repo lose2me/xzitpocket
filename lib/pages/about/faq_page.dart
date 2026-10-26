@@ -13,6 +13,7 @@ class FaqPage extends StatelessWidget {
     return AppPage(
       title: '常见问题',
       child: AppPageListView(
+        maxWidth: AppLayout.resultMaxWidth,
         showScrollbar: true,
         children: const [AboutMarkdown(asset: 'assets/about/faq.md')],
       ),

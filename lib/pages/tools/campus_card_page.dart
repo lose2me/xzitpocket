@@ -210,7 +210,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
       onTap: _pickRange,
       suffix: _isQuerying
           ? const Padding(
-              padding: EdgeInsets.only(right: 5),
+              padding: EdgeInsets.only(right: AppSpacing.xs),
               child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
             )
           : null,
@@ -307,10 +307,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
 
   Widget _buildMetricCell(FThemeData theme, String label, String value) {
     return AppCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.md,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -323,7 +320,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
           const SizedBox(height: AppSpacing.xs),
           Text(
             value,
-            style: theme.typography.body.sm.copyWith(
+            style: theme.typography.bodyText.copyWith(
               fontWeight: FontWeight.w600,
             ),
             maxLines: 1,
@@ -341,12 +338,9 @@ class _CampusCardPageState extends State<CampusCardPage> {
   }) {
     final isNeg = t.amount.startsWith('-');
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: AppCard(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.lg,
-          vertical: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
           children: [
             Expanded(
@@ -355,29 +349,29 @@ class _CampusCardPageState extends State<CampusCardPage> {
                 children: [
                   Text(
                     t.location.isNotEmpty ? t.location : t.type,
-                    style: theme.typography.body.md.copyWith(
-                      fontWeight: FontWeight.w500,
+                    style: theme.typography.tileTitle.copyWith(
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     t.time,
-                    style: theme.typography.body.sm.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   '${isNeg ? '' : '+'}${t.amount}',
-                  style: theme.typography.body.md.copyWith(
+                  style: theme.typography.bodyText.copyWith(
                     fontWeight: FontWeight.w600,
                     color: isNeg
                         ? theme.colors.destructive
@@ -387,7 +381,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
                 if (remainder != null && remainder.trim().isNotEmpty)
                   Text(
                     '余 $remainder',
-                    style: theme.typography.body.sm.copyWith(
+                    style: theme.typography.bodySmall.copyWith(
                       color: theme.colors.mutedForeground,
                     ),
                   ),

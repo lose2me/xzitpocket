@@ -71,7 +71,7 @@ void main() {
     final button = tester.getRect(find.text('上课恢复'));
     expect(button.top, greaterThan(title.bottom));
     expect(button.width, greaterThan(60));
-    expect(tester.getSize(find.byType(FButton).first).height, 34);
+    expect(tester.getSize(find.byType(FButton).first).height, 44);
   });
 
   testWidgets('profile sliders use compact discrete controls', (tester) async {

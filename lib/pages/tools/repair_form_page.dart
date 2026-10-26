@@ -296,13 +296,13 @@ class _RepairFormPageState extends State<RepairFormPage> {
           controller: _areaCtrl,
           onTap: _pickArea,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         _buildPickerField(
           label: '报修项目',
           controller: _itemCtrl,
           onTap: _pickItem,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         SizedBox(
           width: 140,
           child: AppTextField(
@@ -311,7 +311,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
             enabled: !_editingDisabled,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         AppTextField(
           controller: _contentCtrl,
           label: '故障描述',
@@ -320,7 +320,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
           maxLines: null,
           keyboardType: TextInputType.multiline,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -329,7 +329,7 @@ class _RepairFormPageState extends State<RepairFormPage> {
             if (_images.length < 9) _buildAddImageTile(theme),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: AppSpacing.xxl),
         FButton(
           onPress: _submitDisabled ? null : _submit,
           prefix: _sessionLoading || _submitting
@@ -338,9 +338,9 @@ class _RepairFormPageState extends State<RepairFormPage> {
           child: const Text('提交报修'),
         ),
         if (_tutorial != null && _tutorial!.trim().isNotEmpty) ...[
-          const SizedBox(height: 28),
+          const SizedBox(height: AppSpacing.xxl),
           const FDivider(),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.lg),
           AppMarkdown(data: _tutorial!),
         ],
       ],

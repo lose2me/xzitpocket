@@ -7,10 +7,10 @@ import '../../ui/app_components.dart';
 
 const _profileTileContentStyle = FItemContentStyleDelta.delta(
   suffixedPadding: EdgeInsetsGeometryDelta.value(
-    EdgeInsets.fromLTRB(15, 16.5, 13, 16.5),
+    EdgeInsets.fromLTRB(16, 12, 12, 12),
   ),
   unsuffixedPadding: EdgeInsetsGeometryDelta.value(
-    EdgeInsets.symmetric(horizontal: 15, vertical: 16.5),
+    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
   ),
 );
 
@@ -21,19 +21,19 @@ const _profileTileStyle = FItemStyleDelta.delta(
 const _compactProfileTileStyle = FItemStyleDelta.delta(
   contentStyle: FItemContentStyleDelta.delta(
     suffixedPadding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.fromLTRB(15, 6, 13, 0),
+      EdgeInsets.fromLTRB(16, 8, 12, 0),
     ),
     unsuffixedPadding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.fromLTRB(15, 6, 15, 0),
+      EdgeInsets.fromLTRB(16, 8, 16, 0),
     ),
   ),
 );
 
 const _compactOptionButtonStyle = FButtonStyleDelta.delta(
   contentStyle: FButtonContentStyleDelta.delta(
-    constraints: BoxConstraints(minHeight: 34),
+    constraints: BoxConstraints(minHeight: 44),
     padding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     ),
   ),
 );
@@ -739,7 +739,7 @@ class _ProfileColorPickerDialogState extends State<_ProfileColorPickerDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
