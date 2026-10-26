@@ -320,7 +320,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                 ),
               if (hidden > 0 || expanded)
                 Align(
-                  alignment: Alignment.center,
+                  alignment: Alignment.centerRight,
                   child: FTappable(
                     onPress: () => setState(() {
                       if (expanded) {
@@ -334,12 +334,25 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
                         vertical: AppSpacing.xs,
                         horizontal: AppSpacing.xs,
                       ),
-                      child: Text(
-                        expanded ? '收起' : '展开剩余 $hidden 门',
-                        style: theme.typography.body.xs.copyWith(
-                          color: theme.colors.primary,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            expanded ? '收起' : '展开剩余 $hidden 门',
+                            style: theme.typography.body.xs.copyWith(
+                              color: theme.colors.primary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.xs),
+                          Icon(
+                            expanded
+                                ? FLucideIcons.chevronUp
+                                : FLucideIcons.chevronDown,
+                            size: 14,
+                            color: theme.colors.primary,
+                          ),
+                        ],
                       ),
                     ),
                   ),
