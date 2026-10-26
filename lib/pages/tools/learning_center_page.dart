@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
@@ -652,6 +651,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       for (final item in _resources) (id: item.id, format: item.format),
       for (final item in _textbooks) (id: item.id, format: 'pdf'),
     ];
+    await ResourceDownloadService.instance.refresh();
     final downloaded = <String>{};
     for (final item in items) {
       if (await ResourceDownloadService.instance.isDownloaded(
@@ -673,14 +673,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     if (_downloadingIds.contains(entry.id)) return;
     try {
       if (_downloadedIds.contains(entry.id)) {
-        final file = await ResourceDownloadService.instance.fileFor(
+        final record = await ResourceDownloadService.instance.recordFor(
           entry.id,
           format: entry.format,
         );
-        if (await file.exists()) {
+        if (record != null) {
           await ResourceDownloadService.instance.open(
-            file,
-            fileName: _documentFileName(entry.title, entry.format),
+            record,
             format: entry.format,
           );
           return;
@@ -693,9 +692,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       });
       final url = await entry.urlLoader();
       if (url.isEmpty) throw StateError('empty url');
-      final file = await ResourceDownloadService.instance.download(
+      final record = await ResourceDownloadService.instance.download(
         entry.id,
         url,
+        fileName: _documentFileName(entry.title, entry.format),
         format: entry.format,
         onProgress: (received, total) {
           if (!mounted) return;
@@ -705,8 +705,13 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         },
       );
       if (!mounted) return;
+      if (record == null) throw StateError('save returned no uri');
       setState(() => _downloadedIds.add(entry.id));
-      await _savePdf(file, entry.title, format: entry.format);
+      showAppSnackBar(
+        context,
+        '已保存到 Download/${record.name}',
+        severity: ToastSeverity.success,
+      );
     } catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (mounted) {
@@ -718,35 +723,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           _downloadingIds.remove(entry.id);
           _downloadProgress.remove(entry.id);
         });
-      }
-    }
-  }
-
-  Future<void> _savePdf(
-    File file,
-    String title, {
-    required String format,
-  }) async {
-    try {
-      final savedPath = await ResourceDownloadService.instance.saveToDownloads(
-        file,
-        _documentFileName(title, format),
-        format: format,
-      );
-      if (!mounted) return;
-      if (savedPath != null) {
-        showAppSnackBar(
-          context,
-          '已保存到 $savedPath',
-          severity: ToastSeverity.success,
-        );
-      } else {
-        showAppSnackBar(context, '保存失败，请稍后重试', severity: ToastSeverity.warning);
-      }
-    } catch (error, stackTrace) {
-      talker.warning('保存文件失败', error, stackTrace);
-      if (mounted) {
-        showAppSnackBar(context, '保存失败，请稍后重试', severity: ToastSeverity.warning);
       }
     }
   }

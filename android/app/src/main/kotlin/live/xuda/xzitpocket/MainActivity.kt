@@ -63,9 +63,7 @@ class MainActivity : FlutterActivity() {
                 return
             }
             if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-                runCatching { saveToDownloads(file, name, mime) }
-                    .onSuccess { result.success(it) }
-                    .onFailure { result.error("save_failed", it.message, null) }
+                saveDownloadsLegacy(file, name, mime, result)
             } else {
                 result.error("permission_denied", "storage permission denied", null)
             }
@@ -80,58 +78,78 @@ class MainActivity : FlutterActivity() {
         super.onDestroy()
     }
 
-    /// Copies [file] into the public Downloads folder and returns its display
-    /// path, e.g. "Download/试卷.pdf". Android 10+ uses MediaStore so no
-    /// permission is needed and the file shows up in the Downloads app.
-    private fun saveToDownloads(file: File, fileName: String, mime: String): String {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val values = ContentValues().apply {
-                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                put(MediaStore.MediaColumns.MIME_TYPE, mime)
-                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.MediaColumns.IS_PENDING, 1)
-            }
-            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-            val uri = contentResolver.insert(collection, values)
-                ?: throw IllegalStateException("无法创建下载文件")
-            try {
-                contentResolver.openOutputStream(uri)?.use { output ->
-                    file.inputStream().use { input -> input.copyTo(output) }
-                } ?: throw IllegalStateException("无法写入下载文件")
-            } catch (error: Exception) {
-                contentResolver.delete(uri, null, null)
-                throw error
-            }
-            values.clear()
-            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-            contentResolver.update(uri, values, null, null)
-            val actual = contentResolver
-                .query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
-                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
-                ?: fileName
-            return "${Environment.DIRECTORY_DOWNLOADS}/$actual"
+    /// Copies [file] into the public Downloads folder through MediaStore and
+    /// returns its content URI and final name. No permission is needed.
+    private fun saveDownloadsModern(file: File, fileName: String, mime: String): Map<String, Any> {
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mime)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
+        val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+        val uri = contentResolver.insert(collection, values)
+            ?: throw IllegalStateException("无法创建下载文件")
+        try {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                file.inputStream().use { input -> input.copyTo(output) }
+            } ?: throw IllegalStateException("无法写入下载文件")
+        } catch (error: Exception) {
+            contentResolver.delete(uri, null, null)
+            throw error
+        }
+        values.clear()
+        values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+        contentResolver.update(uri, values, null, null)
+        val actual = contentResolver
+            .query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+            ?: fileName
+        return mapOf("uri" to uri.toString(), "name" to actual)
+    }
 
-        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            throw SecurityException("storage permission denied")
+    /// Android 9 and below writes the public directory and lets the media
+    /// scanner create the MediaStore entry; the scanner URI backs "open" and
+    /// the "still downloaded?" check.
+    private fun saveDownloadsLegacy(
+        file: File,
+        fileName: String,
+        mime: String,
+        result: MethodChannel.Result,
+    ) {
+        try {
+            if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                result.error("permission_denied", "storage permission denied", null)
+                return
+            }
+            @Suppress("DEPRECATION")
+            val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!dir.exists() && !dir.mkdirs()) {
+                result.error("save_failed", "无法创建下载目录", null)
+                return
+            }
+            val base = fileName.substringBeforeLast('.', fileName)
+            val extension = fileName.substringAfterLast('.', "")
+            var target = File(dir, fileName)
+            var index = 1
+            while (target.exists()) {
+                val candidate = if (extension.isEmpty()) "$base ($index)" else "$base ($index).$extension"
+                target = File(dir, candidate)
+                index++
+            }
+            file.copyTo(target, overwrite = false)
+            MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mime)) { _, uri ->
+                if (uri == null) {
+                    result.error("save_failed", "无法登记下载文件", null)
+                } else {
+                    result.success(mapOf("uri" to uri.toString(), "name" to target.name))
+                }
+            }
+        } catch (error: Exception) {
+            result.error("save_failed", error.message, null)
         }
-        @Suppress("DEPRECATION")
-        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("无法创建下载目录")
-        val base = fileName.substringBeforeLast('.', fileName)
-        val extension = fileName.substringAfterLast('.', "")
-        var target = File(dir, fileName)
-        var index = 1
-        while (target.exists()) {
-            val candidate = if (extension.isEmpty()) "$base ($index)" else "$base ($index).$extension"
-            target = File(dir, candidate)
-            index++
-        }
-        file.copyTo(target, overwrite = false)
-        MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mime), null)
-        return "${Environment.DIRECTORY_DOWNLOADS}/${target.name}"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -223,8 +241,12 @@ class MainActivity : FlutterActivity() {
                     when {
                         file == null -> result.error("invalid_path", "path is required", null)
                         !file.exists() -> result.error("missing_file", "file does not exist", null)
-                        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
-                            checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> {
+                            runCatching { saveDownloadsModern(file, fileName, mime) }
+                                .onSuccess { result.success(it) }
+                                .onFailure { result.error("save_failed", it.message, null) }
+                        }
+                        checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
                             PackageManager.PERMISSION_GRANTED -> {
                             pendingDownloadsResult = result
                             pendingDownloadsFile = file
@@ -235,36 +257,40 @@ class MainActivity : FlutterActivity() {
                                 downloadsPermissionRequest,
                             )
                         }
-                        else -> runCatching { saveToDownloads(file, fileName, mime) }
-                            .onSuccess { result.success(it) }
-                            .onFailure { result.error("save_failed", it.message, null) }
+                        else -> saveDownloadsLegacy(file, fileName, mime, result)
                     }
                 }
 
-                "openLocalFile" -> {
-                    val path = call.argument<String>("path")
+                "mediaExists" -> {
+                    val uri = call.argument<String>("uri")
+                    if (uri.isNullOrBlank()) {
+                        result.success(false)
+                    } else {
+                        val exists = try {
+                            contentResolver
+                                .openAssetFileDescriptor(Uri.parse(uri), "r")
+                                ?.use { true } ?: false
+                        } catch (_: Exception) {
+                            false
+                        }
+                        result.success(exists)
+                    }
+                }
+
+                "openDownloaded" -> {
+                    val uri = call.argument<String>("uri")
                     val mime = call.argument<String>("mime") ?: "application/pdf"
-                    if (path.isNullOrBlank()) {
-                        result.error("invalid_path", "path is required", null)
+                    if (uri.isNullOrBlank()) {
+                        result.error("invalid_uri", "uri is required", null)
                     } else {
                         try {
-                            val file = File(path)
-                            if (!file.exists()) {
-                                result.error("missing_file", "file does not exist", null)
-                            } else {
-                                val uri = FileProvider.getUriForFile(
-                                    this,
-                                    "$packageName.fileprovider",
-                                    file,
-                                )
-                                val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    setDataAndType(uri, mime)
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                startActivity(intent)
-                                result.success(true)
+                            val intent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(Uri.parse(uri), mime)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
+                            startActivity(intent)
+                            result.success(true)
                         } catch (error: Exception) {
                             result.error("open_failed", error.message, null)
                         }
