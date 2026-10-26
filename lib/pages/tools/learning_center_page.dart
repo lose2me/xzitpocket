@@ -553,11 +553,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final meta = downloading
         ? (progress > 0 ? '下载中 ${(progress * 100).round()}%' : '下载中…')
         : [if (size.isNotEmpty) size, downloaded ? '已下载' : '未下载'].join('  ');
-    final card = AppCard(
+    final canOpen = entry.hasPdf && !downloading;
+
+    final content = Padding(
       padding: const EdgeInsets.all(AppSpacing.md),
-      onPress: entry.hasPdf && !downloading
-          ? () => unawaited(_handlePdf(entry))
-          : null,
       child: Row(
         children: [
           Expanded(
@@ -605,42 +604,49 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         ],
       ),
     );
-    if (entry.aiModes.isEmpty) return card;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [card, _buildAIReportLinks(theme, entry)],
+
+    return AppCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FTappable(
+            onPress: canOpen ? () => unawaited(_handlePdf(entry)) : null,
+            behavior: HitTestBehavior.opaque,
+            child: content,
+          ),
+          if (entry.aiModes.isNotEmpty) ...[
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: theme.colors.border.withValues(alpha: 0.6),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md,
+                AppSpacing.xs,
+                AppSpacing.md,
+                AppSpacing.sm,
+              ),
+              child: _buildAIReportLinks(theme, entry),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Widget _buildAIReportLinks(FThemeData theme, _PdfEntry entry) {
     final primary = theme.colors.primary;
-    return Padding(
-      padding: const EdgeInsets.only(left: AppSpacing.xxl, top: AppSpacing.xs),
-      child: Container(
-        padding: const EdgeInsets.only(left: AppSpacing.sm),
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(color: primary.withValues(alpha: 0.3), width: 2),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(FLucideIcons.sparkles, size: 14, color: primary),
-            const SizedBox(width: AppSpacing.micro),
-            Text(
-              'AI 解析',
-              style: theme.typography.caption.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            for (var index = 0; index < entry.aiModes.length; index++) ...[
-              if (index > 0) const SizedBox(width: AppSpacing.sm),
-              _buildAIReportChip(theme, entry, entry.aiModes[index]),
-            ],
-          ],
-        ),
-      ),
+    return Row(
+      children: [
+        Container(width: 2, height: 14, color: primary.withValues(alpha: 0.35)),
+        const SizedBox(width: AppSpacing.sm),
+        for (var index = 0; index < entry.aiModes.length; index++) ...[
+          if (index > 0) const SizedBox(width: AppSpacing.sm),
+          _buildAIReportChip(theme, entry, entry.aiModes[index]),
+        ],
+      ],
     );
   }
 
@@ -648,32 +654,31 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final key = '${entry.id}:$mode';
     final downloading = _aiDownloading.contains(key);
     final primary = theme.colors.primary;
-    final label = mode == 'advanced' ? '高级解析' : '基础解析';
+    final label = mode == 'advanced' ? '高级' : '基础';
     return FTappable(
       onPress: downloading ? null : () => unawaited(_downloadAI(entry, mode)),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 32),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: primary.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(FLucideIcons.download, size: 14, color: primary),
-            const SizedBox(width: AppSpacing.micro),
-            Text(
-              downloading ? '下载中…' : label,
-              style: theme.typography.caption.copyWith(
+      child: SizedBox(
+        height: 28,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                downloading ? FLucideIcons.clock3 : FLucideIcons.download,
+                size: 13,
                 color: primary,
-                fontWeight: FontWeight.w500,
               ),
-            ),
-          ],
+              const SizedBox(width: AppSpacing.micro),
+              Text(
+                downloading ? '下载中' : label,
+                style: theme.typography.caption.copyWith(
+                  color: primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
