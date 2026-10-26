@@ -154,6 +154,7 @@ class _RepairPageState extends State<RepairPage> {
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.sm,
               bottomPadding: AppSpacing.xxl,
               onRefresh: () => _load(forceRefresh: true),
               children: [
@@ -175,6 +176,7 @@ class _RepairPageState extends State<RepairPage> {
   Widget _buildSkeleton() {
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.sm,
       bottomPadding: AppSpacing.xxl,
       onRefresh: () => _load(forceRefresh: true),
       children: [

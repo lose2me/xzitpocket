@@ -269,35 +269,6 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
                   ),
                   child: _buildSearchField(),
                 ),
-                Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    horizontal,
-                    0,
-                    horizontal,
-                    AppSpacing.md,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: AppDashedButton(
-                          icon: FLucideIcons.circleAlert,
-                          label: '错题集',
-                          onPress: () =>
-                              _openCollection(LearningListKind.wrong),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
-                        child: AppDashedButton(
-                          icon: FLucideIcons.bookmark,
-                          label: '收藏集',
-                          onPress: () =>
-                              _openCollection(LearningListKind.favorite),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 Expanded(child: _buildBody(horizontal)),
               ],
             ),
@@ -318,65 +289,90 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   Widget _buildBody(double horizontal) {
     if (_loading) return _buildSkeleton(horizontal);
     final rows = _rows;
-    if (rows.isEmpty) return _buildEmpty();
-    return AppRefreshIndicator(
-      onRefresh: _refresh,
-      child: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: false,
-        child: ListView.separated(
-          controller: _scrollController,
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(
-            horizontal,
-            0,
-            horizontal,
-            AppSpacing.xxl,
-          ),
-          itemCount: rows.length,
-          separatorBuilder: (_, _) =>
-              const SizedBox(height: AppSpacing.listGap),
-          itemBuilder: (context, index) {
-            final row = rows[index];
-            final course = row.course;
-            if (course == null) {
-              return Container(
-                height: 1,
-                color: context.theme.colors.primary.withValues(alpha: 0.22),
-              );
-            }
-            return _CourseCard(
-              course: course,
-              coverPath: _covers[course.code],
-              onTap: () => unawaited(_openCourse(context, course)),
-            );
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmpty() => LayoutBuilder(
-    builder: (context, constraints) {
-      final searching = _query.trim().isNotEmpty;
-      return AppRefreshIndicator(
-        onRefresh: _refresh,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: constraints.maxHeight,
-            child: AppStateView(
-              icon: searching ? FLucideIcons.searchX : FLucideIcons.packageOpen,
-              title: searching ? '没有匹配的课程' : '暂无资源',
-              description: searching
-                  ? '换个关键词再试试'
-                  : (_error ?? '暂时没有可用的题库、试卷或电子教材'),
+    if (rows.isEmpty) return _buildEmpty(horizontal);
+    final children = <Widget>[
+      _buildCollectionActions(),
+      for (final row in rows)
+        if (row.course == null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+            child: Container(
+              height: 1,
+              color: context.theme.colors.primary.withValues(alpha: 0.22),
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
+            child: _CourseCard(
+              course: row.course!,
+              coverPath: _covers[row.course!.code],
+              onTap: () => unawaited(_openCourse(context, row.course!)),
             ),
           ),
-        ),
-      );
-    },
+      const SizedBox(height: AppSpacing.xxl),
+    ];
+    return _buildRefreshable([
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: horizontal),
+        sliver: SliverList(delegate: SliverChildListDelegate(children)),
+      ),
+    ]);
+  }
+
+  Widget _buildRefreshable(List<Widget> slivers) => AppRefreshIndicator(
+    onRefresh: _refresh,
+    child: Scrollbar(
+      controller: _scrollController,
+      thumbVisibility: false,
+      child: CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: slivers,
+      ),
+    ),
   );
+
+  Widget _buildCollectionActions() => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    child: Row(
+      children: [
+        Expanded(
+          child: AppDashedButton(
+            icon: FLucideIcons.circleAlert,
+            label: '错题集',
+            onPress: () => _openCollection(LearningListKind.wrong),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: AppDashedButton(
+            icon: FLucideIcons.bookmark,
+            label: '收藏集',
+            onPress: () => _openCollection(LearningListKind.favorite),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildEmpty(double horizontal) {
+    final searching = _query.trim().isNotEmpty;
+    return _buildRefreshable([
+      SliverPadding(
+        padding: EdgeInsets.symmetric(horizontal: horizontal),
+        sliver: SliverToBoxAdapter(child: _buildCollectionActions()),
+      ),
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: AppStateView(
+          icon: searching ? FLucideIcons.searchX : FLucideIcons.packageOpen,
+          title: searching ? '没有匹配的课程' : '暂无资源',
+          description: searching ? '换个关键词再试试' : (_error ?? '暂时没有可用的题库、试卷或电子教材'),
+        ),
+      ),
+    ]);
+  }
 
   void _openCollection(LearningListKind kind) {
     Navigator.of(context).push(
@@ -390,15 +386,23 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
     );
   }
 
-  Widget _buildSkeleton(double horizontal) => AppSkeleton(
-    label: '正在加载资源',
-    child: ListView.separated(
-      physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, AppSpacing.xxl),
-      itemCount: 5,
-      separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.listGap),
-      itemBuilder: (_, _) => const _CourseCardSkeleton(),
-    ),
+  Widget _buildSkeleton(double horizontal) => ListView(
+    padding: EdgeInsets.fromLTRB(horizontal, 0, horizontal, AppSpacing.xxl),
+    children: [
+      _buildCollectionActions(),
+      AppSkeleton(
+        label: '正在加载资源',
+        child: Column(
+          children: [
+            for (var index = 0; index < 5; index++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
+                child: const _CourseCardSkeleton(),
+              ),
+          ],
+        ),
+      ),
+    ],
   );
 
   Future<void> _openUpload() async {

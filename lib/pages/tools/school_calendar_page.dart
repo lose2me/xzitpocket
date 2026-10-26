@@ -37,6 +37,7 @@ class SchoolCalendarPage extends StatelessWidget {
           title: '学校校历',
           child: AppPageListView(
             maxWidth: AppLayout.resultMaxWidth,
+            topPadding: AppSpacing.sm,
             bottomPadding: AppSpacing.xxl,
             children: [
               // 图例靠左，右侧提示文字；整体上移。

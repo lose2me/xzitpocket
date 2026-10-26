@@ -146,6 +146,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
       resizeToAvoidBottomInset: false,
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
+        topPadding: AppSpacing.sm,
         children: [
           _buildVersionLine(theme),
           const SizedBox(height: AppSpacing.md),

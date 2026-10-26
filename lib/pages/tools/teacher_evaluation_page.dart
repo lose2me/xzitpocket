@@ -217,6 +217,7 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
               )
             : AppPageListView(
                 maxWidth: AppLayout.resultMaxWidth,
+                topPadding: _campusAvailable ? AppSpacing.lg : AppSpacing.sm,
                 bottomPadding: AppSpacing.xxl,
                 onRefresh: _campusAvailable
                     ? () => _loadStatus(forceRefresh: true)

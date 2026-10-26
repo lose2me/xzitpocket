@@ -299,6 +299,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _detailsLoading && _resources.isEmpty && course.resourceCount > 0;
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
+      topPadding:
+          course.name.trim().isNotEmpty &&
+              shortCourseCode(course.code).isNotEmpty
+          ? AppSpacing.sm
+          : AppSpacing.lg,
       bottomPadding: AppSpacing.xxl,
       onRefresh: _refreshLibrary,
       children: [
@@ -637,14 +642,15 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Widget _buildAIReportLinks(FThemeData theme, _PdfEntry entry) {
-    final primary = theme.colors.primary;
+    final modes = [
+      for (final mode in const ['advanced', 'basic'])
+        if (entry.aiModes.contains(mode)) mode,
+    ];
     return Row(
       children: [
-        Container(width: 2, height: 14, color: primary.withValues(alpha: 0.35)),
-        const SizedBox(width: AppSpacing.sm),
-        for (var index = 0; index < entry.aiModes.length; index++) ...[
+        for (var index = 0; index < modes.length; index++) ...[
           if (index > 0) const SizedBox(width: AppSpacing.sm),
-          _buildAIReportChip(theme, entry, entry.aiModes[index]),
+          _buildAIReportChip(theme, entry, modes[index]),
         ],
       ],
     );
@@ -654,7 +660,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final key = '${entry.id}:$mode';
     final downloading = _aiDownloading.contains(key);
     final primary = theme.colors.primary;
-    final label = mode == 'advanced' ? '高级' : '基础';
     return FTappable(
       onPress: downloading ? null : () => unawaited(_downloadAI(entry, mode)),
       child: SizedBox(
@@ -671,7 +676,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               ),
               const SizedBox(width: AppSpacing.micro),
               Text(
-                downloading ? '下载中' : label,
+                downloading
+                    ? '下载中'
+                    : mode == 'advanced'
+                    ? '小学生版解析'
+                    : '精简版解析',
                 style: theme.typography.caption.copyWith(
                   color: primary,
                   fontWeight: FontWeight.w500,
@@ -700,7 +709,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         'pdf',
         courseCode: entry.courseCode,
       );
-      final label = mode == 'advanced' ? '高级' : '基础';
+      final label = mode == 'advanced' ? '小学生版' : '精简版';
       final fileName = '${base.substring(0, base.length - 4)}-AI解析-$label.pdf';
       final record = await ResourceDownloadService.instance.download(
         '${entry.id}-ai-$mode',

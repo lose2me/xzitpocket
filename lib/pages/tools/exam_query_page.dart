@@ -124,6 +124,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
             )
           : AppPageListView(
               maxWidth: AppLayout.resultMaxWidth,
+              topPadding: AppSpacing.sm,
               bottomPadding: AppSpacing.xxl,
               onRefresh: () => _refresh(),
               children: [
@@ -146,6 +147,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
   Widget _buildSkeleton() {
     return AppPageListView(
       maxWidth: AppLayout.resultMaxWidth,
+      topPadding: AppSpacing.sm,
       bottomPadding: AppSpacing.xxl,
       children: [
         AppSkeleton(

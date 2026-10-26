@@ -237,6 +237,7 @@ class _PowerQueryPageState extends State<PowerQueryPage> {
       child: AppPageListView(
         controller: _scrollController,
         maxWidth: AppLayout.resultMaxWidth,
+        topPadding: _canRefresh ? AppSpacing.lg : AppSpacing.sm,
         bottomPadding: AppSpacing.xxl,
         onRefresh: () => _refresh(),
         children: [

@@ -195,14 +195,22 @@ class DashedBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    const strokeWidth = 1.2;
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
+      ..strokeWidth = strokeWidth;
+    // Inset the path by half the stroke so the top/left edge is not clipped
+    // by the CustomPaint bounds.
+    const inset = strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      inset,
+      inset,
+      math.max(0, size.width - strokeWidth),
+      math.max(0, size.height - strokeWidth),
+    );
     final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
-      );
+      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
     const dash = 5.0;
     const gap = 4.0;
     for (final metric in path.computeMetrics()) {
