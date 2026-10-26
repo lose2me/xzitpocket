@@ -302,6 +302,18 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       bottomPadding: AppSpacing.xxl,
       onRefresh: _refreshLibrary,
       children: [
+        if (course.name.trim().isNotEmpty &&
+            shortCourseCode(course.code).isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+            child: Text(
+              shortCourseCode(course.code),
+              textAlign: TextAlign.center,
+              style: theme.typography.caption.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+          ),
         _buildSectionHeader(theme, 0, '教材', _expandedSections[0]),
         _buildAnimatedSection(
           expanded: _expandedSections[0],
@@ -322,7 +334,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   ),
                   color: theme.colors.destructive,
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.listGap),
               ]
             else if (textbookLoading)
               _buildLoading(course.textbookCount)
@@ -341,7 +353,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             if (banks.isNotEmpty)
               for (final bank in banks) ...[
                 _buildBankCard(theme, bank),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.listGap),
               ]
             else if (bankLoading)
               _buildLoading(course.questionBankCount)
@@ -374,7 +386,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   ),
                   color: theme.colors.semantic.info,
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.listGap),
               ]
             else if (resourceLoading)
               _buildLoading(course.resourceCount)
@@ -472,7 +484,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     IconData icon = FLucideIcons.arrowUpToLine,
   }) {
     return CustomPaint(
-      painter: _DashedBorderPainter(color: theme.colors.border),
+      painter: DashedBorderPainter(color: theme.colors.border),
       child: SizedBox(
         width: double.infinity,
         height: 132,
@@ -505,7 +517,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
         child: Column(
           children: [
-            // Real rows are followed by an 8dp gap each; match it so replacing
+            // Real rows are followed by a 6dp gap each; match it so replacing
             // the skeleton changes no height at all.
             for (var index = 0; index < rows; index++) ...[
               const AppSkeletonBox(
@@ -513,7 +525,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                 height: 78,
                 radius: 8,
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: AppSpacing.listGap),
             ],
           ],
         ),
@@ -533,10 +545,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.resourceAI,
-        builder: (_) => ResourceAIPage(
-          resourceId: item.id,
-          resourceName: item.name,
-        ),
+        builder: (_) =>
+            ResourceAIPage(resourceId: item.id, resourceName: item.name),
       ),
     );
   }
@@ -1143,41 +1153,4 @@ class _CdkRedeemSheetState extends State<_CdkRedeemSheet> {
       ),
     );
   }
-}
-
-class _DashedBorderPainter extends CustomPainter {
-  final Color color;
-
-  const _DashedBorderPainter({required this.color});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    final path = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(12)),
-      );
-    const dash = 5.0;
-    const gap = 4.0;
-    for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        canvas.drawPath(
-          metric.extractPath(
-            distance,
-            math.min(distance + dash, metric.length),
-          ),
-          paint,
-        );
-        distance += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
-      oldDelegate.color != color;
 }

@@ -698,9 +698,13 @@ class ControlService {
     );
   }
 
-  Future<ResourceAIResult> fetchResourceAI(String id) async {
+  Future<ResourceAIResult> fetchResourceAI(
+    String id, {
+    String mode = 'basic',
+  }) async {
     final response = await _userGet(
-      '/api/v1/resources/${Uri.encodeComponent(id)}/ai',
+      '/api/v1/resources/${Uri.encodeComponent(id)}/ai'
+      '?mode=${Uri.encodeQueryComponent(mode)}',
     );
     return ResourceAIResult.fromJson(response);
   }

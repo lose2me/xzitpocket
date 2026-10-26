@@ -338,7 +338,7 @@ class _CampusCardPageState extends State<CampusCardPage> {
   }) {
     final isNeg = t.amount.startsWith('-');
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
       child: AppCard(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(

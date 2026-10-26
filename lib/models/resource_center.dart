@@ -111,6 +111,7 @@ class CourseResourceItem {
 /// AI analysis of one paper.
 class ResourceAIResult {
   final bool available;
+  final String mode;
   final String status;
   final String markdown;
   final String updatedAt;
@@ -123,6 +124,7 @@ class ResourceAIResult {
 
   const ResourceAIResult({
     this.available = false,
+    this.mode = 'basic',
     this.status = '',
     this.markdown = '',
     this.updatedAt = '',
@@ -140,6 +142,7 @@ class ResourceAIResult {
   factory ResourceAIResult.fromJson(Map<String, dynamic> json) =>
       ResourceAIResult(
         available: json['available'] == true,
+        mode: json['mode']?.toString() ?? 'basic',
         status: json['status']?.toString() ?? '',
         markdown: json['markdown']?.toString() ?? '',
         updatedAt: json['updated_at']?.toString() ?? '',

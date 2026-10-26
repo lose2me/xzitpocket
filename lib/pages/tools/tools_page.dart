@@ -429,7 +429,9 @@ class ToolsPageState extends ConsumerState<ToolsPage>
 
     final cards = <Widget>[];
     void addCard(Widget card) {
-      if (cards.isNotEmpty) cards.add(const SizedBox(height: AppSpacing.sm));
+      if (cards.isNotEmpty) {
+        cards.add(const SizedBox(height: AppSpacing.listGap));
+      }
       cards.add(card);
     }
 

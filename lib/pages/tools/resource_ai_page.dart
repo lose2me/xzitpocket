@@ -11,7 +11,7 @@ import '../../ui/app_components.dart';
 import '../../ui/app_markdown.dart';
 import '../../utils/snackbar_helper.dart';
 
-/// Shows the AI analysis generated for one course paper.
+/// Shows the basic and advanced AI analyses generated for one course paper.
 class ResourceAIPage extends StatefulWidget {
   final String resourceId;
   final String resourceName;
@@ -27,10 +27,12 @@ class ResourceAIPage extends StatefulWidget {
 }
 
 class _ResourceAIPageState extends State<ResourceAIPage> {
-  ResourceAIResult? _result;
+  static const _modes = ['basic', 'advanced'];
+
+  final Map<String, ResourceAIResult?> _results = {};
+  final Map<String, String> _errors = {};
+  final Set<String> _opening = {};
   bool _loading = true;
-  bool _opening = false;
-  String? _error;
 
   @override
   void initState() {
@@ -41,64 +43,218 @@ class _ResourceAIPageState extends State<ResourceAIPage> {
   Future<void> _load() async {
     setState(() {
       _loading = true;
-      _error = null;
+      _errors.clear();
     });
-    try {
-      final result = await ControlService.instance.fetchResourceAI(
-        widget.resourceId,
-      );
-      if (!mounted) return;
-      setState(() {
-        _result = result;
-        _loading = false;
-      });
-    } catch (error, stackTrace) {
-      talker.warning('加载 AI 解析失败', error, stackTrace);
-      if (!mounted) return;
-      setState(() {
-        _error = describeAIError(error);
-        _loading = false;
-      });
-    }
+    await Future.wait(
+      _modes.map((mode) async {
+        try {
+          final result = await ControlService.instance.fetchResourceAI(
+            widget.resourceId,
+            mode: mode,
+          );
+          if (mounted) setState(() => _results[mode] = result);
+        } catch (error, stackTrace) {
+          talker.warning('加载 $mode AI 解析失败', error, stackTrace);
+          if (mounted) setState(() => _errors[mode] = describeAIError(error));
+        }
+      }),
+    );
+    if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _openPdf() async {
-    final url = _result?.pdfUrl ?? '';
-    if (url.isEmpty || _opening) return;
-    setState(() => _opening = true);
+  Future<void> _openPdf(String mode, String url) async {
+    if (url.isEmpty || _opening.contains(mode)) return;
+    setState(() => _opening.add(mode));
     try {
       final record = await ResourceDownloadService.instance.download(
-        '${widget.resourceId}-ai',
+        '${widget.resourceId}-ai-$mode',
         url,
-        fileName: '${_safeName(widget.resourceName)}-AI解析.pdf',
+        fileName:
+            '${_safeName(widget.resourceName)}-AI解析-${_modeLabel(mode)}.pdf',
         format: 'pdf',
       );
       if (record == null) throw StateError('save returned no uri');
       await ResourceDownloadService.instance.open(record, format: 'pdf');
     } catch (error, stackTrace) {
-      talker.warning('打开 AI 解析 PDF 失败', error, stackTrace);
+      talker.warning('打开 $mode AI 解析 PDF 失败', error, stackTrace);
       if (mounted) {
         showAppSnackBar(context, '打开失败，请稍后重试', severity: ToastSeverity.error);
       }
     } finally {
-      if (mounted) setState(() => _opening = false);
+      if (mounted) setState(() => _opening.remove(mode));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final result = _result;
     return AppPage(
       title: 'AI 解析',
       child: _loading
           ? _buildSkeleton()
-          : _error != null
-          ? _buildError(_error!)
-          : result == null || !result.available
-          ? _buildUnavailable(result)
-          : _buildContent(result),
+          : AppPageBody(
+              maxWidth: AppLayout.resultMaxWidth,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      0,
+                      AppSpacing.lg,
+                      0,
+                      AppSpacing.md,
+                    ),
+                    child: Text(
+                      widget.resourceName,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.theme.typography.tileTitle,
+                    ),
+                  ),
+                  Expanded(
+                    child: FTabs(
+                      expands: true,
+                      contentPhysics: const NeverScrollableScrollPhysics(),
+                      children: [
+                        FTabEntry(
+                          label: const Text('基础解析'),
+                          child: _buildMode('basic'),
+                        ),
+                        FTabEntry(
+                          label: const Text('高级解析'),
+                          child: _buildMode('advanced'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
+
+  Widget _buildMode(String mode) {
+    final error = _errors[mode];
+    if (error != null) {
+      return _buildState(
+        icon: FLucideIcons.circleAlert,
+        title: '加载失败',
+        description: error,
+        destructive: true,
+      );
+    }
+    final result = _results[mode];
+    if (result == null) {
+      return _buildState(
+        icon: FLucideIcons.sparkles,
+        title: '暂无 AI 解析',
+        description: '管理员尚未为这份试卷生成解析',
+      );
+    }
+    if (!result.available) {
+      final processing = result.processing;
+      final failed = result.status == 'failed';
+      return _buildState(
+        icon: processing
+            ? FLucideIcons.clock3
+            : failed
+            ? FLucideIcons.circleAlert
+            : FLucideIcons.sparkles,
+        title: processing
+            ? 'AI 正在解析'
+            : failed
+            ? 'AI 解析失败'
+            : '暂无 AI 解析',
+        description: processing
+            ? '完成后会显示在这里，请稍后再来'
+            : failed
+            ? (result.error.isEmpty ? '可稍后重试' : result.error)
+            : '管理员尚未为这份试卷生成解析',
+        destructive: failed,
+      );
+    }
+    return AppPageListView(
+      maxWidth: AppLayout.resultMaxWidth,
+      bottomPadding: AppSpacing.xxl,
+      safeArea: false,
+      children: [
+        AppCard(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(
+                FLucideIcons.sparkles,
+                color: context.theme.colors.primary,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${_modeLabel(mode)}解析',
+                      style: context.theme.typography.tileTitle.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.micro),
+                    Text(
+                      _meta(result),
+                      style: context.theme.typography.bodySmall.copyWith(
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        if (result.markdown.trim().isNotEmpty)
+          AppMarkdown(data: result.markdown)
+        else
+          Text(
+            '解析内容为空',
+            style: context.theme.typography.bodySmall.copyWith(
+              color: context.theme.colors.mutedForeground,
+            ),
+          ),
+        if (result.pdfUrl.isNotEmpty) ...[
+          const SizedBox(height: AppSpacing.xl),
+          FButton(
+            onPress: _opening.contains(mode)
+                ? null
+                : () => unawaited(_openPdf(mode, result.pdfUrl)),
+            prefix: _opening.contains(mode)
+                ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
+                : const Icon(FLucideIcons.download),
+            child: Text('打开${_modeLabel(mode)}解析 PDF'),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildState({
+    required IconData icon,
+    required String title,
+    String? description,
+    bool destructive = false,
+  }) => AppPageListView(
+    maxWidth: AppLayout.resultMaxWidth,
+    bottomPadding: AppSpacing.xxl,
+    safeArea: false,
+    children: [
+      const SizedBox(height: AppSpacing.xxl),
+      AppStateView(
+        icon: icon,
+        title: title,
+        description: description,
+        destructive: destructive,
+      ),
+    ],
+  );
 
   Widget _buildSkeleton() => AppPageListView(
     maxWidth: AppLayout.resultMaxWidth,
@@ -109,6 +265,8 @@ class _ResourceAIPageState extends State<ResourceAIPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Center(child: AppSkeletonBox(width: 180, height: 18)),
+            const SizedBox(height: AppSpacing.lg),
             AppCard(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(
@@ -133,118 +291,6 @@ class _ResourceAIPageState extends State<ResourceAIPage> {
     ],
   );
 
-  Widget _buildError(String message) => AppPageBody(
-    maxWidth: AppLayout.resultMaxWidth,
-    onRefresh: _load,
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        AppStateView(
-          icon: FLucideIcons.circleAlert,
-          title: '加载失败',
-          description: message,
-          destructive: true,
-        ),
-        FButton(
-          variant: FButtonVariant.outline,
-          onPress: _load,
-          prefix: const Icon(FLucideIcons.refreshCw),
-          child: const Text('重试'),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildUnavailable(ResourceAIResult? result) {
-    final processing = result?.processing ?? false;
-    final failed = result?.status == 'failed';
-    return AppPageBody(
-      maxWidth: AppLayout.resultMaxWidth,
-      onRefresh: _load,
-      child: AppStateView(
-        icon: processing
-            ? FLucideIcons.clock3
-            : failed
-            ? FLucideIcons.circleAlert
-            : FLucideIcons.sparkles,
-        title: processing
-            ? 'AI 正在解析'
-            : failed
-            ? 'AI 解析失败'
-            : '暂无 AI 解析',
-        description: processing
-            ? '完成后会显示在这里，请稍后再来'
-            : failed
-            ? (result?.error.isNotEmpty == true ? result!.error : '可稍后重试')
-            : '管理员尚未为这份试卷生成解析',
-        destructive: failed,
-      ),
-    );
-  }
-
-  Widget _buildContent(ResourceAIResult result) => AppPageListView(
-    maxWidth: AppLayout.resultMaxWidth,
-    bottomPadding: AppSpacing.xxl,
-    children: [
-      AppCard(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              FLucideIcons.sparkles,
-              color: context.theme.colors.primary,
-              size: 22,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.resourceName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.theme.typography.tileTitle.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.micro),
-                  Text(
-                    _meta(result),
-                    style: context.theme.typography.bodySmall.copyWith(
-                      color: context.theme.colors.mutedForeground,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-      const SizedBox(height: AppSpacing.lg),
-      if (result.markdown.trim().isNotEmpty)
-        AppMarkdown(data: result.markdown)
-      else
-        Text(
-          '解析内容为空',
-          style: context.theme.typography.bodySmall.copyWith(
-            color: context.theme.colors.mutedForeground,
-          ),
-        ),
-      if (result.pdfUrl.isNotEmpty) ...[
-        const SizedBox(height: AppSpacing.xl),
-        FButton(
-          onPress: _opening ? null : _openPdf,
-          prefix: _opening
-              ? const FCircularProgress(size: FCircularProgressSizeVariant.sm)
-              : const Icon(FLucideIcons.download),
-          child: const Text('打开 AI 解析 PDF'),
-        ),
-      ],
-    ],
-  );
-
   String _meta(ResourceAIResult result) {
     final parts = <String>[
       if (_dateLabel(result.updatedAt) case final date?) '解析于 $date',
@@ -260,9 +306,10 @@ class _ResourceAIPageState extends State<ResourceAIPage> {
     return '${date.year}-${two(date.month)}-${two(date.day)}';
   }
 
-  String _safeName(String name) => name
-      .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
-      .trim();
+  String _modeLabel(String mode) => mode == 'advanced' ? '高级' : '基础';
+
+  String _safeName(String name) =>
+      name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_').trim();
 }
 
 String describeAIError(Object error) {

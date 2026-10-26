@@ -213,7 +213,7 @@ class _NetworkManagementPageState extends State<NetworkManagementPage> {
     final isUnbinding = _unbindingMac == device.mac;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
       child: AppCard(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(

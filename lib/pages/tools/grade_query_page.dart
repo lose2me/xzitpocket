@@ -287,7 +287,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
     final gpa = totalCredit > 0 ? weightedSum / totalCredit : 0.0;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -471,7 +471,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
               children: [
                 for (var index = 0; index < 6; index++)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
                     child: AppCard(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       child: Row(
@@ -520,7 +520,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
       grade.department.trim(),
     ].where((value) => value.isNotEmpty).join(' · ');
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
       child: AppCard(
         padding: const EdgeInsets.all(AppSpacing.md),
         child: Row(
@@ -632,7 +632,7 @@ class _GradeQueryPageState extends State<GradeQueryPage> {
           const SizedBox(height: AppSpacing.md),
           for (var index = 0; index < 4; index++)
             Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+              padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
               child: AppCard(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Row(

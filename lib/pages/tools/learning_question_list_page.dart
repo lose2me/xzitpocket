@@ -174,7 +174,7 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
       for (var index = 0; index < group.questions.length; index++) {
         rows.add(_QuestionListRow.card(group, index));
         if (index != group.questions.length - 1) {
-          rows.add(const _QuestionListRow.spacer(AppSpacing.sm));
+          rows.add(const _QuestionListRow.spacer(AppSpacing.listGap));
         }
       }
       if (groupIndex != groups.length - 1) {

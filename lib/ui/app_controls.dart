@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:forui/forui.dart';
@@ -142,6 +144,85 @@ class AppCard extends StatelessWidget {
     }
     return card;
   }
+}
+
+/// 虚线描边的次级入口按钮（错题集/收藏集等）。
+class AppDashedButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPress;
+
+  const AppDashedButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final enabled = onPress != null;
+    final color = enabled ? theme.colors.primary : theme.colors.mutedForeground;
+    return FTappable(
+      onPress: onPress,
+      child: CustomPaint(
+        painter: DashedBorderPainter(
+          color: color.withValues(alpha: enabled ? 0.5 : 0.3),
+          radius: 12,
+        ),
+        child: SizedBox(
+          height: 44,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: AppSpacing.sm),
+              Text(label, style: theme.typography.label.copyWith(color: color)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double radius;
+
+  const DashedBorderPainter({required this.color, this.radius = 12});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2;
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius)),
+      );
+    const dash = 5.0;
+    const gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var distance = 0.0;
+      while (distance < metric.length) {
+        canvas.drawPath(
+          metric.extractPath(
+            distance,
+            math.min(distance + dash, metric.length),
+          ),
+          paint,
+        );
+        distance += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.radius != radius;
 }
 
 class AppTextField extends StatelessWidget {
