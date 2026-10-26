@@ -79,6 +79,10 @@ class ResourceUploadPage extends StatefulWidget {
   final bool courseScoped;
   final PreferencesStorage preferencesStorage;
 
+  /// Courses from the user's timetable, shown first in the course picker and
+  /// used to prioritise their textbooks.
+  final Set<String> ownCourseCodes;
+
   const ResourceUploadPage({
     super.key,
     required this.courses,
@@ -86,6 +90,7 @@ class ResourceUploadPage extends StatefulWidget {
     this.initialKind = 'resource',
     this.initialCourseCode,
     this.courseScoped = false,
+    this.ownCourseCodes = const {},
   });
 
   @override
@@ -296,7 +301,6 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
     var overflow = 0;
     setState(() {
-      _manualFile = null;
       if (!multiple) {
         _files
           ..clear()
@@ -311,6 +315,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           }
           _files.add(entry);
         }
+        if (_files.length > 1) _manualFile = null;
       }
     });
     if (overflow > 0) {
@@ -324,10 +329,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   void _removeFile(_PickedPdf picked) {
     if (_uploading) return;
-    setState(() {
-      _files.remove(picked);
-      _manualFile = null;
-    });
+    setState(() => _files.remove(picked));
   }
 
   Future<void> _submit() async {
@@ -441,6 +443,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     try {
       final fileMd5 = await _fileMd5(picked.path);
       final manualMd5 = manual == null ? '' : await _fileMd5(manual.path);
+      final manualFormat = manual == null ? 'pdf' : _fileFormat(manual.name);
       ticket = await ControlService.instance.createResourceUploadTicket(
         kind: _kind,
         courseCode: courseCode,
@@ -451,6 +454,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         md5: fileMd5,
         sizeBytes: picked.size,
         manualMd5: manualMd5,
+        manualFormat: manualFormat,
         manualSizeBytes: manual?.size ?? 0,
       );
       await ControlService.instance.uploadToSignedUrl(
@@ -472,7 +476,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           ticket.manualUploadUrl,
           filePath: manual.path,
           sizeBytes: manual.size,
-          contentType: 'application/pdf',
+          contentType: _contentTypeForFormat(manualFormat),
           onProgress: (sent, total) {
             if (!mounted) return;
             setState(() {
@@ -549,19 +553,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
             const SizedBox(height: AppSpacing.md),
           ],
           _buildFilePicker(theme),
-          if (_kind == 'resource' && _files.length == 1) ...[
+          if (_kind == 'resource') ...[
             const SizedBox(height: AppSpacing.md),
             _buildManualAnalysisPicker(theme),
-          ] else if (_kind == 'resource' && _files.length > 1)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.sm),
-              child: Text(
-                '多份试卷暂不支持同时上传原版解析',
-                style: theme.typography.caption.copyWith(
-                  color: theme.colors.mutedForeground,
-                ),
-              ),
-            ),
+          ],
           if (_uploading) ...[
             const SizedBox(height: AppSpacing.md),
             ClipRRect(
@@ -606,6 +601,35 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           : '正在上传 $_uploadIndex/$_uploadCount · $percent';
     }
     return percent == null ? '上传中…' : '上传中 · $percent';
+  }
+
+  List<ResourceCourse> get _orderedCourses {
+    final own = <ResourceCourse>[];
+    final rest = <ResourceCourse>[];
+    for (final course in widget.courses) {
+      (widget.ownCourseCodes.contains(course.code.trim()) ? own : rest).add(
+        course,
+      );
+    }
+    return [...own, ...rest];
+  }
+
+  List<UploadTextbook> get _orderedTextbooks {
+    final selected = _courseCode.trim();
+    final first = <UploadTextbook>[];
+    final own = <UploadTextbook>[];
+    final rest = <UploadTextbook>[];
+    for (final book in _textbooks) {
+      final codes = book.courseCodes;
+      if (selected.isNotEmpty && codes.contains(selected)) {
+        first.add(book);
+      } else if (codes.any(widget.ownCourseCodes.contains)) {
+        own.add(book);
+      } else {
+        rest.add(book);
+      }
+    }
+    return [...first, ...own, ...rest];
   }
 
   Widget _buildTextbookField(FThemeData theme) {
@@ -659,7 +683,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       placeholder: '请选择教材',
       searchHint: '搜索教材名称、标签或课程',
       value: book,
-      options: _textbooks,
+      options: _orderedTextbooks,
       format: _textbookLabel,
       matches: _textbookMatches,
       enabled: !_uploading,
@@ -673,7 +697,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       placeholder: '请选择课程',
       searchHint: '搜索课程名或编号',
       value: _courseCode.isEmpty ? null : _courseCode,
-      options: [for (final course in widget.courses) course.code],
+      options: [for (final course in _orderedCourses) course.code],
       format: _courseLabel,
       matches: (code, query) =>
           code.toLowerCase().contains(query) ||
@@ -686,7 +710,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   Future<void> _pickManualFile() async {
     if (_uploading) return;
     try {
-      final picked = await openFiles(acceptedTypeGroups: [_pdfTypeGroup]);
+      final picked = await openFiles(acceptedTypeGroups: [_examTypeGroup]);
       if (!mounted || picked.isEmpty) return;
       final file = picked.first;
       final size = await file.length();
@@ -694,7 +718,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
       if (size <= 0 || size > _maxUploadBytes) {
         showAppSnackBar(
           context,
-          '原版解析 PDF 无效或超过 80 MB',
+          '原版解析文件无效或超过 80 MB',
           severity: ToastSeverity.warning,
         );
         return;
@@ -713,6 +737,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Widget _buildManualAnalysisPicker(FThemeData theme) {
     final manual = _manualFile;
+    final tooMany = _files.length > 1;
+    final disabled = _uploading || tooMany;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -726,9 +752,13 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         if (manual == null)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _uploading ? null : () => unawaited(_pickManualFile()),
+            onTap: disabled ? null : () => unawaited(_pickManualFile()),
             child: CustomPaint(
-              painter: DashedBorderPainter(color: theme.colors.border),
+              painter: DashedBorderPainter(
+                color: disabled
+                    ? theme.colors.border.withValues(alpha: 0.5)
+                    : theme.colors.border,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 height: 92,
@@ -743,14 +773,20 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                       ),
                       const SizedBox(height: AppSpacing.xs),
                       Text(
-                        _uploading ? '上传中…' : '选择原版解析 PDF',
+                        tooMany
+                            ? '多份试卷暂不支持同时上传原版解析'
+                            : _uploading
+                            ? '上传中…'
+                            : '选择原版解析文档',
                         style: theme.typography.bodySmall.copyWith(
                           color: theme.colors.mutedForeground,
                         ),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '仅单份试卷可附带，支持 PDF，不超过 80 MB',
+                        tooMany
+                            ? '请只保留一份试卷后再选择'
+                            : '支持 PDF / DOCX / DOC，不超过 80 MB',
                         style: theme.typography.caption.copyWith(
                           color: theme.colors.mutedForeground.withValues(
                             alpha: 0.8,

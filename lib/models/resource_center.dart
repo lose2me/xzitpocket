@@ -111,6 +111,7 @@ class CourseResourceItem {
 class ResourceAIResult {
   final bool available;
   final String mode;
+  final String format;
   final String status;
   final String markdown;
   final String updatedAt;
@@ -124,6 +125,7 @@ class ResourceAIResult {
   const ResourceAIResult({
     this.available = false,
     this.mode = 'basic',
+    this.format = 'pdf',
     this.status = '',
     this.markdown = '',
     this.updatedAt = '',
@@ -142,6 +144,7 @@ class ResourceAIResult {
       ResourceAIResult(
         available: json['available'] == true,
         mode: json['mode']?.toString() ?? 'basic',
+        format: json['format']?.toString() ?? 'pdf',
         status: json['status']?.toString() ?? '',
         markdown: json['markdown']?.toString() ?? '',
         updatedAt: json['updated_at']?.toString() ?? '',

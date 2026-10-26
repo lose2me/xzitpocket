@@ -761,6 +761,7 @@ class ControlService {
     String format = 'pdf',
     String md5 = '',
     String manualMd5 = '',
+    String manualFormat = 'pdf',
     int manualSizeBytes = 0,
   }) async {
     if (kind != 'textbook' && kind != 'resource') {
@@ -780,6 +781,7 @@ class ControlService {
         'md5': md5,
         'size_bytes': sizeBytes,
         if (manualMd5.isNotEmpty) 'manual_md5': manualMd5,
+        if (manualMd5.isNotEmpty) 'manual_format': manualFormat,
         if (manualSizeBytes > 0) 'manual_size_bytes': manualSizeBytes,
       },
       headers: {'Authorization': 'Bearer $token'},

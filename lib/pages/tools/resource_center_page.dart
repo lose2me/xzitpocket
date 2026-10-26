@@ -423,6 +423,10 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
         builder: (_) => ResourceUploadPage(
           courses: courses,
           preferencesStorage: widget.preferencesStorage,
+          ownCourseCodes: {
+            for (final course in widget.localCourses)
+              if (course.code.trim().isNotEmpty) course.code.trim(),
+          },
         ),
       ),
     );

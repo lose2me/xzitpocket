@@ -689,9 +689,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       );
       final url = result.pdfUrl;
       if (url.isEmpty) throw StateError('missing AI PDF url');
+      final format = result.format.isEmpty ? 'pdf' : result.format;
       final base = _documentFileName(
         entry.title,
-        'pdf',
+        format,
         courseCode: entry.courseCode,
       );
       final label = mode == 'advanced'
@@ -699,15 +700,17 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           : mode == 'manual'
           ? '原版'
           : '精简版';
-      final fileName = '${base.substring(0, base.length - 4)}-AI解析-$label.pdf';
+      final dot = base.lastIndexOf('.');
+      final fileName =
+          '${base.substring(0, dot)}-AI解析-$label${base.substring(dot)}';
       final record = await ResourceDownloadService.instance.download(
         '${entry.id}-ai-$mode',
         url,
         fileName: fileName,
-        format: 'pdf',
+        format: format,
       );
       if (record != null) {
-        await ResourceDownloadService.instance.open(record, format: 'pdf');
+        await ResourceDownloadService.instance.open(record, format: format);
       }
     } catch (error, stackTrace) {
       talker.warning('下载 AI 解析失败', error, stackTrace);
