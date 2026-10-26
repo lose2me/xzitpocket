@@ -587,9 +587,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         onTap: entry.hasPdf && !downloading
             ? () => unawaited(_handlePdf(entry))
             : null,
-        onLongPress: entry.hasPdf && downloaded && !downloading
-            ? () => unawaited(_reExportPdf(entry))
-            : null,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
@@ -722,18 +719,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         });
       }
     }
-  }
-
-  Future<void> _reExportPdf(_PdfEntry entry) async {
-    final file = await ResourceDownloadService.instance.fileFor(
-      entry.id,
-      format: entry.format,
-    );
-    if (!await file.exists()) {
-      if (mounted) setState(() => _downloadedIds.remove(entry.id));
-      return;
-    }
-    await _savePdf(file, entry.title, format: entry.format);
   }
 
   Future<void> _savePdf(
