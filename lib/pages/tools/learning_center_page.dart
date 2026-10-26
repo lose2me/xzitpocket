@@ -16,7 +16,6 @@ import '../../ui/app_components.dart';
 import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_quiz_page.dart';
-import 'resource_ai_page.dart';
 
 class LearningCenterPage extends StatefulWidget {
   final LearningRepository repository;
@@ -49,6 +48,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   final Set<String> _downloadedIds = {};
   final Set<String> _downloadingIds = {};
   final Map<String, double> _downloadProgress = {};
+  final Set<String> _aiDownloading = {};
 
   @override
   void initState() {
@@ -382,7 +382,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                     format: item.format,
                     urlLoader: () =>
                         ControlService.instance.fetchResourceURL(item.id),
-                    onOpenAI: item.hasAi ? () => _openAI(item) : null,
+                    aiModes: item.aiModes,
                   ),
                   color: theme.colors.semantic.info,
                 ),
@@ -541,16 +541,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     ];
   }
 
-  void _openAI(CourseResourceItem item) {
-    Navigator.of(context).push(
-      appRoute(
-        name: AppRouteNames.resourceAI,
-        builder: (_) =>
-            ResourceAIPage(resourceId: item.id, resourceName: item.name),
-      ),
-    );
-  }
-
   Widget _buildPdfTile(
     FThemeData theme,
     _PdfEntry entry, {
@@ -563,7 +553,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final meta = downloading
         ? (progress > 0 ? '下载中 ${(progress * 100).round()}%' : '下载中…')
         : [if (size.isNotEmpty) size, downloaded ? '已下载' : '未下载'].join('  ');
-    return AppCard(
+    final card = AppCard(
       padding: const EdgeInsets.all(AppSpacing.md),
       onPress: entry.hasPdf && !downloading
           ? () => unawaited(_handlePdf(entry))
@@ -595,15 +585,6 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
             ),
           ),
           const SizedBox(width: AppSpacing.md),
-          if (entry.onOpenAI != null) ...[
-            AppIconButton(
-              icon: FLucideIcons.sparkles,
-              onPress: entry.onOpenAI,
-              tooltip: 'AI 解析',
-              size: FButtonSizeVariant.xs,
-            ),
-            const SizedBox(width: AppSpacing.xs),
-          ],
           if (downloading)
             SizedBox(
               width: 42,
@@ -624,6 +605,115 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         ],
       ),
     );
+    if (entry.aiModes.isEmpty) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [card, _buildAIReportLinks(theme, entry)],
+    );
+  }
+
+  Widget _buildAIReportLinks(FThemeData theme, _PdfEntry entry) {
+    final primary = theme.colors.primary;
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.xxl, top: AppSpacing.xs),
+      child: Container(
+        padding: const EdgeInsets.only(left: AppSpacing.sm),
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: primary.withValues(alpha: 0.3), width: 2),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(FLucideIcons.sparkles, size: 14, color: primary),
+            const SizedBox(width: AppSpacing.micro),
+            Text(
+              'AI 解析',
+              style: theme.typography.caption.copyWith(
+                color: theme.colors.mutedForeground,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            for (var index = 0; index < entry.aiModes.length; index++) ...[
+              if (index > 0) const SizedBox(width: AppSpacing.sm),
+              _buildAIReportChip(theme, entry, entry.aiModes[index]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAIReportChip(FThemeData theme, _PdfEntry entry, String mode) {
+    final key = '${entry.id}:$mode';
+    final downloading = _aiDownloading.contains(key);
+    final primary = theme.colors.primary;
+    final label = mode == 'advanced' ? '高级解析' : '基础解析';
+    return FTappable(
+      onPress: downloading ? null : () => unawaited(_downloadAI(entry, mode)),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 32),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(FLucideIcons.download, size: 14, color: primary),
+            const SizedBox(width: AppSpacing.micro),
+            Text(
+              downloading ? '下载中…' : label,
+              style: theme.typography.caption.copyWith(
+                color: primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _downloadAI(_PdfEntry entry, String mode) async {
+    final key = '${entry.id}:$mode';
+    if (_aiDownloading.contains(key)) return;
+    setState(() => _aiDownloading.add(key));
+    try {
+      final result = await ControlService.instance.fetchResourceAI(
+        entry.id,
+        mode: mode,
+      );
+      final url = result.pdfUrl;
+      if (url.isEmpty) throw StateError('missing AI PDF url');
+      final base = _documentFileName(
+        entry.title,
+        'pdf',
+        courseCode: entry.courseCode,
+      );
+      final label = mode == 'advanced' ? '高级' : '基础';
+      final fileName = '${base.substring(0, base.length - 4)}-AI解析-$label.pdf';
+      final record = await ResourceDownloadService.instance.download(
+        '${entry.id}-ai-$mode',
+        url,
+        fileName: fileName,
+        format: 'pdf',
+      );
+      if (record != null) {
+        await ResourceDownloadService.instance.open(record, format: 'pdf');
+      }
+    } catch (error, stackTrace) {
+      talker.warning('下载 AI 解析失败', error, stackTrace);
+      if (mounted) {
+        showAppSnackBar(context, '下载失败，请稍后重试', severity: ToastSeverity.error);
+      }
+    } finally {
+      if (mounted) setState(() => _aiDownloading.remove(key));
+    }
   }
 
   Future<void> _refreshDownloadedStatuses() async {
@@ -941,7 +1031,7 @@ class _PdfEntry {
   final bool hasPdf;
   final String format;
   final Future<String> Function() urlLoader;
-  final VoidCallback? onOpenAI;
+  final List<String> aiModes;
 
   const _PdfEntry({
     required this.id,
@@ -951,7 +1041,7 @@ class _PdfEntry {
     required this.hasPdf,
     required this.format,
     required this.urlLoader,
-    this.onOpenAI,
+    this.aiModes = const [],
   });
 }
 

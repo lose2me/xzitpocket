@@ -27,7 +27,6 @@ abstract final class AppRouteNames {
   static const learningWrongQuestions = '/tools/learning/wrong';
   static const learningFavorites = '/tools/learning/favorites';
   static const learningQuiz = '/tools/learning/quiz';
-  static const resourceAI = '/tools/learning/ai';
   static const addCourse = '/timetable/course/add';
   static const editCourse = '/timetable/course/edit';
   static const timetableSettings = '/timetable/settings';

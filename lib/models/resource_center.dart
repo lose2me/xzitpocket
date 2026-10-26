@@ -62,11 +62,8 @@ class CourseResourceItem {
   /// Server update time, used when deciding whether a cached row is current.
   final String updatedAt;
 
-  /// Whether a succeeded AI analysis exists for this paper.
-  final bool hasAi;
-
-  /// Server update time of the latest succeeded AI analysis.
-  final String aiUpdatedAt;
+  /// Analysis modes that have a succeeded report for this paper.
+  final List<String> aiModes;
 
   const CourseResourceItem({
     required this.id,
@@ -76,8 +73,7 @@ class CourseResourceItem {
     this.format = 'pdf',
     this.sizeBytes = 0,
     this.updatedAt = '',
-    this.hasAi = false,
-    this.aiUpdatedAt = '',
+    this.aiModes = const [],
   });
 
   factory CourseResourceItem.fromJson(Map<String, dynamic> json) {
@@ -90,8 +86,12 @@ class CourseResourceItem {
       format: format == 'doc' || format == 'docx' ? format : 'pdf',
       sizeBytes: _asInt(json['size_bytes']),
       updatedAt: json['updated_at']?.toString() ?? '',
-      hasAi: json['has_ai'] == true,
-      aiUpdatedAt: json['ai_updated_at']?.toString() ?? '',
+      aiModes: switch (json['ai_modes']) {
+        final List<dynamic> modes => [
+          for (final mode in modes) mode.toString(),
+        ],
+        _ => json['has_ai'] == true ? const ['basic'] : const [],
+      },
     );
   }
 
@@ -103,8 +103,7 @@ class CourseResourceItem {
     'format': format,
     'size_bytes': sizeBytes,
     'updated_at': updatedAt,
-    'has_ai': hasAi,
-    'ai_updated_at': aiUpdatedAt,
+    'ai_modes': aiModes,
   };
 }
 
