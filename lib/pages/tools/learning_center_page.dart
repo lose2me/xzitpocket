@@ -322,6 +322,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   _PdfEntry(
                     id: item.id,
                     title: item.name,
+                    courseCode: course.code,
                     sizeBytes: item.sizeBytes,
                     hasPdf: item.hasPdf,
                     format: 'pdf',
@@ -372,6 +373,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   _PdfEntry(
                     id: item.id,
                     title: item.name,
+                    courseCode: course.code,
                     sizeBytes: item.sizeBytes,
                     hasPdf: item.hasPdf,
                     format: item.format,
@@ -601,7 +603,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _documentFileName(entry.title, entry.format),
+                      _documentFileName(
+                        entry.title,
+                        entry.format,
+                        courseCode: entry.courseCode,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.typography.body.md.copyWith(
@@ -695,7 +701,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       final record = await ResourceDownloadService.instance.download(
         entry.id,
         url,
-        fileName: _documentFileName(entry.title, entry.format),
+        fileName: _documentFileName(
+          entry.title,
+          entry.format,
+          courseCode: entry.courseCode,
+        ),
         format: entry.format,
         onProgress: (received, total) {
           if (!mounted) return;
@@ -734,7 +744,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     return '${(bytes / 1024).toStringAsFixed(0)} KB';
   }
 
-  String _documentFileName(String name, String format) {
+  String _documentFileName(
+    String name,
+    String format, {
+    String courseCode = '',
+  }) {
     final normalized = switch (format.toLowerCase()) {
       'docx' => 'docx',
       'doc' => 'doc',
@@ -753,7 +767,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     final safe = base
         .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
         .trim();
-    return '${safe.isEmpty ? '资料' : safe}.$normalized';
+    final title = safe.isEmpty ? '资料' : safe;
+    final code = courseCode
+        .replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1f]'), '_')
+        .trim();
+    return '${code.isEmpty ? '' : '${code}_'}$title.$normalized';
   }
 
   List<_QuestionBankGroup> _allBankGroups() {
@@ -969,6 +987,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 class _PdfEntry {
   final String id;
   final String title;
+  final String courseCode;
   final int sizeBytes;
   final bool hasPdf;
   final String format;
@@ -977,6 +996,7 @@ class _PdfEntry {
   const _PdfEntry({
     required this.id,
     required this.title,
+    this.courseCode = '',
     required this.sizeBytes,
     required this.hasPdf,
     required this.format,
