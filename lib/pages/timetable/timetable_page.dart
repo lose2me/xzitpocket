@@ -861,10 +861,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                       if (_noticeVisible)
                         Positioned.fill(
                           child: SlideTransition(
-                            // 从原位置下方滑入，收起时向下滑出，仍在原位置。
+                            // 从左端滑入，收起时向左滑出，仍在原位置。
                             position:
                                 Tween<Offset>(
-                                  begin: const Offset(0, 1),
+                                  begin: const Offset(-1, 0),
                                   end: Offset.zero,
                                 ).animate(
                                   CurvedAnimation(
