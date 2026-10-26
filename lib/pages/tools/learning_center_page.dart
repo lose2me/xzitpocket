@@ -643,7 +643,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Widget _buildAIReportLinks(FThemeData theme, _PdfEntry entry) {
     final modes = [
-      for (final mode in const ['advanced', 'basic'])
+      for (final mode in const ['advanced', 'basic', 'manual'])
         if (entry.aiModes.contains(mode)) mode,
     ];
     return Row(
@@ -680,6 +680,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                     ? '下载中'
                     : mode == 'advanced'
                     ? '小学生版解析'
+                    : mode == 'manual'
+                    ? '原版解析'
                     : '精简版解析',
                 style: theme.typography.caption.copyWith(
                   color: primary,
@@ -709,7 +711,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         'pdf',
         courseCode: entry.courseCode,
       );
-      final label = mode == 'advanced' ? '小学生版' : '精简版';
+      final label = mode == 'advanced'
+          ? '小学生版'
+          : mode == 'manual'
+          ? '原版'
+          : '精简版';
       final fileName = '${base.substring(0, base.length - 4)}-AI解析-$label.pdf';
       final record = await ResourceDownloadService.instance.download(
         '${entry.id}-ai-$mode',
