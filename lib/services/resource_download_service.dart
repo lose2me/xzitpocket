@@ -74,18 +74,21 @@ class ResourceDownloadService {
         'mime': _mimeFor(format),
       });
 
-  /// Opens the system "save as" dialog (SAF) and copies [file] to the chosen
-  /// location. Returns false when the user cancels. Requires no permission.
-  Future<bool> saveToDocuments(
+  /// Copies [file] into the system Downloads folder without a picker and
+  /// returns the display path (for example `Download/试卷.pdf`). Android 10+
+  /// goes through MediaStore, older versions write the public directory after
+  /// asking for the storage permission.
+  Future<String?> saveToDownloads(
     File file,
     String fileName, {
     String format = 'pdf',
   }) async {
-    final saved = await _channel.invokeMethod<bool>('saveLocalFile', {
+    final saved = await _channel.invokeMethod<String>('saveToDownloads', {
       'path': file.path,
       'fileName': fileName,
       'mime': _mimeFor(format),
     });
-    return saved == true;
+    if (saved == null || saved.isEmpty) return null;
+    return saved;
   }
 }

@@ -708,12 +708,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       );
       if (!mounted) return;
       setState(() => _downloadedIds.add(entry.id));
-      await _exportPdf(
-        file,
-        entry.title,
-        format: entry.format,
-        firstDownload: true,
-      );
+      await _savePdf(file, entry.title, format: entry.format);
     } catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (mounted) {
@@ -738,30 +733,29 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       if (mounted) setState(() => _downloadedIds.remove(entry.id));
       return;
     }
-    await _exportPdf(file, entry.title, format: entry.format);
+    await _savePdf(file, entry.title, format: entry.format);
   }
 
-  Future<void> _exportPdf(
+  Future<void> _savePdf(
     File file,
     String title, {
     required String format,
-    bool firstDownload = false,
   }) async {
     try {
-      final saved = await ResourceDownloadService.instance.saveToDocuments(
+      final savedPath = await ResourceDownloadService.instance.saveToDownloads(
         file,
         _documentFileName(title, format),
         format: format,
       );
       if (!mounted) return;
-      if (saved) {
-        showAppSnackBar(context, '已保存', severity: ToastSeverity.success);
-      } else {
+      if (savedPath != null) {
         showAppSnackBar(
           context,
-          firstDownload ? '已下载，未另存' : '已取消保存',
-          severity: ToastSeverity.warning,
+          '已保存到 $savedPath',
+          severity: ToastSeverity.success,
         );
+      } else {
+        showAppSnackBar(context, '保存失败，请稍后重试', severity: ToastSeverity.warning);
       }
     } catch (error, stackTrace) {
       talker.warning('保存文件失败', error, stackTrace);

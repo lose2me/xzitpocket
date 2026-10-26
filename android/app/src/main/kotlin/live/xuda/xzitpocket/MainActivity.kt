@@ -1,11 +1,15 @@
 package live.xuda.xzitpocket
 
-import android.app.Activity
+import android.content.ContentValues
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.Manifest
+import android.media.MediaScannerConnection
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
@@ -23,9 +27,11 @@ class MainActivity : FlutterActivity() {
     private val backgroundExecutor: ExecutorService = Executors.newSingleThreadExecutor()
     private val widgetRefreshExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
-    private var pendingSaveResult: MethodChannel.Result? = null
-    private var pendingSaveFile: File? = null
-    private val saveDocumentRequest = 9002
+    private var pendingDownloadsResult: MethodChannel.Result? = null
+    private var pendingDownloadsFile: File? = null
+    private var pendingDownloadsName: String? = null
+    private var pendingDownloadsMime: String? = null
+    private val downloadsPermissionRequest = 9003
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,38 +44,94 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        if (requestCode == saveDocumentRequest) {
-            val result = pendingSaveResult
-            val file = pendingSaveFile
-            pendingSaveResult = null
-            pendingSaveFile = null
-            if (result == null) {
-                super.onActivityResult(requestCode, resultCode, data)
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        if (requestCode == downloadsPermissionRequest) {
+            val result = pendingDownloadsResult
+            val file = pendingDownloadsFile
+            val name = pendingDownloadsName
+            val mime = pendingDownloadsMime
+            pendingDownloadsResult = null
+            pendingDownloadsFile = null
+            pendingDownloadsName = null
+            pendingDownloadsMime = null
+            if (result == null || file == null || name == null || mime == null) {
+                super.onRequestPermissionsResult(requestCode, permissions, grantResults)
                 return
             }
-            val uri = data?.data
-            if (resultCode != Activity.RESULT_OK || uri == null || file == null) {
-                result.success(false)
-                return
-            }
-            try {
-                contentResolver.openOutputStream(uri)?.use { output ->
-                    file.inputStream().use { input -> input.copyTo(output) }
-                }
-                result.success(true)
-            } catch (error: Exception) {
-                result.error("save_failed", error.message, null)
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                runCatching { saveToDownloads(file, name, mime) }
+                    .onSuccess { result.success(it) }
+                    .onFailure { result.error("save_failed", it.message, null) }
+            } else {
+                result.error("permission_denied", "storage permission denied", null)
             }
             return
         }
-        super.onActivityResult(requestCode, resultCode, data)
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
 
     override fun onDestroy() {
         backgroundExecutor.shutdownNow()
         widgetRefreshExecutor.shutdownNow()
         super.onDestroy()
+    }
+
+    /// Copies [file] into the public Downloads folder and returns its display
+    /// path, e.g. "Download/试卷.pdf". Android 10+ uses MediaStore so no
+    /// permission is needed and the file shows up in the Downloads app.
+    private fun saveToDownloads(file: File, fileName: String, mime: String): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, mime)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            val uri = contentResolver.insert(collection, values)
+                ?: throw IllegalStateException("无法创建下载文件")
+            try {
+                contentResolver.openOutputStream(uri)?.use { output ->
+                    file.inputStream().use { input -> input.copyTo(output) }
+                } ?: throw IllegalStateException("无法写入下载文件")
+            } catch (error: Exception) {
+                contentResolver.delete(uri, null, null)
+                throw error
+            }
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            contentResolver.update(uri, values, null, null)
+            val actual = contentResolver
+                .query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+                ?: fileName
+            return "${Environment.DIRECTORY_DOWNLOADS}/$actual"
+        }
+
+        if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            throw SecurityException("storage permission denied")
+        }
+        @Suppress("DEPRECATION")
+        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("无法创建下载目录")
+        val base = fileName.substringBeforeLast('.', fileName)
+        val extension = fileName.substringAfterLast('.', "")
+        var target = File(dir, fileName)
+        var index = 1
+        while (target.exists()) {
+            val candidate = if (extension.isEmpty()) "$base ($index)" else "$base ($index).$extension"
+            target = File(dir, candidate)
+            index++
+        }
+        file.copyTo(target, overwrite = false)
+        MediaScannerConnection.scanFile(this, arrayOf(target.absolutePath), arrayOf(mime), null)
+        return "${Environment.DIRECTORY_DOWNLOADS}/${target.name}"
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -153,26 +215,29 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
 
-                "saveLocalFile" -> {
+                "saveToDownloads" -> {
                     val path = call.argument<String>("path")
                     val fileName = call.argument<String>("fileName") ?: "document.pdf"
                     val mime = call.argument<String>("mime") ?: "application/pdf"
-                    if (path.isNullOrBlank()) {
-                        result.error("invalid_path", "path is required", null)
-                    } else {
-                        val file = File(path)
-                        if (!file.exists()) {
-                            result.error("missing_file", "file does not exist", null)
-                        } else {
-                            pendingSaveResult = result
-                            pendingSaveFile = file
-                            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                                addCategory(Intent.CATEGORY_OPENABLE)
-                                type = mime
-                                putExtra(Intent.EXTRA_TITLE, fileName)
-                            }
-                            startActivityForResult(intent, saveDocumentRequest)
+                    val file = path?.let { File(it) }
+                    when {
+                        file == null -> result.error("invalid_path", "path is required", null)
+                        !file.exists() -> result.error("missing_file", "file does not exist", null)
+                        Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+                            checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                            PackageManager.PERMISSION_GRANTED -> {
+                            pendingDownloadsResult = result
+                            pendingDownloadsFile = file
+                            pendingDownloadsName = fileName
+                            pendingDownloadsMime = mime
+                            requestPermissions(
+                                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                                downloadsPermissionRequest,
+                            )
                         }
+                        else -> runCatching { saveToDownloads(file, fileName, mime) }
+                            .onSuccess { result.success(it) }
+                            .onFailure { result.error("save_failed", it.message, null) }
                     }
                 }
 
