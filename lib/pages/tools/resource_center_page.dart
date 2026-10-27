@@ -114,7 +114,9 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
         course.code.toLowerCase().contains(query);
   }
 
-  List<_ResourceRow> get _rows {
+  /// My timetable courses first, then the rest. The split is only an order:
+  /// my courses are marked by a themed card border, not a divider line.
+  List<ResourceCourse> get _rows {
     final mine = [
       for (final course in _myCourses)
         if (_matches(course)) course,
@@ -123,12 +125,12 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
       for (final course in _otherCourses)
         if (_matches(course)) course,
     ];
-    return [
-      for (final course in mine) _ResourceRow.course(course),
-      if (mine.isNotEmpty && others.isNotEmpty) const _ResourceRow.divider(),
-      for (final course in others) _ResourceRow.course(course),
-    ];
+    return [...mine, ...others];
   }
+
+  Set<String> get _myCourseCodes => {
+    for (final course in _myCourses) course.code.trim(),
+  };
 
   Future<void> _load({bool force = false}) async {
     final generation = ++_loadGeneration;
@@ -230,7 +232,10 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   }
 
   Future<void> _refresh() async {
-    if (_refreshing) return;
+    if (_refreshing) {
+      markAppRefreshHandled();
+      return;
+    }
     setState(() => _refreshing = true);
     try {
       await _load(force: true);
@@ -290,26 +295,20 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
     if (_loading) return _buildSkeleton(horizontal);
     final rows = _rows;
     if (rows.isEmpty) return _buildEmpty(horizontal);
+    final myCodes = _myCourseCodes;
     final children = <Widget>[
       _buildCollectionActions(),
-      for (final row in rows)
-        if (row.course == null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-            child: Container(
-              height: 1,
-              color: context.theme.colors.primary.withValues(alpha: 0.22),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
-            child: _CourseCard(
-              course: row.course!,
-              coverPath: _covers[row.course!.code],
-              onTap: () => unawaited(_openCourse(context, row.course!)),
-            ),
+      for (final course in rows)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+          child: _CourseCard(
+            course: course,
+            query: _query,
+            mine: myCodes.contains(course.code.trim()),
+            coverPath: _covers[course.code],
+            onTap: () => unawaited(_openCourse(context, course)),
           ),
+        ),
       const SizedBox(height: AppSpacing.xxl),
     ];
     return _buildRefreshable([
@@ -334,7 +333,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
   );
 
   Widget _buildCollectionActions() => Padding(
-    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
     child: Row(
       children: [
         Expanded(
@@ -344,7 +343,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
             onPress: () => _openCollection(LearningListKind.wrong),
           ),
         ),
-        const SizedBox(width: AppSpacing.md),
+        const SizedBox(width: AppSpacing.xs),
         Expanded(
           child: AppDashedButton(
             icon: FLucideIcons.bookmark,
@@ -396,7 +395,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
           children: [
             for (var index = 0; index < 5; index++)
               Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.listGap),
+                padding: const EdgeInsets.only(bottom: AppSpacing.xs),
                 child: const _CourseCardSkeleton(),
               ),
           ],
@@ -460,7 +459,7 @@ class _CourseCardSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const AppCard(
-      padding: EdgeInsets.all(AppSpacing.md),
+      padding: EdgeInsets.all(AppSpacing.xs),
       child: Row(
         children: [
           AppSkeletonBox(width: 46, height: 62, radius: 8),
@@ -487,10 +486,18 @@ class _CourseCard extends StatelessWidget {
   final String? coverPath;
   final VoidCallback onTap;
 
+  /// My own (timetable) courses get a star in front of the name.
+  final bool mine;
+
+  /// Active search text; matches in the name are highlighted.
+  final String query;
+
   const _CourseCard({
     required this.course,
     required this.onTap,
     this.coverPath,
+    this.mine = false,
+    this.query = '',
   });
 
   @override
@@ -526,9 +533,10 @@ class _CourseCard extends StatelessWidget {
         ),
     ];
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.all(AppSpacing.xs),
       onPress: onTap,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CourseCover(
             url: course.coverUrl,
@@ -538,27 +546,44 @@ class _CourseCard extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.typography.tileTitle.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (tags.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.xs),
+            child: Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.listGap),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Row(
-                    mainAxisSize: MainAxisSize.min,
-                    spacing: 4,
-                    children: tags,
+                    children: [
+                      if (mine) ...[
+                        Icon(
+                          FLucideIcons.star,
+                          size: 14,
+                          color: theme.colors.primary,
+                        ),
+                        const SizedBox(width: AppSpacing.micro),
+                      ],
+                      Flexible(
+                        child: AppHighlightedText(
+                          text: title,
+                          query: query,
+                          maxLines: 1,
+                          style: theme.typography.tileTitle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  if (tags.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 4,
+                      children: tags,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ],
@@ -660,11 +685,4 @@ class _DashedBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) =>
       oldDelegate.color != color;
-}
-
-class _ResourceRow {
-  final ResourceCourse? course;
-
-  const _ResourceRow.course(ResourceCourse this.course);
-  const _ResourceRow.divider() : course = null;
 }
