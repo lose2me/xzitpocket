@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/app_settings.dart';
+import 'package:xzitpocket/pages/timetable/course_picker_sheet.dart';
 import 'package:xzitpocket/pages/profile/course_reminder_settings_page.dart';
 import 'package:xzitpocket/providers/app_settings_provider.dart';
 import 'package:xzitpocket/providers/config_provider.dart';
@@ -43,6 +44,8 @@ void main() {
   testWidgets('missing permissions cannot select reminders or class dnd', (
     tester,
   ) async {
+    // The 课堂勿扰 row opens the same wheel picker as 选择星期; its selection is
+    // committed when 确定 is pressed.
     final container = await _pumpPage(tester);
     addTearDown(container.dispose);
 
@@ -51,12 +54,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     expect(container.read(appSettingsProvider).courseReminderEnabled, isFalse);
 
+    // The section label carries the same text, so target the settings row.
+    final row = find.widgetWithText(FTile, '课堂勿扰');
     await tester.dragUntilVisible(
-      find.text('上课恢复'),
+      row,
       find.byType(ListView),
       const Offset(0, -300),
     );
-    await tester.tap(find.text('上课恢复'));
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(find.byType(CourseWheelPickerSheet), findsOneWidget);
+    await tester.tap(find.text('确定'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
     expect(

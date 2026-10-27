@@ -172,7 +172,7 @@ class AppDashedButton extends StatelessWidget {
           radius: 12,
         ),
         child: SizedBox(
-          height: 44,
+          height: 38,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -231,6 +231,79 @@ class DashedBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant DashedBorderPainter oldDelegate) =>
       oldDelegate.color != color || oldDelegate.radius != radius;
+}
+
+/// 把搜索命中的关键词用主题色标出来，其余文字保持原样式。
+/// 验证码输入框的统一样式：格子之间留 8px 空隙（forui 没有直接的间距参数，
+/// 用一个高度为 0 的分隔符占位），每格自带圆角描边。
+const appOtpFieldStyle = FOtpFieldStyleDelta.delta(
+  dividerPadding: EdgeInsetsGeometryDelta.value(EdgeInsets.zero),
+  dividerSize: Size(8, 0),
+);
+
+/// 生成 [FOtpController] 的默认内容：`count` 个格子，格间带占位分隔符。
+List<Widget> appOtpChildren({int count = 6}) => [
+  for (var index = 0; index < count; index++) ...[
+    if (index > 0) const FOtpDivider(),
+    const FOtpItem(),
+  ],
+];
+
+class AppHighlightedText extends StatelessWidget {
+  final String text;
+  final String query;
+  final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow overflow;
+
+  const AppHighlightedText({
+    super.key,
+    required this.text,
+    required this.query,
+    this.style,
+    this.maxLines,
+    this.overflow = TextOverflow.ellipsis,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = context.theme;
+    final style = this.style;
+    final keyword = query.trim();
+    if (keyword.isEmpty) {
+      return Text(text, style: style, maxLines: maxLines, overflow: overflow);
+    }
+    final haystack = text.toLowerCase();
+    final needle = keyword.toLowerCase();
+    final spans = <TextSpan>[];
+    var start = 0;
+    while (true) {
+      final hit = haystack.indexOf(needle, start);
+      if (hit < 0) break;
+      if (hit > start) spans.add(TextSpan(text: text.substring(start, hit)));
+      spans.add(
+        TextSpan(
+          text: text.substring(hit, hit + needle.length),
+          style: TextStyle(
+            color: theme.colors.primary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+      start = hit + needle.length;
+    }
+    if (spans.isEmpty) {
+      return Text(text, style: style, maxLines: maxLines, overflow: overflow);
+    }
+    if (start < text.length) {
+      spans.add(TextSpan(text: text.substring(start)));
+    }
+    return Text.rich(
+      TextSpan(style: style, children: spans),
+      maxLines: maxLines,
+      overflow: overflow,
+    );
+  }
 }
 
 class AppTextField extends StatelessWidget {

@@ -1,16 +1,18 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:forui/forui.dart';
 
 import '../../ui/app_components.dart';
+import '../timetable/course_picker_sheet.dart';
 
 const _profileTileContentStyle = FItemContentStyleDelta.delta(
   suffixedPadding: EdgeInsetsGeometryDelta.value(
-    EdgeInsets.fromLTRB(16, 12, 12, 12),
+    EdgeInsets.fromLTRB(16, 16, 12, 16),
   ),
   unsuffixedPadding: EdgeInsetsGeometryDelta.value(
-    EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    EdgeInsets.symmetric(horizontal: 16, vertical: 16),
   ),
 );
 
@@ -21,19 +23,10 @@ const _profileTileStyle = FItemStyleDelta.delta(
 const _compactProfileTileStyle = FItemStyleDelta.delta(
   contentStyle: FItemContentStyleDelta.delta(
     suffixedPadding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.fromLTRB(16, 8, 12, 0),
+      EdgeInsets.fromLTRB(16, 12, 12, 0),
     ),
     unsuffixedPadding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.fromLTRB(16, 8, 16, 0),
-    ),
-  ),
-);
-
-const _compactOptionButtonStyle = FButtonStyleDelta.delta(
-  contentStyle: FButtonContentStyleDelta.delta(
-    constraints: BoxConstraints(minHeight: 44),
-    padding: EdgeInsetsGeometryDelta.value(
-      EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      EdgeInsets.fromLTRB(16, 12, 16, 0),
     ),
   ),
 );
@@ -172,41 +165,6 @@ class ProfileSettingsExpandableTile extends StatelessWidget with FTileMixin {
   );
 }
 
-class ProfileSettingsControlTile extends StatelessWidget with FTileMixin {
-  final IconData icon;
-  final String title;
-  final Widget child;
-  final VoidCallback? onTap;
-
-  const ProfileSettingsControlTile({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.child,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => FTile.raw(
-    style: _profileTileStyle,
-    onPress: onTap,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 20, color: context.theme.colors.primary),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(title)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        child,
-      ],
-    ),
-  );
-}
-
 class ProfileSettingsOption<T> {
   final T value;
   final String label;
@@ -244,57 +202,15 @@ class ProfileSettingsInlineControlTile extends StatelessWidget with FTileMixin {
   );
 }
 
-class ProfileSettingsOptionButtons<T> extends StatelessWidget {
-  final T value;
-  final List<ProfileSettingsOption<T>> options;
-  final ValueChanged<T> onChanged;
-  final double buttonWidth;
-
-  const ProfileSettingsOptionButtons({
-    super.key,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-    this.buttonWidth = 92,
-  });
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: Row(
-      children: [
-        for (var index = 0; index < options.length; index++) ...[
-          if (index > 0) const SizedBox(width: AppSpacing.xs),
-          SizedBox(
-            width: buttonWidth,
-            child: FButton(
-              size: FButtonSizeVariant.sm,
-              style: _compactOptionButtonStyle,
-              variant: options[index].value == value
-                  ? FButtonVariant.primary
-                  : FButtonVariant.outline,
-              onPress: () => onChanged(options[index].value),
-              child: Text(
-                options[index].label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ),
-        ],
-      ],
-    ),
-  );
-}
-
-class ProfileSettingsOptionsTile<T> extends StatelessWidget with FTileMixin {
+/// 单选项整行样式：右侧显示当前选项，点击弹出「选择星期」那种滚轮选择器。
+class ProfileSettingsChoiceTile<T> extends StatelessWidget with FTileMixin {
   final IconData icon;
   final String title;
   final T value;
   final List<ProfileSettingsOption<T>> options;
   final ValueChanged<T> onChanged;
 
-  const ProfileSettingsOptionsTile({
+  const ProfileSettingsChoiceTile({
     super.key,
     required this.icon,
     required this.title,
@@ -304,27 +220,35 @@ class ProfileSettingsOptionsTile<T> extends StatelessWidget with FTileMixin {
   });
 
   @override
-  Widget build(BuildContext context) => FTile.raw(
-    style: _profileTileStyle,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 20, color: context.theme.colors.primary),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: Text(title)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        ProfileSettingsOptionButtons<T>(
-          value: value,
-          options: options,
-          onChanged: onChanged,
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final labels = [for (final option in options) option.label];
+    final index = options.indexWhere((option) => option.value == value);
+    return ProfileSettingsTile(
+      icon: icon,
+      title: title,
+      value: index >= 0 ? labels[index] : null,
+      onTap: options.isEmpty
+          ? null
+          : () => unawaited(_open(context, labels, index < 0 ? 0 : index)),
+    );
+  }
+
+  Future<void> _open(
+    BuildContext context,
+    List<String> labels,
+    int index,
+  ) async {
+    final picked = await showAppSheet<List<int>>(
+      context: context,
+      builder: (_) => CourseWheelPickerSheet(
+        title: title,
+        columns: [CoursePickerColumn(label: '', options: labels)],
+        initialIndexes: [index],
+      ),
+    );
+    if (picked == null || picked.isEmpty) return;
+    onChanged(options[picked.first].value);
+  }
 }
 
 class ProfileSettingsSliderTile extends StatelessWidget with FTileMixin {

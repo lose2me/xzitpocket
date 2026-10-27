@@ -175,7 +175,7 @@ void main() {
       expect(prompt, contains('[右]'));
       expect(prompt, contains('[/b]'));
       expect(prompt, contains(r'[b]{课程}[/]'));
-      expect(prompt, contains('请按此语法返回新模板'));
+      expect(prompt, contains('返回时只输出模板'));
     });
   });
 

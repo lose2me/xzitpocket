@@ -618,7 +618,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 
   Future<void> _onSync() async {
-    if (_isSyncing) return;
+    if (_isSyncing) {
+      markAppRefreshHandled();
+      return;
+    }
     if (!mounted) return;
     setState(() => _isSyncing = true);
 
@@ -671,7 +674,9 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         cancelLabel: '取消',
       );
       if (!confirmed || !mounted) {
-        // 取消：丢弃暂存的同步结果，不改动任何课表数据。
+        // 取消：丢弃暂存的同步结果，不改动任何课表数据；弹窗本身就是反馈，
+        // 不再补「已刷新」。
+        markAppRefreshHandled();
         unawaited(
           pending.then<void>(
             (_) {},
@@ -767,7 +772,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     String subtitle;
     if (secondary) {
       icon = FLucideIcons.calendarX;
-      title = '备用课表暂无课程';
+      title = '第二课表暂无课程';
       subtitle = '可点击右上角切换回主课表';
     } else if (!isLoggedIn) {
       icon = FLucideIcons.calendarDays;

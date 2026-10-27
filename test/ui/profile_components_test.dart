@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:xzitpocket/pages/profile/profile_components.dart';
+import 'package:xzitpocket/pages/timetable/course_picker_sheet.dart';
 import 'package:xzitpocket/ui/app_controls.dart';
 import 'package:xzitpocket/ui/app_page.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
@@ -42,36 +43,41 @@ void main() {
     expect(maxHeight - minHeight, lessThanOrEqualTo(1), reason: '$heights');
   });
 
-  testWidgets('profile control buttons sit beneath their label', (
+  testWidgets('choice rows show the current option and open the picker', (
     tester,
   ) async {
+    var picked = '关闭';
     await tester.pumpWidget(
-      _testApp(
+      _sheetTestApp(
         ProfileSettingsGroup(
           children: [
-            ProfileSettingsControlTile(
+            ProfileSettingsChoiceTile<String>(
               icon: FLucideIcons.bellOff,
               title: '课堂勿扰',
-              child: ProfileSettingsOptionButtons<String>(
-                value: '关闭',
-                options: const [
-                  ProfileSettingsOption(value: '关闭', label: '关闭'),
-                  ProfileSettingsOption(value: '上课恢复', label: '上课恢复'),
-                  ProfileSettingsOption(value: '保持勿扰', label: '保持勿扰'),
-                ],
-                onChanged: (_) {},
-              ),
+              value: picked,
+              options: const [
+                ProfileSettingsOption(value: '关闭', label: '关闭'),
+                ProfileSettingsOption(value: '下课后恢复', label: '下课后恢复'),
+                ProfileSettingsOption(value: '下课后不恢复', label: '下课后不恢复'),
+              ],
+              onChanged: (value) => picked = value,
             ),
           ],
         ),
       ),
     );
 
-    final title = tester.getRect(find.text('课堂勿扰'));
-    final button = tester.getRect(find.text('上课恢复'));
-    expect(button.top, greaterThan(title.bottom));
-    expect(button.width, greaterThan(60));
-    expect(tester.getSize(find.byType(FButton).first).height, 44);
+    // The row shows the current option instead of a row of buttons.
+    expect(find.byType(FButton), findsNothing);
+    expect(find.text('课堂勿扰'), findsOneWidget);
+    expect(find.text('关闭'), findsOneWidget);
+
+    await tester.tap(find.text('课堂勿扰'));
+    await tester.pumpAndSettle();
+    // The picker sheet opens (wheel with the same title); single-column
+    // pickers must not render a column label.
+    expect(find.byType(CourseWheelPickerSheet), findsOneWidget);
+    expect(find.text('确定'), findsOneWidget);
   });
 
   testWidgets('profile sliders use compact discrete controls', (tester) async {
@@ -259,6 +265,13 @@ void main() {
     expect(tester.getBottomRight(editable).dy, lessThanOrEqualTo(340));
   });
 }
+
+Widget _sheetTestApp(Widget child) => FTheme(
+  data: AppTheme.light,
+  child: MaterialApp(
+    home: Scaffold(body: Center(child: SizedBox(width: 360, child: child))),
+  ),
+);
 
 Widget _testApp(Widget child) => Directionality(
   textDirection: TextDirection.ltr,

@@ -264,7 +264,7 @@ class _CourseFormPageState extends State<CourseFormPage> {
       builder: (_) => CourseWheelPickerSheet(
         title: '选择星期',
         columns: const [
-          CoursePickerColumn(label: '星期', options: _weekdayLabels),
+          CoursePickerColumn(label: '', options: _weekdayLabels),
         ],
         initialIndexes: [_weekday - 1],
       ),

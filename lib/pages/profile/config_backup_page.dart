@@ -24,11 +24,33 @@ class ConfigBackupPage extends ConsumerStatefulWidget {
   ConsumerState<ConfigBackupPage> createState() => _ConfigBackupPageState();
 }
 
+/// 分享码只接受大写字母和数字，小写会自动转成大写。
+class _ShareCodeFormatter extends TextInputFormatter {
+  const _ShareCodeFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final filtered = StringBuffer();
+    for (final rune in newValue.text.toUpperCase().runes) {
+      final char = String.fromCharCode(rune);
+      if (RegExp(r'[A-Z0-9]').hasMatch(char)) filtered.write(char);
+    }
+    final text = filtered.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
 class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
   static const _personalizationSuffix = '2';
   static const _scheduleSuffix = '1';
-  final _personalizationController = TextEditingController();
-  final _scheduleController = TextEditingController();
+  final _personalizationController = FOtpController(children: appOtpChildren());
+  final _scheduleController = FOtpController(children: appOtpChildren());
   late final TextEditingController _secondaryNameController;
   bool _busy = false;
 
@@ -116,7 +138,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
       if (normalizedCode.length != 6 || normalizedCode[5] != suffix) {
         throw FormatException(
           suffix == _personalizationSuffix
-              ? '此分享码为课表数据，请改用备用课表导入'
+              ? '此分享码为课表数据，请改用第二课表导入'
               : '此分享码为个性化设置，请改用个性化设置导入',
         );
       }
@@ -163,7 +185,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     try {
       return parseCourseBackup(jsonEncode(value));
     } catch (error) {
-      throw FormatException('备用课表数据格式无效：${describeError(error)}');
+      throw FormatException('第二课表数据格式无效：${describeError(error)}');
     }
   }
 
@@ -171,8 +193,8 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     if (_busy) return;
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '清空备用课表？',
-      message: '备用课表将被删除，无法恢复。',
+      title: '清空第二课表？',
+      message: '第二课表将被删除，无法恢复。',
       confirmLabel: '清空',
       destructive: true,
     );
@@ -184,7 +206,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
         _secondaryNameController.text = ref
             .read(secondaryScheduleProvider)
             .title;
-        showAppSnackBar(context, '备用课表已清空', severity: ToastSeverity.success);
+        showAppSnackBar(context, '第二课表已清空', severity: ToastSeverity.success);
       }
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -194,7 +216,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
   Widget _section({
     required String title,
     required Key fieldKey,
-    required TextEditingController controller,
+    required FOtpController controller,
     required VoidCallback? onExport,
     required VoidCallback? onImport,
     Widget? footer,
@@ -203,12 +225,19 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     children: [
       Text(title, style: context.theme.typography.tileTitle),
       const SizedBox(height: AppSpacing.md),
-      AppTextField(
-        key: fieldKey,
-        controller: controller,
-        hint: '输入或生成分享码',
-        enabled: !_busy,
-        textCapitalization: TextCapitalization.characters,
+      // 分享码固定六位，用格子式输入，避免手输空格/小写。
+      Center(
+        child: FOtpField(
+          key: fieldKey,
+          control: FOtpFieldControl.managed(controller: controller),
+          enabled: !_busy,
+          keyboardType: TextInputType.visiblePassword,
+          textInputAction: TextInputAction.done,
+          textCapitalization: TextCapitalization.characters,
+          style: appOtpFieldStyle,
+          inputFormatters: const [_ShareCodeFormatter()],
+          onSubmit: (_) => onImport?.call(),
+        ),
       ),
       const SizedBox(height: AppSpacing.md),
       Row(
@@ -256,14 +285,14 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
         ),
         const SizedBox(height: AppSpacing.xl),
         _section(
-          title: '备用课表',
+          title: '第二课表',
           fieldKey: const ValueKey('config_backup_schedule_code'),
           controller: _scheduleController,
           onExport: _busy ? null : () => _generate(suffix: _scheduleSuffix),
           onImport: _busy ? null : () => _import(suffix: _scheduleSuffix),
           footer: AppTextField(
             controller: _secondaryNameController,
-            label: '备用课表名称',
+            label: '第二课表名称',
             enabled: !_busy,
             inputFormatters: [LengthLimitingTextInputFormatter(12)],
             onChanged: (value) => unawaited(
@@ -276,7 +305,7 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
           variant: FButtonVariant.destructive,
           onPress: _busy ? null : _clearSecondary,
           prefix: const Icon(FLucideIcons.trash2),
-          child: const Text('清空备用课表'),
+          child: const Text('清空第二课表'),
         ),
       ],
     ),

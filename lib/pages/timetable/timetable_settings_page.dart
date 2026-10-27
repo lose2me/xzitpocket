@@ -56,6 +56,17 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   // 课程预览默认收起，下拉（或点击）展开。
   bool _previewExpanded = false;
   late final TextEditingController _templateController;
+  /// 「模板语法」默认折叠，避免设置页一进来就被一大段说明占满。
+  bool _templateRulesExpanded = false;
+  static const _templateRuleLines = [
+    '变量：{课程} {教师} {教室} {校区} {时间}',
+    '加粗：[b]文字[/b]',
+    '斜体：[i]文字[/i]（也可写 [斜]文字[/斜]）',
+    '字号：[s12]文字[/s12]（数字为 px）',
+    '颜色：[c#111827|#f9fafb]文字[/c]（| 前亮色、后暗色）',
+    '靠左：[左]文字[/左]　居中：[中]文字[/中]　靠右：[右]文字[/右]',
+    '# 和 @ 均为普通字符，可直接书写',
+  ];
   final _templateFocusNode = FocusNode();
 
   @override
@@ -96,9 +107,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           key: const ValueKey('course-template-input'),
           controller: _templateController,
           focusNode: _templateFocusNode,
-          label: '文字模板（单行输入，\\n 换行）',
           hint: kDefaultCourseTextTemplate,
-          description: '修改后点「保存」生效，保存时会校验格式。',
           maxLines: 1,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -124,13 +133,35 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        const ProfileSettingsHint(
-          '变量：{课程} {教师} {教室} {校区} {时间}；'
-          '样式（闭合标签与开标签同名）：[b]加粗[/b]、[i]斜体[/i]、'
-          '[s12]字号(px)[/s12]、[c#亮色|#暗色]颜色[/c]、[左][中][右]对齐[/左]。'
-          '# 和 @ 均为普通字符。含变量的行在变量为空时整行省略。',
+        ProfileSettingsGroup(
+          children: [
+            ProfileSettingsExpandableTile(
+              icon: FLucideIcons.braces,
+              title: '模板语法',
+              expandable: true,
+              expanded: _templateRulesExpanded,
+              onTap: () => setState(
+                () => _templateRulesExpanded = !_templateRulesExpanded,
+              ),
+              // 每行单独一个 Text：FTile 的默认文字样式带 maxLines/ellipsis，
+              // 单块多行文本会被压成一行。
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                spacing: 2,
+                children: [
+                  for (final line in _templateRuleLines)
+                    Text(
+                      line,
+                      style: context.theme.typography.bodySmall.copyWith(
+                        color: context.theme.colors.mutedForeground,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: AppSpacing.lg),
         const ProfileSectionLabel(title: '课程块'),
       ],
     );
@@ -305,7 +336,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     const ProfileSectionLabel(title: '主题'),
                     ProfileSettingsGroup(
                       children: [
-                        ProfileSettingsOptionsTile<AppThemePreference>(
+                        ProfileSettingsChoiceTile<AppThemePreference>(
                           icon: FLucideIcons.sunMoon,
                           title: '主题模式',
                           value: settings.themePreference,
@@ -446,6 +477,176 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               ? null
                               : () => _clearBackground(dark: true),
                           onPointerUp: _releaseBackgroundPointer,
+                        ),
+                      ],
+                    ),
+                  ]),
+                ),
+                FTabEntry(
+                  label: const Text('页面与文字'),
+                  child: _tabList([
+                    const ProfileSectionLabel(title: '页面文字'),
+                    ProfileSettingsGroup(
+                      children: [
+                        ProfileSettingsColorTile(
+                          icon: FLucideIcons.type,
+                          title: '颜色',
+                          value: settings.timetablePageTextFor(brightness),
+                          colors: [
+                            for (final color in AppThemeColor.values)
+                              color.resolve(brightness),
+                          ],
+                          lastCustomColor:
+                              settings.timetableLastCustomPageTextColor,
+                          onChanged: (color) {
+                            final selected = color == null
+                                ? null
+                                : AppThemeColor.values.firstWhere(
+                                    (item) =>
+                                        item.resolve(brightness).toARGB32() ==
+                                        color.toARGB32(),
+                                  );
+                            unawaited(
+                              ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setTimetablePageTextColor(
+                                    selected?.lightColor,
+                                  ),
+                            );
+                          },
+                          onCustomColorPressed: () => unawaited(
+                            _selectCustomColor(
+                              settings.timetableLastCustomPageTextColor ??
+                                  settings.timetablePageTextFor(brightness) ??
+                                  context.theme.colors.foreground,
+                              ref
+                                  .read(appSettingsProvider.notifier)
+                                  .setCustomTimetablePageTextColor,
+                            ),
+                          ),
+                        ),
+                        ProfileSettingsSliderTile(
+                          icon: FLucideIcons.layers,
+                          title: '不透明度',
+                          value: settings.timetablePageTextOpacity,
+                          defaultValue:
+                              const AppSettings().timetablePageTextOpacity,
+                          min: 0,
+                          max: 1,
+                          suffix: '%',
+                          displayMultiplier: 100,
+                          displayDecimals: 0,
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetablePageTextOpacity(value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const ProfileSectionLabel(title: '显示项'),
+                    ProfileSettingsGroup(
+                      children: [
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.clock3,
+                          title: '隐藏节次时间',
+                          value: settings.timetableHideSectionTime,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableHideSectionTime(value),
+                        ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.calendarDays,
+                          title: '隐藏日期',
+                          value: settings.timetableHideDateUnderDay,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableHideDateUnderDay(value),
+                        ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.eye,
+                          title: '显示非本周课程',
+                          value: settings.showNonCurrentWeekCourses,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setShowNonCurrentWeekCourses(value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    const ProfileSectionLabel(title: '课程改动标记'),
+                    ProfileSettingsGroup(
+                      children: [
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.palette,
+                          title: '颜色标识',
+                          value: settings.timetableDayColorMarkers,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableDayColorMarkers(value),
+                        ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.type,
+                          title: '文字标识',
+                          value: settings.timetableDayTextMarkers,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableDayTextMarkers(value),
+                        ),
+                        ProfileSettingsSliderTile(
+                          icon: FLucideIcons.type,
+                          title: '文字大小',
+                          value: settings.timetableDayTextMarkerSize,
+                          defaultValue:
+                              const AppSettings().timetableDayTextMarkerSize,
+                          min: 4,
+                          max: 16,
+                          suffix: ' px',
+                          displayDecimals: 1,
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableDayTextMarkerSize(value),
+                        ),
+                        ProfileSettingsChoiceTile<TimetableDayMarkerPosition>(
+                          icon: FLucideIcons.move,
+                          title: '文字位置',
+                          value: settings.timetableDayTextMarkerPosition,
+                          options: const [
+                            ProfileSettingsOption(
+                              value: TimetableDayMarkerPosition.topRight,
+                              label: '右上',
+                            ),
+                            ProfileSettingsOption(
+                              value: TimetableDayMarkerPosition.bottomRight,
+                              label: '右下',
+                            ),
+                            ProfileSettingsOption(
+                              value: TimetableDayMarkerPosition.topLeft,
+                              label: '左上',
+                            ),
+                            ProfileSettingsOption(
+                              value: TimetableDayMarkerPosition.bottomLeft,
+                              label: '左下',
+                            ),
+                          ],
+                          onChanged: (value) => unawaited(
+                            ref
+                                .read(appSettingsProvider.notifier)
+                                .setTimetableDayTextMarkerPosition(value),
+                          ),
+                        ),
+                        ProfileSettingsSliderTile(
+                          icon: FLucideIcons.shrink,
+                          title: '文字内间距',
+                          value: settings.timetableDayTextMarkerPadding,
+                          defaultValue:
+                              const AppSettings().timetableDayTextMarkerPadding,
+                          min: 0,
+                          max: 8,
+                          suffix: ' px',
+                          displayDecimals: 1,
+                          onChanged: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setTimetableDayTextMarkerPadding(value),
                         ),
                       ],
                     ),
@@ -659,7 +860,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   label: const Text('课程块'),
                   child: _tabList([
                     _buildTemplateEditor(settings),
-                    const SizedBox(height: AppSpacing.xl),
                     ProfileSettingsGroup(
                       children: [
                         ProfileSettingsSliderTile(
@@ -739,7 +939,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     const ProfileSectionLabel(title: '边框'),
                     ProfileSettingsGroup(
                       children: [
-                        ProfileSettingsOptionsTile<TimetableBorderType>(
+                        ProfileSettingsChoiceTile<TimetableBorderType>(
                           icon: FLucideIcons.squareDashed,
                           title: '边框',
                           value: settings.timetableBorderType,
@@ -927,182 +1127,12 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   ]),
                 ),
                 FTabEntry(
-                  label: const Text('页面与文字'),
-                  child: _tabList([
-                    const ProfileSectionLabel(title: '页面文字'),
-                    ProfileSettingsGroup(
-                      children: [
-                        ProfileSettingsColorTile(
-                          icon: FLucideIcons.type,
-                          title: '颜色',
-                          value: settings.timetablePageTextFor(brightness),
-                          colors: [
-                            for (final color in AppThemeColor.values)
-                              color.resolve(brightness),
-                          ],
-                          lastCustomColor:
-                              settings.timetableLastCustomPageTextColor,
-                          onChanged: (color) {
-                            final selected = color == null
-                                ? null
-                                : AppThemeColor.values.firstWhere(
-                                    (item) =>
-                                        item.resolve(brightness).toARGB32() ==
-                                        color.toARGB32(),
-                                  );
-                            unawaited(
-                              ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setTimetablePageTextColor(
-                                    selected?.lightColor,
-                                  ),
-                            );
-                          },
-                          onCustomColorPressed: () => unawaited(
-                            _selectCustomColor(
-                              settings.timetableLastCustomPageTextColor ??
-                                  settings.timetablePageTextFor(brightness) ??
-                                  context.theme.colors.foreground,
-                              ref
-                                  .read(appSettingsProvider.notifier)
-                                  .setCustomTimetablePageTextColor,
-                            ),
-                          ),
-                        ),
-                        ProfileSettingsSliderTile(
-                          icon: FLucideIcons.layers,
-                          title: '不透明度',
-                          value: settings.timetablePageTextOpacity,
-                          defaultValue:
-                              const AppSettings().timetablePageTextOpacity,
-                          min: 0,
-                          max: 1,
-                          suffix: '%',
-                          displayMultiplier: 100,
-                          displayDecimals: 0,
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetablePageTextOpacity(value),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const ProfileSectionLabel(title: '显示项'),
-                    ProfileSettingsGroup(
-                      children: [
-                        ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.clock3,
-                          title: '隐藏节次时间',
-                          value: settings.timetableHideSectionTime,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableHideSectionTime(value),
-                        ),
-                        ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.calendarDays,
-                          title: '隐藏日期',
-                          value: settings.timetableHideDateUnderDay,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableHideDateUnderDay(value),
-                        ),
-                        ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.eye,
-                          title: '显示非本周课程',
-                          value: settings.showNonCurrentWeekCourses,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setShowNonCurrentWeekCourses(value),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                    const ProfileSectionLabel(title: '课程改动标记'),
-                    ProfileSettingsGroup(
-                      children: [
-                        ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.palette,
-                          title: '颜色标识',
-                          value: settings.timetableDayColorMarkers,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableDayColorMarkers(value),
-                        ),
-                        ProfileSettingsCheckboxTile(
-                          icon: FLucideIcons.type,
-                          title: '文字标识',
-                          value: settings.timetableDayTextMarkers,
-                          onChange: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableDayTextMarkers(value),
-                        ),
-                        ProfileSettingsSliderTile(
-                          icon: FLucideIcons.type,
-                          title: '文字大小',
-                          value: settings.timetableDayTextMarkerSize,
-                          defaultValue:
-                              const AppSettings().timetableDayTextMarkerSize,
-                          min: 4,
-                          max: 16,
-                          suffix: ' px',
-                          displayDecimals: 1,
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableDayTextMarkerSize(value),
-                        ),
-                        ProfileSettingsOptionsTile<TimetableDayMarkerPosition>(
-                          icon: FLucideIcons.move,
-                          title: '文字位置',
-                          value: settings.timetableDayTextMarkerPosition,
-                          options: const [
-                            ProfileSettingsOption(
-                              value: TimetableDayMarkerPosition.topRight,
-                              label: '右上',
-                            ),
-                            ProfileSettingsOption(
-                              value: TimetableDayMarkerPosition.bottomRight,
-                              label: '右下',
-                            ),
-                            ProfileSettingsOption(
-                              value: TimetableDayMarkerPosition.topLeft,
-                              label: '左上',
-                            ),
-                            ProfileSettingsOption(
-                              value: TimetableDayMarkerPosition.bottomLeft,
-                              label: '左下',
-                            ),
-                          ],
-                          onChanged: (value) => unawaited(
-                            ref
-                                .read(appSettingsProvider.notifier)
-                                .setTimetableDayTextMarkerPosition(value),
-                          ),
-                        ),
-                        ProfileSettingsSliderTile(
-                          icon: FLucideIcons.shrink,
-                          title: '文字内间距',
-                          value: settings.timetableDayTextMarkerPadding,
-                          defaultValue:
-                              const AppSettings().timetableDayTextMarkerPadding,
-                          min: 0,
-                          max: 8,
-                          suffix: ' px',
-                          displayDecimals: 1,
-                          onChanged: (value) => ref
-                              .read(appSettingsProvider.notifier)
-                              .setTimetableDayTextMarkerPadding(value),
-                        ),
-                      ],
-                    ),
-                  ]),
-                ),
-                FTabEntry(
                   label: const Text('小组件'),
                   child: _tabList([
                     const ProfileSectionLabel(title: '外观'),
                     ProfileSettingsGroup(
                       children: [
-                        ProfileSettingsOptionsTile<WidgetThemePreference>(
+                        ProfileSettingsChoiceTile<WidgetThemePreference>(
                           icon: FLucideIcons.sunMoon,
                           title: '主题',
                           value: settings.widgetThemePreference,

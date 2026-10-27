@@ -265,7 +265,7 @@ class LearningQuestionBank {
   /// requests for banks that have not changed.
   final String updatedAt;
 
-  /// True when control reports the bank as disabled/draft. Hidden banks keep
+  /// True when control reports the bank as disabled. Hidden banks keep
   /// their cached questions and saved collections, but are not shown until the
   /// bank is re-enabled (or removed if it is deleted).
   final bool hidden;

@@ -56,7 +56,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
 
   // Password reset
   final _phoneCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
+  final _codeCtrl = FOtpController(children: appOtpChildren());
   final _newPwdCtrl = TextEditingController();
   final _newPwd2Ctrl = TextEditingController();
   final _codeFocusNode = FocusNode();
@@ -551,15 +551,25 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
-        AppTextField(
-          controller: _codeCtrl,
-          focusNode: _codeFocusNode,
-          keyboardType: TextInputType.number,
-          textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _submitVerify(),
-          label: '验证码',
-          hint: '输入六位验证码',
-          prefix: const Icon(FLucideIcons.messageSquare),
+        // 六位验证码：一格一个字符，支持短信自动填充。
+        Center(
+          child: FOtpField(
+            control: FOtpFieldControl.managed(controller: _codeCtrl),
+            focusNode: _codeFocusNode,
+            enabled: !_resetLoading,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.oneTimeCode],
+            style: appOtpFieldStyle,
+            onSubmit: (_) => _submitVerify(),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          '输入手机收到的六位验证码',
+          style: theme.typography.caption.copyWith(
+            color: theme.colors.mutedForeground,
+          ),
         ),
         const SizedBox(height: AppSpacing.xxl),
         buttons,

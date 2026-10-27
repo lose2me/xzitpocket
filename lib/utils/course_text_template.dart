@@ -352,7 +352,8 @@ String buildCourseTemplateAiPrompt(String currentTemplate) {
 - 居中：[中]文字[/中]
 - 靠右：[右]文字[/右]
 - # 和 @ 均为普通字符，可直接书写''';
-  return '$syntax\n\n当前模板：\n$currentTemplate\n\n请按此语法返回新模板。';
+  return '$syntax\n\n当前模板：\n$currentTemplate\n\n'
+      '请询问我要更改什么方面的样式，协助我进行修改，返回时只输出模板。';
 }
 
 /// 由旧版布尔开关推导等价模板（用于旧数据的一次性迁移与派生显示）。

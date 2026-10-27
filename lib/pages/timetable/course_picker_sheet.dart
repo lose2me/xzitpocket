@@ -307,17 +307,19 @@ class _PickerColumnLabels extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Row(
     children: [
+      // 单列选择器（例如「选择星期」）不需要列标题，空标签直接不占位。
       for (final column in columns)
-        Expanded(
-          flex: column.flex,
-          child: Text(
-            column.label,
-            textAlign: TextAlign.center,
-            style: context.theme.typography.caption.copyWith(
-              color: context.theme.colors.mutedForeground,
+        if (column.label.trim().isNotEmpty)
+          Expanded(
+            flex: column.flex,
+            child: Text(
+              column.label,
+              textAlign: TextAlign.center,
+              style: context.theme.typography.caption.copyWith(
+                color: context.theme.colors.mutedForeground,
+              ),
             ),
           ),
-        ),
     ],
   );
 }

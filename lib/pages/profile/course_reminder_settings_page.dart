@@ -169,27 +169,25 @@ class _CourseReminderSettingsPageState
           const ProfileSectionLabel(title: '课堂勿扰'),
           ProfileSettingsGroup(
             children: [
-              ProfileSettingsControlTile(
+              ProfileSettingsChoiceTile<ClassAutomationMode>(
                 icon: FLucideIcons.bellOff,
                 title: '课堂勿扰',
-                child: ProfileSettingsOptionButtons<ClassAutomationMode>(
-                  value: settings.classAutomationMode,
-                  options: const [
-                    ProfileSettingsOption(
-                      value: ClassAutomationMode.off,
-                      label: '关闭',
-                    ),
-                    ProfileSettingsOption(
-                      value: ClassAutomationMode.dnd,
-                      label: '上课恢复',
-                    ),
-                    ProfileSettingsOption(
-                      value: ClassAutomationMode.dndKeep,
-                      label: '保持勿扰',
-                    ),
-                  ],
-                  onChanged: (mode) => unawaited(_setAutomationMode(mode)),
-                ),
+                value: settings.classAutomationMode,
+                options: const [
+                  ProfileSettingsOption(
+                    value: ClassAutomationMode.off,
+                    label: '关闭',
+                  ),
+                  ProfileSettingsOption(
+                    value: ClassAutomationMode.dnd,
+                    label: '下课后恢复',
+                  ),
+                  ProfileSettingsOption(
+                    value: ClassAutomationMode.dndKeep,
+                    label: '下课后不恢复',
+                  ),
+                ],
+                onChanged: (mode) => unawaited(_setAutomationMode(mode)),
               ),
             ],
           ),
