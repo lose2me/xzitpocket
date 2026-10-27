@@ -5,6 +5,7 @@ import 'package:forui/forui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:xzitpocket/ui/app_page.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
+import 'package:xzitpocket/utils/snackbar_helper.dart';
 
 const _marker = ValueKey('stationary-refresh-content');
 
@@ -178,6 +179,50 @@ void main() {
       },
     );
   }
+
+  testWidgets('a completed pull always ends with a toast', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await _pump(
+      tester,
+      AppRefreshIndicator(
+        onRefresh: () async {},
+        child: _content(controller),
+      ),
+    );
+    final gesture = await tester.startGesture(const Offset(195, 150));
+    await gesture.moveBy(const Offset(0, 320));
+    await tester.pump();
+    await gesture.up();
+    // The toast lives for ~3s, so settle only the refresh animation.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('已刷新'), findsOneWidget);
+  });
+
+  testWidgets('a page toast during refresh is not duplicated', (tester) async {
+    final controller = ScrollController();
+    addTearDown(controller.dispose);
+    await _pump(
+      tester,
+      AppRefreshIndicator(
+        onRefresh: () async => showAppSnackBar(
+          tester.element(find.byKey(_marker)),
+          '同步成功',
+          severity: ToastSeverity.success,
+        ),
+        child: _content(controller),
+      ),
+    );
+    final gesture = await tester.startGesture(const Offset(195, 150));
+    await gesture.moveBy(const Offset(0, 320));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('同步成功'), findsOneWidget);
+    expect(find.text('已刷新'), findsNothing);
+  });
 
   testWidgets('pointer cancellation never refreshes an armed pull', (
     tester,

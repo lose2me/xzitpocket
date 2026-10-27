@@ -125,7 +125,10 @@ class _BookListPageState extends ConsumerState<BookListPage> {
   Future<void> _refresh() => _load(forceRefresh: true);
 
   Future<void> _load({bool showError = true, bool forceRefresh = false}) async {
-    if (_loading) return;
+    if (_loading) {
+      markAppRefreshHandled();
+      return;
+    }
     final hasFreshCache =
         _result != null &&
         PreferencesStorage.isCacheValid(

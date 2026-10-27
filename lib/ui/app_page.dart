@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:forui/forui.dart';
 
+import '../utils/snackbar_helper.dart';
 import 'app_tokens.dart';
 
 class AppPage extends StatelessWidget {
@@ -238,6 +239,7 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
   }
 
   Future<void> _refresh() async {
+    final startedAt = DateTime.now();
     setState(() => _refreshing = true);
     try {
       await _position
@@ -248,7 +250,14 @@ class _AppRefreshIndicatorState extends State<AppRefreshIndicator>
     } on TickerCanceled {
       // Disposing during the snap must not leave a pending animation future.
     } finally {
-      if (mounted) await _retract(refreshed: true);
+      if (mounted) {
+        // 每次下拉刷新都要有反馈；页面自己在刷新过程中已经 toast 过
+        // （例如「同步成功」「刷新失败」）时不再重复。
+        if (!appFeedbackShownSince(startedAt)) {
+          showAppSnackBar(context, '已刷新', severity: ToastSeverity.success);
+        }
+        await _retract(refreshed: true);
+      }
     }
   }
 

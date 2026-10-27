@@ -32,6 +32,16 @@ void setAppToastOpacity(double value) {
   _appToastOpacity.value = value.clamp(0.0, 1.0).toDouble();
 }
 
+DateTime? _lastFeedbackAt;
+
+/// 刷新等流程用来判断「这次操作期间是否已经给过反馈」，避免重复 toast。
+bool appFeedbackShownSince(DateTime moment) =>
+    _lastFeedbackAt != null && _lastFeedbackAt!.isAfter(moment);
+
+/// 标记这一次刷新已经给过反馈（例如弹了确认框、或因为没有可刷新的内容而
+/// 直接返回），这样下拉刷新就不会再补一条「已刷新」。
+void markAppRefreshHandled() => _lastFeedbackAt = DateTime.now();
+
 class _ToastData {
   final String message;
   final Duration duration;
@@ -54,6 +64,7 @@ void showAppSnackBar(
       ? Overlay.of(context, rootOverlay: true)
       : _rootOverlay;
   if (overlay == null || !overlay.mounted) return;
+  _lastFeedbackAt = DateTime.now();
   _rootOverlay = overlay;
   // 仅在 host 不存在时创建并插入，避免重复插入同一 OverlayEntry 导致崩溃。
   if (_hostEntry?.mounted != true) {

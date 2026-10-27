@@ -80,7 +80,10 @@ class _TeacherEvaluationPageState extends ConsumerState<TeacherEvaluationPage> {
   }
 
   Future<void> _loadStatus({bool forceRefresh = false}) async {
-    if (_isLoading) return;
+    if (_isLoading) {
+      markAppRefreshHandled();
+      return;
+    }
     if (!_requireCampusNetwork()) return;
     final config = ref.read(configProvider);
     if (config.studentId == null || config.studentId!.isEmpty) return;
