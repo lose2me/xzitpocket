@@ -13,7 +13,9 @@ import 'pages/home_page.dart';
 import 'pages/timetable/timetable_page.dart';
 import 'providers/app_settings_provider.dart';
 import 'providers/config_provider.dart';
+import 'providers/auth_provider.dart';
 import 'providers/schedule_provider.dart';
+import 'providers/secondary_schedule_provider.dart';
 import 'services/course_storage.dart';
 import 'services/control_service.dart';
 import 'services/course_upload.dart';
@@ -123,7 +125,26 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       unawaited(_syncCoursesToControl());
       unawaited(ControlService.instance.track('foreground'));
       unawaited(_maybePromptUpdate());
+      unawaited(_reconnectAndCheckAccount());
     }
+  }
+
+  /// 回到前台时先恢复与 control 的连接，再检查账号是否被封禁；被封禁就退出
+  /// 登录，避免继续使用旧会话。
+  Future<void> _reconnectAndCheckAccount() async {
+    await ControlService.instance.reconnect();
+    if (!mounted) return;
+    final prefs = ref.read(preferencesStorageProvider);
+    final studentId = prefs.getStudentId();
+    if (studentId == null || studentId.isEmpty) return;
+    final reason = await ControlService.instance.loginBlockReason(studentId);
+    if (reason == null || !mounted) return;
+    await ref.read(scheduleProvider.notifier).clearAll();
+    await ref.read(secondaryScheduleProvider.notifier).clear();
+    await ref.read(configProvider.notifier).logout();
+    ref.read(authProvider.notifier).reset();
+    if (!mounted) return;
+    showAppSnackBar(context, reason, severity: ToastSeverity.error);
   }
 
   /// Pushes the timetable and the cached book list to control when the app

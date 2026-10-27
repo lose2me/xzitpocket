@@ -262,6 +262,21 @@ class ControlService {
     }
   }
 
+  /// 回到前台时调用：设备未注册则补注册，访问令牌过期则用 refresh token 换新，
+  /// 让后续的上报/同步不必先吃一次 401。失败保持静默，不影响离线使用。
+  Future<void> reconnect() async {
+    if (!_communicationAllowed || !isConfigured) return;
+    try {
+      await _loadState();
+      await _ensureDevice();
+      if (_refreshToken != null) await _validAccessToken();
+      _serviceAvailable = true;
+    } catch (error, stackTrace) {
+      _serviceAvailable = false;
+      talker.debug('恢复 control 连接失败', error, stackTrace);
+    }
+  }
+
   /// Returns a user-facing reason when control has banned the current device or
   /// disabled the account, or null when login is allowed. Any failure to reach
   /// control (or any other response) is treated as allowed so a control outage
