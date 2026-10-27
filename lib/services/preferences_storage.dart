@@ -163,7 +163,7 @@ class PreferencesStorage {
     // 版本更新数据（按版本持久化）
     'app_release_cache': String,
     'update_prompted_version': String,
-    // 备用课表
+    // 第二课表
     'secondary_schedule_json': String,
     'secondary_schedule_title': String,
     // 宿舍与缓存
@@ -424,14 +424,14 @@ class PreferencesStorage {
   String getSecondaryScheduleTitle() {
     final title = _prefs.getString('secondary_schedule_title');
     if (title == null || title.isEmpty) {
-      return '正在预览备用课表';
+      return '正在预览第二课表';
     }
     return title;
   }
 
   Future<void> setSecondaryScheduleTitle(String value) async {
     final title = value.trim();
-    if (title.isEmpty || title == '正在预览备用课表') {
+    if (title.isEmpty || title == '正在预览第二课表') {
       await _prefs.remove('secondary_schedule_title');
     } else {
       await _prefs.setString('secondary_schedule_title', title);
@@ -1286,6 +1286,13 @@ class PreferencesStorage {
 
   Future<void> setSchoolCalendarVersion(String value) =>
       _prefs.setString('school_calendar_version', value);
+
+  /// 上次获取校历时使用的学院：学院变了要强制重新拉取（院级例外时间不同）。
+  String getSchoolCalendarCollege() =>
+      _prefs.getString('school_calendar_college') ?? '';
+
+  Future<void> setSchoolCalendarCollege(String value) =>
+      _prefs.setString('school_calendar_college', value);
 
   /// Pending 「云端课程有所调整」 reminder; cleared once the user dismisses
   /// the timetable banner.

@@ -25,7 +25,7 @@ class WeekHeader extends StatelessWidget {
     this.currentWeek,
     this.onToggleSchedule,
     this.showingSecondarySchedule = false,
-    this.secondaryScheduleTitle = '正在预览备用课表',
+    this.secondaryScheduleTitle = '正在预览第二课表',
     this.showWeekNumber = true,
   });
 
@@ -93,7 +93,7 @@ class WeekHeader extends StatelessWidget {
               AppIconButton(
                 icon: FLucideIcons.arrowLeftRight,
                 onPress: onToggleSchedule,
-                tooltip: showingSecondarySchedule ? '切换到主课表' : '切换到备用课表',
+                tooltip: showingSecondarySchedule ? '切换到主课表' : '切换到第二课表',
               ),
           ],
         ),

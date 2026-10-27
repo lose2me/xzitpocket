@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/course.dart';
 import 'config_provider.dart';
 
-const defaultSecondaryScheduleTitle = '正在预览备用课表';
+const defaultSecondaryScheduleTitle = '正在预览第二课表';
 
 class SecondaryScheduleState {
   final List<Course> courses;
@@ -61,7 +61,7 @@ class SecondaryScheduleNotifier extends Notifier<SecondaryScheduleState> {
           if (item is Map)
             Course.fromJson(Map<String, dynamic>.from(item))
           else
-            throw const FormatException('备用课表课程格式无效'),
+            throw const FormatException('第二课表课程格式无效'),
       ];
       return SecondaryScheduleState(
         courses: List.unmodifiable(courses),
