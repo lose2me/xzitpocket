@@ -11,6 +11,7 @@ import 'package:forui/forui.dart';
 import '../../models/resource_center.dart';
 import '../../services/control_service.dart';
 import '../../services/preferences_storage.dart';
+import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
 
@@ -101,7 +102,8 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   String _kind = 'resource';
   late String _courseCode = _initialCourseCode();
   final List<_PickedPdf> _files = [];
-  _PickedPdf? _manualFile;
+  final List<_PickedPdf> _manualFiles = [];
+  final TextEditingController _noteController = TextEditingController();
   bool _uploading = false;
   int _sent = 0;
   int _total = 0;
@@ -135,6 +137,12 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     _restoreCaches();
     if (!widget.courseScoped) unawaited(_loadStats());
     if (_kind == 'textbook') unawaited(_loadTextbooks());
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    super.dispose();
   }
 
   /// Shows the last successful upload summary immediately; the requests below
@@ -249,11 +257,12 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Future<void> _pickFiles() async {
     if (_uploading) return;
-    final multiple = _kind == 'resource';
     final List<XFile> picked;
     try {
       picked = await openFiles(
-        acceptedTypeGroups: [multiple ? _examTypeGroup : _pdfTypeGroup],
+        acceptedTypeGroups: [
+          _kind == 'resource' ? _examTypeGroup : _pdfTypeGroup,
+        ],
       );
     } catch (_) {
       if (mounted) {
@@ -301,21 +310,14 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
     var overflow = 0;
     setState(() {
-      if (!multiple) {
-        _files
-          ..clear()
-          ..add(entries.first);
-      } else {
-        final known = {for (final item in _files) item.path};
-        for (final entry in entries) {
-          if (!known.add(entry.path)) continue;
-          if (_files.length >= _maxFilesPerUpload) {
-            overflow++;
-            continue;
-          }
-          _files.add(entry);
+      final known = {for (final item in _files) item.path};
+      for (final entry in entries) {
+        if (!known.add(entry.path)) continue;
+        if (_files.length >= _maxFilesPerUpload) {
+          overflow++;
+          continue;
         }
-        if (_files.length > 1) _manualFile = null;
+        _files.add(entry);
       }
     });
     if (overflow > 0) {
@@ -337,7 +339,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     if (_files.isEmpty) {
       showAppSnackBar(
         context,
-        _kind == 'resource' ? '请选择文件' : '请选择 PDF 文件',
+        _kind == 'resource' ? '请选择试卷' : '请选择教材',
         severity: ToastSeverity.warning,
       );
       return;
@@ -371,135 +373,107 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
         return;
       }
     }
-    final queue = List<_PickedPdf>.of(_files);
-    final manual = queue.length == 1 ? _manualFile : null;
+    // One submit is one record: every selected file (papers and answers) goes
+    // into the same ticket and is uploaded one after another.
+    final queue = <_PickedPdf>[..._files, ..._manualFiles];
+    if (queue.isEmpty) return;
+    final note = _noteController.text.trim();
+    final grandTotal = queue.fold<int>(0, (sum, file) => sum + file.size);
     setState(() {
       _uploading = true;
       _uploadIndex = 1;
       _uploadCount = queue.length;
       _sent = 0;
-      _total = queue.first.size + (manual?.size ?? 0);
+      _total = grandTotal;
     });
-    final failed = <_PickedPdf>[];
     String? firstError;
-    for (var index = 0; index < queue.length; index++) {
-      final picked = queue[index];
-      if (mounted) {
-        setState(() {
-          _uploadIndex = index + 1;
-          _sent = 0;
-          _total = picked.size + (manual?.size ?? 0);
-        });
+    String ticketId = '';
+    final uploaded = <_PickedPdf>[];
+    try {
+      final files = <ResourceUploadFile>[];
+      for (final file in queue) {
+        files.add(
+          ResourceUploadFile(
+            name: _nameFromFile(file.name),
+            format: _fileFormat(file.name),
+            md5: await _fileMd5(file.path),
+            sizeBytes: file.size,
+          ),
+        );
       }
-      final itemName = _kind == 'resource' ? _nameFromFile(picked.name) : name;
-      final error = await _uploadOne(
-        picked,
-        manual: manual,
+      final ticket = await ControlService.instance.createResourceUploadTicket(
+        kind: _kind,
         courseCode: courseCode,
-        name: itemName,
+        name: _kind == 'resource' ? _nameFromFile(queue.first.name) : name,
+        files: files,
         tags: tags,
         targetId: targetId,
+        note: note,
       );
-      if (error == null) {
-        if (mounted) setState(() => _files.remove(picked));
-      } else {
-        failed.add(picked);
-        firstError ??= error;
+      ticketId = ticket.id;
+      var sentBefore = 0;
+      for (var index = 0; index < queue.length; index++) {
+        final picked = queue[index];
+        final upload = ticket.files[index];
+        if (mounted) {
+          setState(() => _uploadIndex = index + 1);
+        }
+        final before = sentBefore;
+        await ControlService.instance.uploadToSignedUrl(
+          upload.uploadUrl,
+          filePath: picked.path,
+          sizeBytes: picked.size,
+          contentType: _contentTypeForFormat(files[index].format),
+          onProgress: (sent, _) {
+            if (!mounted) return;
+            setState(() => _sent = before + sent);
+          },
+        );
+        sentBefore += picked.size;
+        uploaded.add(picked);
+        if (mounted) {
+          setState(() {
+            _sent = sentBefore;
+            _files.remove(picked);
+            _manualFiles.remove(picked);
+          });
+        }
       }
+      await ControlService.instance.completeResourceUpload(ticket.id);
+    } on ControlApiException catch (error) {
+      firstError = error.message;
+      talker.warning('资料上传失败', '${error.code}: ${error.message}');
+    } catch (error) {
+      firstError = '上传失败，请稍后重试';
+      talker.warning('资料上传失败', '$error');
+    }
+    if (firstError != null && uploaded.isEmpty && ticketId.isNotEmpty) {
+      // Nothing made it up, so drop the reserved ticket and its objects.
+      unawaited(ControlService.instance.abortResourceUpload(ticketId));
     }
     if (!mounted) return;
-    setState(() {
-      _uploading = false;
-      if (failed.isNotEmpty) {
-        _files
-          ..clear()
-          ..addAll(failed);
-      }
-    });
-    if (failed.isEmpty) {
-      if (mounted) setState(() => _manualFile = null);
-      // Counters and the textbook list may have changed.
+    if (firstError == null) {
+      setState(() {
+        _manualFiles.clear();
+        _noteController.clear();
+      });
       await widget.preferencesStorage.clearResourceUploadCaches();
       if (mounted) Navigator.of(context).pop(true);
       return;
     }
-    final message = failed.length == 1
-        ? (firstError ?? '上传失败，请稍后重试')
-        : '${failed.length} 个文件上传失败，请重试（${firstError ?? '网络异常'}）';
-    showAppSnackBar(context, message, severity: ToastSeverity.error);
-  }
-
-  Future<String?> _uploadOne(
-    _PickedPdf picked, {
-    _PickedPdf? manual,
-    required String courseCode,
-    required String name,
-    required String tags,
-    required String targetId,
-  }) async {
-    ResourceUploadTicket? ticket;
-    var uploaded = false;
-    final format = _kind == 'resource' ? _fileFormat(picked.name) : 'pdf';
-    try {
-      final fileMd5 = await _fileMd5(picked.path);
-      final manualMd5 = manual == null ? '' : await _fileMd5(manual.path);
-      final manualFormat = manual == null ? 'pdf' : _fileFormat(manual.name);
-      ticket = await ControlService.instance.createResourceUploadTicket(
-        kind: _kind,
-        courseCode: courseCode,
-        name: name,
-        tags: tags,
-        targetId: targetId,
-        format: format,
-        md5: fileMd5,
-        sizeBytes: picked.size,
-        manualMd5: manualMd5,
-        manualFormat: manualFormat,
-        manualSizeBytes: manual?.size ?? 0,
-      );
-      await ControlService.instance.uploadToSignedUrl(
-        ticket.uploadUrl,
-        filePath: picked.path,
-        sizeBytes: picked.size,
-        contentType: _contentTypeForFormat(format),
-        onProgress: (sent, total) {
-          if (!mounted) return;
-          setState(() {
-            _sent = sent;
-            final manualSize = manual?.size ?? 0;
-            if (total > 0) _total = total + manualSize;
-          });
-        },
-      );
-      if (manual != null && ticket.manualUploadUrl.isNotEmpty) {
-        await ControlService.instance.uploadToSignedUrl(
-          ticket.manualUploadUrl,
-          filePath: manual.path,
-          sizeBytes: manual.size,
-          contentType: _contentTypeForFormat(manualFormat),
-          onProgress: (sent, total) {
-            if (!mounted) return;
-            setState(() {
-              _sent = picked.size + sent;
-              if (total > 0) _total = picked.size + total;
-            });
-          },
-        );
-      }
-      uploaded = true;
-      await ControlService.instance.completeResourceUpload(ticket.id);
-      return null;
-    } on ControlApiException catch (error) {
-      if (ticket != null && !uploaded) {
-        unawaited(ControlService.instance.abortResourceUpload(ticket.id));
-      }
-      return error.message;
-    } catch (_) {
-      if (ticket != null && !uploaded) {
-        unawaited(ControlService.instance.abortResourceUpload(ticket.id));
-      }
-      return '上传失败，请稍后重试';
+    // Files that already made it up stay out of the list; a retry sends the rest.
+    setState(() => _uploading = false);
+    if (uploaded.isNotEmpty) {
+      await widget.preferencesStorage.clearResourceUploadCaches();
     }
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      uploaded.isEmpty
+          ? firstError
+          : '${uploaded.length} 个文件已上传，剩余文件失败：$firstError',
+      severity: ToastSeverity.error,
+    );
   }
 
   @override
@@ -573,6 +547,15 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
               ),
             ),
           ],
+          const SizedBox(height: AppSpacing.lg),
+          AppTextField(
+            controller: _noteController,
+            hint: '备注（可选，写给审核的同学）',
+            minLines: 1,
+            maxLines: 3,
+            maxLength: 500,
+            enabled: !_uploading,
+          ),
           const SizedBox(height: AppSpacing.lg),
           FButton(
             variant: FButtonVariant.primary,
@@ -693,7 +676,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
 
   Widget _buildCourseSelector(FThemeData theme) {
     return _SearchChoiceField<String>(
-      label: '课程',
+      label: '选择课程',
       placeholder: '请选择课程',
       searchHint: '搜索课程名或编号',
       value: _courseCode.isEmpty ? null : _courseCode,
@@ -707,23 +690,32 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     );
   }
 
-  Future<void> _pickManualFile() async {
+  Future<void> _pickManualFiles() async {
     if (_uploading) return;
     try {
       final picked = await openFiles(acceptedTypeGroups: [_examTypeGroup]);
       if (!mounted || picked.isEmpty) return;
-      final file = picked.first;
-      final size = await file.length();
+      final known = {for (final item in _manualFiles) item.path};
+      final entries = <_PickedPdf>[];
+      var rejected = 0;
+      for (final file in picked) {
+        final size = await file.length();
+        if (size <= 0 || size > _maxUploadBytes || !known.add(file.path)) {
+          rejected++;
+          continue;
+        }
+        entries.add(_PickedPdf(file, size));
+      }
       if (!mounted) return;
-      if (size <= 0 || size > _maxUploadBytes) {
+      if (rejected > 0) {
         showAppSnackBar(
           context,
-          '原版解析文件无效或超过 80 MB',
+          '$rejected 个答案文件无效、重复或超过 80 MB，已忽略',
           severity: ToastSeverity.warning,
         );
-        return;
       }
-      setState(() => _manualFile = _PickedPdf(file, size));
+      if (entries.isEmpty) return;
+      setState(() => _manualFiles.addAll(entries));
     } catch (_) {
       if (mounted) {
         showAppSnackBar(
@@ -736,134 +728,74 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   }
 
   Widget _buildManualAnalysisPicker(FThemeData theme) {
-    final manual = _manualFile;
-    final tooMany = _files.length > 1;
-    final disabled = _uploading || tooMany;
+    final hasAnswers = _manualFiles.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '原版解析（可选）',
-          style: theme.typography.bodySmall.copyWith(
-            color: theme.colors.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        if (manual == null)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: disabled ? null : () => unawaited(_pickManualFile()),
-            child: CustomPaint(
-              painter: DashedBorderPainter(
-                color: disabled
-                    ? theme.colors.border.withValues(alpha: 0.5)
-                    : theme.colors.border,
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 92,
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        FLucideIcons.fileUp,
-                        size: 20,
+        if (hasAnswers) ...[
+          for (final picked in _manualFiles) ...[
+            _buildFileRow(
+              theme,
+              picked,
+              tooltip: '移除答案',
+              onRemove: () => setState(() => _manualFiles.remove(picked)),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+          ],
+        ],
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _uploading ? null : () => unawaited(_pickManualFiles()),
+          child: CustomPaint(
+            painter: DashedBorderPainter(color: theme.colors.border),
+            child: SizedBox(
+              width: double.infinity,
+              height: 92,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      FLucideIcons.fileUp,
+                      size: 20,
+                      color: theme.colors.mutedForeground,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      _uploading
+                          ? '上传中…'
+                          : hasAnswers
+                          ? '继续添加答案'
+                          : '选择答案',
+                      style: theme.typography.bodySmall.copyWith(
                         color: theme.colors.mutedForeground,
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        tooMany
-                            ? '多份试卷暂不支持同时上传原版解析'
-                            : _uploading
-                            ? '上传中…'
-                            : '选择原版解析文档',
-                        style: theme.typography.bodySmall.copyWith(
-                          color: theme.colors.mutedForeground,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '支持 PDF / DOCX / DOC，可多选，不超过 80 MB',
+                      style: theme.typography.caption.copyWith(
+                        color: theme.colors.mutedForeground.withValues(
+                          alpha: 0.8,
                         ),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        tooMany
-                            ? '请只保留一份试卷后再选择'
-                            : '支持 PDF / DOCX / DOC，不超过 80 MB',
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.mutedForeground.withValues(
-                            alpha: 0.8,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
-          )
-        else
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.colors.border),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  FLucideIcons.fileText,
-                  size: 18,
-                  color: theme.colors.mutedForeground,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        manual.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.typography.bodySmall.copyWith(
-                          color: theme.colors.foreground,
-                        ),
-                      ),
-                      Text(
-                        _formatSize(manual.size),
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.mutedForeground,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!_uploading)
-                  IconButton(
-                    onPressed: () => setState(() => _manualFile = null),
-                    icon: const Icon(FLucideIcons.x, size: 18),
-                    color: theme.colors.mutedForeground,
-                    tooltip: '移除原版解析',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
-            ),
           ),
+        ),
       ],
     );
   }
 
   Widget _buildFilePicker(FThemeData theme) {
-    final multiple = _kind == 'resource';
+    final textbook = _kind == 'textbook';
     final hasFiles = _files.isNotEmpty;
     final label = hasFiles
-        ? (multiple ? '继续添加文件' : '更换 PDF 文件')
-        : (multiple ? '选择文件' : '选择 PDF 文件');
+        ? (textbook ? '继续添加教材' : '继续添加试卷')
+        : (textbook ? '选择教材' : '选择试卷');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -900,9 +832,9 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      multiple
-                          ? '支持 PDF / DOCX / DOC，可多选，单个不超过 80 MB'
-                          : '仅支持单个 PDF，不超过 80 MB',
+                      textbook
+                          ? '支持 PDF，可多选，单个不超过 80 MB'
+                          : '支持 PDF / DOCX / DOC，可多选，单个不超过 80 MB',
                       style: theme.typography.caption.copyWith(
                         color: theme.colors.mutedForeground.withValues(
                           alpha: 0.8,
@@ -919,7 +851,12 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     );
   }
 
-  Widget _buildFileRow(FThemeData theme, _PickedPdf picked) {
+  Widget _buildFileRow(
+    FThemeData theme,
+    _PickedPdf picked, {
+    String tooltip = '移除文件',
+    VoidCallback? onRemove,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
@@ -961,10 +898,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           const SizedBox(width: AppSpacing.xs),
           if (!_uploading)
             IconButton(
-              onPressed: () => _removeFile(picked),
+              onPressed: onRemove ?? () => _removeFile(picked),
               icon: const Icon(FLucideIcons.x, size: 18),
               color: theme.colors.mutedForeground,
-              tooltip: '移除文件',
+              tooltip: tooltip,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               visualDensity: VisualDensity.compact,
@@ -993,7 +930,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
                 setState(() {
                   _kind = kind;
                   _files.clear();
-                  if (kind != 'resource') _manualFile = null;
+                  if (kind != 'resource') _manualFiles.clear();
                 });
                 if (kind == 'textbook') unawaited(_loadTextbooks());
               },
@@ -1296,10 +1233,10 @@ class _SearchChoiceFieldState<T> extends State<_SearchChoiceField<T>> {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                widget.format(option),
+              child: AppHighlightedText(
+                text: widget.format(option),
+                query: _query,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
                 style: theme.typography.bodySmall.copyWith(
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   color: selected

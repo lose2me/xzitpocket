@@ -53,16 +53,46 @@ class ResourceCenterResult {
   const ResourceCenterResult({required this.version, required this.courses});
 }
 
+/// 一次提交对应的上传票据：服务端为每个文件各返回一个直传地址。
 class ResourceUploadTicket {
   final String id;
-  final String uploadUrl;
-  final String manualUploadUrl;
+  final List<ResourceUploadTicketFile> files;
 
-  const ResourceUploadTicket({
+  const ResourceUploadTicket({required this.id, this.files = const []});
+}
+
+class ResourceUploadTicketFile {
+  final String id;
+  final String name;
+  final String uploadUrl;
+
+  const ResourceUploadTicketFile({
     required this.id,
+    required this.name,
     required this.uploadUrl,
-    this.manualUploadUrl = '',
   });
+}
+
+/// 准备上传的一个文件：名称、格式、md5 和大小。
+class ResourceUploadFile {
+  final String name;
+  final String format;
+  final String md5;
+  final int sizeBytes;
+
+  const ResourceUploadFile({
+    required this.name,
+    required this.format,
+    required this.md5,
+    required this.sizeBytes,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    'format': format,
+    'md5': md5,
+    'size_bytes': sizeBytes,
+  };
 }
 
 class UploadStats {
@@ -749,23 +779,22 @@ class ControlService {
     return url;
   }
 
-  /// Creates a short-lived COS upload ticket. The PDF is then PUT directly to
-  /// [ResourceUploadTicket.uploadUrl], bypassing the control server's uplink.
+  /// 创建一次提交的上传票据：所有文件共用一个记录 id，服务端为每个文件各返回一个
+  /// 直传地址（[ResourceUploadTicketFile.uploadUrl]），绕过 control 的上行带宽。
   Future<ResourceUploadTicket> createResourceUploadTicket({
     required String kind,
     required String courseCode,
     required String name,
-    required int sizeBytes,
+    required List<ResourceUploadFile> files,
     String tags = '',
     String targetId = '',
-    String format = 'pdf',
-    String md5 = '',
-    String manualMd5 = '',
-    String manualFormat = 'pdf',
-    int manualSizeBytes = 0,
+    String note = '',
   }) async {
     if (kind != 'textbook' && kind != 'resource') {
       throw const ControlApiException('invalid_kind', '资料类型无效');
+    }
+    if (files.isEmpty) {
+      throw const ControlApiException('invalid_files', '请选择至少一个文件');
     }
     final token = await _requireUserToken('请先登录后上传资料');
     final response = await _request(
@@ -776,26 +805,29 @@ class ControlService {
         'course_code': courseCode.trim(),
         'name': name.trim(),
         'tags': tags.trim(),
+        if (note.trim().isNotEmpty) 'note': note.trim(),
         if (targetId.trim().isNotEmpty) 'target_id': targetId.trim(),
-        'format': format,
-        'md5': md5,
-        'size_bytes': sizeBytes,
-        if (manualMd5.isNotEmpty) 'manual_md5': manualMd5,
-        if (manualMd5.isNotEmpty) 'manual_format': manualFormat,
-        if (manualSizeBytes > 0) 'manual_size_bytes': manualSizeBytes,
+        'files': [for (final file in files) file.toJson()],
       },
       headers: {'Authorization': 'Bearer $token'},
     );
     final id = response['id']?.toString() ?? '';
-    final uploadUrl = response['upload_url']?.toString() ?? '';
-    if (id.isEmpty || uploadUrl.isEmpty) {
+    final rawFiles = response['files'];
+    final uploads = <ResourceUploadTicketFile>[
+      if (rawFiles is List)
+        for (final item in rawFiles)
+          if (item is Map)
+            ResourceUploadTicketFile(
+              id: item['id']?.toString() ?? '',
+              name: item['name']?.toString() ?? '',
+              uploadUrl: item['upload_url']?.toString() ?? '',
+            ),
+    ];
+    if (id.isEmpty || uploads.isEmpty || uploads.any((f) => f.uploadUrl.isEmpty)) {
+      talker.warning('上传票据缺少上传地址', 'id=$id files=${uploads.length}');
       throw const ControlApiException('invalid_upload_ticket', '服务端返回的上传信息无效');
     }
-    return ResourceUploadTicket(
-      id: id,
-      uploadUrl: uploadUrl,
-      manualUploadUrl: response['manual_upload_url']?.toString() ?? '',
-    );
+    return ResourceUploadTicket(id: id, files: uploads);
   }
 
   /// Uploads the selected file straight to COS. The signed URL is scoped to
@@ -1117,12 +1149,16 @@ class ControlService {
       _serviceAvailable = false;
       return false;
     }
+    // 学院变了就必须重新拉取：同一版本下院级例外时间可能不同。
+    final college = prefs.getCollegeName()?.trim() ?? '';
+    final collegeChanged = college != prefs.getSchoolCalendarCollege();
     final cachedCalendar = prefs.getSchoolCalendarCache();
     var previousDays = const <SchoolDay>[];
     if (cachedCalendar != null) {
       try {
         previousDays = schoolCalendarDaysFromJson(cachedCalendar);
-        if (prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
+        if (!collegeChanged &&
+            prefs.getSchoolCalendarVersion() == versions.schoolCalendar) {
           // A matching version must still have a valid payload before it can
           // suppress a refresh.
           schoolCalendarPayloadFromJson(cachedCalendar);
@@ -1132,7 +1168,7 @@ class ControlService {
         // Invalid cache: fall through and download a fresh calendar.
       }
     }
-    final payload = await fetchSchoolCalendar();
+    final payload = await fetchSchoolCalendar(college: college);
     final rulesChanged = schoolCalendarRulesChanged(previousDays, payload.days);
     semesterCalendar.replaceDays(payload.days);
     semesterCalendar.replaceSlots(payload.slots);
@@ -1140,6 +1176,7 @@ class ControlService {
       schoolCalendarPayloadToJson(days: payload.days, slots: payload.slots),
     );
     await prefs.setSchoolCalendarVersion(versions.schoolCalendar);
+    await prefs.setSchoolCalendarCollege(college);
     if (rulesChanged) {
       await prefs.setSchoolCalendarUpdateNotice(true);
       semesterCalendar.setCalendarUpdateNotice(true);
@@ -1150,14 +1187,18 @@ class ControlService {
   /// Loads the administrator-managed school calendar and the timetable periods
   /// served with it. This endpoint is public because the payload contains no
   /// account-specific information.
-  Future<SchoolCalendarPayload> fetchSchoolCalendar() async {
+  Future<SchoolCalendarPayload> fetchSchoolCalendar({String college = ''}) async {
     if (!isConfigured) {
       throw const ControlApiException(
         'control_not_configured',
         'Control 服务地址未配置',
       );
     }
-    final response = await _request('GET', '/api/v1/school-calendar');
+    // 院级例外时间：默认用全局配置，该学院有单独配置时服务端会返回院级的。
+    final query = college.trim().isEmpty
+        ? ''
+        : '?college=${Uri.encodeQueryComponent(college.trim())}';
+    final response = await _request('GET', '/api/v1/school-calendar$query');
     try {
       return schoolCalendarPayloadFromJson(jsonEncode(response));
     } catch (error) {

@@ -169,7 +169,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Future<void> _refreshLibrary({bool showToast = true}) async {
-    if (_refreshing) return;
+    if (_refreshing) {
+      markAppRefreshHandled();
+      return;
+    }
     setState(() => _refreshing = true);
     try {
       // Refresh banks and the course detail in parallel; each keeps its cached
@@ -552,11 +555,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _documentFileName(
-                    entry.title,
-                    entry.format,
-                    courseCode: entry.courseCode,
-                  ),
+                  // Where a file lands in Downloads is prefixed with the
+                  // course code, but the row shows the source file name.
+                  _documentFileName(entry.title, entry.format),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.typography.tileTitle,
@@ -626,7 +627,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
 
   Widget _buildAIReportLinks(FThemeData theme, _PdfEntry entry) {
     final modes = [
-      for (final mode in const ['advanced', 'basic', 'manual'])
+      for (final mode in const ['more', 'basic', 'manual'])
         if (entry.aiModes.contains(mode)) mode,
     ];
     return Row(
@@ -661,7 +662,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
               Text(
                 downloading
                     ? '下载中'
-                    : mode == 'advanced'
+                    : mode == 'more'
                     ? '小学生版解析'
                     : mode == 'manual'
                     ? '原版解析'
@@ -695,7 +696,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         format,
         courseCode: entry.courseCode,
       );
-      final label = mode == 'advanced'
+      final label = mode == 'more'
           ? '小学生版'
           : mode == 'manual'
           ? '原版'
