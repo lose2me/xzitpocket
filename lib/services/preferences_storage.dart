@@ -1571,21 +1571,31 @@ class PreferencesStorage {
 
   Future<void> clearUserToolCaches() async {
     await Future.wait([
-      _clearCache('jp_cache', 'jp_cache_time'),
-      _clearCache('repair_cache', 'repair_cache_time'),
-      _clearCache('exam_cache', 'exam_cache_time'),
-      _clearCache('book_cache', 'book_cache_time'),
-      _clearCache('grade_cache', 'grade_cache_time'),
-      _clearCache('academic_cache', 'academic_cache_time'),
-      _clearCache('ykt_cache', 'ykt_cache_time'),
-      _clearCache('netauth_cache', 'netauth_cache_time'),
-      _clearRepairDetailCaches(),
-      clearLearningCache(),
+      ..._accountCacheClearances(),
       clearResourceCenterCaches(),
       clearResourceUploadCaches(),
-      _prefs.remove('update_prompted_version'),
     ]);
   }
+
+  /// 退出登录用：只清空与账号/个人信息相关的缓存。
+  /// 资源中心（课程、试卷、封面、已下载文件）与样式无关，保留下来。
+  Future<void> clearUserAccountCaches() async {
+    await Future.wait(_accountCacheClearances());
+  }
+
+  List<Future<void>> _accountCacheClearances() => [
+    _clearCache('jp_cache', 'jp_cache_time'),
+    _clearCache('repair_cache', 'repair_cache_time'),
+    _clearCache('exam_cache', 'exam_cache_time'),
+    _clearCache('book_cache', 'book_cache_time'),
+    _clearCache('grade_cache', 'grade_cache_time'),
+    _clearCache('academic_cache', 'academic_cache_time'),
+    _clearCache('ykt_cache', 'ykt_cache_time'),
+    _clearCache('netauth_cache', 'netauth_cache_time'),
+    _clearRepairDetailCaches(),
+    clearLearningCache(),
+    _prefs.remove('update_prompted_version'),
+  ];
 
   static double _clampTimetableDimension(
     double value, {

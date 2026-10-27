@@ -9,6 +9,7 @@ import '../services/control_service.dart';
 import '../services/preferences_storage.dart';
 import '../services/resource_center_cache.dart';
 import '../services/tools_data_manager.dart';
+import 'app_settings_provider.dart';
 
 final courseStorageProvider = Provider<CourseStorage>((ref) {
   throw UnimplementedError('Must be overridden in main');
@@ -101,11 +102,13 @@ class ConfigNotifier extends Notifier<UserConfig> {
     await Future.wait([
       _storage.clearStudentInfo(),
       _storage.clearSavedPowerRoomId(),
-      _storage.clearUserToolCaches(),
+      // 只清账号/个人信息相关的缓存；资源中心与已下载文件保留。
+      _storage.clearUserAccountCaches(),
       _storage.clearPowerCache(),
-      ResourceCoverCache.instance.clear(),
       CredentialStorage.clearPassword(),
     ]);
+    // 样式属于个人偏好，退出登录时一并恢复默认（主题模式仍由用户保留）。
+    await ref.read(appSettingsProvider.notifier).resetTimetableAppearance();
     ref.read(savedRoomIdProvider.notifier).set(null);
     state = const UserConfig();
   }

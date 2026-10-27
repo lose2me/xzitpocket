@@ -1022,7 +1022,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '退出登录？',
-      message: '本地课表数据会被清除，账号密码不受影响。',
+      message: '本地课表数据和个性化样式会被清除，资源中心与已下载文件保留。',
       confirmLabel: '退出',
       destructive: true,
     );
