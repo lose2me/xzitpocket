@@ -36,11 +36,11 @@
 | Web statements | 99.11%，2138/2157 | 85% | |
 | Web branches | 86.84%，1371/1579 | 85% | |
 | Web functions | 99.76%，434/435 | 85% | |
-| Go statements | 75.81%，7141/9419 | 85% | 跨包 `-coverpkg=./...` 去重后统计 |
-| Flutter 行 | 45.80%，8576/18723 | 85% | 393 项测试通过，`--branch-coverage` |
-| Flutter 分支 | 36.70%，2230/6076 | 85% | |
+| Go statements | **85.01%**，8006/9418 | 85% | 跨包 `-coverpkg=./...` 去重后统计，CI 已强制 |
+| Flutter 行 | 46.33%，8674/18723 | 85% | 401 项测试通过，`--branch-coverage` |
+| Flutter 分支 | 37.08%，2253/6076 | 85% | |
 
-Web 已达标。Go 与 Flutter 仍未达标，**不能说覆盖率目标已完成**，远端 Codecov 也尚未验证。
+Web 与 Go 已达标。Flutter 仍未达标，**不能说覆盖率目标已完成**，远端 Codecov 也尚未验证。
 
 ### Web 已完成的测试（42 项，4 个文件 + harness）
 
@@ -59,11 +59,11 @@ Web 已达标。Go 与 Flutter 仍未达标，**不能说覆盖率目标已完�
 
 覆盖内容：腾讯云 host/COS/CDN 统计与对象生命周期（含错误响应、签名、分页/合并）、配置加载/夹取/密钥校验、解密与 Argon2id 失败分支、AI 模型客户端（预判、续写、永久错误、Prompt 序列化、抽取辅助）、管理端与用户端全部剩余接口、权限拒绝/CSRF/限流/静态资源/健康检查、SPA 回退与路由识别、AI 队列/重试/取消/下载、统计缓存与降级。
 
-Go 63.2% → 75.81%。仍未达 85%，主要缺口：`internal/app/ai_analysis.go`（runAITask 深层分支）、`internal/store/sqlite` 的错误/事务分支、`internal/app` 的下载/上传失败分支、`internal/httpapi/server.go` 的其余错误路径。
+Go 63.2% → **85.01%**，已达到 85% statement 门槛。`tools/covercheck` 按完整 `file:start,end` 去重后统计并在 CI 中强制 85%；Codecov 的 `go` 状态也已改为强制。剩余未覆盖主要是不可达的防御分支与外部进程错误细节。
 
 ### Flutter 本轮
 
-新增 `test/utils/cas_encrypt_test.dart`（RSA 分块/确定性/独立期望值）与 `test/utils/exam_utils_test.dart`（日期与时间段解析）。393 项测试通过，analyze 未在本轮运行。
+新增 `test/utils/cas_encrypt_test.dart`（RSA 分块/确定性/独立期望值）、`test/utils/exam_utils_test.dart`（日期与时间段解析）、`test/services/course_backup_test.dart`（备份结构与 JSON 排版）、`test/widgets/power_usage_chart_test.dart`（空态、过滤无效行、单价换算）。401 项测试通过，`flutter analyze` 无问题。
 
 ### CI 改动
 
@@ -75,7 +75,7 @@ Go 63.2% → 75.81%。仍未达 85%，主要缺口：`internal/app/ai_analysis.g
 
 ### 仍未完成
 
-- Go 85% statement 门槛、Flutter 85% 行/分支门槛都尚未达到，因此 CI 的 Go/App 覆盖率门槛仍按当前基线执行，没有谎报达标。
-- Flutter 仍缺：CAS/REST 登录、AuthService、JP/NETAUTH、ToolsDataManager、资源上传/资源中心、书单/报修/考试/一卡通页面、课表设置与个性化。
-- 未运行 `flutter analyze`、未构建 APK、未推送、未触发远端 CI。
+- Flutter 85% 行/分支门槛尚未达到，App CI 的行门槛仍为 42%，分支只报告不设门槛；没有谎报达标。
+- Flutter 仍缺：CAS/REST 登录、AuthService、JP/NETAUTH、PowerService、ToolsDataManager、资源上传/资源中心、书单/报修/考试/一卡通页面、课表设置与个性化。这些服务大多把 Dio 硬编码在内部，需要先做小范围构造器注入。
+- 未构建 APK、未推送、未触发远端 CI。
 
