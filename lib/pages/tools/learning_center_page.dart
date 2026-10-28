@@ -840,6 +840,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         '已保存到 Download/${record.name}',
         severity: ToastSeverity.success,
       );
+      // 下载完成直接打开，不用再点一次。
+      await _openDownloaded(
+        record,
+        format: entry.format,
+        title: entry.title,
+      );
     } on ControlApiException catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (error.code == 'resource_changed') {
