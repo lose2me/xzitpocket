@@ -505,7 +505,7 @@ void main() {
       expect(storage.getTimetableLegacyHideTeacher(), isTrue);
       expect(storage.getTimetableLegacyHideTeacherBrackets(), isTrue);
       expect(storage.getTimetableLegacyRemoveLocationAt(), isFalse);
-      expect(storage.getTimetableLegacyCourseTextScale(), 0.95);
+      expect(storage.getTimetableLegacyCourseTextScale(), 1.0);
       expect(storage.getTimetableTimeTextSize(), 11);
       expect(storage.getTimetableDateTextSize(), 12);
       expect(storage.getTimetableCourseBorderWidth(), 0.5);

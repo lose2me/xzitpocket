@@ -94,107 +94,91 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     super.dispose();
   }
 
-  /// 课程块文字模板编辑（单行输入，渲染允许多行）+ 复制 AI 提示词。
+  /// 课程块文字：模板编辑器，或锁定后的旧版开关。
   Widget _buildTemplateEditor(AppSettings settings) {
+    final locked = settings.timetableCourseTextLegacy;
     // 重置个性化或导入配置后同步输入框（编辑中不打断光标）。
-    // 锁定时显示由旧版开关生成的模板。
-    final displayTemplate = settings.effectiveCourseTextTemplate;
     if (!_templateFocusNode.hasFocus &&
-        _templateController.text != displayTemplate) {
-      _templateController.text = displayTemplate;
+        _templateController.text != settings.timetableCourseTextTemplate) {
+      _templateController.text = settings.timetableCourseTextTemplate;
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ProfileSectionLabel(title: '课程块文字'),
-        AppTextField(
-          key: const ValueKey('course-template-input'),
-          controller: _templateController,
-          focusNode: _templateFocusNode,
-          hint: kDefaultCourseTextTemplate,
-          maxLines: 1,
-          // 旧版模式直接改开关，模板由开关生成，避免两套输入互相打架。
-          enabled: !settings.timetableCourseTextLegacy,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(
-              child: FButton(
-                variant: FButtonVariant.outline,
-                onPress: _copyTemplateAiPrompt,
-                prefix: const Icon(FLucideIcons.copy),
-                child: const Text('复制 AI 提示词'),
+        if (!locked) ...[
+          const ProfileSectionLabel(title: '课程块文字'),
+          AppTextField(
+            key: const ValueKey('course-template-input'),
+            controller: _templateController,
+            focusNode: _templateFocusNode,
+            hint: kDefaultCourseTextTemplate,
+            maxLines: 1,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
+              Expanded(
+                child: FButton(
+                  variant: FButtonVariant.outline,
+                  onPress: _copyTemplateAiPrompt,
+                  prefix: const Icon(FLucideIcons.copy),
+                  child: const Text('复制 AI 提示词'),
+                ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: FButton(
-                key: const ValueKey('course-template-save'),
-                onPress: settings.timetableCourseTextLegacy
-                    ? null
-                    : _saveTemplate,
-                prefix: const Icon(FLucideIcons.save),
-                child: const Text('保存'),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: FButton(
+                  key: const ValueKey('course-template-save'),
+                  onPress: _saveTemplate,
+                  prefix: const Icon(FLucideIcons.save),
+                  child: const Text('保存'),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        ProfileSettingsGroup(
-          children: [
-            ProfileSettingsExpandableTile(
-              icon: FLucideIcons.braces,
-              title: '模板语法',
-              expandable: true,
-              expanded: _templateRulesExpanded,
-              onTap: () => setState(
-                () => _templateRulesExpanded = !_templateRulesExpanded,
-              ),
-              // 每行单独一个 Text：FTile 的默认文字样式带 maxLines/ellipsis，
-              // 单块多行文本会被压成一行。
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 2,
-                children: [
-                  for (final line in _templateRuleLines)
-                    Text(
-                      line,
-                      style: context.theme.typography.bodySmall.copyWith(
-                        color: context.theme.colors.mutedForeground,
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          ProfileSettingsGroup(
+            children: [
+              ProfileSettingsExpandableTile(
+                icon: FLucideIcons.braces,
+                title: '模板语法',
+                expandable: true,
+                expanded: _templateRulesExpanded,
+                onTap: () => setState(
+                  () => _templateRulesExpanded = !_templateRulesExpanded,
+                ),
+                // 每行单独一个 Text：FTile 的默认文字样式带 maxLines/ellipsis，
+                // 单块多行文本会被压成一行。
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 2,
+                  children: [
+                    for (final line in _templateRuleLines)
+                      Text(
+                        line,
+                        style: context.theme.typography.bodySmall.copyWith(
+                          color: context.theme.colors.mutedForeground,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+        ],
         ProfileSettingsGroup(
           children: [
             ProfileSettingsExpandableTile(
               icon: FLucideIcons.listChecks,
               title: '旧版设置',
-              value: settings.timetableCourseTextLegacy ? '已锁定' : null,
+              value: locked ? '已锁定' : null,
               expandable: true,
               expanded: _legacyExpanded,
               onTap: () => setState(() => _legacyExpanded = !_legacyExpanded),
-              child: Text(
-                settings.timetableCourseTextLegacy
-                    ? '课程块文字已锁定为旧版设置，模板栏只读。'
-                          '重置个性化设置或重新导入个性化设置后解锁。'
-                    : '2.1.0 的开关。改动任意一项后锁定为旧版设置，模板栏变成只读。',
-                style: context.theme.typography.bodySmall.copyWith(
-                  color: context.theme.colors.mutedForeground,
-                ),
-              ),
+              child: const SizedBox.shrink(),
             ),
-          ],
-        ),
-        if (_legacyExpanded) ...[
-          const SizedBox(height: AppSpacing.md),
-          ProfileSettingsGroup(
-            children: [
+            if (_legacyExpanded) ...[
               for (final toggle in _legacyToggles(settings))
                 ProfileSettingsCheckboxTile(
                   icon: toggle.icon,
@@ -217,8 +201,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                     .setLegacyCourseTextScale(value),
               ),
             ],
-          ),
-        ],
+          ],
+        ),
         const SizedBox(height: AppSpacing.lg),
         const ProfileSectionLabel(title: '课程块'),
       ],

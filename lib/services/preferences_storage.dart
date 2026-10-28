@@ -495,7 +495,7 @@ class PreferencesStorage {
       _prefs.setBool('timetable_legacy_remove_location_at', value);
 
   double getTimetableLegacyCourseTextScale() =>
-      _prefs.getDouble('timetable_legacy_course_text_scale') ?? 0.95;
+      _prefs.getDouble('timetable_legacy_course_text_scale') ?? 1.0;
   Future<void> setTimetableLegacyCourseTextScale(double value) =>
       _prefs.setDouble('timetable_legacy_course_text_scale', value);
 

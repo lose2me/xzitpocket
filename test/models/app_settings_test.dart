@@ -363,7 +363,7 @@ void main() {
     test('locked legacy text settings drive the effective template', () {
       const unlocked = AppSettings();
       expect(unlocked.effectiveCourseTextTemplate, unlocked.timetableCourseTextTemplate);
-      expect(unlocked.timetableLegacyCourseTextScale, 0.95);
+      expect(unlocked.timetableLegacyCourseTextScale, 1.0);
       expect(unlocked.timetableLegacyHideTeacher, isTrue);
 
       const locked = AppSettings(

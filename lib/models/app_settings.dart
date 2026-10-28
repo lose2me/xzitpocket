@@ -314,7 +314,7 @@ class AppSettings {
     this.timetableLegacyHideTeacher = true,
     this.timetableLegacyHideTeacherBrackets = true,
     this.timetableLegacyRemoveLocationAt = false,
-    this.timetableLegacyCourseTextScale = 0.95,
+    this.timetableLegacyCourseTextScale = 1.0,
     this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
     this.timetableHideDateUnderDay = false,
