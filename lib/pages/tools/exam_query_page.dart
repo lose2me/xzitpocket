@@ -153,6 +153,8 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
         AppSkeleton(
           label: '正在加载考试安排',
           child: Column(
+            // 占位卡片要和真实卡片一样撑满列表宽度，否则会缩成内容宽度。
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Center(child: AppSkeletonBox(width: 176, height: 20)),
               const SizedBox(height: AppSpacing.md),
