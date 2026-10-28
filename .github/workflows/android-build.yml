@@ -55,8 +55,10 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      # Branch coverage is collected so the uploaded report describes the real
+      # control flow instead of only the executed lines.
       - name: Run tests
-        run: flutter test --reporter expanded --coverage
+        run: flutter test --reporter expanded --coverage --branch-coverage
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v6
@@ -65,14 +67,21 @@ jobs:
           path: coverage/lcov.info
           retention-days: 14
 
+      # A trusted branch without the token must fail loudly; a fork PR without
+      # secrets falls back to a best-effort upload.
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
+        continue-on-error: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         with:
           files: coverage/lcov.info
+          flags: app
           token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
-      - name: Enforce coverage floor
+      # The line floor stays at the measured baseline until the remaining
+      # pages/services are covered; the branch percentage is reported now so
+      # the gap stays visible instead of being hidden by line-only numbers.
+      - name: Check coverage report
         run: dart tool/check_coverage.dart coverage/lcov.info 42
 
       - name: Prepare Android signing

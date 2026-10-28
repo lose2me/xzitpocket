@@ -1,4 +1,5 @@
 coverage:
+  precision: 2
   status:
     project:
       default:
@@ -7,6 +8,11 @@ coverage:
     patch:
       default:
         target: 60%
+
+flags:
+  app:
+    paths: [lib]
+    carryforward: false
 
 comment:
   layout: "reach,diff,flags,files"
