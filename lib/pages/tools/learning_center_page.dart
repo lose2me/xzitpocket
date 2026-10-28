@@ -16,6 +16,7 @@ import '../../ui/app_components.dart';
 import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
 import 'learning_quiz_page.dart';
+import 'pdf_viewer_page.dart';
 
 class LearningCenterPage extends StatefulWidget {
   final LearningRepository repository;
@@ -726,7 +727,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         format: format,
       );
       if (record != null) {
-        await ResourceDownloadService.instance.open(record, format: format);
+        await _openDownloaded(record, format: format, title: fileName);
       }
     } catch (error, stackTrace) {
       talker.warning('下载 AI 解析失败', error, stackTrace);
@@ -764,6 +765,30 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     });
   }
 
+  /// PDF 在 App 内打开；doc/docx 仍交给系统应用。
+  Future<void> _openDownloaded(
+    DownloadedResource record, {
+    required String format,
+    required String title,
+  }) async {
+    if (format.toLowerCase() != 'pdf') {
+      await ResourceDownloadService.instance.open(record, format: format);
+      return;
+    }
+    final path = await ResourceDownloadService.instance.localCopy(record);
+    if (path == null) {
+      await ResourceDownloadService.instance.open(record, format: format);
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      appRoute(
+        name: AppRouteNames.pdfViewer,
+        builder: (_) => PdfViewerPage(title: title, path: path),
+      ),
+    );
+  }
+
   Future<void> _handlePdf(_PdfEntry entry) async {
     final key = entry.downloadKey;
     if (_downloadingIds.contains(key)) return;
@@ -775,9 +800,10 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           fileVersion: entry.fileVersion,
         );
         if (record != null) {
-          await ResourceDownloadService.instance.open(
+          await _openDownloaded(
             record,
             format: entry.format,
+            title: entry.title,
           );
           return;
         }

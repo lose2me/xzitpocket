@@ -261,6 +261,25 @@ class MainActivity : FlutterActivity() {
                     }
                 }
 
+                "copyDownloadedToCache" -> {
+                    val uri = call.argument<String>("uri")
+                    val name = call.argument<String>("name") ?: "document.pdf"
+                    if (uri.isNullOrBlank()) {
+                        result.error("invalid_uri", "uri is required", null)
+                    } else {
+                        try {
+                            val safeName = name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+                            val target = File(cacheDir, "preview_" + System.currentTimeMillis() + "_" + safeName)
+                            contentResolver.openInputStream(Uri.parse(uri))?.use { input ->
+                                target.outputStream().use { output -> input.copyTo(output) }
+                            } ?: throw IllegalStateException("cannot open uri")
+                            result.success(target.absolutePath)
+                        } catch (error: Exception) {
+                            result.error("copy_failed", error.message, null)
+                        }
+                    }
+                }
+
                 "mediaExists" -> {
                     val uri = call.argument<String>("uri")
                     if (uri.isNullOrBlank()) {

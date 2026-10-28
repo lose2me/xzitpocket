@@ -57,17 +57,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   bool _previewExpanded = false;
   late final TextEditingController _templateController;
 
-  /// 「模板语法」默认折叠，避免设置页一进来就被一大段说明占满。
-  bool _templateRulesExpanded = false;
-  static const _templateRuleLines = [
-    '变量：{课程} {教师} {教室} {校区} {时间}',
-    '加粗：[b]文字[/b]',
-    '斜体：[i]文字[/i]（也可写 [斜]文字[/斜]）',
-    '字号：[s12]文字[/s12]（数字为 px）',
-    '颜色：[c#111827|#f9fafb]文字[/c]（| 前亮色、后暗色）',
-    '靠左：[左]文字[/左]　居中：[中]文字[/中]　靠右：[右]文字[/右]',
-    '# 和 @ 均为普通字符，可直接书写',
-  ];
   final _templateFocusNode = FocusNode();
   bool _legacyExpanded = false;
 
@@ -132,35 +121,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                   onPress: _saveTemplate,
                   prefix: const Icon(FLucideIcons.save),
                   child: const Text('保存'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ProfileSettingsGroup(
-            children: [
-              ProfileSettingsExpandableTile(
-                icon: FLucideIcons.braces,
-                title: '模板语法',
-                expandable: true,
-                expanded: _templateRulesExpanded,
-                onTap: () => setState(
-                  () => _templateRulesExpanded = !_templateRulesExpanded,
-                ),
-                // 每行单独一个 Text：FTile 的默认文字样式带 maxLines/ellipsis，
-                // 单块多行文本会被压成一行。
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: 2,
-                  children: [
-                    for (final line in _templateRuleLines)
-                      Text(
-                        line,
-                        style: context.theme.typography.bodySmall.copyWith(
-                          color: context.theme.colors.mutedForeground,
-                        ),
-                      ),
-                  ],
                 ),
               ),
             ],

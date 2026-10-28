@@ -49,6 +49,8 @@ void main() {
         case 'openDownloaded':
           opened = args['uri'] as String;
           return null;
+        case 'copyDownloadedToCache':
+          return '/tmp/${args['name']}';
         default:
           throw StateError('Unexpected method ${call.method}');
       }
@@ -102,6 +104,7 @@ void main() {
     );
     await service.open(old);
     expect(opened, old.uri);
+    expect(await service.localCopy(old), '/tmp/paper.pdf');
     expect(await temp.list().toList(), isEmpty);
 
     // The saved index survives a restart without dropping the earlier version.

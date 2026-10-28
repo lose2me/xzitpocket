@@ -40,6 +40,7 @@ dependencies:
   image_gallery_saver_plus: ^5.1.1
   two_dimensional_scrollables: ^0.5.5
   pinyin_pro_flutter: ^1.0.3
+  pdfrx: ^2.10.1
 
 dev_dependencies:
   flutter_test:

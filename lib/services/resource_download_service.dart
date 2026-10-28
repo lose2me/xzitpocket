@@ -196,4 +196,21 @@ class ResourceDownloadService {
         'uri': record.uri,
         'mime': _mimeFor(format),
       });
+
+  /// Copies the MediaStore file to the app cache so it can be rendered in-app.
+  /// Returns null when the platform cannot read the content URI.
+  Future<String?> localCopy(DownloadedResource record) async {
+    try {
+      final path = await _channel.invokeMethod<String>('copyDownloadedToCache', {
+        'uri': record.uri,
+        'name': record.name,
+      });
+      if (path == null || path.isEmpty) return null;
+      return path;
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
 }
