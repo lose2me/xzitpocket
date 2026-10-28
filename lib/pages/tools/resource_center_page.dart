@@ -14,6 +14,7 @@ import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../ui/resource_tag.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/text_search.dart';
 import 'learning_center_page.dart';
 import 'learning_question_list_page.dart';
 import 'resource_upload_page.dart';
@@ -107,12 +108,8 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
     ];
   }
 
-  bool _matches(ResourceCourse course) {
-    final query = _query.trim().toLowerCase();
-    if (query.isEmpty) return true;
-    return course.name.toLowerCase().contains(query) ||
-        course.code.toLowerCase().contains(query);
-  }
+  bool _matches(ResourceCourse course) =>
+      matchesSearch(_query, [course.name, course.code]);
 
   /// My timetable courses first, then the rest. The split is only an order:
   /// my courses are marked by a themed card border, not a divider line.
@@ -285,7 +282,7 @@ class _ResourceCenterPageState extends State<ResourceCenterPage> {
 
   Widget _buildSearchField() => AppTextField(
     controller: _searchController,
-    hint: '搜索课程名或课程编号',
+    hint: '搜索课程名、编号或拼音',
     prefix: const Icon(FLucideIcons.search),
     clearable: true,
     onChanged: (value) => setState(() => _query = value),

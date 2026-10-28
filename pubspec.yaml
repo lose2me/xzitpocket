@@ -39,6 +39,7 @@ dependencies:
   path_provider: ^2.1.6
   image_gallery_saver_plus: ^5.1.1
   two_dimensional_scrollables: ^0.5.5
+  pinyin_pro_flutter: ^1.0.3
 
 dev_dependencies:
   flutter_test:

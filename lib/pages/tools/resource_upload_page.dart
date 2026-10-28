@@ -14,6 +14,7 @@ import '../../services/preferences_storage.dart';
 import '../../services/talker.dart';
 import '../../ui/app_components.dart';
 import '../../utils/snackbar_helper.dart';
+import '../../utils/text_search.dart';
 
 const double _maxUploadBytes = 80 * 1024 * 1024;
 const int _maxFilesPerUpload = 10;
@@ -637,7 +638,7 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
           : empty
           ? (widget.courseScoped ? '该课程暂无关联教材' : '暂无可选教材')
           : '请选择教材',
-      searchHint: '搜索教材名称、标签或课程',
+      searchHint: '搜索教材名称、标签、课程或拼音',
       value: book,
       options: _orderedTextbooks,
       format: _textbookLabel,
@@ -651,13 +652,12 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     return _SearchChoiceField<String>(
       label: '选择课程',
       placeholder: '请选择课程',
-      searchHint: '搜索课程名或编号',
+      searchHint: '搜索课程名、编号或拼音',
       value: _courseCode.isEmpty ? null : _courseCode,
       options: [for (final course in _orderedCourses) course.code],
       format: _courseLabel,
       matches: (code, query) =>
-          code.toLowerCase().contains(query) ||
-          _courseName(code).toLowerCase().contains(query),
+          matchesSearch(query, [code, _courseName(code)]),
       enabled: !_uploading,
       onChanged: (value) => setState(() => _courseCode = value),
     );
@@ -884,12 +884,15 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     );
   }
 
-  bool _textbookMatches(UploadTextbook book, String query) {
-    return book.name.toLowerCase().contains(query) ||
-        book.tags.toLowerCase().contains(query) ||
-        book.courseCodes.any((code) => code.toLowerCase().contains(query)) ||
-        _courseName(book.primaryCourseCode).toLowerCase().contains(query);
-  }
+  bool _textbookMatches(UploadTextbook book, String query) => matchesSearch(
+    query,
+    [
+      book.name,
+      book.tags,
+      ...book.courseCodes,
+      _courseName(book.primaryCourseCode),
+    ],
+  );
 
   Widget _buildTab(FThemeData theme, String kind, String label) {
     final selected = _kind == kind;

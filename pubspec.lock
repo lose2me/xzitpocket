@@ -853,6 +853,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "7.0.2"
+  pinyin_pro_flutter:
+    dependency: "direct main"
+    description:
+      name: pinyin_pro_flutter
+      sha256: bec8ee7a39c058972b77dd702ee731029273d139ff1841c476ff144ac263e5ab
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "1.0.3"
   platform:
     dependency: transitive
     description:
