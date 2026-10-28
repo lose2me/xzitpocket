@@ -293,6 +293,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   Widget _buildCourseBody(BuildContext context) {
     final theme = context.theme;
     final banks = _courseBanks();
+    // Rows collected from the book-list report carry no file; a cached snapshot
+    // from an older build can still hold them, so they stay hidden here too.
+    final textbooks = [
+      for (final item in _textbooks)
+        if (item.hasPdf) item,
+    ];
     // Counts come from the resource-centre list; a zero count can render its
     // empty state immediately instead of a shorter skeleton that jumps when
     // the (taller) empty state replaces it.
@@ -311,8 +317,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         _buildAnimatedSection(
           expanded: _expandedSections[0],
           children: [
-            if (_textbooks.isNotEmpty)
-              for (final item in _textbooks) ...[
+            if (textbooks.isNotEmpty)
+              for (final item in textbooks) ...[
                 _buildPdfTile(
                   theme,
                   _PdfEntry(
