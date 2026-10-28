@@ -784,7 +784,12 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     await Navigator.of(context).push(
       appRoute(
         name: AppRouteNames.pdfViewer,
-        builder: (_) => PdfViewerPage(title: title, path: path),
+        builder: (_) => PdfViewerPage(
+          title: title,
+          path: path,
+          record: record,
+          format: format,
+        ),
       ),
     );
   }
