@@ -363,22 +363,6 @@ class LegacyCourseTextOptions {
     this.removeLocationAt = false,
   });
 
-  factory LegacyCourseTextOptions.parse(String template) {
-    final text = template.replaceAll(r'\n', '\n');
-    final teacherLines = text
-        .split('\n')
-        .where((line) => line.contains('{教师}'));
-    return LegacyCourseTextOptions(
-      showStartTime: text.contains('{时间}'),
-      hideLocation: !text.contains('{教室}') && !text.contains('{校区}'),
-      hideTeacher: !text.contains('{教师}'),
-      hideTeacherBrackets: !teacherLines.any(
-        (line) => line.contains('【') && line.contains('】'),
-      ),
-      removeLocationAt: !text.contains('@{教室}'),
-    );
-  }
-
   LegacyCourseTextOptions copyWith({
     bool? showStartTime,
     bool? hideLocation,
