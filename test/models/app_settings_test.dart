@@ -147,7 +147,7 @@ void main() {
       expect(settings.timetableGridOpacity, 0.5);
       expect(settings.timetableGridLineColor, isNull);
       expect(settings.timetableGridLineWidth, 0.5);
-      expect(settings.timetableCourseTextSize, 12.0);
+      expect(settings.timetableCourseTextSize, 11.4);
       expect(settings.timetableTimeTextSize, 11.0);
       expect(settings.timetableDateTextSize, 12.0);
       expect(settings.timetableCourseBorderWidth, 0.5);

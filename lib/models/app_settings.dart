@@ -324,7 +324,7 @@ class AppSettings {
     this.timetableGridLineColor,
     this.timetableLastCustomGridLineColor,
     this.timetableGridLineWidth = 0.5,
-    this.timetableCourseTextSize = 12.0,
+    this.timetableCourseTextSize = 11.4,
     this.timetableCourseTextOpacity = 1.0,
     this.timetableTimeTextSize = 11.0,
     this.timetableDateTextSize = 12.0,

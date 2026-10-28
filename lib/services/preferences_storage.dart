@@ -768,7 +768,7 @@ class PreferencesStorage {
   );
 
   double getTimetableCourseTextSize() => _clampTimetableDimension(
-    _prefs.getDouble('timetable_course_text_size') ?? 12.0,
+    _prefs.getDouble('timetable_course_text_size') ?? 11.4,
     min: 8.0,
     max: 18.0,
   );

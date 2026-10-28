@@ -164,7 +164,7 @@ class TimetableGrid extends StatefulWidget {
     this.borderWidth = 0.5,
     this.courseOpacity = 1.0,
     this.courseBorderOpacity = 1.0,
-    this.courseTextSize = 12.0,
+    this.courseTextSize = 11.4,
     this.timeTextSize = 11.0,
     this.dateTextSize = 12.0,
     this.dayTextMarkerSize = 8.0,
