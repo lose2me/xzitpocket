@@ -121,7 +121,10 @@ void main() {
       expect(settings.widgetHideTeacher, isFalse);
       expect(settings.widgetHideLocation, isFalse);
       expect(settings.widgetHideDate, isFalse);
-      expect(settings.timetableCourseTextTemplate, r'[b]{课程}[/b]\n@{教室}\n{校区}');
+      expect(
+        settings.timetableCourseTextTemplate,
+        r'[b][s12]{课程}[/s12][/b]\n[s11]@{教室}[/s11]\n[s11]{校区}[/s11]',
+      );
       expect(settings.timetableCountdownBarLengthRatio, 0.75);
       expect(settings.timetableCountdownBarRounded, isTrue);
       expect(settings.timetableBackgroundPath, isNull);
@@ -147,7 +150,7 @@ void main() {
       expect(settings.timetableGridOpacity, 0.5);
       expect(settings.timetableGridLineColor, isNull);
       expect(settings.timetableGridLineWidth, 0.5);
-      expect(settings.timetableCourseTextSize, 11.4);
+      expect(settings.timetableCourseTextSize, 12.0);
       expect(settings.timetableTimeTextSize, 11.0);
       expect(settings.timetableDateTextSize, 12.0);
       expect(settings.timetableCourseBorderWidth, 0.5);

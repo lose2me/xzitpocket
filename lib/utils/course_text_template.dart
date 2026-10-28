@@ -17,8 +17,9 @@ library;
 
 import 'dart:ui' show Brightness, Color;
 
-/// 默认模板：等价旧版默认展示（课程名加粗一行 + @教室/校区 明细行）。
-const kDefaultCourseTextTemplate = r'[b]{课程}[/b]\n@{教室}\n{校区}';
+/// 默认模板：等价 2.1.0 默认展示（课程名加粗 12px + @教室/校区 11px 明细行）。
+const kDefaultCourseTextTemplate =
+    r'[b][s12]{课程}[/s12][/b]\n[s11]@{教室}[/s11]\n[s11]{校区}[/s11]';
 
 enum CourseTemplateAlign { left, center, right }
 
