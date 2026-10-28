@@ -191,11 +191,15 @@ class ResourceDownloadService {
   }
 
   /// Opens a downloaded document with the system viewer.
-  Future<void> open(DownloadedResource record, {String format = 'pdf'}) =>
-      _channel.invokeMethod<void>('openDownloaded', {
-        'uri': record.uri,
-        'mime': _mimeFor(format),
-      });
+  Future<void> open(
+    DownloadedResource record, {
+    String format = 'pdf',
+    bool chooser = false,
+  }) => _channel.invokeMethod<void>('openDownloaded', {
+    'uri': record.uri,
+    'mime': _mimeFor(format),
+    'chooser': chooser,
+  });
 
   /// Copies the MediaStore file to the app cache so it can be rendered in-app.
   /// Returns null when the platform cannot read the content URI.

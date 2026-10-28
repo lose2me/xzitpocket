@@ -308,7 +308,14 @@ class MainActivity : FlutterActivity() {
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                             }
-                            startActivity(intent)
+                            val chooser = call.argument<Boolean>("chooser") ?: false
+                            if (chooser) {
+                                startActivity(Intent.createChooser(intent, "选择打开方式").apply {
+                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                })
+                            } else {
+                                startActivity(intent)
+                            }
                             result.success(true)
                         } catch (error: Exception) {
                             result.error("open_failed", error.message, null)

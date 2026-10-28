@@ -785,7 +785,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       appRoute(
         name: AppRouteNames.pdfViewer,
         builder: (_) => PdfViewerPage(
-          title: title,
+          // 教材名本身没有扩展名，统一按下载文件名展示。
+          title: _documentFileName(title, format),
           path: path,
           record: record,
           format: format,

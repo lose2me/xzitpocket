@@ -27,7 +27,11 @@ class PdfViewerPage extends StatelessWidget {
 
   Future<void> _openExternally(BuildContext context) async {
     try {
-      await ResourceDownloadService.instance.open(record, format: format);
+      await ResourceDownloadService.instance.open(
+        record,
+        format: format,
+        chooser: true,
+      );
     } catch (error) {
       if (context.mounted) {
         showAppSnackBar(context, '没有可以打开该文件的应用', severity: ToastSeverity.error);
@@ -60,7 +64,17 @@ class PdfViewerPage extends StatelessWidget {
       actions: actions,
       child: ColoredBox(
         color: context.theme.colors.background,
-        child: PdfViewer.file(path, params: const PdfViewerParams(margin: 8)),
+        child: PdfViewer.file(
+          path,
+          params: const PdfViewerParams(
+            margin: 8,
+            // 页面阴影和批注都要额外绘制，去掉后滚动更跟手。
+            pageDropShadow: null,
+            annotationRenderingMode: PdfAnnotationRenderingMode.none,
+            // 默认 0.0000135 的惯性很短，一划就停；调到接近列表的滑行距离。
+            interactionEndFrictionCoefficient: 0.02,
+          ),
+        ),
       ),
     );
   }
