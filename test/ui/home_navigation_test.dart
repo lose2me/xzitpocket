@@ -248,13 +248,63 @@ void main() {
       final profileQuery = MediaQuery.of(
         tester.element(find.byType(ProfilePage)),
       );
-      expect(profileQuery.viewInsets.bottom, keyboardInset);
+      expect(
+        profileQuery.viewInsets.bottom,
+        (keyboardInset - rect.height).clamp(0.0, double.infinity),
+      );
       expect(profileQuery.padding.bottom, 0);
     }
     await _selectTab(tester, '课表');
     expect(tester.getRect(navigation), rect);
     expect(tester.takeException(), isNull);
   });
+
+  for (final height in [480.0, 844.0]) {
+    testWidgets('login and reset fields clear the keyboard at height $height', (
+      tester,
+    ) async {
+      await _pumpApp(tester, bottomInset: 34, height: height, loggedIn: false);
+      final navigation = find.byType(FBottomNavigationBar);
+      final navRect = tester.getRect(navigation);
+      const keyboardHeight = 260.0;
+      Future<void> showKeyboard(Finder field) async {
+        await tester.ensureVisible(field);
+        await tester.tap(field);
+        await tester.pump();
+        tester.view.viewInsets = const FakeViewPadding(
+          bottom: keyboardHeight * 2.75,
+        );
+        tester.view.padding = const FakeViewPadding(top: 28 * 2.75);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(
+          tester.getRect(field).bottom,
+          lessThanOrEqualTo(height - keyboardHeight),
+        );
+        expect(tester.getRect(field).top, greaterThanOrEqualTo(28));
+        expect(tester.getRect(navigation), navRect);
+      }
+
+      await showKeyboard(find.byType(EditableText).last);
+      FocusManager.instance.primaryFocus?.unfocus();
+      tester.view.viewInsets = const FakeViewPadding();
+      tester.view.padding = const FakeViewPadding(
+        top: 28 * 2.75,
+        bottom: 34 * 2.75,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.ensureVisible(find.text('找回密码'));
+      await tester.tap(find.text('找回密码'));
+      await tester.pump();
+      expect(find.text('验证码'), findsOneWidget);
+      expect(find.text('输入手机收到的六位验证码'), findsNothing);
+      await showKeyboard(find.byType(FOtpField));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
 
   testWidgets(
     'a populated timetable keeps the same navigation as services and profile',

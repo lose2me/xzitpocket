@@ -365,12 +365,14 @@ bool schoolCalendarRulesChanged(
   Iterable<SchoolDay> next,
 ) {
   final before = {
-    for (final day in previous) _dateOnly(day.date): day.adjustment,
+    for (final day in previous)
+      if (day.adjustment.isNotEmpty) _dateOnly(day.date): day.adjustment,
   };
-  for (final day in next) {
-    if ((before[_dateOnly(day.date)] ?? '') != day.adjustment) return true;
-  }
-  return false;
+  final after = {
+    for (final day in next)
+      if (day.adjustment.isNotEmpty) _dateOnly(day.date): day.adjustment,
+  };
+  return !mapEquals(before, after);
 }
 
 /// A downloaded calendar payload: the semester days plus the timetable periods

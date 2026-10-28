@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../constants/semester_config.dart';
@@ -92,11 +91,29 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
           className: className,
           majorName: majorName,
         );
-    if (!_sameCourses(_courses, courses)) {
-      await _storage.saveCourses(courses);
-      await _reload();
+    final calendarVersion = ref
+        .read(preferencesStorageProvider)
+        .getSchoolCalendarVersion();
+    // A successful OA refresh also replaces the original snapshot, even when
+    // its courses happen to match the locally edited timetable.
+    await _storage.saveCourses(courses);
+    if (ref.read(appSettingsProvider).useCloudTimetableAdjustments) {
+      await _storage.applyCloudAdjustments(
+        days: semesterCalendar.days,
+        semesterStart: semesterStartDate,
+      );
     }
-    await applyCloudAdjustments();
+    // The timetable is saved even if the native widget update later fails.
+    await _acknowledgeCalendarUpdate(calendarVersion);
+    await _reload();
+  }
+
+  /// A later calendar response must keep its own pending notice.
+  Future<void> _acknowledgeCalendarUpdate(String? appliedVersion) async {
+    final prefs = ref.read(preferencesStorageProvider);
+    if (prefs.getSchoolCalendarVersion() != appliedVersion) return;
+    semesterCalendar.setCalendarUpdateNotice(false);
+    await prefs.setSchoolCalendarUpdateNotice(false);
   }
 
   /// Replaces the editable timetable from a validated backup file and keeps
@@ -104,29 +121,6 @@ class ScheduleNotifier extends Notifier<AsyncValue<List<Course>>> {
   Future<void> replaceCourses(List<Course> courses) async {
     await _storage.saveCourses(courses);
     await _reload();
-  }
-
-  bool _sameCourses(List<Course> left, List<Course> right) {
-    if (left.length != right.length) return false;
-    final leftSignatures = left.map(_courseSignature).toList()..sort();
-    final rightSignatures = right.map(_courseSignature).toList()..sort();
-    return listEquals(leftSignatures, rightSignatures);
-  }
-
-  String _courseSignature(Course course) {
-    final sessions = [...course.sessions]..sort();
-    final weeks = [...course.weeks]..sort();
-    return [
-      course.title,
-      course.teacher,
-      course.weekday,
-      sessions.join(','),
-      weeks.join(','),
-      course.campus,
-      course.place,
-      course.colorIndex,
-      course.courseId,
-    ].join('\u001f');
   }
 
   Future<void> addCourse(Course course) async {

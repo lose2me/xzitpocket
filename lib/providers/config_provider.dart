@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/user_config.dart';
+import '../models/school_calendar.dart';
 import '../services/course_storage.dart';
 import '../services/credential_storage.dart';
 import '../services/control_service.dart';
@@ -100,6 +101,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
     ControlService.instance.updateLoginGate(null);
     ToolsDataManager.instance.clear();
     await Future.wait([
+      _storage.setSchoolCalendarUpdateNotice(false),
       _storage.clearStudentInfo(),
       _storage.clearSavedPowerRoomId(),
       // 只清账号/个人信息相关的缓存；资源中心与已下载文件保留。
@@ -110,6 +112,7 @@ class ConfigNotifier extends Notifier<UserConfig> {
     // 样式属于个人偏好，退出登录时一并恢复默认（主题模式仍由用户保留）。
     await ref.read(appSettingsProvider.notifier).resetTimetableAppearance();
     ref.read(savedRoomIdProvider.notifier).set(null);
+    semesterCalendar.setCalendarUpdateNotice(false);
     state = const UserConfig();
   }
 }

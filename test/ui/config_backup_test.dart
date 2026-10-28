@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:forui/forui.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
@@ -12,6 +13,9 @@ import 'package:xzitpocket/pages/profile/config_backup_page.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/pages/timetable/timetable_page.dart';
 import 'package:xzitpocket/providers/config_provider.dart';
+import 'package:xzitpocket/providers/app_settings_provider.dart';
+import 'package:xzitpocket/providers/schedule_provider.dart';
+import 'package:xzitpocket/services/widget_service.dart';
 import 'package:xzitpocket/providers/secondary_schedule_provider.dart';
 import 'package:xzitpocket/services/course_storage.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
@@ -37,6 +41,7 @@ void main() {
   });
 
   setUp(() async {
+    FlutterSecureStorage.setMockInitialValues({});
     SharedPreferences.setMockInitialValues({});
     preferences = PreferencesStorage();
     await preferences.init();
@@ -81,60 +86,114 @@ void main() {
   }
 
   testWidgets(
-    'calendar update notice auto hides and only returns on a cold start',
+    'calendar notice persists and cloud toggle only controls visibility',
     (tester) async {
+      await preferences.setSchoolCalendarUpdateNotice(true);
       semesterCalendar.setCalendarUpdateNotice(true);
       addTearDown(() => semesterCalendar.setCalendarUpdateNotice(false));
-      await tester.pumpWidget(
-        _app(container, TimetablePage(key: TimetablePage.globalKey)),
-      );
+      await tester.pumpWidget(_app(container, const TimetablePage()));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('云端课程有所调整，建议重建课表'), findsOneWidget);
-
-      await tester.pump(const Duration(seconds: 6));
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
-      // Auto-hide keeps the pending notice for the next cold start.
-      expect(semesterCalendar.calendarUpdateNotice, isTrue);
-
-      // Staying in the same session does not show it again.
-      await tester.pump(const Duration(seconds: 2));
-      expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
-
-      // A cold start shows it again because it was not manually dismissed.
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-      await tester.pumpWidget(
-        _app(container, TimetablePage(key: TimetablePage.globalKey)),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(seconds: 30));
       expect(find.text('云端课程有所调整，建议重建课表'), findsOneWidget);
-
-      final closeButton = tester.widget<AppIconButton>(
+      expect(
         find.byWidgetPredicate(
           (widget) => widget is AppIconButton && widget.icon == FLucideIcons.x,
         ),
+        findsNothing,
       );
-      closeButton.onPress!();
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
-      expect(semesterCalendar.calendarUpdateNotice, isFalse);
 
-      // Dismissed permanently: another cold start stays quiet.
-      await tester.pumpWidget(const SizedBox.shrink());
+      await container
+          .read(appSettingsProvider.notifier)
+          .setUseCloudTimetableAdjustments(false);
       await tester.pump();
-      await tester.pumpWidget(
-        _app(container, TimetablePage(key: TimetablePage.globalKey)),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
+      expect(preferences.getSchoolCalendarUpdateNotice(), isTrue);
+      await container
+          .read(appSettingsProvider.notifier)
+          .setUseCloudTimetableAdjustments(true);
+      await tester.pump();
+      expect(find.text('云端课程有所调整，建议重建课表'), findsOneWidget);
+      await tester.runAsync(() async {
+        try {
+          await container.read(scheduleProvider.notifier).replaceCourses([
+            _course('Backup'),
+          ]);
+        } on WidgetSyncException {
+          /* Native widget bridge is absent in this test. */
+        }
+      });
+      await tester.pump();
+      expect(semesterCalendar.calendarUpdateNotice, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(_app(container, const TimetablePage()));
+      await tester.pump();
+      expect(find.text('云端课程有所调整，建议重建课表'), findsOneWidget);
+
+      await tester.runAsync(() async {
+        try {
+          await container
+              .read(scheduleProvider.notifier)
+              .updateFromLoginResult(
+                courses: [_course('Fresh OA')],
+                studentId: '20260001',
+                studentName: '',
+                collegeName: '',
+                className: '',
+              );
+        } on WidgetSyncException {
+          /* Timetable persistence still succeeded. */
+        }
+      });
+      await tester.pump();
+      expect(find.text('云端课程有所调整，建议重建课表'), findsNothing);
+      expect(preferences.getSchoolCalendarUpdateNotice(), isFalse);
+      expect(storage.getOriginalCourses().single.title, 'Fresh OA');
+      await tester.pumpWidget(const SizedBox.shrink());
     },
     semanticsEnabled: false,
   );
+
+  testWidgets(
+    'OA refresh replaces a stale original snapshot even if visible courses match',
+    (tester) async {
+      await tester.runAsync(() async {
+        await storage.saveCourses([_course('Old original')]);
+        await storage.clearCourseDayOccurrence(weekday: 1, week: 1);
+        await storage.addCourse(_course('Current OA'));
+        final notifier = container.read(scheduleProvider.notifier);
+        try {
+          await notifier.updateFromLoginResult(
+            courses: [_course('Current OA')],
+            studentId: '20260001',
+            studentName: '',
+            collegeName: '',
+            className: '',
+          );
+        } on WidgetSyncException {
+          /* Native bridge is absent. */
+        }
+      });
+      expect(storage.getOriginalCourses().single.title, 'Current OA');
+    },
+  );
+
+  testWidgets('logout clears both persisted and visible calendar notices', (
+    tester,
+  ) async {
+    await preferences.setSchoolCalendarUpdateNotice(true);
+    await preferences.setResourceUploadStatsCache('{"student_id":"20260001"}');
+    semesterCalendar.setCalendarUpdateNotice(true);
+    addTearDown(() => semesterCalendar.setCalendarUpdateNotice(false));
+    await tester.runAsync(
+      () => container.read(configProvider.notifier).logout(),
+    );
+    expect(preferences.getSchoolCalendarUpdateNotice(), isFalse);
+    expect(semesterCalendar.calendarUpdateNotice, isFalse);
+    expect(container.read(configProvider).studentId, isNull);
+    expect(preferences.getResourceUploadStatsCache(), isNull);
+    expect(preferences.getResourceUploadStatsCacheTime(), isNull);
+  });
 
   testWidgets(
     'schedule flipping keeps one viewport and the secondary timetable is read-only',

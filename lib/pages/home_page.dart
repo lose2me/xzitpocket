@@ -214,16 +214,25 @@ class HomePageState extends ConsumerState<HomePage> {
               1 => _toolsPage,
               _ => _profilePage,
             };
-            // Profile needs the live keyboard inset, but must keep the page's
-            // consumed safe-area padding. Restoring the entire ambient query
-            // reserves the bottom safe area again above the shell footer.
-            // The page instances are cached above, so the shell rebuild no
-            // longer cascades into the page subtrees on each IME frame.
+            // The shell footer already occupies part of the keyboard area.
+            // Feed Profile only the remaining overlap so its viewport can resize
+            // without reserving the footer height twice.
             final pageWithInsets = index == 2
-                ? MediaQuery(
-                    data: MediaQuery.of(context)
-                        .copyWith(viewInsets: ambientMediaQuery.viewInsets),
-                    child: page,
+                ? LayoutBuilder(
+                    builder: (context, constraints) {
+                      final footerHeight =
+                          ambientMediaQuery.size.height - constraints.maxHeight;
+                      final overlap =
+                          (ambientMediaQuery.viewInsets.bottom - footerHeight)
+                              .clamp(0.0, constraints.maxHeight)
+                              .toDouble();
+                      return MediaQuery(
+                        data: MediaQuery.of(context).copyWith(
+                          viewInsets: EdgeInsets.only(bottom: overlap),
+                        ),
+                        child: page,
+                      );
+                    },
                   )
                 : page;
             return TickerMode(enabled: isActive, child: pageWithInsets);

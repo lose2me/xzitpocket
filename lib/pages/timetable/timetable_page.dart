@@ -68,11 +68,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   late final AnimationController _conflictCountdownController;
   late final AnimationController _dayActionPulseController;
   late final AnimationController _scheduleFlipController;
-  late final AnimationController _noticeSlideController;
-  late final AnimationController _noticeProgressController;
-  Timer? _noticeTimer;
-  bool _noticeVisible = false;
-  static const _noticeDuration = Duration(seconds: 6);
   final _timetableViewportKey = GlobalKey();
   bool _isSyncing = false;
   bool _pageRefreshActive = false;
@@ -120,19 +115,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
       vsync: this,
       duration: const Duration(milliseconds: 520),
     );
-    _noticeSlideController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 260),
-    );
-    _noticeProgressController = AnimationController(
-      vsync: this,
-      duration: _noticeDuration,
-    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (initialWeek > 0) {
         ref.read(selectedWeekProvider.notifier).set(initialWeek);
       }
-      _showNoticeIfNeeded();
     });
   }
 
@@ -142,9 +128,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     _conflictCountdownController.dispose();
     _dayActionPulseController.dispose();
     _scheduleFlipController.dispose();
-    _noticeTimer?.cancel();
-    _noticeSlideController.dispose();
-    _noticeProgressController.dispose();
     _edgePageTimer?.cancel();
     _dayActionTimer?.cancel();
     _pageController.dispose();
@@ -153,9 +136,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
   void _onCalendarChanged() {
     if (!mounted) return;
-    if (!semesterCalendar.calendarUpdateNotice) {
-      unawaited(_hideNotice());
-    }
     final maxWeek = _maxDisplayWeek();
     final selected = ref.read(selectedWeekProvider);
     final week = selected.clamp(1, maxWeek).toInt();
@@ -576,47 +556,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
     return max;
   }
 
-  Future<void> _dismissCalendarUpdateNotice() async {
-    semesterCalendar.setCalendarUpdateNotice(false);
-    await ref
-        .read(preferencesStorageProvider)
-        .setSchoolCalendarUpdateNotice(false);
-  }
-
-  void _showNoticeIfNeeded() {
-    if (!mounted) return;
-    if (!semesterCalendar.calendarUpdateNotice) {
-      unawaited(_hideNotice());
-      return;
-    }
-    // TickerMode is disabled for pages that are not the active tab; showing
-    // then would let the countdown expire while the user is elsewhere.
-    if (!TickerMode.valuesOf(context).enabled) return;
-    _noticeTimer?.cancel();
-    _noticeProgressController.forward(from: 0);
-    _noticeSlideController.forward(from: 0);
-    if (!_noticeVisible) {
-      setState(() => _noticeVisible = true);
-    }
-    _noticeTimer = Timer(_noticeDuration, () => unawaited(_hideNotice()));
-  }
-
-  Future<void> _hideNotice() async {
-    _noticeTimer?.cancel();
-    _noticeTimer = null;
-    _noticeProgressController.stop();
-    if (!_noticeVisible) return;
-    await _noticeSlideController.reverse();
-    if (mounted && _noticeVisible && _noticeSlideController.isDismissed) {
-      setState(() => _noticeVisible = false);
-    }
-  }
-
-  Future<void> _dismissNoticePermanently() async {
-    await _hideNotice();
-    await _dismissCalendarUpdateNotice();
-  }
-
   Future<void> _onSync() async {
     if (_isSyncing) {
       markAppRefreshHandled();
@@ -703,6 +642,19 @@ class TimetablePageState extends ConsumerState<TimetablePage>
 
       final loginResult = result.$1;
       final examResult = result.$2;
+      // Fetch calendar rules before replacing OA data, so removed rules cannot
+      // leave changes applied from an older calendar in the fresh timetable.
+      try {
+        await ControlService.instance
+            .refreshSchoolCalendarIfChanged(
+              prefs,
+              force: true,
+              college: loginResult.collegeName ?? '',
+            )
+            .timeout(const Duration(seconds: 3));
+      } catch (error, stackTrace) {
+        talker.warning('同步前刷新校历失败', error, stackTrace);
+      }
       try {
         await ref
             .read(scheduleProvider.notifier)
@@ -725,17 +677,6 @@ class TimetablePageState extends ConsumerState<TimetablePage>
         return;
       }
 
-      // 登录后 Control 门禁已打开，补一次校历刷新（未登录阶段被门禁跳过）。
-      try {
-        final calendarChanged = await ControlService.instance
-            .refreshSchoolCalendarIfChanged(prefs)
-            .timeout(const Duration(seconds: 3));
-        if (calendarChanged && prefs.getUseCloudTimetableAdjustments()) {
-          await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
-        }
-      } catch (error, stackTrace) {
-        talker.warning('同步后刷新校历失败', error, stackTrace);
-      }
       if (examResult != null) {
         await ToolsDataManager.instance.setExams(examResult, prefs);
       }
@@ -863,26 +804,10 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                         onJumpToCurrentWeek: jumpToCurrentWeek,
                         onToggleSchedule: _toggleSchedule,
                       ),
-                      if (_noticeVisible)
-                        Positioned.fill(
-                          child: SlideTransition(
-                            // 从左端滑入，收起时向左滑出，仍在原位置。
-                            position:
-                                Tween<Offset>(
-                                  begin: const Offset(-1, 0),
-                                  end: Offset.zero,
-                                ).animate(
-                                  CurvedAnimation(
-                                    parent: _noticeSlideController,
-                                    curve: Curves.easeOutCubic,
-                                    reverseCurve: Curves.easeInCubic,
-                                  ),
-                                ),
-                            child: _CalendarUpdateNoticeToast(
-                              progress: _noticeProgressController,
-                              onDismiss: _dismissNoticePermanently,
-                            ),
-                          ),
+                      if (settings.useCloudTimetableAdjustments &&
+                          semesterCalendar.calendarUpdateNotice)
+                        const Positioned.fill(
+                          child: _CalendarUpdateNoticeToast(),
                         ),
                     ],
                   ),
@@ -1669,80 +1594,35 @@ class TimetablePageState extends ConsumerState<TimetablePage>
   }
 }
 
-/// 「云端课程有所调整」黄色警告条：覆盖日期/周数栏，底部带倒计时进度条。
+/// 云端规则变化后持续提醒，直到重新登录或从教务刷新主课表。
 class _CalendarUpdateNoticeToast extends StatelessWidget {
-  final Animation<double> progress;
-  final VoidCallback onDismiss;
-
-  const _CalendarUpdateNoticeToast({
-    required this.progress,
-    required this.onDismiss,
-  });
+  const _CalendarUpdateNoticeToast();
 
   @override
   Widget build(BuildContext context) {
     final colors = context.theme.colors.semantic;
     return ColoredBox(
       color: colors.warningContainer,
-      child: Stack(
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final gutter = AppLayout.pageGutter(context);
-              final width = (constraints.maxWidth - gutter * 2)
-                  .clamp(0.0, AppLayout.contentMaxWidth)
-                  .toDouble();
-              return Center(
-                child: SizedBox(
-                  width: width,
-                  child: Row(
-                    children: [
-                      Icon(
-                        FLucideIcons.triangleAlert,
-                        size: 18,
-                        color: colors.warning,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '云端课程有所调整，建议重建课表',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: context.theme.typography.bodySmall.copyWith(
-                            color: colors.onWarningContainer,
-                          ),
-                        ),
-                      ),
-                      AppIconButton(
-                        icon: FLucideIcons.x,
-                        onPress: onDismiss,
-                        tooltip: '关闭提醒',
-                        iconColor: colors.onWarningContainer,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 3,
-            child: AnimatedBuilder(
-              animation: progress,
-              builder: (context, _) => Align(
-                alignment: Alignment.centerLeft,
-                child: FractionallySizedBox(
-                  widthFactor: (1 - progress.value).clamp(0.0, 1.0),
-                  heightFactor: 1,
-                  child: ColoredBox(color: colors.warning),
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: AppLayout.pageGutter(context),
+        ),
+        child: Row(
+          children: [
+            Icon(FLucideIcons.triangleAlert, size: 18, color: colors.warning),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '云端课程有所调整，建议重建课表',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: context.theme.typography.bodySmall.copyWith(
+                  color: colors.onWarningContainer,
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

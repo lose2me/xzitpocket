@@ -61,10 +61,8 @@ TimeSlot? timeSlotFromJson(Object? raw) {
     return null;
   }
   if (start.compareTo(end) >= 0) return null;
-  final rawLab = raw['lab'];
-  // Older cached payloads predate the lab flag; keep periods 5/6 marked so the
-  // hide-when-empty behaviour survives a cache that has not been refetched.
-  final lab = rawLab is bool ? rawLab : (index == 5 || index == 6);
+  final lab = raw['lab'];
+  if (lab is! bool) return null;
   return TimeSlot(index: index, start: start, end: end, lab: lab);
 }
 

@@ -178,6 +178,22 @@ void main() {
     expect(schoolCalendarRulesChanged(next, next), isFalse);
   });
 
+  test(
+    'removing calendar dates with applied rules still requires a refresh',
+    () {
+      final ordinary = SchoolDay(date: DateTime(2026, 10, 1));
+      final adjusted = SchoolDay(
+        date: DateTime(2026, 10, 2),
+        adjustment: '20260925',
+      );
+      expect(
+        schoolCalendarRulesChanged([ordinary, adjusted], [ordinary]),
+        isTrue,
+      );
+      expect(schoolCalendarRulesChanged([ordinary], []), isFalse);
+    },
+  );
+
   test('decodes control timetable periods alongside the calendar', () {
     final payload = schoolCalendarPayloadFromJson(
       '{"days":[{"date":"2027-02-22","name":"","adjustment":""}],'
@@ -190,19 +206,7 @@ void main() {
     ]);
   });
 
-  test('marks periods 5/6 as lab when the flag is missing', () {
-    expect(
-      timeSlotFromJson({'index': 5, 'start': '12:00', 'end': '12:45'})!.lab,
-      isTrue,
-    );
-    expect(
-      timeSlotFromJson({'index': 6, 'start': '12:55', 'end': '13:40'})!.lab,
-      isTrue,
-    );
-    expect(
-      timeSlotFromJson({'index': 1, 'start': '08:00', 'end': '08:45'})!.lab,
-      isFalse,
-    );
+  test('uses the explicit lab flag even for periods 5/6', () {
     expect(
       timeSlotFromJson({
         'index': 5,

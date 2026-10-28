@@ -187,42 +187,6 @@ void main() {
       );
     },
   );
-
-  test(
-    'adopts the current timetable when a legacy install has no baseline',
-    () async {
-      await storage.clearCourses();
-      // Legacy install: only the current box exists, courses_original was
-      // never written, so cloud adjustments used to be skipped silently.
-      await storage.addCourse(
-        _course(title: '周二课程', weekday: 2, courseId: 'TUE-1'),
-      );
-      expect(storage.getOriginalCourses(), isEmpty);
-
-      final start = DateTime(2026, 8, 31);
-      final days = [
-        for (var i = 0; i < 7; i++)
-          SchoolDay(
-            date: start.add(Duration(days: i)),
-            adjustment: i == 5 ? '20260901' : '',
-          ),
-      ];
-      // Saturday 2026-09-05 follows Tuesday 2026-09-01.
-      expect(
-        await storage.applyCloudAdjustments(days: days, semesterStart: start),
-        isTrue,
-      );
-
-      expect(storage.getOriginalCourses(), isNotEmpty);
-      expect(
-        storage
-            .getCourses()
-            .where((course) => course.weekday == 6 && course.isInWeek(1))
-            .map((course) => course.title),
-        ['周二课程'],
-      );
-    },
-  );
 }
 
 Course _course({

@@ -40,13 +40,9 @@ class CourseStorage {
 
   Future<void> saveCourses(List<Course> courses) async {
     await _originalCourseBox.clear();
-    for (final c in courses) {
-      await _originalCourseBox.add(c);
-    }
+    await _originalCourseBox.addAll(courses);
     await _courseBox.clear();
-    for (final c in courses) {
-      await _courseBox.add(c);
-    }
+    await _courseBox.addAll(courses);
   }
 
   /// Applies administrator-managed school-calendar adjustments to the current
@@ -58,16 +54,7 @@ class CourseStorage {
     required Iterable<SchoolDay> days,
     required DateTime semesterStart,
   }) async {
-    // Timetables written before the original-snapshot feature have no
-    // baseline, so no adjustment could ever be applied. The current timetable
-    // is the only available snapshot in that case; adopt it so upgraded users
-    // are not stuck with an empty baseline forever.
-    if (_originalCourseBox.isEmpty) {
-      if (_courseBox.isEmpty) return false;
-      for (final course in _courseBox.values) {
-        await _originalCourseBox.add(course);
-      }
-    }
+    if (_originalCourseBox.isEmpty) return false;
     final rules = days.where((day) => day.adjustment.isNotEmpty).toList();
     if (rules.isEmpty) return false;
 
@@ -94,32 +81,11 @@ class CourseStorage {
                 course.weeks.contains(sourceWeek),
           )
           .toList();
-      final remaining = _courseBox.toMap().map(
-        (key, value) => MapEntry(key as int, value),
+      await _copyCoursesToDay(
+        sourceCourses,
+        weekday: target.date.weekday,
+        week: targetWeek,
       );
-      for (final source in sourceCourses) {
-        MapEntry<int, Course>? match;
-        for (final entry in remaining.entries) {
-          if (entry.value.weekday == target.date.weekday &&
-              _sameCourseExceptWeekAndWeekday(entry.value, source)) {
-            match = entry;
-            break;
-          }
-        }
-        if (match != null) {
-          final weeks = {...match.value.weeks, targetWeek}.toList()..sort();
-          final updated = match.value.copyWith(weeks: weeks);
-          await _courseBox.put(match.key, updated);
-          remaining[match.key] = updated;
-        } else {
-          final copy = source.copyWith(
-            weekday: target.date.weekday,
-            weeks: [targetWeek],
-          );
-          final key = await _courseBox.add(copy);
-          remaining[key] = copy;
-        }
-      }
     }
     return changed;
   }
@@ -165,25 +131,7 @@ class CourseStorage {
     if (_originalCourseBox.isEmpty) return false;
 
     await clearCourseDayOccurrence(weekday: weekday, week: week);
-    for (final source in original) {
-      MapEntry<dynamic, Course>? existing;
-      for (final entry in _courseBox.toMap().entries) {
-        if (entry.value.weekday == weekday &&
-            _sameCourseExceptWeekAndWeekday(entry.value, source)) {
-          existing = entry;
-          break;
-        }
-      }
-      if (existing != null) {
-        final weeks = {...existing.value.weeks, week}.toList()..sort();
-        await _courseBox.put(
-          existing.key,
-          existing.value.copyWith(weeks: weeks),
-        );
-      } else {
-        await _courseBox.add(source.copyWith(weeks: [week]));
-      }
-    }
+    await _copyCoursesToDay(original, weekday: weekday, week: week);
     return true;
   }
 
@@ -261,53 +209,16 @@ class CourseStorage {
               course.weeks.contains(sourceWeek),
         )
         .toList();
-    final updates = <int, Course>{};
-    final deletes = <int>[];
+    await clearCourseDayOccurrence(weekday: targetWeekday, week: targetWeek);
+    await clearCourseDayOccurrence(weekday: sourceWeekday, week: sourceWeek);
+    await _copyCoursesToDay(sources, weekday: targetWeekday, week: targetWeek);
+  }
 
-    for (final entry in entries.entries) {
-      final course = entry.value;
-      if (course.weekday != targetWeekday ||
-          !course.weeks.contains(targetWeek)) {
-        continue;
-      }
-      final remainingWeeks = course.weeks
-          .where((value) => value != targetWeek)
-          .toList();
-      if (remainingWeeks.isEmpty) {
-        deletes.add(entry.key);
-      } else {
-        updates[entry.key] = course.copyWith(weeks: remainingWeeks);
-      }
-    }
-
-    if (deletes.isNotEmpty) await _courseBox.deleteAll(deletes);
-    if (updates.isNotEmpty) await _courseBox.putAll(updates);
-
-    // The source snapshot was taken before either side was cleared, so all
-    // repeated and conflicting courses are retained for the move.
-    final sourceEntries = _courseBox.toMap().map(
-      (key, value) => MapEntry(key as int, value),
-    );
-    final sourceUpdates = <int, Course>{};
-    final sourceDeletes = <int>[];
-    for (final entry in sourceEntries.entries) {
-      final course = entry.value;
-      if (course.weekday != sourceWeekday ||
-          !course.weeks.contains(sourceWeek)) {
-        continue;
-      }
-      final remainingWeeks = course.weeks
-          .where((value) => value != sourceWeek)
-          .toList();
-      if (remainingWeeks.isEmpty) {
-        sourceDeletes.add(entry.key);
-      } else {
-        sourceUpdates[entry.key] = course.copyWith(weeks: remainingWeeks);
-      }
-    }
-    if (sourceDeletes.isNotEmpty) await _courseBox.deleteAll(sourceDeletes);
-    if (sourceUpdates.isNotEmpty) await _courseBox.putAll(sourceUpdates);
-
+  Future<void> _copyCoursesToDay(
+    Iterable<Course> sources, {
+    required int weekday,
+    required int week,
+  }) async {
     // Reuse an equivalent target record where possible so repeated cover
     // operations do not create a new Hive record for every week.
     final remaining = _courseBox.toMap().map(
@@ -316,22 +227,19 @@ class CourseStorage {
     for (final source in sources) {
       MapEntry<int, Course>? match;
       for (final entry in remaining.entries) {
-        if (entry.value.weekday == targetWeekday &&
+        if (entry.value.weekday == weekday &&
             _sameCourseExceptWeekAndWeekday(entry.value, source)) {
           match = entry;
           break;
         }
       }
       if (match != null) {
-        final weeks = {...match.value.weeks, targetWeek}.toList()..sort();
+        final weeks = {...match.value.weeks, week}.toList()..sort();
         final updated = match.value.copyWith(weeks: weeks);
         await _courseBox.put(match.key, updated);
         remaining[match.key] = updated;
       } else {
-        final copy = source.copyWith(
-          weekday: targetWeekday,
-          weeks: [targetWeek],
-        );
+        final copy = source.copyWith(weekday: weekday, weeks: [week]);
         final key = await _courseBox.add(copy);
         remaining[key] = copy;
       }
@@ -341,7 +249,6 @@ class CourseStorage {
   bool _sameCourseExceptWeekAndWeekday(Course left, Course right) =>
       left.title == right.title &&
       left.teacher == right.teacher &&
-      left.sessions.length == right.sessions.length &&
       _sameIntList(left.sessions, right.sessions) &&
       left.campus == right.campus &&
       left.place == right.place &&

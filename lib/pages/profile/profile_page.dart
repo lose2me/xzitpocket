@@ -115,12 +115,8 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     if (!isLoggedIn || _isLoggingIn) {
       return AppPage(
         root: true,
-        // Like the other root pages (timetable/tools), the scaffold itself must
-        // NOT resizeToAvoidBottomInset. Inside the home shell it already sits
-        // above the shell footer, so resize would over-shrink and leave a white
-        // strip above the keyboard. `AppPage` still feeds the content the live
-        // inset, so focused text fields auto-scroll clear of the IME.
-        resizeToAvoidBottomInset: false,
+        // Home provides only the keyboard overlap below this root viewport.
+        resizeToAvoidBottomInset: true,
         child: SafeArea(child: _buildLoginForm(theme)),
       );
     }
@@ -141,9 +137,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
     return AppPage(
       title: '掌上徐工',
       root: true,
-      // root page: don't resize (see the login branch comment) so the scaffold
-      // does not over-shrink above the shell footer / keyboard.
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       child: AppPageListView(
         maxWidth: AppLayout.resultMaxWidth,
         topPadding: AppSpacing.sm,
@@ -551,6 +545,11 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('验证码', style: theme.typography.label),
+        ),
+        const SizedBox(height: AppSpacing.xs),
         // 六位验证码：一格一个字符，支持短信自动填充。
         Center(
           child: FOtpField(
@@ -562,13 +561,6 @@ class ProfilePageState extends ConsumerState<ProfilePage>
             autofillHints: const [AutofillHints.oneTimeCode],
             style: appOtpFieldStyle,
             onSubmit: (_) => _submitVerify(),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Text(
-          '输入手机收到的六位验证码',
-          style: theme.typography.caption.copyWith(
-            color: theme.colors.mutedForeground,
           ),
         ),
         const SizedBox(height: AppSpacing.xxl),
@@ -820,7 +812,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         const Duration(seconds: 4),
       );
       await ControlService.instance
-          .refreshSchoolCalendarIfChanged(prefs)
+          .refreshSchoolCalendarIfChanged(prefs, force: true)
           .timeout(const Duration(seconds: 4));
     } catch (error, stackTrace) {
       talker.warning('登录前 control 初始化失败', error, stackTrace);
@@ -836,6 +828,18 @@ class ProfilePageState extends ConsumerState<ProfilePage>
           pwd,
           onScheduleReady: (loginResult) async {
             try {
+              // OA has now supplied the actual college. Its periods can differ
+              // from the global calendar loaded before login.
+              try {
+                await ControlService.instance
+                    .refreshSchoolCalendarIfChanged(
+                      prefs,
+                      college: loginResult.collegeName ?? '',
+                    )
+                    .timeout(const Duration(seconds: 4));
+              } catch (error, stackTrace) {
+                talker.warning('登录后刷新学院校历失败', error, stackTrace);
+              }
               await CredentialStorage.setSavedPassword(pwd);
               try {
                 await ref
@@ -869,16 +873,7 @@ class ProfilePageState extends ConsumerState<ProfilePage>
         );
 
     if (result != null) {
-      // 3. 教务数据已就绪，按云端课程规则重算主课表显示。
-      try {
-        if (prefs.getUseCloudTimetableAdjustments()) {
-          await ref.read(scheduleProvider.notifier).applyCloudAdjustments();
-        }
-      } catch (error, stackTrace) {
-        talker.warning('应用云端课程规则失败', error, stackTrace);
-      }
-
-      // 4. Portal (一卡通/校园网/电费) and control (题库/上报) data continue
+      // 3. Portal (一卡通/校园网/电费) and control (题库/上报) data continue
       //    in the background after the OA login completes. Disabled
       //    features are skipped entirely so they never issue requests.
       final examResult = result.$2;

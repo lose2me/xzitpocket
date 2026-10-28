@@ -104,10 +104,10 @@ void main() {
       ),
     );
 
-    await pumpCard(template: r'[b]{课程}[/]\n【{教师}】');
+    await pumpCard(template: r'[b]{课程}[/b]\n【{教师}】');
     expect(find.text('【张老师】'), findsOneWidget);
 
-    await pumpCard(template: r'[b]{课程}[/]\n{教师}');
+    await pumpCard(template: r'[b]{课程}[/b]\n{教师}');
     expect(find.text('【张老师】'), findsNothing);
     expect(find.text('张老师'), findsOneWidget);
 
@@ -130,7 +130,7 @@ void main() {
           child: CourseCard(
             course: noTeacher,
             borderColor: Colors.black,
-            textTemplate: r'[b]{课程}[/]\n【{教师}】',
+            textTemplate: r'[b]{课程}[/b]\n【{教师}】',
           ),
         ),
       ),
@@ -199,8 +199,8 @@ void main() {
       return tester.getTopLeft(find.text('@教室')).dy;
     }
 
-    final normalTop = await placeTop(template: r'[b]{课程}[/]\n@{教室}');
-    final blankLineTop = await placeTop(template: r'[b]{课程}[/]\n\n@{教室}');
+    final normalTop = await placeTop(template: r'[b]{课程}[/b]\n@{教室}');
+    final blankLineTop = await placeTop(template: r'[b]{课程}[/b]\n\n@{教室}');
 
     expect(blankLineTop, greaterThan(normalTop + 8));
   });
@@ -228,7 +228,7 @@ void main() {
             course: course,
             borderColor: Colors.black,
             centerHorizontal: true,
-            textTemplate: r'[b]{课程}[/]\n{时间}\n@{教室}\n{校区}\n{教师}',
+            textTemplate: r'[b]{课程}[/b]\n{时间}\n@{教室}\n{校区}\n{教师}',
           ),
         ),
       ),
