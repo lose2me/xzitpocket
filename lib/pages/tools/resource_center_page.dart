@@ -552,8 +552,9 @@ class _CourseCard extends StatelessWidget {
                   Row(
                     children: [
                       if (mine) ...[
+                        // 实心星标：Lucide 只有描边版，这里用 Material 的实心星。
                         Icon(
-                          FLucideIcons.star,
+                          Icons.star,
                           size: 14,
                           color: theme.colors.primary,
                         ),
