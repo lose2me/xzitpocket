@@ -1347,6 +1347,14 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .read(appSettingsProvider.notifier)
                               .setToastOpacity(value),
                         ),
+                        ProfileSettingsCheckboxTile(
+                          icon: FLucideIcons.type,
+                          title: '强制使用系统字体',
+                          value: settings.forceSystemFont,
+                          onChange: (value) => ref
+                              .read(appSettingsProvider.notifier)
+                              .setForceSystemFont(value),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),

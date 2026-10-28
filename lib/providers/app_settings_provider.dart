@@ -58,6 +58,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
                   customPageBackgroundColor!,
             ),
       toastOpacity: _storage.getToastOpacity(),
+      forceSystemFont: _storage.getForceSystemFont(),
       classAutomationMode: ClassAutomationMode.fromStorage(
         _storage.getClassAutomationMode(),
       ),
@@ -532,6 +533,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setToastOpacity(normalized);
   }
 
+  Future<void> setForceSystemFont(bool value) async {
+    state = state.copyWith(forceSystemFont: value);
+    await _storage.setForceSystemFont(value);
+  }
+
   Future<void> setTimetableGridLineColor(Color? value) async {
     state = state.copyWith(timetableGridLineColor: value);
     await _storage.setTimetableGridLineColor(value?.toARGB32());
@@ -698,6 +704,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           defaults.timetableUseLightBackgroundInDarkMode,
       pageBackgroundColor: null,
       toastOpacity: defaults.toastOpacity,
+      forceSystemFont: defaults.forceSystemFont,
       timetableGridOpacity: defaults.timetableGridOpacity,
       timetablePageTextOpacity: defaults.timetablePageTextOpacity,
       timetableGridLineColor: activeCustomColor(

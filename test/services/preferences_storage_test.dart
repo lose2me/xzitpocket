@@ -491,4 +491,33 @@ void main() {
       expect(storage.getCourseReminderEnabled(), isTrue);
     });
   });
+  group('force system font', () {
+    late PreferencesStorage storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = PreferencesStorage();
+      await storage.init();
+    });
+
+    test('defaults to enabled and can be turned off', () async {
+      expect(storage.getForceSystemFont(), isTrue);
+      await storage.setForceSystemFont(false);
+      expect(storage.getForceSystemFont(), isFalse);
+      // It is part of the portable personalization snapshot.
+      final snapshot = storage.getPersonalizationSnapshot();
+      expect(snapshot['force_system_font'], isFalse);
+      await storage.restorePersonalizationSnapshot({
+        ...snapshot,
+        'force_system_font': true,
+      });
+      expect(storage.getForceSystemFont(), isTrue);
+    });
+
+    test('resetting personalization restores the default', () async {
+      await storage.setForceSystemFont(false);
+      await storage.resetTimetableAppearance();
+      expect(storage.getForceSystemFont(), isTrue);
+    });
+  });
 }

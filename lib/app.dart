@@ -278,12 +278,14 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       customColor: settings.customThemeColor,
       pageBackgroundColor: settings.pageBackgroundColor,
       customPageBackgroundColor: settings.customPageBackgroundColor,
+      useSystemFont: settings.forceSystemFont,
     );
     final darkTheme = AppTheme.darkFor(
       settings.themeColor,
       customColor: settings.customThemeColor,
       pageBackgroundColor: settings.pageBackgroundColor,
       customPageBackgroundColor: settings.customPageBackgroundColor,
+      useSystemFont: settings.forceSystemFont,
     );
 
     return MaterialApp(

@@ -260,6 +260,10 @@ class AppSettings {
   final bool useCloudTimetableAdjustments;
   final Set<AppServiceFeature> hiddenServiceFeatures;
 
+  /// Uses the platform font instead of the bundled Forui typeface. On by
+  /// default so the app follows the system font and any accessibility font.
+  final bool forceSystemFont;
+
   const AppSettings({
     this.themePreference = AppThemePreference.system,
     this.themeColor = AppThemeColor.teal,
@@ -341,6 +345,7 @@ class AppSettings {
     this.showNonCurrentWeekCourses = false,
     this.useCloudTimetableAdjustments = true,
     this.hiddenServiceFeatures = const {},
+    this.forceSystemFont = true,
   });
 
   static const _unset = Object();
@@ -426,6 +431,7 @@ class AppSettings {
     bool? showNonCurrentWeekCourses,
     bool? useCloudTimetableAdjustments,
     Set<AppServiceFeature>? hiddenServiceFeatures,
+    bool? forceSystemFont,
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
@@ -610,6 +616,7 @@ class AppSettings {
           useCloudTimetableAdjustments ?? this.useCloudTimetableAdjustments,
       hiddenServiceFeatures:
           hiddenServiceFeatures ?? this.hiddenServiceFeatures,
+      forceSystemFont: forceSystemFont ?? this.forceSystemFont,
     );
   }
 

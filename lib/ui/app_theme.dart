@@ -14,6 +14,7 @@ abstract final class AppTheme {
     Color? customColor,
     AppPageBackgroundColor? pageBackgroundColor,
     Color? customPageBackgroundColor,
+    bool useSystemFont = false,
   }) {
     final primary = customColor == null
         ? themeColor.lightColor
@@ -43,6 +44,7 @@ abstract final class AppTheme {
         : Color.lerp(background, const Color(0xFF182126), 0.32)!;
     return _build(
       debugLabel: 'XZIT Pocket Light',
+      useSystemFont: useSystemFont,
       colors: FColors.neutralLight.copyWith(
         barrier: const Color(0x520F172A),
         background: background,
@@ -88,6 +90,7 @@ abstract final class AppTheme {
     Color? customColor,
     AppPageBackgroundColor? pageBackgroundColor,
     Color? customPageBackgroundColor,
+    bool useSystemFont = false,
   }) {
     final primary = customColor == null
         ? themeColor.darkColor
@@ -119,6 +122,7 @@ abstract final class AppTheme {
         : Color.lerp(background, Colors.white, 0.36)!;
     return _build(
       debugLabel: 'XZIT Pocket Dark',
+      useSystemFont: useSystemFont,
       colors: FColors.neutralDark.copyWith(
         barrier: const Color(0xB3000000),
         background: background,
@@ -165,9 +169,35 @@ abstract final class AppTheme {
    * interaction, and status colors keep stable meanings across themes.
    */
 
+  /// Replaces the bundled Forui Inter typeface with the platform font. Forui
+  /// requires a non-empty family, and `sans-serif` resolves to the system font
+  /// on Android while missing families fall back to the platform default.
+  static FTypeface _systemTypeface(FTypeface typeface) {
+    TextStyle system(TextStyle style) =>
+        style.copyWith(fontFamily: 'sans-serif', fontFamilyFallback: const []);
+    return FTypeface(
+      fontFamily: 'sans-serif',
+      xs3: system(typeface.xs3),
+      xs2: system(typeface.xs2),
+      xs: system(typeface.xs),
+      sm: system(typeface.sm),
+      md: system(typeface.md),
+      lg: system(typeface.lg),
+      xl: system(typeface.xl),
+      xl2: system(typeface.xl2),
+      xl3: system(typeface.xl3),
+      xl4: system(typeface.xl4),
+      xl5: system(typeface.xl5),
+      xl6: system(typeface.xl6),
+      xl7: system(typeface.xl7),
+      xl8: system(typeface.xl8),
+    );
+  }
+
   static FThemeData _build({
     required String debugLabel,
     required FColors colors,
+    bool useSystemFont = false,
   }) {
     final inheritedTypography = FTypography.inherit(
       colors: colors,
@@ -205,9 +235,12 @@ abstract final class AppTheme {
         letterSpacing: 0,
       ),
     );
+    final effectiveTypeface = useSystemFont
+        ? _systemTypeface(typeface)
+        : typeface;
     final typography = inheritedTypography.copyWith(
-      display: typeface,
-      body: typeface,
+      display: effectiveTypeface,
+      body: effectiveTypeface,
     );
     final inheritedStyle = FStyle.inherit(
       colors: colors,

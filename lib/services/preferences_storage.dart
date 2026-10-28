@@ -57,6 +57,7 @@ class PreferencesStorage {
     'custom_page_background_color': int,
     'last_custom_page_background_color': int,
     'toast_opacity': double,
+    'force_system_font': bool,
     'timetable_grid_opacity': double,
     'timetable_grid_line_color': int,
     'timetable_last_custom_grid_line_color': int,
@@ -624,6 +625,11 @@ class PreferencesStorage {
   Future<void> setToastOpacity(double value) =>
       _prefs.setDouble('toast_opacity', value.clamp(0.0, 1.0).toDouble());
 
+  bool getForceSystemFont() => _prefs.getBool('force_system_font') ?? true;
+
+  Future<void> setForceSystemFont(bool value) =>
+      _prefs.setBool('force_system_font', value);
+
   int? getTimetableGridLineColor() =>
       _prefs.getInt('timetable_grid_line_color');
   int? getTimetableLastCustomGridLineColor() =>
@@ -881,6 +887,7 @@ class PreferencesStorage {
       _prefs.remove('timetable_use_light_background_in_dark_mode'),
       _prefs.remove('page_background_color'),
       _prefs.remove('toast_opacity'),
+      _prefs.remove('force_system_font'),
       _prefs.remove('timetable_grid_opacity'),
       _prefs.remove('timetable_page_text_opacity'),
       if (!keepGridLineColor) _prefs.remove('timetable_grid_line_color'),

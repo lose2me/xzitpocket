@@ -105,6 +105,7 @@ void main() {
       expect(settings.customThemeColor, isNull);
       expect(settings.lastCustomThemeColor, isNull);
       expect(settings.toastOpacity, 1.0);
+      expect(settings.forceSystemFont, isTrue);
       expect(settings.classAutomationMode, ClassAutomationMode.off);
       expect(settings.courseReminderEnabled, isFalse);
       expect(settings.courseReminderMinutes, 15);
