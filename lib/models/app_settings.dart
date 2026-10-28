@@ -99,7 +99,7 @@ enum TimetableBorderType {
   static TimetableBorderType fromStorage(String? value) {
     return TimetableBorderType.values.firstWhere(
       (item) => item.storageValue == value,
-      orElse: () => TimetableBorderType.solid,
+      orElse: () => TimetableBorderType.none,
     );
   }
 }
@@ -292,7 +292,7 @@ class AppSettings {
     this.timetableDayHeaderHeight = 40.0,
     this.timetableCourseCornerRadius = 6.0,
     this.timetableCourseInnerPadding = 2.0,
-    this.timetableCourseOuterPadding = 1.5,
+    this.timetableCourseOuterPadding = 2.0,
     this.timetableCourseAlpha = 1.0,
     this.timetableCourseTextTemplate = kDefaultCourseTextTemplate,
     this.timetableDashedBorderDensity = 1.0,
@@ -307,10 +307,10 @@ class AppSettings {
     this.timetableCountdownBarThickness = 3.0,
     this.timetableCountdownBarTopPadding = 0.0,
     this.timetableCountdownBarBottomPadding = 4.0,
-    this.showCurrentTimeLine = true,
+    this.showCurrentTimeLine = false,
     this.timetableTextAlignCenterHorizontal = false,
     this.timetableTextAlignCenterVertical = false,
-    this.timetableBorderType = TimetableBorderType.solid,
+    this.timetableBorderType = TimetableBorderType.none,
     this.timetablePageTextColor,
     this.timetableLastCustomPageTextColor,
     this.timetablePageTextOpacity = 1.0,
@@ -335,7 +335,7 @@ class AppSettings {
     this.showTodayGridLines = true,
     this.timetableTodayLineColor,
     this.timetableLastCustomTodayLineColor,
-    this.timetableTodayLineWidth = 2.0,
+    this.timetableTodayLineWidth = 1.5,
     this.timetableTodayLineOpacity = 0.5,
     this.showTodayHorizontalGridLines = false,
     this.showNonCurrentWeekCourses = false,

@@ -204,7 +204,7 @@ class TimetableGrid extends StatefulWidget {
     this.dayTextMarkerPadding = 2.0,
     this.textAlignCenterHorizontal = false,
     this.textAlignCenterVertical = false,
-    this.borderType = 'solid',
+    this.borderType = 'none',
     this.pageTextColor,
     this.pageTextOpacity = 1.0,
     this.courseTextOpacity = 1.0,
@@ -496,7 +496,9 @@ class _TimetableGridState extends State<TimetableGrid> {
               // Course-card metrics follow the real cell box so the same
               // settings occupy the same fraction on 5/7-column and tall/short
               // layouts.
-              final cardTextSize = widget.courseTextSize * cardScale;
+              // 课程文字沿用 2.1.0 的固定字号（标题 12px、明细 11px），不随
+              // 单元格缩放；边距、圆角、边框和倒计时条仍然跟随 cellScale。
+              final cardTextSize = widget.courseTextSize;
               final cardCornerRadius = widget.courseCornerRadius * cardScale;
               final cardInnerPadding = widget.courseInnerPadding * cardScale;
               final cardOuterPadding = widget.courseOuterPadding * cardScale;
@@ -728,7 +730,7 @@ class _TimetableGridState extends State<TimetableGrid> {
                                                   widget.borderColor,
                                               borderWidth: cardBorderWidth,
                                               textSize: cardTextSize,
-                                              textScale: cardScale,
+                                              textScale: 1.0,
                                               textOpacity:
                                                   widget.courseTextOpacity,
                                               cornerRadius: cardCornerRadius,

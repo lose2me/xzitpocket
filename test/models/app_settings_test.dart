@@ -133,8 +133,8 @@ void main() {
       expect(settings.timetableSectionHeight, 60.0);
       expect(settings.timetableSectionHeightIsCustom, isFalse);
       expect(settings.timetableDayHeaderHeight, 40.0);
-      expect(settings.timetableCourseOuterPadding, 1.5);
-      expect(settings.showCurrentTimeLine, isTrue);
+      expect(settings.timetableCourseOuterPadding, 2.0);
+      expect(settings.showCurrentTimeLine, isFalse);
       expect(settings.timetableCountdownBarThickness, 3.0);
       expect(settings.timetableCountdownBarTopPadding, 0.0);
       expect(settings.timetableCountdownBarBottomPadding, 4.0);
@@ -156,7 +156,7 @@ void main() {
       expect(settings.showTimetableGridLines, isTrue);
       expect(settings.showTodayGridLines, isTrue);
       expect(settings.timetableTodayLineColor, isNull);
-      expect(settings.timetableTodayLineWidth, 2.0);
+      expect(settings.timetableTodayLineWidth, 1.5);
       expect(settings.hiddenServiceFeatures, isEmpty);
     });
 

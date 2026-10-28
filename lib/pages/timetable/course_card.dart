@@ -51,7 +51,7 @@ class CourseCard extends StatelessWidget {
     this.dashedBorderDensity = 1.0,
     this.centerHorizontal = false,
     this.centerVertical = false,
-    this.borderType = 'solid',
+    this.borderType = 'none',
     this.countdownBarLengthRatio = 0.75,
     this.countdownBarRounded = true,
     this.countdownBarThickness = 3.0,

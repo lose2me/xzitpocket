@@ -45,7 +45,7 @@ void main() {
         settings.timetableCourseCornerRadius,
       );
       expect(tablet.timetableGridLineWidth, closeTo(0.5 * 1.3, 1e-9));
-      expect(tablet.timetableTodayLineWidth, closeTo(2.0 * 1.3, 1e-9));
+      expect(tablet.timetableTodayLineWidth, closeTo(1.5 * 1.3, 1e-9));
       expect(
         tablet.timetableCourseBorderWidth,
         settings.timetableCourseBorderWidth,

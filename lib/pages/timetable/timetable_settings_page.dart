@@ -56,6 +56,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   // 课程预览默认收起，下拉（或点击）展开。
   bool _previewExpanded = false;
   late final TextEditingController _templateController;
+
   /// 「模板语法」默认折叠，避免设置页一进来就被一大段说明占满。
   bool _templateRulesExpanded = false;
   static const _templateRuleLines = [
@@ -848,11 +849,6 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
                               .setShowCurrentTimeLine(value),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    const ProfileSettingsHint(
-                      '开启后，今日将要或正在上的课：左侧时间列对应节次以今日颜色标注，'
-                      '并在该课上下边界绘制贯通整行的横线（颜色与粗细跟随今日课程边线设置）。',
                     ),
                   ]),
                 ),

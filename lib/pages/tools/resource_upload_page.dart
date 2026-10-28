@@ -84,6 +84,10 @@ class ResourceUploadPage extends StatefulWidget {
   /// used to prioritise their textbooks.
   final Set<String> ownCourseCodes;
 
+  /// Overrides the textbook list request. Tests use it to avoid the network;
+  /// production keeps using the control service.
+  final Future<List<UploadTextbook>> Function(String courseCode)? loadTextbooks;
+
   const ResourceUploadPage({
     super.key,
     required this.courses,
@@ -92,6 +96,7 @@ class ResourceUploadPage extends StatefulWidget {
     this.initialCourseCode,
     this.courseScoped = false,
     this.ownCourseCodes = const {},
+    this.loadTextbooks,
   });
 
   @override
@@ -216,7 +221,10 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
     }
     if (!_textbooksLoading) setState(() => _textbooksLoading = true);
     try {
-      final items = widget.courseScoped
+      final loader = widget.loadTextbooks;
+      final items = loader != null
+          ? await loader(_courseCode)
+          : widget.courseScoped
           ? [
               for (final item
                   in (await ControlService.instance.fetchCourseTextbooks(
@@ -616,60 +624,25 @@ class _ResourceUploadPageState extends State<ResourceUploadPage> {
   }
 
   Widget _buildTextbookField(FThemeData theme) {
-    if (_textbooksLoading) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        child: Center(
-          child: FCircularProgress(size: FCircularProgressSizeVariant.sm),
-        ),
-      );
-    }
-    if (_textbooks.isEmpty) {
-      return AppCard(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Text(
-          widget.courseScoped ? '该课程暂无关联教材' : '暂无可上传的教材',
-          style: theme.typography.bodySmall.copyWith(
-            color: theme.colors.mutedForeground,
-          ),
-        ),
-      );
-    }
     final book = _selectedTextbook;
-    if (widget.courseScoped && _textbooks.length == 1 && book != null) {
-      return AppCard(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '关联教材',
-              style: theme.typography.bodySmall.copyWith(
-                color: theme.colors.mutedForeground,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              book.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.typography.body.md.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+    final loading = _textbooksLoading;
+    final empty = !loading && _textbooks.isEmpty;
+    // Keep the same field in every state. Replacing it with a spinner or a
+    // hint card while loading/empty makes the form flash and lose its label;
+    // the placeholder carries the status instead.
     return _SearchChoiceField<UploadTextbook>(
       label: '选择教材',
-      placeholder: '请选择教材',
+      placeholder: loading
+          ? '正在加载教材…'
+          : empty
+          ? (widget.courseScoped ? '该课程暂无关联教材' : '暂无可选教材')
+          : '请选择教材',
       searchHint: '搜索教材名称、标签或课程',
       value: book,
       options: _orderedTextbooks,
       format: _textbookLabel,
       matches: _textbookMatches,
-      enabled: !_uploading,
+      enabled: !_uploading && !empty && !(loading && _textbooks.isEmpty),
       onChanged: (value) => setState(() => _selectedTextbook = value),
     );
   }
