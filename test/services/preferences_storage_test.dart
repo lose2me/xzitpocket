@@ -77,6 +77,43 @@ void main() {
     });
   });
 
+  group('share codes', () {
+    late PreferencesStorage storage;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      storage = PreferencesStorage();
+      await storage.init();
+    });
+
+    test('clears both codes when the account caches are cleared', () async {
+      await storage.setShareCode('1', 'ABCDE1');
+      await storage.setShareCode('2', 'FGHJK2');
+
+      await storage.clearUserAccountCaches();
+
+      expect(storage.getShareCode('1'), isNull);
+      expect(storage.getShareCode('2'), isNull);
+    });
+
+    test('keeps one code per kind until it is cleared', () async {
+      expect(storage.getShareCode('1'), isNull);
+      await storage.setShareCode('1', 'ABCDE1');
+      await storage.setShareCode('2', 'FGHJK2');
+
+      expect(storage.getShareCode('1'), 'ABCDE1');
+      expect(storage.getShareCode('2'), 'FGHJK2');
+
+      await storage.setShareCode('1', 'LMNPQ1');
+      expect(storage.getShareCode('1'), 'LMNPQ1');
+      expect(storage.getShareCode('2'), 'FGHJK2');
+
+      await storage.setShareCode('1', null);
+      expect(storage.getShareCode('1'), isNull);
+      expect(storage.getShareCode('2'), 'FGHJK2');
+    });
+  });
+
   group('student profile', () {
     late PreferencesStorage storage;
 

@@ -60,6 +60,12 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
     _secondaryNameController = TextEditingController(
       text: ref.read(secondaryScheduleProvider).title,
     );
+    // Show the codes generated earlier on this device; they stay until a new
+    // generation returns a different code.
+    final storage = ref.read(preferencesStorageProvider);
+    _personalizationController.text =
+        storage.getShareCode(_personalizationSuffix) ?? '';
+    _scheduleController.text = storage.getShareCode(_scheduleSuffix) ?? '';
   }
 
   @override
@@ -92,6 +98,9 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
             ? _personalizationData()
             : _scheduleData(),
       );
+      final storage = ref.read(preferencesStorageProvider);
+      final changed = storage.getShareCode(suffix) != code;
+      await storage.setShareCode(suffix, code);
       await Clipboard.setData(ClipboardData(text: code));
       if (!mounted) return;
       setState(() {
@@ -101,7 +110,11 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
           _scheduleController.text = code;
         }
       });
-      showAppSnackBar(context, '分享码已生成并复制', severity: ToastSeverity.success);
+      showAppSnackBar(
+        context,
+        changed ? '分享码已生成并复制' : '内容没有变化，分享码保持不变（已复制）',
+        severity: ToastSeverity.success,
+      );
       unawaited(
         ControlService.instance.track(
           'share_code',
@@ -159,6 +172,8 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
       }
       if (mounted) {
         controller.clear();
+        await ref.read(preferencesStorageProvider).setShareCode(suffix, null);
+        if (!mounted) return;
         showAppSnackBar(context, '配置已导入', severity: ToastSeverity.success);
       }
       unawaited(

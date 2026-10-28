@@ -141,6 +141,21 @@ class PreferencesStorage {
     }
   }
 
+  // ── Share codes ──
+
+  /// The last share code generated on this device for [suffix], kept so the
+  /// page still shows it until a new generation replaces it.
+  String? getShareCode(String suffix) => _prefs.getString('share_code_$suffix');
+
+  Future<void> setShareCode(String suffix, String? code) async {
+    final value = code?.trim() ?? '';
+    if (value.isEmpty) {
+      await _prefs.remove('share_code_$suffix');
+    } else {
+      await _prefs.setString('share_code_$suffix', value);
+    }
+  }
+
   String getSecondaryScheduleTitle() {
     final title = _prefs.getString('secondary_schedule_title');
     if (title == null || title.isEmpty) {
@@ -1298,6 +1313,9 @@ class PreferencesStorage {
     clearResourceUploadCaches(),
     clearLearningCache(),
     _prefs.remove('update_prompted_version'),
+    // 分享码属于账号，换账号后不能再显示上一个人的码。
+    _prefs.remove('share_code_1'),
+    _prefs.remove('share_code_2'),
   ];
 
   static double _clampTimetableDimension(
