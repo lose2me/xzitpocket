@@ -3,7 +3,7 @@ import 'dart:io';
 /// Validates an lcov report and fails when coverage is below the given floors.
 ///
 /// Usage:
-///   dart tool/check_coverage.dart <lcov.info> [min-line-percent] [min-branch-percent]
+///   dart tool/check_coverage.dart `lcov.info [min-line-percent] [min-branch-percent]`
 ///
 /// Line coverage is computed from LF/LH records. Branch coverage is computed
 /// from BRDA records (Dart emits branch records when the suite runs with
