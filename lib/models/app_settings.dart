@@ -208,6 +208,9 @@ class AppSettings {
   final double timetableCourseOuterPadding;
   final double timetableCourseAlpha;
   final String timetableCourseTextTemplate;
+
+  /// 课程块文字用 2.1.0 的开关编辑；模板仍然保存实际渲染规则。
+  final bool timetableCourseTextLegacy;
   final double timetableDashedBorderDensity;
   final bool timetableHideSectionTime;
   final bool timetableHideDateUnderDay;
@@ -299,6 +302,7 @@ class AppSettings {
     this.timetableCourseOuterPadding = 2.0,
     this.timetableCourseAlpha = 1.0,
     this.timetableCourseTextTemplate = kDefaultCourseTextTemplate,
+    this.timetableCourseTextLegacy = false,
     this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
     this.timetableHideDateUnderDay = false,
@@ -385,6 +389,7 @@ class AppSettings {
     double? timetableCourseOuterPadding,
     double? timetableCourseAlpha,
     String? timetableCourseTextTemplate,
+    bool? timetableCourseTextLegacy,
     double? timetableDashedBorderDensity,
     bool? timetableHideSectionTime,
     bool? timetableHideDateUnderDay,
@@ -506,6 +511,8 @@ class AppSettings {
       timetableCourseAlpha: timetableCourseAlpha ?? this.timetableCourseAlpha,
       timetableCourseTextTemplate:
           timetableCourseTextTemplate ?? this.timetableCourseTextTemplate,
+      timetableCourseTextLegacy:
+          timetableCourseTextLegacy ?? this.timetableCourseTextLegacy,
       timetableDashedBorderDensity:
           timetableDashedBorderDensity ?? this.timetableDashedBorderDensity,
       timetableHideSectionTime:

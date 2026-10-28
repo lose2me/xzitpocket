@@ -110,6 +110,8 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           focusNode: _templateFocusNode,
           hint: kDefaultCourseTextTemplate,
           maxLines: 1,
+          // 旧版模式直接改开关，模板由开关生成，避免两套输入互相打架。
+          enabled: !settings.timetableCourseTextLegacy,
         ),
         const SizedBox(height: AppSpacing.md),
         Row(
@@ -126,7 +128,9 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
             Expanded(
               child: FButton(
                 key: const ValueKey('course-template-save'),
-                onPress: _saveTemplate,
+                onPress: settings.timetableCourseTextLegacy
+                    ? null
+                    : _saveTemplate,
                 prefix: const Icon(FLucideIcons.save),
                 child: const Text('保存'),
               ),
@@ -163,9 +167,104 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
+        const ProfileSectionLabel(title: '编辑方式'),
+        ProfileSettingsGroup(
+          children: [
+            ProfileSettingsChoiceTile<bool>(
+              icon: FLucideIcons.toggleRight,
+              title: '课程块文字',
+              value: settings.timetableCourseTextLegacy,
+              options: const [
+                ProfileSettingsOption(value: false, label: '模板'),
+                ProfileSettingsOption(value: true, label: '旧版开关'),
+              ],
+              onChanged: (value) => ref
+                  .read(appSettingsProvider.notifier)
+                  .setTimetableCourseTextLegacy(value),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        const ProfileSectionLabel(title: '旧版设置'),
+        ProfileSettingsHint(
+          settings.timetableCourseTextLegacy
+              ? '2.1.0 的开关。改动会重写成对应的模板，模板栏只读显示。'
+              : '当前用模板编辑，这些开关只读显示模板的含义；切到「旧版开关」才能改。',
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Opacity(
+          opacity: settings.timetableCourseTextLegacy ? 1 : 0.55,
+          child: IgnorePointer(
+            ignoring: !settings.timetableCourseTextLegacy,
+            child: ProfileSettingsGroup(
+              children: [
+                for (final toggle in _legacyToggles(settings))
+                  ProfileSettingsCheckboxTile(
+                    icon: toggle.icon,
+                    title: toggle.title,
+                    value: toggle.value,
+                    onChange: toggle.onChange,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
         const ProfileSectionLabel(title: '课程块'),
       ],
     );
+  }
+
+  /// 旧版开关只是模板的另一种写法：读取时从模板解析，改动后回写模板。
+  List<_LegacyTextToggle> _legacyToggles(AppSettings settings) {
+    final legacy = LegacyCourseTextOptions.parse(
+      settings.timetableCourseTextTemplate,
+    );
+    _LegacyTextToggle toggle(
+      IconData icon,
+      String title,
+      bool value,
+      LegacyCourseTextOptions Function(bool value) update,
+    ) => _LegacyTextToggle(
+      icon: icon,
+      title: title,
+      value: value,
+      onChange: (next) => ref
+          .read(appSettingsProvider.notifier)
+          .setTimetableCourseTextTemplate(update(next).toTemplate()),
+    );
+    return [
+      toggle(
+        FLucideIcons.clock3,
+        '显示上课时间',
+        legacy.showStartTime,
+        (value) => legacy.copyWith(showStartTime: value),
+      ),
+      toggle(
+        FLucideIcons.mapPinOff,
+        '隐藏地点',
+        legacy.hideLocation,
+        (value) => legacy.copyWith(hideLocation: value),
+      ),
+      toggle(
+        FLucideIcons.userRoundX,
+        '隐藏教师',
+        legacy.hideTeacher,
+        (value) => legacy.copyWith(hideTeacher: value),
+      ),
+      toggle(
+        FLucideIcons.braces,
+        '隐藏教师两侧的【】',
+        legacy.hideTeacherBrackets,
+        (value) => legacy.copyWith(hideTeacherBrackets: value),
+      ),
+      toggle(
+        FLucideIcons.atSign,
+        '移除地点前的 @',
+        legacy.removeLocationAt,
+        (value) => legacy.copyWith(removeLocationAt: value),
+      ),
+    ];
   }
 
   Future<void> _saveTemplate() async {
@@ -2131,4 +2230,19 @@ class _CropOverlayPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CropOverlayPainter oldDelegate) =>
       oldDelegate.cropRect != cropRect;
+}
+
+/// 旧版设置里的一行开关。
+class _LegacyTextToggle {
+  final IconData icon;
+  final String title;
+  final bool value;
+  final ValueChanged<bool> onChange;
+
+  const _LegacyTextToggle({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.onChange,
+  });
 }

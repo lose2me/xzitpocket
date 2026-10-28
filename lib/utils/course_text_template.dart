@@ -345,3 +345,65 @@ String buildCourseTemplateAiPrompt(String currentTemplate) {
   return '$syntax\n\n当前模板：\n$currentTemplate\n\n'
       '请询问我要更改什么方面的样式，协助我进行修改，返回时只输出模板。';
 }
+
+/// 2.1.0 的课程块文字开关。模板仍然是唯一的数据来源：打开旧版编辑时从模板
+/// 解析出这五个开关，改动开关后再生成等价的模板。
+class LegacyCourseTextOptions {
+  final bool showStartTime;
+  final bool hideLocation;
+  final bool hideTeacher;
+  final bool hideTeacherBrackets;
+  final bool removeLocationAt;
+
+  const LegacyCourseTextOptions({
+    this.showStartTime = false,
+    this.hideLocation = false,
+    this.hideTeacher = true,
+    this.hideTeacherBrackets = true,
+    this.removeLocationAt = false,
+  });
+
+  factory LegacyCourseTextOptions.parse(String template) {
+    final text = template.replaceAll(r'\n', '\n');
+    final teacherLines = text
+        .split('\n')
+        .where((line) => line.contains('{教师}'));
+    return LegacyCourseTextOptions(
+      showStartTime: text.contains('{时间}'),
+      hideLocation: !text.contains('{教室}') && !text.contains('{校区}'),
+      hideTeacher: !text.contains('{教师}'),
+      hideTeacherBrackets: !teacherLines.any(
+        (line) => line.contains('【') && line.contains('】'),
+      ),
+      removeLocationAt: !text.contains('@{教室}'),
+    );
+  }
+
+  LegacyCourseTextOptions copyWith({
+    bool? showStartTime,
+    bool? hideLocation,
+    bool? hideTeacher,
+    bool? hideTeacherBrackets,
+    bool? removeLocationAt,
+  }) => LegacyCourseTextOptions(
+    showStartTime: showStartTime ?? this.showStartTime,
+    hideLocation: hideLocation ?? this.hideLocation,
+    hideTeacher: hideTeacher ?? this.hideTeacher,
+    hideTeacherBrackets: hideTeacherBrackets ?? this.hideTeacherBrackets,
+    removeLocationAt: removeLocationAt ?? this.removeLocationAt,
+  );
+
+  /// 2.1.0 的行顺序：课程、时间、地点、校区、教师。
+  String toTemplate() {
+    final lines = <String>['[b][s12]{课程}[/s12][/b]'];
+    if (showStartTime) lines.add('[s11]{时间}[/s11]');
+    if (!hideLocation) {
+      lines.add('[s11]${removeLocationAt ? '' : '@'}{教室}[/s11]');
+      lines.add('[s11]{校区}[/s11]');
+    }
+    if (!hideTeacher) {
+      lines.add(hideTeacherBrackets ? '[s11]{教师}[/s11]' : '[s11]【{教师}】[/s11]');
+    }
+    return lines.join(r'\n');
+  }
+}

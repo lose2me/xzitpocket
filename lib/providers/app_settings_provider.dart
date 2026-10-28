@@ -103,6 +103,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseTextTemplate:
           _storage.getTimetableCourseTextTemplate() ??
           kDefaultCourseTextTemplate,
+      timetableCourseTextLegacy: _storage.getTimetableCourseTextLegacy(),
       timetableDashedBorderDensity: _storage.getTimetableDashedBorderDensity(),
       timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
       timetableHideDateUnderDay: _storage.getTimetableHideDateUnderDay(),
@@ -398,6 +399,11 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     final normalized = value.clamp(0.1, 1.0).toDouble();
     state = state.copyWith(timetableCourseAlpha: normalized);
     await _storage.setTimetableCourseAlpha(normalized);
+  }
+
+  Future<void> setTimetableCourseTextLegacy(bool value) async {
+    state = state.copyWith(timetableCourseTextLegacy: value);
+    await _storage.setTimetableCourseTextLegacy(value);
   }
 
   Future<void> setTimetableCourseTextTemplate(String value) async {
@@ -772,6 +778,7 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCountdownBarBottomPadding:
           defaults.timetableCountdownBarBottomPadding,
       showCurrentTimeLine: defaults.showCurrentTimeLine,
+      timetableCourseTextLegacy: defaults.timetableCourseTextLegacy,
       timetableTextAlignCenterHorizontal:
           defaults.timetableTextAlignCenterHorizontal,
       timetableTextAlignCenterVertical:

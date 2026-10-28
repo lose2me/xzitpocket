@@ -31,6 +31,7 @@ class PreferencesStorage {
     'timetable_course_outer_padding': double,
     'timetable_course_alpha': double,
     'timetable_course_text_template': String,
+    'timetable_course_text_legacy': bool,
     'timetable_dashed_border_density': double,
     'timetable_hide_section_time': bool,
     'timetable_hide_date_under_day': bool,
@@ -455,6 +456,12 @@ class PreferencesStorage {
       await _prefs.setString('timetable_course_text_template', value);
     }
   }
+
+  bool getTimetableCourseTextLegacy() =>
+      _prefs.getBool('timetable_course_text_legacy') ?? false;
+
+  Future<void> setTimetableCourseTextLegacy(bool value) =>
+      _prefs.setBool('timetable_course_text_legacy', value);
 
   bool hasTimetableSectionHeight() =>
       _prefs.containsKey('timetable_section_height');

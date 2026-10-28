@@ -206,4 +206,43 @@ void main() {
       expect(validateCourseTemplate('[bb]x[/bb]'), contains('无法识别的标签'));
     });
   });
+
+  group('LegacyCourseTextOptions', () {
+    test('reads the 2.1.0 switches back from a template', () {
+      final options = LegacyCourseTextOptions.parse(
+        kDefaultCourseTextTemplate,
+      );
+      expect(options.showStartTime, isFalse);
+      expect(options.hideLocation, isFalse);
+      expect(options.hideTeacher, isTrue);
+      expect(options.hideTeacherBrackets, isTrue);
+      expect(options.removeLocationAt, isFalse);
+    });
+
+    test('builds the 2.1.0 line order with its switches', () {
+      const options = LegacyCourseTextOptions(
+        showStartTime: true,
+        hideTeacher: false,
+        hideTeacherBrackets: false,
+        removeLocationAt: true,
+      );
+      const newline = r'\n';
+      expect(
+        options.toTemplate(),
+        '[b][s12]{课程}[/s12][/b]$newline'
+        '[s11]{时间}[/s11]$newline'
+        '[s11]{教室}[/s11]$newline'
+        '[s11]{校区}[/s11]$newline'
+        '[s11]【{教师}】[/s11]',
+      );
+      final reparsed = LegacyCourseTextOptions.parse(options.toTemplate());
+      expect(reparsed.toTemplate(), options.toTemplate());
+    });
+
+    test('hiding the location drops both location lines', () {
+      const options = LegacyCourseTextOptions(hideLocation: true);
+      expect(options.toTemplate(), isNot(contains('{教室}')));
+      expect(options.toTemplate(), isNot(contains('{校区}')));
+    });
+  });
 }
