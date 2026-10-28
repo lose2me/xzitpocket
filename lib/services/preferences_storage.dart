@@ -1023,6 +1023,14 @@ class PreferencesStorage {
   Future<void> setUpdatePromptedVersion(String version) =>
       _prefs.setString('update_prompted_version', version);
 
+  /// App version that last ran on this device. Used to detect an upgrade and
+  /// sign the account out once, so stale account state cannot survive a new
+  /// build. It is device state and is not cleared on logout.
+  String? getLastRunVersion() => _prefs.getString('last_run_version');
+
+  Future<void> setLastRunVersion(String version) =>
+      _prefs.setString('last_run_version', version);
+
   Set<String> getHiddenServiceFeatures() =>
       (_prefs.getStringList('hidden_service_features') ?? const <String>[])
           .toSet();

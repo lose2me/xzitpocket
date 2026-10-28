@@ -1019,7 +1019,7 @@ class ControlService {
     }
     try {
       final info = await _getPackageInfo();
-      final response = await _request('GET', '/api/v1/app/release-test');
+      final response = await _request('GET', '/api/v1/app/release');
       final latestVersion = response['latestVersion']?.toString().trim() ?? '';
       final downloadUrl = Uri.tryParse(
         response['downloadUrl']?.toString().trim() ?? '',

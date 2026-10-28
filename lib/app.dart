@@ -17,6 +17,7 @@ import 'providers/auth_provider.dart';
 import 'providers/schedule_provider.dart';
 import 'providers/secondary_schedule_provider.dart';
 import 'services/course_storage.dart';
+import 'services/preferences_storage.dart';
 import 'services/control_service.dart';
 import 'services/course_upload.dart';
 import 'services/talker.dart';
@@ -26,6 +27,7 @@ import 'ui/app_feedback.dart';
 import 'ui/app_routes.dart';
 import 'ui/app_theme.dart';
 import 'ui/update_prompt.dart';
+import 'utils/app_version.dart';
 import 'utils/snackbar_helper.dart';
 
 class App extends ConsumerStatefulWidget {
@@ -56,6 +58,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     final prefs = ref.read(preferencesStorageProvider);
     ToolsDataManager.instance.initialize(prefs);
     await ControlService.instance.initialize();
+    await _logoutIfUpgraded(prefs);
     if (!mounted) return;
     final studentId = prefs.getStudentId();
     if (ControlService.instance.serviceAvailable &&
@@ -75,6 +78,36 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     // Apply through the notifier: the first frame may already have read the
     // stored timetable, so changing Hive alone would leave that state stale.
     await _refreshSchoolCalendarAndWidget();
+  }
+
+  /// A new build invalidates account-scoped state (caches, timetable and the
+  /// control session). Sign out once after an upgrade so the next login starts
+  /// from a clean slate; fresh installs and downgrades keep the session.
+  Future<void> _logoutIfUpgraded(PreferencesStorage prefs) async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final previous = prefs.getLastRunVersion();
+      final loggedIn = (prefs.getStudentId() ?? '').isNotEmpty;
+      await prefs.setLastRunVersion(info.version);
+      if (!shouldLogoutAfterUpgrade(
+        previous: previous,
+        current: info.version,
+        loggedIn: loggedIn,
+      )) {
+        return;
+      }
+      try {
+        await ref.read(scheduleProvider.notifier).clearAll();
+      } on WidgetSyncException catch (error) {
+        talker.warning('升级退出登录时刷新小组件失败', error);
+      }
+      await ref.read(secondaryScheduleProvider.notifier).clear();
+      await ref.read(configProvider.notifier).logout();
+      ref.read(authProvider.notifier).reset();
+      talker.info('检测到版本升级（$previous -> ${info.version}），已退出账号');
+    } catch (error, stackTrace) {
+      talker.warning('升级退出登录失败', error, stackTrace);
+    }
   }
 
   /// Checks the test release channel once per app version and shows the update
