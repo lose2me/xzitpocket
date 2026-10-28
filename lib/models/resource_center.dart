@@ -58,6 +58,7 @@ class CourseResourceItem {
   final bool hasPdf;
   final String format;
   final int sizeBytes;
+  final String fileVersion;
 
   /// Server update time, used when deciding whether a cached row is current.
   final String updatedAt;
@@ -72,6 +73,7 @@ class CourseResourceItem {
     this.hasPdf = false,
     this.format = 'pdf',
     this.sizeBytes = 0,
+    this.fileVersion = '',
     this.updatedAt = '',
     this.aiModes = const [],
   });
@@ -85,12 +87,13 @@ class CourseResourceItem {
       hasPdf: json['has_pdf'] == true,
       format: format == 'doc' || format == 'docx' ? format : 'pdf',
       sizeBytes: _asInt(json['size_bytes']),
+      fileVersion: json['file_version'] as String? ?? '',
       updatedAt: json['updated_at']?.toString() ?? '',
       aiModes: switch (json['ai_modes']) {
         final List<dynamic> modes => [
           for (final mode in modes) mode.toString(),
         ],
-        _ => json['has_ai'] == true ? const ['basic'] : const [],
+        _ => const [],
       },
     );
   }
@@ -102,6 +105,7 @@ class CourseResourceItem {
     'has_pdf': hasPdf,
     'format': format,
     'size_bytes': sizeBytes,
+    'file_version': fileVersion,
     'updated_at': updatedAt,
     'ai_modes': aiModes,
   };
@@ -120,6 +124,7 @@ class ResourceAIResult {
   final int solvable;
   final String precheckNote;
   final String pdfUrl;
+  final String fileVersion;
   final String error;
 
   const ResourceAIResult({
@@ -134,6 +139,7 @@ class ResourceAIResult {
     this.solvable = 0,
     this.precheckNote = '',
     this.pdfUrl = '',
+    this.fileVersion = '',
     this.error = '',
   });
 
@@ -153,6 +159,7 @@ class ResourceAIResult {
         solvable: _asInt(json['solvable']),
         precheckNote: json['precheck_note']?.toString() ?? '',
         pdfUrl: json['pdf_url']?.toString() ?? '',
+        fileVersion: json['file_version'] as String? ?? '',
         error: json['error']?.toString() ?? '',
       );
 }
@@ -218,6 +225,7 @@ class CourseTextbookItem {
   final bool hasPdf;
   final bool hasCover;
   final int sizeBytes;
+  final String fileVersion;
 
   /// Server update time, used when deciding whether a cached row is current.
   final String updatedAt;
@@ -229,6 +237,7 @@ class CourseTextbookItem {
     this.hasPdf = false,
     this.hasCover = false,
     this.sizeBytes = 0,
+    this.fileVersion = '',
     this.updatedAt = '',
   });
 
@@ -240,6 +249,7 @@ class CourseTextbookItem {
         hasPdf: json['has_pdf'] == true,
         hasCover: json['has_cover'] == true,
         sizeBytes: _asInt(json['size_bytes']),
+        fileVersion: json['file_version'] as String? ?? '',
         updatedAt: json['updated_at']?.toString() ?? '',
       );
 
@@ -250,6 +260,7 @@ class CourseTextbookItem {
     'has_pdf': hasPdf,
     'has_cover': hasCover,
     'size_bytes': sizeBytes,
+    'file_version': fileVersion,
     'updated_at': updatedAt,
   };
 }

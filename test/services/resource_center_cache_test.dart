@@ -36,6 +36,7 @@ void main() {
           name: '期末试卷.pdf',
           hasPdf: true,
           sizeBytes: 1024,
+          fileVersion: 'paper-content-version',
           updatedAt: '2026-10-06T00:00:00.001Z',
         ),
       ],
@@ -45,6 +46,7 @@ void main() {
           name: '高等数学（上）',
           hasPdf: true,
           hasCover: true,
+          fileVersion: 'book-content-version',
           updatedAt: '2026-10-06T00:00:00.002Z',
         ),
       ],
@@ -53,7 +55,9 @@ void main() {
     final decoded = ResourceCourseSnapshot.decode(snapshot.encode())!;
     expect(decoded.version, snapshot.version);
     expect(decoded.resources.single.updatedAt, '2026-10-06T00:00:00.001Z');
+    expect(decoded.resources.single.fileVersion, 'paper-content-version');
     expect(decoded.textbooks.single.hasCover, isTrue);
+    expect(decoded.textbooks.single.fileVersion, 'book-content-version');
     expect(decoded.textbooks.single.updatedAt, '2026-10-06T00:00:00.002Z');
   });
 

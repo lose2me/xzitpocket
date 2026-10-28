@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -7,6 +8,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xzitpocket/constants/time_slots.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/services/control_service.dart';
 import 'package:xzitpocket/services/learning_repository.dart';
@@ -39,6 +41,214 @@ void main() {
     displayName: '测试用户',
     forceProfileUpdate: force,
   );
+
+  for (final missingField in [
+    'display_name',
+    'college_name',
+    'class_name',
+    'major_name',
+  ]) {
+    test('authenticated profile sync restores missing $missingField', () async {
+      await login();
+      adapter.handler = (options) {
+        if (options.uri.path != '/api/v1/me') return null;
+        expect(options.headers['Authorization'], 'Bearer access_1');
+        return _json({
+          'user': {
+            'display_name': '测试用户',
+            'college_name': '学院',
+            'class_name': '班级',
+            'major_name': '专业',
+            missingField: '',
+          },
+        });
+      };
+      await service
+          .syncAfterOaLogin(
+            studentId: '20260001',
+            displayName: '测试用户',
+            collegeName: '学院',
+            className: '班级',
+            majorName: '专业',
+          )
+          .timeout(const Duration(seconds: 5));
+      expect(adapter.logins, 2);
+      expect(
+        adapter.requests.where((r) => r.uri.path == '/api/v1/me'),
+        hasLength(1),
+      );
+    });
+  }
+
+  for (final status in [200, 401, 503]) {
+    test(
+      'profile check handles HTTP $status without duplicate login',
+      () async {
+        await login();
+        adapter.handler = (options) {
+          if (options.uri.path != '/api/v1/me') return null;
+          expect(options.headers['Authorization'], 'Bearer access_1');
+          return status == 200
+              ? _json({
+                  'user': {'display_name': '测试用户'},
+                })
+              : _error(status, status == 401 ? 'unauthorized' : 'unavailable');
+        };
+        await login().timeout(const Duration(seconds: 5));
+        expect(adapter.logins, status == 401 ? 2 : 1);
+      },
+    );
+  }
+
+  test(
+    'login candidates carry their own student ID before the gate opens',
+    () async {
+      service.updateLoginGate(null);
+      expect(await service.loginBlockReason('20260002'), isNull);
+      final requests = adapter.requests.where(
+        (request) => request.method == 'POST',
+      );
+      expect(requests.map((request) => request.uri.path), [
+        '/api/v1/devices/register',
+        '/api/v1/auth/login-eligibility',
+      ]);
+      for (final request in requests) {
+        expect(request.headers['X-Student-ID'], '20260002');
+      }
+      service.updateLoginGate('20260002');
+      await service.syncAfterOaLogin(studentId: '20260002', displayName: '用户');
+      for (final request in adapter.requests.where(
+        (request) => request.method == 'POST',
+      )) {
+        expect(request.headers['X-Student-ID'], '20260002');
+      }
+    },
+  );
+
+  test('all control reports and uploads use the authenticated student', () async {
+    await service.initialize();
+    await login();
+    // Typing another candidate must not relabel an existing session's reports.
+    service.updateLoginGate('20260002');
+    adapter.requests.clear();
+    adapter.handler = (options) {
+      switch (options.uri.path) {
+        case '/api/v1/share-codes':
+          return _json({'code': '123456'});
+        case '/api/v1/resource-center/submissions':
+          return _json({
+            'id': 'ticket',
+            'files': [
+              {
+                'id': 'file',
+                'name': 'test.pdf',
+                'upload_url': 'https://cos.example/file',
+              },
+            ],
+          });
+        default:
+          return _json({});
+      }
+    };
+    await service.track('foreground');
+    expect(
+      await service.uploadCourses(items: [(code: 'C1', name: '课程', books: [])]),
+      isTrue,
+    );
+    await service.reportErrorLog(
+      eventId: 'e1',
+      occurredAt: DateTime.now(),
+      title: '',
+      message: '',
+      error: '',
+      stackTrace: '',
+      appVersion: '2.2.0',
+      platform: 'android',
+    );
+    await service.createShareCode(suffix: '1', data: {});
+    await service.redeemLibraryCdk('test', 'QB1');
+    await service.createResourceUploadTicket(
+      kind: 'resource',
+      courseCode: 'C1',
+      name: 'test',
+      files: [
+        const ResourceUploadFile(
+          name: 'test.pdf',
+          format: 'pdf',
+          md5: 'md5',
+          sizeBytes: 1,
+        ),
+      ],
+    );
+    await service.completeResourceUpload('ticket');
+    await service.abortResourceUpload('ticket');
+    await service.logout();
+    expect(
+      adapter.requests.map(
+        (request) => '${request.method} ${request.uri.path}',
+      ),
+      containsAll([
+        'POST /api/v1/telemetry/events',
+        'POST /api/v1/courses',
+        'POST /api/v1/error-reports',
+        'POST /api/v1/share-codes',
+        'POST /api/v1/library/cdks/redeem',
+        'POST /api/v1/resource-center/submissions',
+        'POST /api/v1/resource-center/submissions/ticket/complete',
+        'DELETE /api/v1/resource-center/submissions/ticket',
+        'POST /api/v1/auth/revoke',
+      ]),
+    );
+    for (final request in adapter.requests) {
+      expect(
+        request.headers['X-Student-ID'],
+        '20260001',
+        reason: request.uri.path,
+      );
+    }
+  });
+
+  test(
+    'token refresh keeps the session student when the candidate changes',
+    () async {
+      await service.initialize();
+      adapter.accessLifetime = Duration.zero;
+      adapter.handler = (request) {
+        if (request.uri.path == '/api/v1/auth/assertions') {
+          service.updateLoginGate('20260002');
+        }
+        return null;
+      };
+      await login();
+      await service.track('foreground');
+      final refreshes = adapter.requests.where(
+        (request) => request.uri.path == '/api/v1/auth/refresh',
+      );
+      expect(refreshes, isNotEmpty);
+      for (final request in refreshes) {
+        expect(request.headers['X-Student-ID'], '20260001');
+      }
+      expect(adapter.requests.last.headers['X-Student-ID'], '20260001');
+      expect(
+        adapter.requests.last.headers['Authorization'],
+        'Bearer refreshed',
+      );
+    },
+  );
+
+  test('COS direct uploads do not disclose control identity headers', () async {
+    final directory = await Directory.systemTemp.createTemp('control_upload_');
+    addTearDown(() => directory.delete(recursive: true));
+    final file = await File('${directory.path}/test.pdf').writeAsBytes([1]);
+    adapter.handler = (_) => ResponseBody.fromString('', 200);
+    await service.uploadToSignedUrl(
+      'https://cos.example/file',
+      filePath: file.path,
+      sizeBytes: 1,
+    );
+    expect(adapter.requests.single.headers, isNot(contains('X-Student-ID')));
+    expect(adapter.requests.single.headers, isNot(contains('Authorization')));
+  });
 
   for (final (status, code) in [
     (401, 'unauthorized'),
@@ -389,6 +599,7 @@ void main() {
         requests++;
         return _json({
           'url': 'https://dl.xuda.live/papers/res-1.pdf?sign=a&t=1',
+          'file_version': 'original',
           'expires_at': DateTime.now()
               .toUtc()
               .add(const Duration(minutes: 30))
@@ -398,11 +609,89 @@ void main() {
       return null;
     };
 
-    final first = await service.fetchResourceURL('res-1');
-    final second = await service.fetchResourceURL('res-1');
+    final first = await service.fetchResourceURL(
+      'res-1',
+      fileVersion: 'original',
+    );
+    final second = await service.fetchResourceURL(
+      'res-1',
+      fileVersion: 'original',
+    );
     expect(first, second);
     expect(requests, 1);
   });
+
+  for (final textbook in [false, true]) {
+    test(
+      'replacement ${textbook ? 'textbook' : 'resource'} bypasses signed URL cache',
+      () async {
+        await service.initialize();
+        await login();
+        var version = 'original';
+        var requests = 0;
+        final path = textbook
+            ? '/api/v1/textbooks/file-1/url'
+            : '/api/v1/resources/file-1/url';
+        adapter.handler = (options) {
+          if (options.uri.path != path) return null;
+          requests++;
+          return _json({
+            'url': 'https://dl.xuda.live/$version.pdf?sign=a',
+            'file_version': version,
+            'expires_at': DateTime.now()
+                .toUtc()
+                .add(const Duration(minutes: 30))
+                .toIso8601String(),
+          });
+        };
+        Future<String> fetch(String expected) => textbook
+            ? service.fetchTextbookURL('file-1', fileVersion: expected)
+            : service.fetchResourceURL('file-1', fileVersion: expected);
+
+        expect(await fetch('original'), contains('/original.pdf'));
+        version = 'replacement';
+        expect(await fetch('replacement'), contains('/replacement.pdf'));
+        expect(await fetch('replacement'), contains('/replacement.pdf'));
+        expect(requests, 2);
+      },
+    );
+
+    test(
+      'stale ${textbook ? 'textbook' : 'resource'} metadata cannot download a replacement',
+      () async {
+        await service.initialize();
+        await login();
+        final path = textbook
+            ? '/api/v1/textbooks/file-1/url'
+            : '/api/v1/resources/file-1/url';
+        adapter.handler = (options) => options.uri.path == path
+            ? _json({
+                'url': 'https://dl.xuda.live/new.pdf',
+                'file_version': 'replacement',
+                'expires_at': DateTime.now()
+                    .toUtc()
+                    .add(const Duration(minutes: 15))
+                    .toIso8601String(),
+              })
+            : null;
+        Future<String> fetch(String expected) => textbook
+            ? service.fetchTextbookURL('file-1', fileVersion: expected)
+            : service.fetchResourceURL('file-1', fileVersion: expected);
+
+        await expectLater(
+          fetch('original'),
+          throwsA(
+            isA<ControlApiException>().having(
+              (e) => e.code,
+              'code',
+              'resource_changed',
+            ),
+          ),
+        );
+        expect(await fetch('replacement'), contains('/new.pdf'));
+      },
+    );
+  }
 
   group('login gate', () {
     test('blocks all background communication while logged out', () async {
@@ -439,6 +728,71 @@ void main() {
       expect(adapter.registrations, 0);
     });
   });
+
+  for (final globalRequestFails in [false, true]) {
+    test(
+      'a discovered college loads after an in-flight global calendar (fails=$globalRequestFails)',
+      () async {
+        final originalDays = semesterCalendar.days;
+        final originalSlots = kTimeSlots;
+        addTearDown(() {
+          semesterCalendar.replaceDays(originalDays);
+          semesterCalendar.replaceSlots(originalSlots);
+        });
+        final prefs = PreferencesStorage();
+        await prefs.init();
+        final requested = Completer<void>();
+        final globalResponse = Completer<ResponseBody>();
+        final colleges = <String?>[];
+        final payload = {
+          'days': [
+            {'date': '2026-10-06', 'name': '', 'adjustment': ''},
+          ],
+          'slots': [
+            {'index': 1, 'start': '09:00', 'end': '09:45', 'lab': false},
+          ],
+        };
+        adapter.handler = (options) {
+          if (options.uri.path == '/api/v1/config/versions') {
+            return _json({'schoolCalendar': 'same-version'});
+          }
+          if (options.uri.path == '/api/v1/school-calendar') {
+            final college = options.uri.queryParameters['college'];
+            colleges.add(college);
+            if (college == null) {
+              requested.complete();
+              return globalResponse.future;
+            }
+            return _json(payload);
+          }
+          return null;
+        };
+        final global = service.refreshSchoolCalendarIfChanged(prefs);
+        final globalCheck = expectLater(
+          global,
+          globalRequestFails
+              ? throwsA(isA<ControlApiException>())
+              : completion(isTrue),
+        );
+        await requested.future;
+        final scoped = service.refreshSchoolCalendarIfChanged(
+          prefs,
+          college: '信息工程学院',
+        );
+        globalResponse.complete(
+          globalRequestFails ? _error(503, 'unavailable') : _json(payload),
+        );
+        await globalCheck;
+        expect(await scoped, isTrue);
+        expect(colleges, [null, '信息工程学院']);
+        expect(prefs.getSchoolCalendarCollege(), '信息工程学院');
+        expect(kTimeSlots.single.start, '09:00');
+        await prefs.setCollegeName('信息工程学院');
+        expect(await service.refreshSchoolCalendarIfChanged(prefs), isFalse);
+        expect(colleges, hasLength(2));
+      },
+    );
+  }
 
   test('calendar refresh detects updates within the same second', () async {
     final originalDays = semesterCalendar.days.toList();
@@ -493,8 +847,8 @@ void main() {
           'days': [
             {
               'date': '2026-10-06',
-              'name': revision == 1 ? '' : '国庆',
-              'adjustment': revision == 1 ? '' : '/',
+              'name': '国庆',
+              'adjustment': revision == 2 ? '/' : '',
             },
           ],
           'updatedAt': '2026-10-06T00:00:00.00${revision}Z',
@@ -518,6 +872,14 @@ void main() {
     await prefs.setSchoolCalendarUpdateNotice(false);
     expect(await service.refreshSchoolCalendarIfChanged(prefs), isFalse);
     expect(semesterCalendar.calendarUpdateNotice, isFalse);
+
+    revision = 3;
+    expect(
+      await service.refreshSchoolCalendarIfChanged(prefs, force: true),
+      isTrue,
+    );
+    expect(semesterCalendar.calendarUpdateNotice, isTrue);
+    expect(prefs.getSchoolCalendarUpdateNotice(), isTrue);
   });
 }
 
@@ -537,6 +899,8 @@ ResponseBody _error(int status, String code) => _json({
 class _ControlAdapter implements HttpClientAdapter {
   int registrations = 0;
   int logins = 0;
+  final List<RequestOptions> requests = [];
+  Duration accessLifetime = const Duration(minutes: 15);
   FutureOr<ResponseBody?> Function(RequestOptions)? handler;
 
   @override
@@ -545,6 +909,7 @@ class _ControlAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    requests.add(options);
     final overridden = await handler?.call(options);
     if (overridden != null) return overridden;
     switch (options.uri.path) {
@@ -564,13 +929,30 @@ class _ControlAdapter implements HttpClientAdapter {
           'refresh_token': 'refresh_$logins',
           'expires_at': DateTime.now()
               .toUtc()
-              .add(const Duration(minutes: 15))
+              .add(accessLifetime)
               .toIso8601String(),
           'refresh_expires_at': DateTime.now()
               .toUtc()
               .add(const Duration(days: 30))
               .toIso8601String(),
         }, 201);
+      case '/api/v1/auth/refresh':
+        return _json({
+          'access_token': 'refreshed',
+          'refresh_token': 'refresh_rotated',
+          'expires_at': DateTime.now()
+              .toUtc()
+              .add(const Duration(minutes: 15))
+              .toIso8601String(),
+          'refresh_expires_at': DateTime.now()
+              .toUtc()
+              .add(const Duration(days: 30))
+              .toIso8601String(),
+        });
+      case '/api/v1/me':
+        return _json({
+          'user': {'display_name': '测试用户'},
+        });
       case '/api/v1/telemetry/events':
         return _json({'accepted': 1}, 202);
       case '/api/v1/auth/login-eligibility':

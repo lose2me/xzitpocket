@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -32,17 +33,22 @@ class DownloadedResource {
 
 /// Downloads course documents straight into the public Downloads folder and
 /// opens them through their content URI. The public copy is the only stored
-/// copy; a small index in SharedPreferences maps resource id + format to the
-/// URI so the "已下载" state survives restarts. Entries whose file the user
+/// copy; a small index in SharedPreferences maps resource id, format and version
+/// to the URI so the "已下载" state survives restarts. Entries whose file the user
 /// deleted or renamed away are dropped on [refresh].
 class ResourceDownloadService {
-  ResourceDownloadService._();
+  ResourceDownloadService._({HttpClientAdapter? adapter}) {
+    if (adapter != null) _dio.httpClientAdapter = adapter;
+  }
+
+  @visibleForTesting
+  ResourceDownloadService.forTesting({required HttpClientAdapter adapter})
+    : this._(adapter: adapter);
 
   static final ResourceDownloadService instance = ResourceDownloadService._();
 
   static const _channel = MethodChannel('live.xuda.xzitpocket/app_bridge');
   static const _prefsKey = 'resource_downloads_v1';
-  static const _migratedKey = 'resource_downloads_migrated_v1';
 
   final Dio _dio = Dio(
     BaseOptions(
@@ -54,8 +60,8 @@ class ResourceDownloadService {
   final Map<String, DownloadedResource> _index = {};
   bool _loaded = false;
 
-  String _key(String id, String format) =>
-      '${id.trim()}|${_safeFormat(format)}';
+  String _key(String id, String format, String fileVersion) =>
+      '${id.trim()}|${_safeFormat(format)}|$fileVersion';
 
   String _safeFormat(String format) => switch (format.toLowerCase()) {
     'docx' => 'docx',
@@ -91,19 +97,6 @@ class ResourceDownloadService {
     _loaded = true;
   }
 
-  /// Earlier versions cached documents in the private storage; that copy is
-  /// no longer used, so remove it once to reclaim the space.
-  Future<void> _cleanupLegacyCache() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_migratedKey) == true) return;
-    try {
-      final base = await getApplicationSupportDirectory();
-      final dir = Directory(p.join(base.path, 'resource_center'));
-      if (await dir.exists()) await dir.delete(recursive: true);
-    } catch (_) {}
-    await prefs.setBool(_migratedKey, true);
-  }
-
   Future<void> _persist() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -116,11 +109,10 @@ class ResourceDownloadService {
   /// deleted from the Files app shows as 未下载 again. Call before reading the
   /// downloaded state for a list.
   Future<void> refresh() async {
-    await _cleanupLegacyCache();
     await _ensureLoaded();
     if (_index.isEmpty) return;
     final missing = <String>[];
-    for (final entry in _index.entries) {
+    for (final entry in _index.entries.toList()) {
       bool exists;
       try {
         exists =
@@ -144,15 +136,20 @@ class ResourceDownloadService {
 
   Future<DownloadedResource?> recordFor(
     String id, {
+    required String fileVersion,
     String format = 'pdf',
   }) async {
     await _ensureLoaded();
-    return _index[_key(id, format)];
+    return _index[_key(id, format, fileVersion)];
   }
 
-  Future<bool> isDownloaded(String id, {String format = 'pdf'}) async {
+  Future<bool> isDownloaded(
+    String id, {
+    required String fileVersion,
+    String format = 'pdf',
+  }) async {
     await _ensureLoaded();
-    return _index.containsKey(_key(id, format));
+    return _index.containsKey(_key(id, format, fileVersion));
   }
 
   /// Streams [url] into a temporary file, hands it to the platform so it lands
@@ -161,6 +158,7 @@ class ResourceDownloadService {
     String id,
     String url, {
     required String fileName,
+    required String fileVersion,
     String format = 'pdf',
     void Function(int received, int total)? onProgress,
   }) async {
@@ -175,16 +173,12 @@ class ResourceDownloadService {
       await _dio.download(url, temp.path, onReceiveProgress: onProgress);
       final saved = await _channel.invokeMapMethod<String, dynamic>(
         'saveToDownloads',
-        {
-          'path': temp.path,
-          'fileName': fileName,
-          'mime': _mimeFor(format),
-        },
+        {'path': temp.path, 'fileName': fileName, 'mime': _mimeFor(format)},
       );
       final record = DownloadedResource.fromJson(saved);
       if (record == null) return null;
       await _ensureLoaded();
-      _index[_key(id, format)] = record;
+      _index[_key(id, format, fileVersion)] = record;
       await _persist();
       return record;
     } finally {
@@ -197,11 +191,9 @@ class ResourceDownloadService {
   }
 
   /// Opens a downloaded document with the system viewer.
-  Future<void> open(
-    DownloadedResource record, {
-    String format = 'pdf',
-  }) => _channel.invokeMethod<void>('openDownloaded', {
-    'uri': record.uri,
-    'mime': _mimeFor(format),
-  });
+  Future<void> open(DownloadedResource record, {String format = 'pdf'}) =>
+      _channel.invokeMethod<void>('openDownloaded', {
+        'uri': record.uri,
+        'mime': _mimeFor(format),
+      });
 }

@@ -151,7 +151,7 @@ class ControlService {
   Future<ControlConfigVersions>? _configVersionsFuture;
   ControlConfigVersions? _configVersionsCache;
   DateTime? _configVersionsCheckedAt;
-  Future<bool>? _schoolCalendarRefreshFuture;
+  ({String college, Future<bool> result})? _schoolCalendarRefresh;
   Future<String?>? _loginBlockFuture;
   PackageInfo? _packageInfo;
 
@@ -306,13 +306,14 @@ class ControlService {
 
   Future<String?> _checkLoginEligibility(String studentId) async {
     await _loadState();
-    await _ensureDevice();
+    await _ensureDevice(studentId: studentId);
     final token = _deviceToken;
     if (token == null) return null;
     try {
       await _request(
         'POST',
         '/api/v1/auth/login-eligibility',
+        studentId: studentId,
         data: {'student_id': studentId},
         headers: {'Authorization': 'Device $token'},
       );
@@ -369,7 +370,7 @@ class ControlService {
     bool retryingDevice = false,
   }) async {
     await _loadState();
-    await _ensureDevice();
+    await _ensureDevice(studentId: studentId);
     if (!forceProfileUpdate &&
         _sessionStudentId == studentId &&
         await _validAccessToken() != null &&
@@ -377,6 +378,7 @@ class ControlService {
           displayName: displayName,
           collegeName: collegeName,
           className: className,
+          majorName: majorName,
         )) {
       return;
     }
@@ -386,13 +388,14 @@ class ControlService {
       challengeResponse = await _request(
         'POST',
         '/api/v1/auth/challenges',
+        studentId: studentId,
         headers: {'Authorization': 'Device $_deviceToken'},
       );
     } on ControlApiException catch (error) {
       if (!retryingDevice && _isDeviceInvalid(error)) {
         _resetDevice();
         await _persistState();
-        await _ensureDevice();
+        await _ensureDevice(studentId: studentId);
         return _syncAfterOaLogin(
           studentId: studentId,
           displayName: displayName,
@@ -436,13 +439,9 @@ class ControlService {
       studentId,
       alias,
       displayName,
-      if (collegeName.isNotEmpty ||
-          className.isNotEmpty ||
-          majorName.isNotEmpty) ...[
-        collegeName,
-        className,
-        majorName,
-      ],
+      collegeName,
+      className,
+      majorName,
       assertedAt,
     ];
     final signature = _deviceKey!.sign(controlCanonicalLines(signedFields));
@@ -451,6 +450,7 @@ class ControlService {
       response = await _request(
         'POST',
         '/api/v1/auth/assertions',
+        studentId: studentId,
         data: body,
         headers: {
           'Authorization': 'Device $_deviceToken',
@@ -466,7 +466,7 @@ class ControlService {
       if (!retryingDevice && _isDeviceInvalid(error)) {
         _resetDevice();
         await _persistState();
-        await _ensureDevice();
+        await _ensureDevice(studentId: studentId);
         return _syncAfterOaLogin(
           studentId: studentId,
           displayName: displayName,
@@ -491,23 +491,32 @@ class ControlService {
     required String displayName,
     required String collegeName,
     required String className,
+    required String majorName,
   }) async {
-    if (displayName.isEmpty && collegeName.isEmpty && className.isEmpty) {
+    if (displayName.isEmpty &&
+        collegeName.isEmpty &&
+        className.isEmpty &&
+        majorName.isEmpty) {
       return false;
     }
     try {
-      final response = await _request('GET', '/api/v1/me');
-      final user = response['user'];
-      final map = user is Map ? user : response;
+      final response = await _request(
+        'GET',
+        '/api/v1/me',
+        headers: {'Authorization': 'Bearer $_accessToken'},
+      );
+      final map = response['user'] as Map<String, dynamic>;
       final serverName = map['display_name']?.toString() ?? '';
       final serverCollege = map['college_name']?.toString() ?? '';
       final serverClass = map['class_name']?.toString() ?? '';
+      final serverMajor = map['major_name']?.toString() ?? '';
       return (displayName.isNotEmpty && serverName.isEmpty) ||
           (collegeName.isNotEmpty && serverCollege.isEmpty) ||
-          (className.isNotEmpty && serverClass.isEmpty);
+          (className.isNotEmpty && serverClass.isEmpty) ||
+          (majorName.isNotEmpty && serverMajor.isEmpty);
     } catch (error, stackTrace) {
       talker.debug('读取 control 用户信息失败', error, stackTrace);
-      return false;
+      return _accessToken == null;
     }
   }
 
@@ -580,20 +589,7 @@ class ControlService {
       final updatedAt = summary['updated_at']?.toString() ?? '';
       final cached = existing[id];
       if (cached != null && cached.updatedAt == updatedAt && !cached.hidden) {
-        // Summary timestamp is unchanged, so the cached questions are current.
-        // Course associations may still have been added by an older server
-        // release without touching updated_at, so refresh them from the summary.
-        final codes = [
-          if (summary['courseCodes'] is List)
-            for (final value in summary['courseCodes'] as List)
-              if (value?.toString().trim().isNotEmpty == true)
-                value.toString().trim(),
-        ];
-        banks.add(
-          listEquals(cached.courseCodes, codes)
-              ? cached
-              : cached.copyWith(courseCodes: codes),
-        );
+        banks.add(cached);
         continue;
       }
       final summaryBank = LearningQuestionBank.fromJson({
@@ -612,11 +608,10 @@ class ControlService {
         );
         final rawBank = response['questionBank'];
         banks.add(
-          LearningQuestionBank.fromJson(
-            rawBank is Map<String, dynamic>
-                ? <String, dynamic>{...rawBank, 'updatedAt': updatedAt}
-                : <String, dynamic>{...response, 'updatedAt': updatedAt},
-          ),
+          LearningQuestionBank.fromJson(<String, dynamic>{
+            ...(rawBank as Map<String, dynamic>),
+            'updatedAt': updatedAt,
+          }),
         );
       } on ControlApiException catch (error) {
         if (error.code != 'question_bank_locked') rethrow;
@@ -639,7 +634,7 @@ class ControlService {
       }
     }
 
-    // Banks that are disabled/draft stay cached but marked hidden, so their
+    // Banks that are disabled or archived stay cached but marked hidden, so their
     // questions and saved collections survive until the bank is re-enabled.
     // Anything absent from both the active and hidden lists was deleted.
     for (final cached in existing.values) {
@@ -649,11 +644,6 @@ class ControlService {
       }
     }
     return banks;
-  }
-
-  Future<List<LearningQuestion>> fetchLearningQuestions() async {
-    final banks = await fetchLearningQuestionBanks();
-    return [for (final bank in banks) ...bank.questions];
   }
 
   // ── Resource centre ──
@@ -759,22 +749,30 @@ class ControlService {
     return ResourceAIResult.fromJson(response);
   }
 
-  Future<String> fetchResourceURL(String id) => _signedURL(
-    'resource:$id',
-    '/api/v1/resources/${Uri.encodeComponent(id)}/url',
-  );
+  Future<String> fetchResourceURL(String id, {required String fileVersion}) =>
+      _signedURL(
+        'resource:$id:$fileVersion',
+        '/api/v1/resources/${Uri.encodeComponent(id)}/url',
+        fileVersion,
+      );
 
   Future<String> fetchTextbookURL(
     String id, {
+    required String fileVersion,
     String kind = 'pdf',
   }) => _signedURL(
-    'textbook:$id:$kind',
+    'textbook:$id:$kind:$fileVersion',
     '/api/v1/textbooks/${Uri.encodeComponent(id)}/url?kind=${Uri.encodeQueryComponent(kind)}',
+    fileVersion,
   );
 
   /// Reuses a signed CDN URL until shortly before it expires. This avoids
   /// re-signing (and re-counting a download) when a failed download is retried.
-  Future<String> _signedURL(String cacheKey, String path) async {
+  Future<String> _signedURL(
+    String cacheKey,
+    String path,
+    String fileVersion,
+  ) async {
     final cached = _signedURLCache[cacheKey];
     if (cached != null &&
         cached.url.isNotEmpty &&
@@ -784,12 +782,12 @@ class ControlService {
       return cached.url;
     }
     final response = await _userGet(path);
+    if (response['file_version'] != fileVersion) {
+      throw const ControlApiException('resource_changed', '资源已更新，请刷新后重试');
+    }
     final url = response['url']?.toString() ?? '';
     if (url.isEmpty) return '';
-    final now = DateTime.now().toUtc();
-    final expiresAt =
-        DateTime.tryParse(response['expires_at']?.toString() ?? '')?.toUtc() ??
-        now.add(const Duration(minutes: 5));
+    final expiresAt = DateTime.parse(response['expires_at'] as String).toUtc();
     _signedURLCache[cacheKey] = (url: url, expiresAt: expiresAt);
     return url;
   }
@@ -838,7 +836,9 @@ class ControlService {
               uploadUrl: item['upload_url']?.toString() ?? '',
             ),
     ];
-    if (id.isEmpty || uploads.isEmpty || uploads.any((f) => f.uploadUrl.isEmpty)) {
+    if (id.isEmpty ||
+        uploads.isEmpty ||
+        uploads.any((f) => f.uploadUrl.isEmpty)) {
       talker.warning('上传票据缺少上传地址', 'id=$id files=${uploads.length}');
       throw const ControlApiException('invalid_upload_ticket', '服务端返回的上传信息无效');
     }
@@ -1138,22 +1138,43 @@ class ControlService {
   Future<bool> refreshSchoolCalendarIfChanged(
     PreferencesStorage prefs, {
     bool force = false,
-  }) {
-    if (!_communicationAllowed) return Future.value(false);
-    final pending = _schoolCalendarRefreshFuture;
-    if (pending != null) return pending;
-    final future = _refreshSchoolCalendarIfChanged(prefs, force: force);
-    _schoolCalendarRefreshFuture = future;
-    return future.whenComplete(() {
-      if (identical(_schoolCalendarRefreshFuture, future)) {
-        _schoolCalendarRefreshFuture = null;
+    String? college,
+  }) async {
+    if (!_communicationAllowed) return false;
+    final scope = (college ?? prefs.getCollegeName() ?? '').trim();
+    final pending = _schoolCalendarRefresh;
+    if (pending != null) {
+      if (pending.college == scope) return pending.result;
+      // A login can discover its college while a global request is still in
+      // flight. Finish that request before loading the newly known scope.
+      try {
+        await pending.result;
+      } catch (_) {
+        // Failure for another scope must not suppress this scope's refresh.
       }
-    });
+      return refreshSchoolCalendarIfChanged(
+        prefs,
+        force: force,
+        college: scope,
+      );
+    }
+    final future = _refreshSchoolCalendarIfChanged(
+      prefs,
+      force: force,
+      college: scope,
+    );
+    _schoolCalendarRefresh = (college: scope, result: future);
+    try {
+      return await future;
+    } finally {
+      _schoolCalendarRefresh = null;
+    }
   }
 
   Future<bool> _refreshSchoolCalendarIfChanged(
     PreferencesStorage prefs, {
     bool force = false,
+    required String college,
   }) async {
     if (!isConfigured) return false;
     await initialize();
@@ -1165,7 +1186,6 @@ class ControlService {
       return false;
     }
     // 学院变了就必须重新拉取：同一版本下院级例外时间可能不同。
-    final college = prefs.getCollegeName()?.trim() ?? '';
     final collegeChanged = college != prefs.getSchoolCalendarCollege();
     final cachedCalendar = prefs.getSchoolCalendarCache();
     var previousDays = const <SchoolDay>[];
@@ -1202,7 +1222,9 @@ class ControlService {
   /// Loads the administrator-managed school calendar and the timetable periods
   /// served with it. This endpoint is public because the payload contains no
   /// account-specific information.
-  Future<SchoolCalendarPayload> fetchSchoolCalendar({String college = ''}) async {
+  Future<SchoolCalendarPayload> fetchSchoolCalendar({
+    String college = '',
+  }) async {
     if (!isConfigured) {
       throw const ControlApiException(
         'control_not_configured',
@@ -1273,8 +1295,7 @@ class ControlService {
 
   /// Uploads the course data the client just fetched at login. One row per
   /// course number; the server dedupes by code and keeps the display name and
-  /// book list. Returns true only when the server accepted the request, so the
-  /// caller only records the dedup hash on a real upload.
+  /// book list. Returns true only when the server accepted the request.
   Future<bool> uploadCourses({
     required List<
       ({String code, String name, List<({String name, String tags})> books})
@@ -1391,17 +1412,20 @@ class ControlService {
     }
   }
 
-  Future<void> _ensureDevice() {
+  Future<void> _ensureDevice({String? studentId}) {
     final pending = _deviceFuture;
     if (pending != null) return pending;
-    final future = _ensureDeviceImpl();
+    final future = _ensureDeviceImpl(studentId: studentId);
     _deviceFuture = future;
     return future.whenComplete(() {
       if (identical(_deviceFuture, future)) _deviceFuture = null;
     });
   }
 
-  Future<void> _ensureDeviceImpl({bool retrying = false}) async {
+  Future<void> _ensureDeviceImpl({
+    String? studentId,
+    bool retrying = false,
+  }) async {
     await _loadState();
     if (_installationId == null || _deviceKey == null) {
       _installationId = controlRandomToken(24);
@@ -1428,6 +1452,7 @@ class ControlService {
       final response = await _request(
         'POST',
         '/api/v1/devices/register',
+        studentId: studentId,
         data: {
           'installation_id': _installationId,
           'public_key': publicKey,
@@ -1453,7 +1478,7 @@ class ControlService {
               error.code == 'installation_exists')) {
         _resetDevice();
         await _persistState();
-        await _ensureDeviceImpl(retrying: true);
+        await _ensureDeviceImpl(studentId: studentId, retrying: true);
         return;
       }
       rethrow;
@@ -1491,6 +1516,7 @@ class ControlService {
     }
     try {
       final refreshToken = _refreshToken!;
+      final studentId = _sessionStudentId;
       final signedAt = now.toIso8601String();
       final signature = _deviceKey!.sign(
         controlCanonicalLines([
@@ -1503,6 +1529,7 @@ class ControlService {
       final response = await _request(
         'POST',
         '/api/v1/auth/refresh',
+        studentId: studentId,
         data: {'refresh_token': refreshToken},
         headers: {
           'X-Device-Signature': signature,
@@ -1510,7 +1537,7 @@ class ControlService {
           'X-Installation-ID': _installationId,
         },
       );
-      _applySession(response, studentId: _sessionStudentId);
+      _applySession(response, studentId: studentId);
       await _persistState();
       return _accessToken;
     } on ControlApiException catch (error) {
@@ -1548,14 +1575,28 @@ class ControlService {
     String method,
     String path, {
     Object? data,
+    String? studentId,
     Map<String, dynamic>? headers,
   }) async {
+    final requestHeaders = <String, dynamic>{...?headers};
+    if (method != 'GET' && method != 'HEAD') {
+      final usesSession =
+          requestHeaders['Authorization']?.toString().startsWith('Bearer ') ==
+              true ||
+          path == '/api/v1/auth/refresh';
+      final reportingStudentId =
+          studentId ?? (usesSession ? _sessionStudentId : _gateStudentId);
+      if (reportingStudentId == null || reportingStudentId.isEmpty) {
+        throw const ControlApiException('student_id_required', '请先登录后上报数据');
+      }
+      requestHeaders['X-Student-ID'] = reportingStudentId;
+    }
     late final Response<dynamic> response;
     try {
       response = await _dio.request<dynamic>(
         path,
         data: data,
-        options: Options(method: method, headers: headers),
+        options: Options(method: method, headers: requestHeaders),
       );
     } on DioException catch (error) {
       throw ControlApiException(

@@ -123,14 +123,14 @@ class ResourceCoverCache {
   String _hash(String value) =>
       sha1.convert(utf8.encode(value)).toString().substring(0, 12);
 
-  /// A course version change produces a new file name, so a replaced cover is
+  /// A cover version change produces a new file name, so a replaced cover is
   /// never served from the old cache.
   Future<File> _fileFor(ResourceCourse course) async {
     final dir = await _directory();
     return File(
       p.join(
         dir.path,
-        '${_safeCode(course.code)}-${_hash(course.version)}.webp',
+        '${_safeCode(course.code)}-${_hash(course.coverVersion)}.webp',
       ),
     );
   }
@@ -175,7 +175,7 @@ class ResourceCoverCache {
     }
   }
 
-  /// Removes every cached cover when the user logs out.
+  /// Removes every cached cover when resource caches are explicitly cleared.
   Future<void> clear() async {
     final dir = await _directory();
     if (await dir.exists()) {
@@ -183,7 +183,7 @@ class ResourceCoverCache {
     }
   }
 
-  /// Drops covers for removed courses and for superseded course versions.
+  /// Drops covers for removed courses and for superseded cover versions.
   Future<void> prune(Iterable<ResourceCourse> courses) async {
     final keep = <String>{};
     for (final course in courses) {

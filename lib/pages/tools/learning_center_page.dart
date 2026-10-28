@@ -125,9 +125,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       final textbooks =
           results[1]
               as ({List<CourseTextbookItem> items, int total, String version});
-      final version = resources.version.isNotEmpty
+      // Independent requests may straddle a content update. Mixed revisions
+      // can be displayed but must not be saved as a valid cache hit.
+      final version = resources.version == textbooks.version
           ? resources.version
-          : textbooks.version;
+          : '';
       final snapshot = ResourceCourseSnapshot(
         version: version,
         resources: resources.items,
@@ -320,8 +322,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                     sizeBytes: item.sizeBytes,
                     hasPdf: item.hasPdf,
                     format: 'pdf',
-                    urlLoader: () =>
-                        ControlService.instance.fetchTextbookURL(item.id),
+                    fileVersion: item.fileVersion,
+                    urlLoader: () => ControlService.instance.fetchTextbookURL(
+                      item.id,
+                      fileVersion: item.fileVersion,
+                    ),
                   ),
                   color: theme.colors.destructive,
                 ),
@@ -371,8 +376,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
                     sizeBytes: item.sizeBytes,
                     hasPdf: item.hasPdf,
                     format: item.format,
-                    urlLoader: () =>
-                        ControlService.instance.fetchResourceURL(item.id),
+                    fileVersion: item.fileVersion,
+                    urlLoader: () => ControlService.instance.fetchResourceURL(
+                      item.id,
+                      fileVersion: item.fileVersion,
+                    ),
                     aiModes: item.aiModes,
                   ),
                   color: theme.colors.semantic.info,
@@ -537,9 +545,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     _PdfEntry entry, {
     required Color color,
   }) {
-    final downloaded = _downloadedIds.contains(entry.id);
-    final downloading = _downloadingIds.contains(entry.id);
-    final progress = _downloadProgress[entry.id] ?? 0;
+    final downloaded = _downloadedIds.contains(entry.downloadKey);
+    final downloading = _downloadingIds.contains(entry.downloadKey);
+    final progress = _downloadProgress[entry.downloadKey] ?? 0;
     final size = _formatFileSize(entry.sizeBytes);
     final meta = downloading
         ? (progress > 0 ? '下载中 ${(progress * 100).round()}%' : '下载中…')
@@ -708,6 +716,7 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
         '${entry.id}-ai-$mode',
         url,
         fileName: fileName,
+        fileVersion: result.fileVersion,
         format: format,
       );
       if (record != null) {
@@ -724,9 +733,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Future<void> _refreshDownloadedStatuses() async {
-    final items = <({String id, String format})>[
-      for (final item in _resources) (id: item.id, format: item.format),
-      for (final item in _textbooks) (id: item.id, format: 'pdf'),
+    final items = <({String id, String format, String fileVersion})>[
+      for (final item in _resources)
+        (id: item.id, format: item.format, fileVersion: item.fileVersion),
+      for (final item in _textbooks)
+        (id: item.id, format: 'pdf', fileVersion: item.fileVersion),
     ];
     await ResourceDownloadService.instance.refresh();
     final downloaded = <String>{};
@@ -734,8 +745,9 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
       if (await ResourceDownloadService.instance.isDownloaded(
         item.id,
         format: item.format,
+        fileVersion: item.fileVersion,
       )) {
-        downloaded.add(item.id);
+        downloaded.add('${item.id}:${item.fileVersion}');
       }
     }
     if (!mounted) return;
@@ -747,12 +759,14 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
   }
 
   Future<void> _handlePdf(_PdfEntry entry) async {
-    if (_downloadingIds.contains(entry.id)) return;
+    final key = entry.downloadKey;
+    if (_downloadingIds.contains(key)) return;
     try {
-      if (_downloadedIds.contains(entry.id)) {
+      if (_downloadedIds.contains(key)) {
         final record = await ResourceDownloadService.instance.recordFor(
           entry.id,
           format: entry.format,
+          fileVersion: entry.fileVersion,
         );
         if (record != null) {
           await ResourceDownloadService.instance.open(
@@ -761,11 +775,11 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           );
           return;
         }
-        if (mounted) setState(() => _downloadedIds.remove(entry.id));
+        if (mounted) setState(() => _downloadedIds.remove(key));
       }
       setState(() {
-        _downloadingIds.add(entry.id);
-        _downloadProgress[entry.id] = 0;
+        _downloadingIds.add(key);
+        _downloadProgress[key] = 0;
       });
       final url = await entry.urlLoader();
       if (url.isEmpty) throw StateError('empty url');
@@ -778,21 +792,34 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
           courseCode: entry.courseCode,
         ),
         format: entry.format,
+        fileVersion: entry.fileVersion,
         onProgress: (received, total) {
           if (!mounted) return;
           setState(() {
-            _downloadProgress[entry.id] = total > 0 ? received / total : 0;
+            _downloadProgress[key] = total > 0 ? received / total : 0;
           });
         },
       );
       if (!mounted) return;
       if (record == null) throw StateError('save returned no uri');
-      setState(() => _downloadedIds.add(entry.id));
+      setState(() => _downloadedIds.add(key));
       showAppSnackBar(
         context,
         '已保存到 Download/${record.name}',
         severity: ToastSeverity.success,
       );
+    } on ControlApiException catch (error, stackTrace) {
+      talker.warning('下载资源失败', error, stackTrace);
+      if (error.code == 'resource_changed') {
+        await _loadCourseDetails(force: true);
+      }
+      if (mounted) {
+        showAppSnackBar(
+          context,
+          error.message,
+          severity: ToastSeverity.warning,
+        );
+      }
     } catch (error, stackTrace) {
       talker.warning('下载资源失败', error, stackTrace);
       if (mounted) {
@@ -801,8 +828,8 @@ class _LearningCenterPageState extends State<LearningCenterPage> {
     } finally {
       if (mounted) {
         setState(() {
-          _downloadingIds.remove(entry.id);
-          _downloadProgress.remove(entry.id);
+          _downloadingIds.remove(key);
+          _downloadProgress.remove(key);
         });
       }
     }
@@ -1037,6 +1064,7 @@ class _PdfEntry {
   final int sizeBytes;
   final bool hasPdf;
   final String format;
+  final String fileVersion;
   final Future<String> Function() urlLoader;
   final List<String> aiModes;
 
@@ -1047,9 +1075,12 @@ class _PdfEntry {
     required this.sizeBytes,
     required this.hasPdf,
     required this.format,
+    required this.fileVersion,
     required this.urlLoader,
     this.aiModes = const [],
   });
+
+  String get downloadKey => '$id:$fileVersion';
 }
 
 class _DocumentIcon extends StatelessWidget {
