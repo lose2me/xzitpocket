@@ -48,7 +48,33 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
     unawaited(_syncCoursesToControl());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_maybePromptUpdate());
+      unawaited(_finishStartup());
     });
+  }
+
+  Future<void> _finishStartup() async {
+    final prefs = ref.read(preferencesStorageProvider);
+    ToolsDataManager.instance.initialize(prefs);
+    await ControlService.instance.initialize();
+    if (!mounted) return;
+    final studentId = prefs.getStudentId();
+    if (ControlService.instance.serviceAvailable &&
+        studentId != null &&
+        studentId.isNotEmpty) {
+      unawaited(
+        ControlService.instance.syncAfterOaLogin(
+          studentId: studentId,
+          displayName: prefs.getStudentName() ?? '',
+          collegeName: prefs.getCollegeName() ?? '',
+          className: prefs.getClassName() ?? '',
+        ),
+      );
+    }
+    await WidgetService.init();
+    if (!mounted) return;
+    // Apply through the notifier: the first frame may already have read the
+    // stored timetable, so changing Hive alone would leave that state stale.
+    await _refreshSchoolCalendarAndWidget();
   }
 
   /// Checks the test release channel once per app version and shows the update
@@ -149,7 +175,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
 
   /// Pushes the timetable and the cached book list to control when the app
   /// returns to the foreground, so the console stays current without a fresh
-  /// OA login. Content-hash dedup makes it a no-op when nothing changed.
+  /// OA login. The server deduplicates by course code.
   Future<void> _syncCoursesToControl() async {
     final courses = ref.read(scheduleProvider).value ?? const [];
     if (courses.isEmpty) return;
@@ -165,7 +191,7 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         talker.debug('书单缓存解析失败', error, stackTrace);
       }
     }
-    await uploadCoursesAndBooks(storage: prefs, courses: courses, books: books);
+    await uploadCoursesAndBooks(courses: courses, books: books);
   }
 
   Future<void> _refreshSchoolCalendarAndWidget() async {

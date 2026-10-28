@@ -1,14 +1,12 @@
 import '../models/book_list.dart';
 import '../models/course.dart';
 import 'control_service.dart';
-import 'preferences_storage.dart';
 
-/// Uploads the timetable courses together with the book list, deduped by a
-/// content hash stored in [storage]. Textbooks are matched to courses by course
+/// Uploads the timetable courses together with the book list on each sync.
+/// Textbooks are matched to courses by course
 /// name and associated by course number. Failures are logged inside the
 /// service and never affect the caller.
 Future<void> uploadCoursesAndBooks({
-  required PreferencesStorage storage,
   required List<Course> courses,
   required BookListResult? books,
 }) async {

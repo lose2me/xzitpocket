@@ -151,13 +151,7 @@ CourseTemplateLine _parseLine(String raw, CourseTemplateValues values) {
       final end = raw.indexOf(']', index + 1);
       if (end > index) {
         final tag = raw.substring(index + 1, end);
-        if (tag == '/') {
-          // 兼容旧的通用闭合标记：关闭最近一层。
-          flush();
-          if (stack.isNotEmpty) stack.removeLast();
-          index = end + 1;
-          continue;
-        }
+
         final closing = _parseClosingTag(tag);
         if (closing != null) {
           flush();
@@ -303,12 +297,7 @@ String? validateCourseTemplate(String template) {
       final end = text.indexOf(']', index + 1);
       if (end < 0) return '标签缺少右方括号 ]';
       final tag = text.substring(index + 1, end);
-      if (tag == '/') {
-        if (stack.isEmpty) return '多余的闭合标签 [/]';
-        stack.removeLast();
-        index = end + 1;
-        continue;
-      }
+      if (tag == '/') return '请使用与开标签对应的闭合标签';
       final closing = _parseClosingTag(tag);
       if (closing != null) {
         final at = stack.lastIndexWhere((entry) => entry.kind == closing);
@@ -355,30 +344,3 @@ String buildCourseTemplateAiPrompt(String currentTemplate) {
   return '$syntax\n\n当前模板：\n$currentTemplate\n\n'
       '请询问我要更改什么方面的样式，协助我进行修改，返回时只输出模板。';
 }
-
-/// 由旧版布尔开关推导等价模板（用于旧数据的一次性迁移与派生显示）。
-String composeLegacyTemplate({
-  required bool showStartTime,
-  required bool hideLocation,
-  required bool hideTeacher,
-  required bool hideTeacherBrackets,
-  required bool removeLocationAt,
-  required bool addBlankLineAfterTitle,
-}) {
-  final lines = <String>['[b]{课程}[/b]'];
-  if (addBlankLineAfterTitle) lines.add('');
-  if (showStartTime) lines.add('{时间}');
-  if (!hideLocation) {
-    lines.add('${removeLocationAt ? '' : '@'}{教室}');
-    lines.add('{校区}');
-  }
-  if (!hideTeacher) {
-    lines.add(hideTeacherBrackets ? '{教师}' : '【{教师}】');
-  }
-  return lines.join('\\n');
-}
-
-/// 把已删除的 `{地点}` 变量迁移为 `{教室}` + 换行 + `{校区}`。
-/// 用于升级旧模板和个人设置导入。
-String migrateLegacyLocationVariable(String template) =>
-    template.replaceAll('{地点}', r'{教室}\n{校区}');

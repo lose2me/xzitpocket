@@ -161,7 +161,6 @@ void main() {
 
     test('uses the timetable appearance defaults', () {
       expect(storage.getTimetableCourseTextTemplate(), isNull);
-      expect(storage.composeLegacyCourseTextTemplate(), isNull);
       expect(storage.getTimetableCourseCornerRadius(), 6.0);
       expect(storage.getTimetableCourseInnerPadding(), 2.0);
       expect(storage.getTimetableSectionHeight(), 60.0);
@@ -204,7 +203,7 @@ void main() {
       await storage.setWidgetHideTeacher(true);
       await storage.setWidgetHideLocation(true);
       await storage.setWidgetHideDate(true);
-      await storage.setTimetableCourseTextTemplate(r'[b]{课程}[/]\n{时间}');
+      await storage.setTimetableCourseTextTemplate(r'[b]{课程}[/b]\n{时间}');
       await storage.setTimetableDayTextMarkerPosition('bottomLeft');
       await storage.setTimetableDayTextMarkerPadding(4);
       await storage.setTimetableCountdownBarLengthRatio(0.5);
@@ -255,7 +254,7 @@ void main() {
       expect(storage.getWidgetHideTeacher(), isTrue);
       expect(storage.getWidgetHideLocation(), isTrue);
       expect(storage.getWidgetHideDate(), isTrue);
-      expect(storage.getTimetableCourseTextTemplate(), r'[b]{课程}[/]\n{时间}');
+      expect(storage.getTimetableCourseTextTemplate(), r'[b]{课程}[/b]\n{时间}');
       expect(storage.getTimetableDayTextMarkerPosition(), 'bottomLeft');
       expect(storage.getTimetableDayTextMarkerPadding(), 4.0);
       expect(storage.getTimetableCountdownBarLengthRatio(), 0.5);

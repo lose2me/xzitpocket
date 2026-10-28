@@ -99,10 +99,8 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
       timetableCourseInnerPadding: _storage.getTimetableCourseInnerPadding(),
       timetableCourseOuterPadding: _storage.getTimetableCourseOuterPadding(),
       timetableCourseAlpha: _storage.getTimetableCourseAlpha(),
-      // 模板缺失时优先由旧布尔开关派生（未迁移安装），否则用默认模板。
       timetableCourseTextTemplate:
           _storage.getTimetableCourseTextTemplate() ??
-          _storage.composeLegacyCourseTextTemplate() ??
           kDefaultCourseTextTemplate,
       timetableDashedBorderDensity: _storage.getTimetableDashedBorderDensity(),
       timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
@@ -560,6 +558,14 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     );
     await _storage.setTimetableTodayLineColor(value.toARGB32());
     await _storage.setTimetableLastCustomTodayLineColor(value.toARGB32());
+  }
+
+  Future<void> restorePersonalizationSnapshot(
+    Map<String, dynamic> values,
+  ) async {
+    await _storage.restorePersonalizationSnapshot(values);
+    ref.invalidateSelf();
+    await _refreshWidgetSettings();
   }
 
   Future<void> _refreshWidgetSettings() async {

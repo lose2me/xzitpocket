@@ -149,11 +149,10 @@ class _ConfigBackupPageState extends ConsumerState<ConfigBackupPage> {
         final settings = payload['settings'];
         if (settings is! Map) throw const FormatException('个性化设置格式无效');
         await ref
-            .read(preferencesStorageProvider)
+            .read(appSettingsProvider.notifier)
             .restorePersonalizationSnapshot(
               Map<String, dynamic>.from(settings),
             );
-        ref.invalidate(appSettingsProvider);
       } else {
         final courses = _coursesFrom(payload);
         await ref.read(secondaryScheduleProvider.notifier).setCourses(courses);

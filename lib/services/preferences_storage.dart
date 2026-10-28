@@ -1,140 +1,17 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/app_settings.dart';
 import '../utils/course_text_template.dart';
 
 class PreferencesStorage {
   late SharedPreferences _prefs;
 
-  /// Bumped whenever stored preference semantics change incompatibly.
-  /// Persisted next to the installed versionCode so migrations can react to
-  /// both app upgrades and schema changes.
-  static const settingsSchemaVersion = 2;
-
-  /// Keys removed by past releases. They are dropped on the next migration so
-  /// upgraded installs keep no stale entries.
-  static const _deprecatedKeys = <String>{
-    'timetable_solid_background',
-    'timetable_background_original_path',
-    'timetable_background_fullscreen',
-    'timetable_background_opacity',
-    'timetable_component_opacity',
-    'school_calendar_cache_time',
-    // 课程块文字改为模板后废弃的布尔开关（升级时先合成模板再删除）。
-    ...legacyCourseTextKeys,
-    // 今日横线改为跟随竖线样式后废弃的独立配置。
-    'timetable_today_horizontal_line_color',
-    'timetable_last_custom_today_horizontal_line_color',
-    'timetable_today_horizontal_line_width',
-    'timetable_today_horizontal_line_opacity',
-    // 文字模板支持字号标记后废弃的课程字体缩放。
-    'timetable_course_font_scale',
-    // 「今日课程点到为止」设置移除后废弃的独立配置。
-    'timetable_today_line_stop_at_course',
-    // 课程块文字颜色改由模板颜色标注后废弃。
-    'timetable_course_text_color',
-    'timetable_last_custom_course_text_color',
-    // 倒计时颜色固定为主题色后废弃。
-    'timetable_countdown_bar_color',
-    'timetable_last_custom_countdown_bar_color',
-    // 倒计时内边距拆分为上/下边距后废弃。
-    'timetable_countdown_bar_padding',
-    // 课程上报改为一律上传后废弃的本地去重哈希。
-    'uploaded_courses_hash',
-    // 题库缓存改为按题库 updated_at 失效后废弃的时间戳。
-    'learning_question_bank_cache_time',
-    // 现在全局固定忽略系统字体缩放，不再作为可配置项。
-    'ignore_system_text_scale',
-  };
-
-  /// 旧版课程块文字布尔开关。含这些键的分享码/配置快照视为不兼容。
-  static const legacyCourseTextKeys = <String>{
-    'timetable_add_blank_line_after_title',
-    'timetable_show_start_time',
-    'timetable_hide_location',
-    'timetable_hide_teacher',
-    'timetable_hide_teacher_brackets',
-    'timetable_remove_location_at',
-  };
-
-  /// Known preference keys and their expected stored types. A key whose value
-  /// type does not match is treated as incompatible and removed (its getter
-  /// then falls back to the default). Keys added by new features MUST be
-  /// registered here.
-  static const _knownKeyTypes = <String, Type>{
-    // 账户信息
-    'student_id': String,
-    'student_name': String,
-    'college_name': String,
-    'class_name': String,
-    // 版本与合规
-    'settings_schema_version': int,
-    'installed_version_code': String,
-    'disclaimer_accepted': bool,
-    // 主题外观
+  /// Portable appearance settings and their JSON types. Dimensions are stored
+  /// in reference-device units; local image paths stay on their own device.
+  static const _personalizationTypes = <String, Type>{
     'theme_preference': String,
     'theme_color': String,
     'custom_theme_color': int,
     'last_custom_theme_color': int,
-    'page_background_color': String,
-    'custom_page_background_color': int,
-    'last_custom_page_background_color': int,
-    'timetable_background_path': String,
-    'timetable_dark_background_path': String,
-    'timetable_use_light_background_in_dark_mode': bool,
-    // 课表网格
-    'timetable_section_height': double,
-    'timetable_time_column_width': double,
-    'timetable_day_header_height': double,
-    'show_timetable_grid_lines': bool,
-    'timetable_grid_line_color': int,
-    'timetable_last_custom_grid_line_color': int,
-    'timetable_grid_line_width': double,
-    'timetable_grid_opacity': double,
-    'show_today_grid_lines': bool,
-    'timetable_today_line_color': int,
-    'timetable_last_custom_today_line_color': int,
-    'timetable_today_line_width': double,
-    'timetable_today_line_opacity': double,
-    'show_today_horizontal_grid_lines': bool,
-    'show_non_current_week_courses': bool,
-    // 课程块
-    'timetable_course_corner_radius': double,
-    'timetable_course_inner_padding': double,
-    'timetable_course_outer_padding': double,
-    'timetable_course_alpha': double,
-    'timetable_course_text_template': String,
-    'timetable_dashed_border_density': double,
-    'timetable_border_type': String,
-    'timetable_course_border_color': int,
-    'timetable_last_custom_course_border_color': int,
-    'timetable_course_border_width': double,
-    'timetable_course_border_opacity': double,
-    'timetable_course_text_size': double,
-    'timetable_course_text_opacity': double,
-    'timetable_text_align_center_horizontal': bool,
-    'timetable_text_align_center_vertical': bool,
-    'timetable_countdown_bar_length_ratio': double,
-    'timetable_countdown_bar_rounded': bool,
-    'timetable_countdown_bar_thickness': double,
-    'timetable_countdown_bar_top_padding': double,
-    'timetable_countdown_bar_bottom_padding': double,
-    'show_current_time_line': bool,
-    // 页面与文字
-    'timetable_hide_section_time': bool,
-    'timetable_hide_date_under_day': bool,
-    'timetable_day_color_markers': bool,
-    'timetable_day_text_markers': bool,
-    'timetable_day_text_marker_size': double,
-    'timetable_day_text_marker_position': String,
-    'timetable_day_text_marker_padding': double,
-    'timetable_page_text_color': int,
-    'timetable_last_custom_page_text_color': int,
-    'timetable_page_text_opacity': double,
-    'timetable_time_text_size': double,
-    'timetable_date_text_size': double,
-    'toast_opacity': double,
-    // 小组件
     'widget_theme_preference': String,
     'widget_font_scale': double,
     'widget_background_alpha': double,
@@ -143,225 +20,61 @@ class PreferencesStorage {
     'last_custom_widget_background_color': int,
     'widget_text_color': int,
     'last_custom_widget_text_color': int,
-    'widget_background_path': String,
-    'widget_dark_background_path': String,
-    'widget_use_light_background_in_dark_mode': bool,
     'widget_hide_teacher': bool,
     'widget_hide_location': bool,
     'widget_hide_date': bool,
-    // 提醒与规则
-    'class_automation_mode': String,
-    'course_reminder_enabled': bool,
-    'course_reminder_minutes': int,
-    'wearable_notification_compatibility': bool,
-    'use_cloud_timetable_adjustments': bool,
-    // 服务功能与校历
-    'hidden_service_features': List<String>,
-    'school_calendar_cache': String,
-    'school_calendar_version': String,
-    'school_calendar_update_notice': bool,
-    // 版本更新数据（按版本持久化）
-    'app_release_cache': String,
-    'update_prompted_version': String,
-    // 第二课表
-    'secondary_schedule_json': String,
-    'secondary_schedule_title': String,
-    // 宿舍与缓存
-    'power_unit_show_money': bool,
-    'saved_power_room_id': String,
-    'saved_power_cache': String,
-    'saved_power_cache_room_id': String,
-    'saved_power_cache_time': int,
-    'jp_cache': String,
-    'jp_cache_time': int,
-    'repair_cache': String,
-    'repair_cache_time': int,
-    'exam_cache': String,
-    'exam_cache_time': int,
-    'book_cache': String,
-    'book_cache_time': int,
-    'grade_cache': String,
-    'grade_cache_time': int,
-    'academic_cache': String,
-    'academic_cache_time': int,
-    'ykt_cache': String,
-    'ykt_cache_time': int,
-    'netauth_cache': String,
-    'netauth_cache_time': int,
-    'learning_question_bank_cache': String,
-    'learning_state_cache': String,
-    // 资源中心
-    'resource_center_cache': String,
-    'resource_upload_textbooks_cache': String,
-    'resource_upload_textbooks_cache_time': int,
-    'resource_upload_stats_cache': String,
-    'resource_upload_stats_cache_time': int,
-  };
-
-  /// Dynamic per-repair cache key prefixes and their expected types.
-  static const _knownKeyPrefixTypes = <String, Type>{
-    'repair_detail_cache_time_': int,
-    'repair_detail_cache_': String,
-    'resource_course_cache_': String,
-  };
-
-  /// Migrates stored preferences after an app upgrade. Returns true when any
-  /// deprecated or incompatible value was cleaned up, so callers can decide
-  /// to re-sync account information. Always records the new versionCode and
-  /// schema version.
-  Future<bool> migrateForVersionCode(String versionCode) async {
-    final previousVersionCode = _prefs.getString('installed_version_code');
-    final previousSchemaVersion = _prefs.getInt('settings_schema_version');
-    final versionChanged =
-        previousVersionCode != versionCode ||
-        previousSchemaVersion != settingsSchemaVersion;
-
-    var cleaned = false;
-    if (versionChanged) {
-      // 旧课程块布尔开关在删除前先合成等价模板，保留用户观感。
-      final legacyTemplate = composeLegacyCourseTextTemplate();
-      if (legacyTemplate != null &&
-          !_prefs.containsKey('timetable_course_text_template')) {
-        await _prefs.setString(
-          'timetable_course_text_template',
-          legacyTemplate,
-        );
-        cleaned = true;
-      }
-      final rawTemplate = _prefs.getString('timetable_course_text_template');
-      if (rawTemplate != null) {
-        final migrated = migrateLegacyLocationVariable(rawTemplate);
-        if (migrated != rawTemplate) {
-          await _prefs.setString('timetable_course_text_template', migrated);
-          cleaned = true;
-        }
-      }
-      for (final key in _deprecatedKeys) {
-        if (_prefs.containsKey(key)) {
-          await _prefs.remove(key);
-          cleaned = true;
-        }
-      }
-      for (final key in _prefs.getKeys().toList()) {
-        final expected = _expectedKeyType(key);
-        if (expected == null) continue;
-        if (!_valueMatchesType(_prefs.get(key), expected)) {
-          await _prefs.remove(key);
-          cleaned = true;
-        }
-      }
-      if (await _pruneInvalidHiddenServiceFeatures()) cleaned = true;
-    }
-
-    if (previousVersionCode != versionCode) {
-      await _prefs.setString('installed_version_code', versionCode);
-    }
-    if (previousSchemaVersion != settingsSchemaVersion) {
-      await _prefs.setInt('settings_schema_version', settingsSchemaVersion);
-    }
-    return cleaned;
-  }
-
-  Type? _expectedKeyType(String key) {
-    final direct = _knownKeyTypes[key];
-    if (direct != null) return direct;
-    for (final entry in _knownKeyPrefixTypes.entries) {
-      if (key.startsWith(entry.key)) return entry.value;
-    }
-    return null;
-  }
-
-  static bool _valueMatchesType(Object? value, Type expected) {
-    if (value == null) return true;
-    if (expected == bool) return value is bool;
-    if (expected == int) return value is int;
-    // SharedPreferences may round-trip whole doubles as ints on some
-    // platforms; both are valid numbers for a double-typed setting.
-    if (expected == double) return value is num;
-    if (expected == String) return value is String;
-    if (expected == List<String>) return value is List;
-    return true;
-  }
-
-  Future<bool> _pruneInvalidHiddenServiceFeatures() async {
-    final stored = _prefs.getStringList('hidden_service_features');
-    if (stored == null) return false;
-    final valid = AppServiceFeature.values
-        .map((feature) => feature.storageValue)
-        .toSet();
-    final pruned = stored.where(valid.contains).toList();
-    if (pruned.length == stored.length) return false;
-    await _prefs.setStringList('hidden_service_features', pruned);
-    return true;
-  }
-
-  /// Only preferences exposed on the personalization page. The same allowlist
-  /// applies when importing a current personalization snapshot.
-  static const _personalizationBackupKeys = <String>{
-    'theme_preference',
-    'theme_color',
-    'custom_theme_color',
-    'last_custom_theme_color',
-    'widget_theme_preference',
-    'widget_font_scale',
-    'widget_background_alpha',
-    'widget_text_opacity',
-    'widget_background_color',
-    'last_custom_widget_background_color',
-    'widget_text_color',
-    'last_custom_widget_text_color',
-    'widget_hide_teacher',
-    'widget_hide_location',
-    'widget_hide_date',
-    'timetable_section_height',
-    'timetable_time_column_width',
-    'timetable_day_header_height',
-    'timetable_course_corner_radius',
-    'timetable_course_inner_padding',
-    'timetable_course_outer_padding',
-    'timetable_course_alpha',
-    'timetable_course_text_template',
-    'timetable_dashed_border_density',
-    'timetable_hide_section_time',
-    'timetable_hide_date_under_day',
-    'timetable_day_color_markers',
-    'timetable_day_text_markers',
-    'timetable_day_text_marker_size',
-    'timetable_day_text_marker_position',
-    'timetable_day_text_marker_padding',
-    'timetable_countdown_bar_length_ratio',
-    'timetable_countdown_bar_rounded',
-    'timetable_countdown_bar_thickness',
-    'timetable_countdown_bar_top_padding',
-    'timetable_countdown_bar_bottom_padding',
-    'show_current_time_line',
-    'timetable_text_align_center_horizontal',
-    'timetable_text_align_center_vertical',
-    'timetable_border_type',
-    'timetable_page_text_color',
-    'timetable_last_custom_page_text_color',
-    'timetable_page_text_opacity',
-    'timetable_course_border_color',
-    'timetable_last_custom_course_border_color',
-    'page_background_color',
-    'custom_page_background_color',
-    'last_custom_page_background_color',
-    'toast_opacity',
-    'timetable_grid_opacity',
-    'timetable_grid_line_color',
-    'timetable_last_custom_grid_line_color',
-    'timetable_grid_line_width',
-    'timetable_course_text_opacity',
-    'timetable_course_border_width',
-    'timetable_course_border_opacity',
-    'show_timetable_grid_lines',
-    'show_today_grid_lines',
-    'timetable_today_line_color',
-    'timetable_last_custom_today_line_color',
-    'timetable_today_line_width',
-    'timetable_today_line_opacity',
-    'show_today_horizontal_grid_lines',
-    'show_non_current_week_courses',
+    'timetable_section_height': double,
+    'timetable_time_column_width': double,
+    'timetable_day_header_height': double,
+    'timetable_course_corner_radius': double,
+    'timetable_course_inner_padding': double,
+    'timetable_course_outer_padding': double,
+    'timetable_course_alpha': double,
+    'timetable_course_text_template': String,
+    'timetable_dashed_border_density': double,
+    'timetable_hide_section_time': bool,
+    'timetable_hide_date_under_day': bool,
+    'timetable_day_color_markers': bool,
+    'timetable_day_text_markers': bool,
+    'timetable_day_text_marker_size': double,
+    'timetable_day_text_marker_position': String,
+    'timetable_day_text_marker_padding': double,
+    'timetable_countdown_bar_length_ratio': double,
+    'timetable_countdown_bar_rounded': bool,
+    'timetable_countdown_bar_thickness': double,
+    'timetable_countdown_bar_top_padding': double,
+    'timetable_countdown_bar_bottom_padding': double,
+    'show_current_time_line': bool,
+    'timetable_text_align_center_horizontal': bool,
+    'timetable_text_align_center_vertical': bool,
+    'timetable_border_type': String,
+    'timetable_page_text_color': int,
+    'timetable_last_custom_page_text_color': int,
+    'timetable_page_text_opacity': double,
+    'timetable_course_border_color': int,
+    'timetable_last_custom_course_border_color': int,
+    'page_background_color': String,
+    'custom_page_background_color': int,
+    'last_custom_page_background_color': int,
+    'toast_opacity': double,
+    'timetable_grid_opacity': double,
+    'timetable_grid_line_color': int,
+    'timetable_last_custom_grid_line_color': int,
+    'timetable_grid_line_width': double,
+    'timetable_course_text_opacity': double,
+    'timetable_course_border_width': double,
+    'timetable_course_border_opacity': double,
+    'show_timetable_grid_lines': bool,
+    'show_today_grid_lines': bool,
+    'timetable_today_line_color': int,
+    'timetable_last_custom_today_line_color': int,
+    'timetable_today_line_width': double,
+    'timetable_today_line_opacity': double,
+    'show_today_horizontal_grid_lines': bool,
+    'show_non_current_week_courses': bool,
+    'timetable_course_text_size': double,
+    'timetable_time_text_size': double,
+    'timetable_date_text_size': double,
   };
 
   Future<void> init() async {
@@ -370,42 +83,48 @@ class PreferencesStorage {
 
   Map<String, dynamic> getPersonalizationSnapshot() {
     final result = <String, dynamic>{};
-    for (final key in _personalizationBackupKeys) {
+    for (final key in _personalizationTypes.keys) {
       if (_prefs.containsKey(key)) result[key] = _prefs.get(key);
     }
     return result;
   }
 
-  /// 旧 schema（课程块文字仍用布尔开关）的快照不做转换，直接判定不兼容。
-  bool isLegacyPersonalizationSnapshot(Map<String, dynamic> values) =>
-      values.keys.any(legacyCourseTextKeys.contains);
-
   Future<void> restorePersonalizationSnapshot(
     Map<String, dynamic> values,
   ) async {
-    if (isLegacyPersonalizationSnapshot(values)) {
-      throw const FormatException('旧版分享码不支持');
-    }
+    // Validate the whole payload before changing any preference. A malformed
+    // share code must not leave partially applied styles or wrong value types.
     for (final entry in values.entries) {
-      if (!_personalizationBackupKeys.contains(entry.key)) continue;
+      final expected = _personalizationTypes[entry.key];
       final value = entry.value;
+      if (expected == null || value == null) continue;
+      final valid = expected == double
+          ? value is num && value.isFinite
+          : expected == int
+          ? value is int
+          : expected == bool
+          ? value is bool
+          : value is String;
+      if (!valid) throw FormatException('个性化设置格式无效：${entry.key}');
+      if (entry.key == 'timetable_course_text_template') {
+        final error = validateCourseTemplate(value as String);
+        if (error != null) throw FormatException(error);
+      }
+    }
+    // A snapshot replaces the portable settings, including implicit defaults.
+    // Overlaying only its saved keys would retain the recipient's old styles.
+    for (final entry in _personalizationTypes.entries) {
+      final value = values[entry.key];
       if (value == null) {
         await _prefs.remove(entry.key);
+      } else if (entry.value == double) {
+        await _prefs.setDouble(entry.key, (value as num).toDouble());
       } else if (value is bool) {
         await _prefs.setBool(entry.key, value);
       } else if (value is int) {
         await _prefs.setInt(entry.key, value);
-      } else if (value is double) {
-        await _prefs.setDouble(entry.key, value);
-      } else if (value is num) {
-        await _prefs.setDouble(entry.key, value.toDouble());
-      } else if (value is String) {
-        await _prefs.setString(entry.key, value);
-      } else if (value is List) {
-        await _prefs.setStringList(
-          entry.key,
-          value.map((item) => item.toString()).toList(),
-        );
+      } else {
+        await _prefs.setString(entry.key, value as String);
       }
     }
   }
@@ -710,37 +429,15 @@ class PreferencesStorage {
     value.clamp(0.1, 1.0).toDouble(),
   );
 
-  String? getTimetableCourseTextTemplate() {
-    final value = _prefs.getString('timetable_course_text_template');
-    return value == null ? null : migrateLegacyLocationVariable(value);
-  }
+  String? getTimetableCourseTextTemplate() =>
+      _prefs.getString('timetable_course_text_template');
 
   Future<void> setTimetableCourseTextTemplate(String? value) async {
     if (value == null || value.isEmpty) {
       await _prefs.remove('timetable_course_text_template');
     } else {
-      await _prefs.setString(
-        'timetable_course_text_template',
-        migrateLegacyLocationVariable(value),
-      );
+      await _prefs.setString('timetable_course_text_template', value);
     }
-  }
-
-  /// 由旧版布尔开关合成等价模板；没有任何旧键时返回 null。
-  /// 供升级迁移与未迁移安装（versionCode 未变）派生显示使用。
-  String? composeLegacyCourseTextTemplate() {
-    final hasLegacy = legacyCourseTextKeys.any(_prefs.containsKey);
-    if (!hasLegacy) return null;
-    return composeLegacyTemplate(
-      showStartTime: _prefs.getBool('timetable_show_start_time') ?? false,
-      hideLocation: _prefs.getBool('timetable_hide_location') ?? false,
-      hideTeacher: _prefs.getBool('timetable_hide_teacher') ?? true,
-      hideTeacherBrackets:
-          _prefs.getBool('timetable_hide_teacher_brackets') ?? true,
-      removeLocationAt: _prefs.getBool('timetable_remove_location_at') ?? false,
-      addBlankLineAfterTitle:
-          _prefs.getBool('timetable_add_blank_line_after_title') ?? false,
-    );
   }
 
   bool hasTimetableSectionHeight() =>
@@ -1294,8 +991,7 @@ class PreferencesStorage {
   Future<void> setSchoolCalendarCollege(String value) =>
       _prefs.setString('school_calendar_college', value);
 
-  /// Pending 「云端课程有所调整」 reminder; cleared once the user dismisses
-  /// the timetable banner.
+  /// Pending cloud adjustment reminder, cleared by logout or a fresh OA timetable.
   bool getSchoolCalendarUpdateNotice() =>
       _prefs.getBool('school_calendar_update_notice') ?? false;
 
@@ -1462,13 +1158,10 @@ class PreferencesStorage {
       _prefs.setString('resource_center_cache', json);
 
   String? getResourceCourseCache(String code) =>
-      _prefs.getString('resource_course_cache_${_safeCacheKey(code)}');
+      _prefs.getString('resource_course_cache_${Uri.encodeComponent(code)}');
 
-  Future<void> setResourceCourseCache(String code, String json) =>
-      _prefs.setString('resource_course_cache_${_safeCacheKey(code)}', json);
-
-  String _safeCacheKey(String value) =>
-      value.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+  Future<void> setResourceCourseCache(String code, String json) => _prefs
+      .setString('resource_course_cache_${Uri.encodeComponent(code)}', json);
 
   // ── Resource upload page cache ──
 
@@ -1534,18 +1227,13 @@ class PreferencesStorage {
 
   Future<void> clearLearningCache() async {
     await Future.wait([
-      _clearCache(
-        'learning_question_bank_cache',
-        'learning_question_bank_cache_time',
-      ),
+      _prefs.remove('learning_question_bank_cache'),
       _prefs.remove('learning_state_cache'),
     ]);
   }
 
-  Future<void> clearLearningQuestionBankCache() => _clearCache(
-    'learning_question_bank_cache',
-    'learning_question_bank_cache_time',
-  );
+  Future<void> clearLearningQuestionBankCache() =>
+      _prefs.remove('learning_question_bank_cache');
 
   // ── Repair detail cache (per repair form, 5min) ──
 
@@ -1573,7 +1261,6 @@ class PreferencesStorage {
     await Future.wait([
       ..._accountCacheClearances(),
       clearResourceCenterCaches(),
-      clearResourceUploadCaches(),
     ]);
   }
 
@@ -1593,6 +1280,7 @@ class PreferencesStorage {
     _clearCache('ykt_cache', 'ykt_cache_time'),
     _clearCache('netauth_cache', 'netauth_cache_time'),
     _clearRepairDetailCaches(),
+    clearResourceUploadCaches(),
     clearLearningCache(),
     _prefs.remove('update_prompted_version'),
   ];

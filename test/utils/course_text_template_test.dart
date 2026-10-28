@@ -36,12 +36,12 @@ void main() {
     });
 
     test('supports font size tags in px', () {
-      final lines = parseCourseTemplate(r'[s14]{课程}[/]', values);
+      final lines = parseCourseTemplate(r'[s14]{课程}[/s14]', values);
       expect(lines.single.spans.single.fontSize, 14);
     });
 
     test('supports light/dark color tags', () {
-      final lines = parseCourseTemplate(r'[c#111827|#f9fafb]{课程}[/]', values);
+      final lines = parseCourseTemplate(r'[c#111827|#f9fafb]{课程}[/c]', values);
       final span = lines.single.spans.single;
       expect(span.lightColor, const Color(0xFF111827));
       expect(span.darkColor, const Color(0xFFf9fafb));
@@ -50,23 +50,23 @@ void main() {
     });
 
     test('single color tag applies to both brightnesses', () {
-      final lines = parseCourseTemplate(r'[c#123456]{课程}[/]', values);
+      final lines = parseCourseTemplate(r'[c#123456]{课程}[/c]', values);
       final span = lines.single.spans.single;
       expect(span.lightColor, const Color(0xFF123456));
       expect(span.darkColor, const Color(0xFF123456));
     });
 
     test('supports alignment tags and records line alignment', () {
-      final left = parseCourseTemplate(r'[左]{课程}[/]', values).single;
-      final center = parseCourseTemplate(r'[中]{课程}[/]', values).single;
-      final right = parseCourseTemplate(r'[右]{课程}[/]', values).single;
+      final left = parseCourseTemplate(r'[左]{课程}[/左]', values).single;
+      final center = parseCourseTemplate(r'[中]{课程}[/中]', values).single;
+      final right = parseCourseTemplate(r'[右]{课程}[/右]', values).single;
       expect(left.align, CourseTemplateAlign.left);
       expect(center.align, CourseTemplateAlign.center);
       expect(right.align, CourseTemplateAlign.right);
     });
 
-    test('nested styles combine until [/] closes the latest', () {
-      final lines = parseCourseTemplate(r'[b][s10]{课程}[/]{教师}[/]', values);
+    test('nested styles combine until their closing tags', () {
+      final lines = parseCourseTemplate(r'[b][s10]{课程}[/s10]{教师}[/b]', values);
       final spans = lines.single.spans;
       expect(spans[0].text, '高等数学');
       expect(spans[0].bold, isTrue);
@@ -124,7 +124,7 @@ void main() {
 
     test('unknown tags render as literal text', () {
       final lines = parseCourseTemplate(r'[x]{课程}[/]', values);
-      expect(plain(lines.single), '[x]高等数学');
+      expect(plain(lines.single), '[x]高等数学[/]');
     });
 
     test('unknown variables render as literal text', () {
@@ -134,7 +134,7 @@ void main() {
     });
 
     test('lines whose variables are all empty are skipped', () {
-      final lines = parseCourseTemplate(r'[b]{课程}[/]\n@{教室}', {
+      final lines = parseCourseTemplate(r'[b]{课程}[/b]\n@{教室}', {
         ...values,
         '教室': '',
       });
@@ -162,7 +162,7 @@ void main() {
 
   group('buildCourseTemplateAiPrompt', () {
     test('contains the syntax table, current template and the instruction', () {
-      final prompt = buildCourseTemplateAiPrompt(r'[b]{课程}[/]');
+      final prompt = buildCourseTemplateAiPrompt(r'[b]{课程}[/b]');
       expect(prompt, contains('{课程}'));
       expect(prompt, contains('[b]'));
       expect(prompt, contains('[i]'));
@@ -174,36 +174,8 @@ void main() {
       expect(prompt, contains('[中]'));
       expect(prompt, contains('[右]'));
       expect(prompt, contains('[/b]'));
-      expect(prompt, contains(r'[b]{课程}[/]'));
+      expect(prompt, contains(r'[b]{课程}[/b]'));
       expect(prompt, contains('返回时只输出模板'));
-    });
-  });
-
-  group('composeLegacyTemplate', () {
-    test('reproduces the default look with legacy defaults', () {
-      expect(
-        composeLegacyTemplate(
-          showStartTime: false,
-          hideLocation: false,
-          hideTeacher: true,
-          hideTeacherBrackets: true,
-          removeLocationAt: false,
-          addBlankLineAfterTitle: false,
-        ),
-        kDefaultCourseTextTemplate,
-      );
-    });
-
-    test('maps every legacy switch to template fragments', () {
-      final template = composeLegacyTemplate(
-        showStartTime: true,
-        hideLocation: false,
-        hideTeacher: false,
-        hideTeacherBrackets: false,
-        removeLocationAt: true,
-        addBlankLineAfterTitle: true,
-      );
-      expect(template, r'[b]{课程}[/b]\n\n{时间}\n{教室}\n{校区}\n【{教师}】');
     });
   });
 
@@ -224,7 +196,7 @@ void main() {
       expect(validateCourseTemplate('{课程'), contains('右花括号'));
       expect(validateCourseTemplate('[b]{课程}'), contains('没有闭合'));
       expect(validateCourseTemplate('{课程}[/b]'), contains('没有对应的开标签'));
-      expect(validateCourseTemplate('[/]'), contains('多余的闭合标签'));
+      expect(validateCourseTemplate('[/]'), contains('对应的闭合标签'));
     });
 
     test('rejects invalid sizes, colors and unknown tags', () {

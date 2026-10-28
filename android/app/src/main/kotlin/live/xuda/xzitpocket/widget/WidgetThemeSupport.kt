@@ -27,7 +27,6 @@ internal enum class WidgetThemeMode {
 
 internal object WidgetThemeSupport {
     private const val FLUTTER_PREFS = "FlutterSharedPreferences"
-    private const val KEY_THEME_PREFERENCE = "flutter.theme_preference"
     private const val KEY_WIDGET_THEME_PREFERENCE = "flutter.widget_theme_preference"
     private const val KEY_THEME_COLOR = "flutter.theme_color"
     private const val KEY_CUSTOM_THEME_COLOR = "flutter.custom_theme_color"
@@ -55,13 +54,13 @@ internal object WidgetThemeSupport {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
         (prefs.all[KEY_CUSTOM_THEME_COLOR] as? Number)?.let { return it.toLong().toInt() }
         val dark = resolveThemeMode(context) == WidgetThemeMode.DARK
-        return when (prefs.getString(KEY_THEME_COLOR, "rose")) {
+        return when (prefs.getString(KEY_THEME_COLOR, "teal")) {
             "blue" -> if (dark) 0xFF8AB4FF.toInt() else 0xFF2563EB.toInt()
             "green" -> if (dark) 0xFF7BE495.toInt() else 0xFF15803D.toInt()
             "orange" -> if (dark) 0xFFFFB36B.toInt() else 0xFFC2410C.toInt()
             "purple" -> if (dark) 0xFFC4A1FF.toInt() else 0xFF7C3AED.toInt()
-            "teal" -> if (dark) 0xFF5EEAD4.toInt() else 0xFF0F766E.toInt()
-            else -> if (dark) 0xFFFF8DB7.toInt() else 0xFFBE185D.toInt()
+            "rose" -> if (dark) 0xFFFF8DB7.toInt() else 0xFFBE185D.toInt()
+            else -> if (dark) 0xFF5EEAD4.toInt() else 0xFF0F766E.toInt()
         }
     }
 
@@ -101,8 +100,7 @@ internal object WidgetThemeSupport {
 
     private fun readPreference(context: Context): WidgetThemePreference {
         val prefs = context.getSharedPreferences(FLUTTER_PREFS, Context.MODE_PRIVATE)
-        val value = prefs.getString(KEY_WIDGET_THEME_PREFERENCE, null)
-            ?: prefs.getString(KEY_THEME_PREFERENCE, WidgetThemePreference.SYSTEM.value)
+        val value = prefs.getString(KEY_WIDGET_THEME_PREFERENCE, WidgetThemePreference.SYSTEM.value)
         return WidgetThemePreference.fromValue(value)
     }
 

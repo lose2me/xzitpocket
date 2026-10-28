@@ -90,13 +90,10 @@ class AuthNotifier extends Notifier<AuthState> {
         cacheWrites.add(_storage.setBookCache(jsonEncode(bookPage.toJson())));
       }
       await Future.wait(cacheWrites);
-      // Course + book upload to control (fail-open, deduped by content
-      // hash). It never blocks or fails the login itself.
-      unawaited(uploadCoursesAndBooks(
-        storage: _storage,
-        courses: login.courses,
-        books: bookPage?.books,
-      ));
+      // Course + book upload runs after each sync and never blocks login.
+      unawaited(
+        uploadCoursesAndBooks(courses: login.courses, books: bookPage?.books),
+      );
       state = AuthState(
         status: AuthStatus.success,
         courses: login.courses,

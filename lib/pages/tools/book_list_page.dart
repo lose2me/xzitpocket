@@ -61,11 +61,7 @@ class _BookListPageState extends ConsumerState<BookListPage> {
     if (result == null || !_isCurrentSemester()) return;
     final courses = ref.read(scheduleProvider).value ?? const [];
     if (courses.isEmpty) return;
-    await uploadCoursesAndBooks(
-      storage: widget.preferencesStorage,
-      courses: courses,
-      books: result,
-    );
+    await uploadCoursesAndBooks(courses: courses, books: result);
   }
 
   void _restoreCache() {
