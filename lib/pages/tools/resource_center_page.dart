@@ -466,9 +466,9 @@ class _CourseCardSkeleton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppSkeletonBox(width: 150, height: 16),
+                AppSkeletonBox(width: 150, height: 24),
                 SizedBox(height: AppSpacing.sm),
-                AppSkeletonBox(width: 92, height: 12),
+                AppSkeletonBox(width: 92, height: 18),
               ],
             ),
           ),

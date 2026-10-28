@@ -226,13 +226,13 @@ class _LearningQuestionListPageState extends State<LearningQuestionListPage> {
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                 child: AppCard(
-                  padding: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      AppSkeletonBox(width: 180, height: 16),
+                      AppSkeletonBox(width: 180, height: 20),
                       SizedBox(height: AppSpacing.sm),
-                      AppSkeletonBox(width: double.infinity, height: 14),
+                      AppSkeletonBox(width: double.infinity, height: 20),
                     ],
                   ),
                 ),

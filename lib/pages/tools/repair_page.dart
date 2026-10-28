@@ -184,7 +184,7 @@ class _RepairPageState extends State<RepairPage> {
           label: '正在加载报修记录',
           child: Column(
             children: [
-              const Center(child: AppSkeletonBox(width: 132, height: 16)),
+              const Center(child: AppSkeletonBox(width: 132, height: 20)),
               const SizedBox(height: AppSpacing.md),
               for (var index = 0; index < 4; index++) _buildSkeletonCard(),
             ],
@@ -204,15 +204,15 @@ class _RepairPageState extends State<RepairPage> {
           children: const [
             Row(
               children: [
-                AppSkeletonBox(width: 52, height: 16, radius: 2),
+                AppSkeletonBox(width: 52, height: 20, radius: 2),
                 Spacer(),
-                AppSkeletonBox(width: 84, height: 12),
+                AppSkeletonBox(width: 84, height: 20),
               ],
             ),
             SizedBox(height: AppSpacing.sm),
-            AppSkeletonBox(width: double.infinity, height: 20),
+            AppSkeletonBox(width: double.infinity, height: 24),
             SizedBox(height: AppSpacing.xs),
-            AppSkeletonBox(width: 188, height: 16),
+            AppSkeletonBox(width: 188, height: 20),
           ],
         ),
       ),

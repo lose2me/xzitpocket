@@ -154,7 +154,7 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
           label: '正在加载考试安排',
           child: Column(
             children: [
-              const Center(child: AppSkeletonBox(width: 176, height: 14)),
+              const Center(child: AppSkeletonBox(width: 176, height: 20)),
               const SizedBox(height: AppSpacing.md),
               for (var index = 0; index < 4; index++)
                 Padding(
@@ -163,9 +163,14 @@ class _ExamQueryPageState extends State<ExamQueryPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        AppSkeletonBox(width: 180, height: 18),
+                        // 标题行是 tileTitle（24），时间行是 bodySmall（20），
+                        // 中间还有 8 + 4 的间距，占位高度和真实卡片一致。
+                        AppSkeletonBox(width: 180, height: 24),
                         SizedBox(height: AppSpacing.sm),
-                        AppSkeletonBox(width: 132, height: 14),
+                        Padding(
+                          padding: EdgeInsets.only(top: AppSpacing.xs),
+                          child: AppSkeletonBox(width: 132, height: 20),
+                        ),
                       ],
                     ),
                   ),

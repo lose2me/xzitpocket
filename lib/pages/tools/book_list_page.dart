@@ -248,7 +248,7 @@ class _BookListPageState extends ConsumerState<BookListPage> {
                 radius: 8,
               ),
               const SizedBox(height: AppSpacing.md),
-              const Center(child: AppSkeletonBox(width: 96, height: 12)),
+              const Center(child: AppSkeletonBox(width: 96, height: 20)),
               const SizedBox(height: AppSpacing.md),
               for (var index = 0; index < 5; index++)
                 Padding(
@@ -257,8 +257,8 @@ class _BookListPageState extends ConsumerState<BookListPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: const [
-                        AppSkeletonBox(width: 210, height: 16),
-                        SizedBox(height: AppSpacing.md),
+                        AppSkeletonBox(width: 210, height: 24),
+                        SizedBox(height: AppSpacing.sm),
                         AppSkeletonBox(width: 132, height: 24, radius: 4),
                       ],
                     ),
