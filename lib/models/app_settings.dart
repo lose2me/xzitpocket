@@ -209,8 +209,14 @@ class AppSettings {
   final double timetableCourseAlpha;
   final String timetableCourseTextTemplate;
 
-  /// 课程块文字用 2.1.0 的开关编辑；模板仍然保存实际渲染规则。
+  /// 旧版开关一旦被改动就锁定，课程块文字改由旧版设置生成。
   final bool timetableCourseTextLegacy;
+  final bool timetableLegacyShowStartTime;
+  final bool timetableLegacyHideLocation;
+  final bool timetableLegacyHideTeacher;
+  final bool timetableLegacyHideTeacherBrackets;
+  final bool timetableLegacyRemoveLocationAt;
+  final double timetableLegacyCourseTextScale;
   final double timetableDashedBorderDensity;
   final bool timetableHideSectionTime;
   final bool timetableHideDateUnderDay;
@@ -303,6 +309,12 @@ class AppSettings {
     this.timetableCourseAlpha = 1.0,
     this.timetableCourseTextTemplate = kDefaultCourseTextTemplate,
     this.timetableCourseTextLegacy = false,
+    this.timetableLegacyShowStartTime = false,
+    this.timetableLegacyHideLocation = false,
+    this.timetableLegacyHideTeacher = true,
+    this.timetableLegacyHideTeacherBrackets = true,
+    this.timetableLegacyRemoveLocationAt = false,
+    this.timetableLegacyCourseTextScale = 0.95,
     this.timetableDashedBorderDensity = 1.0,
     this.timetableHideSectionTime = false,
     this.timetableHideDateUnderDay = false,
@@ -390,6 +402,12 @@ class AppSettings {
     double? timetableCourseAlpha,
     String? timetableCourseTextTemplate,
     bool? timetableCourseTextLegacy,
+    bool? timetableLegacyShowStartTime,
+    bool? timetableLegacyHideLocation,
+    bool? timetableLegacyHideTeacher,
+    bool? timetableLegacyHideTeacherBrackets,
+    bool? timetableLegacyRemoveLocationAt,
+    double? timetableLegacyCourseTextScale,
     double? timetableDashedBorderDensity,
     bool? timetableHideSectionTime,
     bool? timetableHideDateUnderDay,
@@ -513,6 +531,21 @@ class AppSettings {
           timetableCourseTextTemplate ?? this.timetableCourseTextTemplate,
       timetableCourseTextLegacy:
           timetableCourseTextLegacy ?? this.timetableCourseTextLegacy,
+      timetableLegacyShowStartTime:
+          timetableLegacyShowStartTime ?? this.timetableLegacyShowStartTime,
+      timetableLegacyHideLocation:
+          timetableLegacyHideLocation ?? this.timetableLegacyHideLocation,
+      timetableLegacyHideTeacher:
+          timetableLegacyHideTeacher ?? this.timetableLegacyHideTeacher,
+      timetableLegacyHideTeacherBrackets:
+          timetableLegacyHideTeacherBrackets ??
+          this.timetableLegacyHideTeacherBrackets,
+      timetableLegacyRemoveLocationAt:
+          timetableLegacyRemoveLocationAt ??
+          this.timetableLegacyRemoveLocationAt,
+      timetableLegacyCourseTextScale:
+          timetableLegacyCourseTextScale ??
+          this.timetableLegacyCourseTextScale,
       timetableDashedBorderDensity:
           timetableDashedBorderDensity ?? this.timetableDashedBorderDensity,
       timetableHideSectionTime:
@@ -626,6 +659,20 @@ class AppSettings {
       forceSystemFont: forceSystemFont ?? this.forceSystemFont,
     );
   }
+
+  LegacyCourseTextOptions get legacyCourseTextOptions =>
+      LegacyCourseTextOptions(
+        showStartTime: timetableLegacyShowStartTime,
+        hideLocation: timetableLegacyHideLocation,
+        hideTeacher: timetableLegacyHideTeacher,
+        hideTeacherBrackets: timetableLegacyHideTeacherBrackets,
+        removeLocationAt: timetableLegacyRemoveLocationAt,
+      );
+
+  /// 锁定后模板由旧版开关实时生成；否则用用户写的模板。
+  String get effectiveCourseTextTemplate => timetableCourseTextLegacy
+      ? legacyCourseTextOptions.toTemplate(scale: timetableLegacyCourseTextScale)
+      : timetableCourseTextTemplate;
 
   String? timetableBackgroundFor(Brightness brightness) {
     if (brightness == Brightness.dark &&

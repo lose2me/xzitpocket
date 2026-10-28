@@ -208,17 +208,6 @@ void main() {
   });
 
   group('LegacyCourseTextOptions', () {
-    test('reads the 2.1.0 switches back from a template', () {
-      final options = LegacyCourseTextOptions.parse(
-        kDefaultCourseTextTemplate,
-      );
-      expect(options.showStartTime, isFalse);
-      expect(options.hideLocation, isFalse);
-      expect(options.hideTeacher, isTrue);
-      expect(options.hideTeacherBrackets, isTrue);
-      expect(options.removeLocationAt, isFalse);
-    });
-
     test('builds the 2.1.0 line order with its switches', () {
       const options = LegacyCourseTextOptions(
         showStartTime: true,
@@ -235,8 +224,17 @@ void main() {
         '[s11]{校区}[/s11]$newline'
         '[s11]【{教师}】[/s11]',
       );
-      final reparsed = LegacyCourseTextOptions.parse(options.toTemplate());
-      expect(reparsed.toTemplate(), options.toTemplate());
+    });
+
+    test('scales the 2.1.0 font sizes', () {
+      const options = LegacyCourseTextOptions();
+      const newline = r'\n';
+      expect(
+        options.toTemplate(scale: 0.95),
+        '[b][s11.4]{课程}[/s11.4][/b]$newline'
+        '[s10.45]@{教室}[/s10.45]$newline'
+        '[s10.45]{校区}[/s10.45]',
+      );
     });
 
     test('hiding the location drops both location lines', () {

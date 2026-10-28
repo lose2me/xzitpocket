@@ -104,6 +104,16 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           _storage.getTimetableCourseTextTemplate() ??
           kDefaultCourseTextTemplate,
       timetableCourseTextLegacy: _storage.getTimetableCourseTextLegacy(),
+      timetableLegacyShowStartTime:
+          _storage.getTimetableLegacyShowStartTime(),
+      timetableLegacyHideLocation: _storage.getTimetableLegacyHideLocation(),
+      timetableLegacyHideTeacher: _storage.getTimetableLegacyHideTeacher(),
+      timetableLegacyHideTeacherBrackets: _storage
+          .getTimetableLegacyHideTeacherBrackets(),
+      timetableLegacyRemoveLocationAt: _storage
+          .getTimetableLegacyRemoveLocationAt(),
+      timetableLegacyCourseTextScale: _storage
+          .getTimetableLegacyCourseTextScale(),
       timetableDashedBorderDensity: _storage.getTimetableDashedBorderDensity(),
       timetableHideSectionTime: _storage.getTimetableHideSectionTime(),
       timetableHideDateUnderDay: _storage.getTimetableHideDateUnderDay(),
@@ -401,9 +411,40 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
     await _storage.setTimetableCourseAlpha(normalized);
   }
 
-  Future<void> setTimetableCourseTextLegacy(bool value) async {
-    state = state.copyWith(timetableCourseTextLegacy: value);
-    await _storage.setTimetableCourseTextLegacy(value);
+  /// 改动旧版开关即锁定：课程块文字改由旧版设置生成，直到个性化被重置或重新导入。
+  Future<void> setLegacyCourseTextOptions(
+    LegacyCourseTextOptions options,
+  ) async {
+    state = state.copyWith(
+      timetableCourseTextLegacy: true,
+      timetableLegacyShowStartTime: options.showStartTime,
+      timetableLegacyHideLocation: options.hideLocation,
+      timetableLegacyHideTeacher: options.hideTeacher,
+      timetableLegacyHideTeacherBrackets: options.hideTeacherBrackets,
+      timetableLegacyRemoveLocationAt: options.removeLocationAt,
+    );
+    await Future.wait([
+      _storage.setTimetableCourseTextLegacy(true),
+      _storage.setTimetableLegacyShowStartTime(options.showStartTime),
+      _storage.setTimetableLegacyHideLocation(options.hideLocation),
+      _storage.setTimetableLegacyHideTeacher(options.hideTeacher),
+      _storage.setTimetableLegacyHideTeacherBrackets(
+        options.hideTeacherBrackets,
+      ),
+      _storage.setTimetableLegacyRemoveLocationAt(options.removeLocationAt),
+    ]);
+  }
+
+  Future<void> setLegacyCourseTextScale(double value) async {
+    final normalized = value.clamp(0.5, 2.0).toDouble();
+    state = state.copyWith(
+      timetableCourseTextLegacy: true,
+      timetableLegacyCourseTextScale: normalized,
+    );
+    await Future.wait([
+      _storage.setTimetableCourseTextLegacy(true),
+      _storage.setTimetableLegacyCourseTextScale(normalized),
+    ]);
   }
 
   Future<void> setTimetableCourseTextTemplate(String value) async {
@@ -779,6 +820,13 @@ class AppSettingsNotifier extends Notifier<AppSettings> {
           defaults.timetableCountdownBarBottomPadding,
       showCurrentTimeLine: defaults.showCurrentTimeLine,
       timetableCourseTextLegacy: defaults.timetableCourseTextLegacy,
+      timetableLegacyShowStartTime: defaults.timetableLegacyShowStartTime,
+      timetableLegacyHideLocation: defaults.timetableLegacyHideLocation,
+      timetableLegacyHideTeacher: defaults.timetableLegacyHideTeacher,
+      timetableLegacyHideTeacherBrackets:
+          defaults.timetableLegacyHideTeacherBrackets,
+      timetableLegacyRemoveLocationAt: defaults.timetableLegacyRemoveLocationAt,
+      timetableLegacyCourseTextScale: defaults.timetableLegacyCourseTextScale,
       timetableTextAlignCenterHorizontal:
           defaults.timetableTextAlignCenterHorizontal,
       timetableTextAlignCenterVertical:

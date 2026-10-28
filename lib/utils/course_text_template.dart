@@ -394,16 +394,27 @@ class LegacyCourseTextOptions {
   );
 
   /// 2.1.0 的行顺序：课程、时间、地点、校区、教师。
-  String toTemplate() {
-    final lines = <String>['[b][s12]{课程}[/s12][/b]'];
-    if (showStartTime) lines.add('[s11]{时间}[/s11]');
+  String toTemplate({double scale = 1}) {
+    final title = _templateSize(12 * scale);
+    final detail = _templateSize(11 * scale);
+    String detailLine(String text) => '[s$detail]$text[/s$detail]';
+    final lines = <String>['[b][s$title]{课程}[/s$title][/b]'];
+    if (showStartTime) lines.add(detailLine('{时间}'));
     if (!hideLocation) {
-      lines.add('[s11]${removeLocationAt ? '' : '@'}{教室}[/s11]');
-      lines.add('[s11]{校区}[/s11]');
+      lines.add(detailLine('${removeLocationAt ? '' : '@'}{教室}'));
+      lines.add(detailLine('{校区}'));
     }
     if (!hideTeacher) {
-      lines.add(hideTeacherBrackets ? '[s11]{教师}[/s11]' : '[s11]【{教师}】[/s11]');
+      lines.add(
+        hideTeacherBrackets ? detailLine('{教师}') : detailLine('【{教师}】'),
+      );
     }
     return lines.join(r'\n');
   }
+}
+
+/// 模板里的字号最多保留两位小数，去掉无意义的 0。
+String _templateSize(double value) {
+  final text = value.toStringAsFixed(2);
+  return text.replaceAll(RegExp(r'\.?0+$'), '');
 }

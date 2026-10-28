@@ -959,7 +959,7 @@ class TimetablePageState extends ConsumerState<TimetablePage>
                                             courseOuterPadding: gridSettings
                                                 .timetableCourseOuterPadding,
                                             courseTextTemplate: settings
-                                                .timetableCourseTextTemplate,
+                                                .effectiveCourseTextTemplate,
                                             countdownBarLengthRatio: settings
                                                 .timetableCountdownBarLengthRatio,
                                             countdownBarRounded: settings

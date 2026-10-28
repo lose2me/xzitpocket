@@ -462,6 +462,13 @@ void main() {
       await storage.setWidgetHideLocation(true);
       await storage.setWidgetHideDate(true);
       await storage.setTimetableCourseTextTemplate('{课程}');
+      await storage.setTimetableCourseTextLegacy(true);
+      await storage.setTimetableLegacyShowStartTime(true);
+      await storage.setTimetableLegacyHideLocation(true);
+      await storage.setTimetableLegacyHideTeacher(false);
+      await storage.setTimetableLegacyHideTeacherBrackets(false);
+      await storage.setTimetableLegacyRemoveLocationAt(true);
+      await storage.setTimetableLegacyCourseTextScale(1.4);
       await storage.setTimetableDayTextMarkerPosition('bottomLeft');
       await storage.setTimetableDayTextMarkerPadding(4);
       await storage.setTimetableCountdownBarLengthRatio(0.5);
@@ -492,6 +499,13 @@ void main() {
       expect(storage.getTimetableLastCustomGridLineColor(), 0xFF464646);
       expect(storage.getTimetableGridLineWidth(), 0.5);
       expect(storage.getTimetableCourseTextSize(), 12);
+      expect(storage.getTimetableCourseTextLegacy(), isFalse);
+      expect(storage.getTimetableLegacyShowStartTime(), isFalse);
+      expect(storage.getTimetableLegacyHideLocation(), isFalse);
+      expect(storage.getTimetableLegacyHideTeacher(), isTrue);
+      expect(storage.getTimetableLegacyHideTeacherBrackets(), isTrue);
+      expect(storage.getTimetableLegacyRemoveLocationAt(), isFalse);
+      expect(storage.getTimetableLegacyCourseTextScale(), 0.95);
       expect(storage.getTimetableTimeTextSize(), 11);
       expect(storage.getTimetableDateTextSize(), 12);
       expect(storage.getTimetableCourseBorderWidth(), 0.5);

@@ -360,6 +360,26 @@ void main() {
       );
     });
 
+    test('locked legacy text settings drive the effective template', () {
+      const unlocked = AppSettings();
+      expect(unlocked.effectiveCourseTextTemplate, unlocked.timetableCourseTextTemplate);
+      expect(unlocked.timetableLegacyCourseTextScale, 0.95);
+      expect(unlocked.timetableLegacyHideTeacher, isTrue);
+
+      const locked = AppSettings(
+        timetableCourseTextLegacy: true,
+        timetableLegacyShowStartTime: true,
+        timetableLegacyCourseTextScale: 1,
+        timetableLegacyHideTeacher: false,
+        timetableLegacyHideTeacherBrackets: false,
+      );
+      expect(
+        locked.effectiveCourseTextTemplate,
+        r'[b][s12]{课程}[/s12][/b]\n[s11]{时间}[/s11]\n'
+        r'[s11]@{教室}[/s11]\n[s11]{校区}[/s11]\n[s11]【{教师}】[/s11]',
+      );
+    });
+
     test('resolves adaptive global page backgrounds', () {
       const settings = AppSettings(
         pageBackgroundColor: AppPageBackgroundColor.blue,

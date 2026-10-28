@@ -32,6 +32,12 @@ class PreferencesStorage {
     'timetable_course_alpha': double,
     'timetable_course_text_template': String,
     'timetable_course_text_legacy': bool,
+    'timetable_legacy_show_start_time': bool,
+    'timetable_legacy_hide_location': bool,
+    'timetable_legacy_hide_teacher': bool,
+    'timetable_legacy_hide_teacher_brackets': bool,
+    'timetable_legacy_remove_location_at': bool,
+    'timetable_legacy_course_text_scale': double,
     'timetable_dashed_border_density': double,
     'timetable_hide_section_time': bool,
     'timetable_hide_date_under_day': bool,
@@ -462,6 +468,36 @@ class PreferencesStorage {
 
   Future<void> setTimetableCourseTextLegacy(bool value) =>
       _prefs.setBool('timetable_course_text_legacy', value);
+
+  bool getTimetableLegacyShowStartTime() =>
+      _prefs.getBool('timetable_legacy_show_start_time') ?? false;
+  Future<void> setTimetableLegacyShowStartTime(bool value) =>
+      _prefs.setBool('timetable_legacy_show_start_time', value);
+
+  bool getTimetableLegacyHideLocation() =>
+      _prefs.getBool('timetable_legacy_hide_location') ?? false;
+  Future<void> setTimetableLegacyHideLocation(bool value) =>
+      _prefs.setBool('timetable_legacy_hide_location', value);
+
+  bool getTimetableLegacyHideTeacher() =>
+      _prefs.getBool('timetable_legacy_hide_teacher') ?? true;
+  Future<void> setTimetableLegacyHideTeacher(bool value) =>
+      _prefs.setBool('timetable_legacy_hide_teacher', value);
+
+  bool getTimetableLegacyHideTeacherBrackets() =>
+      _prefs.getBool('timetable_legacy_hide_teacher_brackets') ?? true;
+  Future<void> setTimetableLegacyHideTeacherBrackets(bool value) =>
+      _prefs.setBool('timetable_legacy_hide_teacher_brackets', value);
+
+  bool getTimetableLegacyRemoveLocationAt() =>
+      _prefs.getBool('timetable_legacy_remove_location_at') ?? false;
+  Future<void> setTimetableLegacyRemoveLocationAt(bool value) =>
+      _prefs.setBool('timetable_legacy_remove_location_at', value);
+
+  double getTimetableLegacyCourseTextScale() =>
+      _prefs.getDouble('timetable_legacy_course_text_scale') ?? 0.95;
+  Future<void> setTimetableLegacyCourseTextScale(double value) =>
+      _prefs.setDouble('timetable_legacy_course_text_scale', value);
 
   bool hasTimetableSectionHeight() =>
       _prefs.containsKey('timetable_section_height');
@@ -950,6 +986,13 @@ class PreferencesStorage {
       _prefs.remove('timetable_course_outer_padding'),
       _prefs.remove('timetable_course_alpha'),
       _prefs.remove('timetable_course_text_template'),
+      _prefs.remove('timetable_course_text_legacy'),
+      _prefs.remove('timetable_legacy_show_start_time'),
+      _prefs.remove('timetable_legacy_hide_location'),
+      _prefs.remove('timetable_legacy_hide_teacher'),
+      _prefs.remove('timetable_legacy_hide_teacher_brackets'),
+      _prefs.remove('timetable_legacy_remove_location_at'),
+      _prefs.remove('timetable_legacy_course_text_scale'),
       _prefs.remove('timetable_dashed_border_density'),
       _prefs.remove('timetable_hide_section_time'),
       _prefs.remove('timetable_hide_date_under_day'),

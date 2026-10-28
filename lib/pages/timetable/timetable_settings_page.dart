@@ -69,6 +69,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
     '# 和 @ 均为普通字符，可直接书写',
   ];
   final _templateFocusNode = FocusNode();
+  bool _legacyExpanded = false;
 
   @override
   void initState() {
@@ -96,9 +97,11 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
   /// 课程块文字模板编辑（单行输入，渲染允许多行）+ 复制 AI 提示词。
   Widget _buildTemplateEditor(AppSettings settings) {
     // 重置个性化或导入配置后同步输入框（编辑中不打断光标）。
+    // 锁定时显示由旧版开关生成的模板。
+    final displayTemplate = settings.effectiveCourseTextTemplate;
     if (!_templateFocusNode.hasFocus &&
-        _templateController.text != settings.timetableCourseTextTemplate) {
-      _templateController.text = settings.timetableCourseTextTemplate;
+        _templateController.text != displayTemplate) {
+      _templateController.text = displayTemplate;
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -167,59 +170,64 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
-        const ProfileSectionLabel(title: '编辑方式'),
         ProfileSettingsGroup(
           children: [
-            ProfileSettingsChoiceTile<bool>(
-              icon: FLucideIcons.toggleRight,
-              title: '课程块文字',
-              value: settings.timetableCourseTextLegacy,
-              options: const [
-                ProfileSettingsOption(value: false, label: '模板'),
-                ProfileSettingsOption(value: true, label: '旧版开关'),
-              ],
-              onChanged: (value) => ref
-                  .read(appSettingsProvider.notifier)
-                  .setTimetableCourseTextLegacy(value),
+            ProfileSettingsExpandableTile(
+              icon: FLucideIcons.listChecks,
+              title: '旧版设置',
+              value: settings.timetableCourseTextLegacy ? '已锁定' : null,
+              expandable: true,
+              expanded: _legacyExpanded,
+              onTap: () => setState(() => _legacyExpanded = !_legacyExpanded),
+              child: Text(
+                settings.timetableCourseTextLegacy
+                    ? '课程块文字已锁定为旧版设置，模板栏只读。'
+                          '重置个性化设置或重新导入个性化设置后解锁。'
+                    : '2.1.0 的开关。改动任意一项后锁定为旧版设置，模板栏变成只读。',
+                style: context.theme.typography.bodySmall.copyWith(
+                  color: context.theme.colors.mutedForeground,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.md),
-        const ProfileSectionLabel(title: '旧版设置'),
-        ProfileSettingsHint(
-          settings.timetableCourseTextLegacy
-              ? '2.1.0 的开关。改动会重写成对应的模板，模板栏只读显示。'
-              : '当前用模板编辑，这些开关只读显示模板的含义；切到「旧版开关」才能改。',
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Opacity(
-          opacity: settings.timetableCourseTextLegacy ? 1 : 0.55,
-          child: IgnorePointer(
-            ignoring: !settings.timetableCourseTextLegacy,
-            child: ProfileSettingsGroup(
-              children: [
-                for (final toggle in _legacyToggles(settings))
-                  ProfileSettingsCheckboxTile(
-                    icon: toggle.icon,
-                    title: toggle.title,
-                    value: toggle.value,
-                    onChange: toggle.onChange,
-                  ),
-              ],
-            ),
+        if (_legacyExpanded) ...[
+          const SizedBox(height: AppSpacing.md),
+          ProfileSettingsGroup(
+            children: [
+              for (final toggle in _legacyToggles(settings))
+                ProfileSettingsCheckboxTile(
+                  icon: toggle.icon,
+                  title: toggle.title,
+                  value: toggle.value,
+                  onChange: toggle.onChange,
+                ),
+              ProfileSettingsSliderTile(
+                icon: FLucideIcons.type,
+                title: '课程字体缩放',
+                value: settings.timetableLegacyCourseTextScale,
+                min: 0.5,
+                max: 2,
+                defaultValue:
+                    const AppSettings().timetableLegacyCourseTextScale,
+                suffix: 'x',
+                displayDecimals: 2,
+                onChanged: (value) => ref
+                    .read(appSettingsProvider.notifier)
+                    .setLegacyCourseTextScale(value),
+              ),
+            ],
           ),
-        ),
+        ],
         const SizedBox(height: AppSpacing.lg),
         const ProfileSectionLabel(title: '课程块'),
       ],
     );
   }
 
-  /// 旧版开关只是模板的另一种写法：读取时从模板解析，改动后回写模板。
+  /// 旧版开关保存自己的值，不跟随模板；改动任意一项即锁定。
   List<_LegacyTextToggle> _legacyToggles(AppSettings settings) {
-    final legacy = LegacyCourseTextOptions.parse(
-      settings.timetableCourseTextTemplate,
-    );
+    final legacy = settings.legacyCourseTextOptions;
     _LegacyTextToggle toggle(
       IconData icon,
       String title,
@@ -231,7 +239,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
       value: value,
       onChange: (next) => ref
           .read(appSettingsProvider.notifier)
-          .setTimetableCourseTextTemplate(update(next).toTemplate()),
+          .setLegacyCourseTextOptions(update(next)),
     );
     return [
       toggle(
@@ -288,7 +296,7 @@ class _TimetableSettingsPageState extends ConsumerState<TimetableSettingsPage> {
 
   Future<void> _copyTemplateAiPrompt() async {
     final prompt = buildCourseTemplateAiPrompt(
-      ref.read(appSettingsProvider).timetableCourseTextTemplate,
+      ref.read(appSettingsProvider).effectiveCourseTextTemplate,
     );
     await Clipboard.setData(ClipboardData(text: prompt));
     if (mounted) {
@@ -1745,7 +1753,7 @@ class _TimetableGridPreview extends StatelessWidget {
             courseCornerRadius: settings.timetableCourseCornerRadius,
             courseInnerPadding: settings.timetableCourseInnerPadding,
             courseOuterPadding: settings.timetableCourseOuterPadding,
-            courseTextTemplate: settings.timetableCourseTextTemplate,
+            courseTextTemplate: settings.effectiveCourseTextTemplate,
             countdownBarLengthRatio: settings.timetableCountdownBarLengthRatio,
             countdownBarRounded: settings.timetableCountdownBarRounded,
             countdownBarThickness: settings.timetableCountdownBarThickness,
