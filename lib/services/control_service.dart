@@ -1301,8 +1301,14 @@ class ControlService {
       ({String code, String name, List<({String name, String tags})> books})
     >
     items,
+    String? term,
+    String? grade,
+    String? college,
   }) {
     return _uploadData('/api/v1/courses', {
+      if ((term ?? '').trim().isNotEmpty) 'term': term!.trim(),
+      if ((grade ?? '').trim().isNotEmpty) 'grade': grade!.trim(),
+      if ((college ?? '').trim().isNotEmpty) 'college': college!.trim(),
       'items': [
         for (final item in items)
           {

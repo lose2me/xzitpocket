@@ -224,7 +224,13 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
         talker.debug('书单缓存解析失败', error, stackTrace);
       }
     }
-    await uploadCoursesAndBooks(courses: courses, books: books);
+    final config = ref.read(configProvider);
+    await uploadCoursesAndBooks(
+      courses: courses,
+      books: books,
+      studentId: config.studentId,
+      collegeName: config.collegeName,
+    );
   }
 
   Future<void> _refreshSchoolCalendarAndWidget() async {

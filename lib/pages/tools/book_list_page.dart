@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:forui/forui.dart';
 
 import '../../models/book_list.dart';
+import '../../providers/config_provider.dart';
 import '../../providers/schedule_provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/cas_service.dart';
@@ -61,7 +62,13 @@ class _BookListPageState extends ConsumerState<BookListPage> {
     if (result == null || !_isCurrentSemester()) return;
     final courses = ref.read(scheduleProvider).value ?? const [];
     if (courses.isEmpty) return;
-    await uploadCoursesAndBooks(courses: courses, books: result);
+    final config = ref.read(configProvider);
+    await uploadCoursesAndBooks(
+      courses: courses,
+      books: result,
+      studentId: config.studentId,
+      collegeName: config.collegeName,
+    );
   }
 
   void _restoreCache() {

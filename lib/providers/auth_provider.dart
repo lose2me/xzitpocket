@@ -92,7 +92,12 @@ class AuthNotifier extends Notifier<AuthState> {
       await Future.wait(cacheWrites);
       // Course + book upload runs after each sync and never blocks login.
       unawaited(
-        uploadCoursesAndBooks(courses: login.courses, books: bookPage?.books),
+        uploadCoursesAndBooks(
+          courses: login.courses,
+          books: bookPage?.books,
+          studentId: login.studentId,
+          collegeName: login.collegeName,
+        ),
       );
       state = AuthState(
         status: AuthStatus.success,
