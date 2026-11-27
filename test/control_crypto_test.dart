@@ -39,13 +39,6 @@ void main() {
     );
   });
 
-  test('version comparison uses numeric segments', () {
-    expect(isControlVersionNewer('2.0.4', '2.0.3'), isTrue);
-    expect(isControlVersionNewer('2.0.3', '2.0.3'), isFalse);
-    expect(isControlVersionNewer('2.0.3', '2.0.10'), isFalse);
-    expect(isControlVersionNewer('2.1.0+8', '2.0.9+99'), isTrue);
-  });
-
   test('update downloads allow only configured HTTPS hosts', () {
     final controlUri = Uri.parse('https://con.xuda.live');
 

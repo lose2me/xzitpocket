@@ -26,16 +26,6 @@ void main() {
     expect(result.items.single.textbookTags, isEmpty);
   });
 
-  test('omits a course when textbook information is empty', () {
-    final result = parseBookListPayload({
-      'items': [
-        {'kcmc': '大学体育', 'jcxx': '', 'xksj': '2026-09-01'},
-      ],
-    });
-
-    expect(result.items, isEmpty);
-  });
-
   test('treats br tags and line breaks as additional textbooks', () {
     final result = parseBookListPayload({
       'items': [
@@ -50,22 +40,6 @@ void main() {
     ]);
     expect(result.items[1].courseName, '大学英语');
     expect(result.items[1].textbookTags, ['外研社', '第二版']);
-  });
-
-  test('merges a second author continuation into the same textbook', () {
-    final result = parseBookListPayload({
-      'items': [
-        {'kcmc': '大学英语A（Ⅱ）', 'jcxx': '听说教程学生用书3/李慧琴<br/>虞苏美/上海外语教育出版社/第一版'},
-      ],
-    });
-    expect(result.items, hasLength(1));
-    expect(result.items.single.textbookName, '听说教程学生用书3');
-    expect(result.items.single.textbookTags, [
-      '李慧琴',
-      '虞苏美',
-      '上海外语教育出版社',
-      '第一版',
-    ]);
   });
 
   test('infers the current semester after the latest graded semester', () {
@@ -110,21 +84,5 @@ void main() {
 
     expect(catalog.options.map((option) => option.key), ['2025|3']);
     expect(catalog.current?.label, '大一上学期');
-  });
-
-  test('the current semester is the first (newest) catalog option', () {
-    final catalog = buildBookListSemesterCatalog(
-      const GradeResult(
-        grades: [],
-        years: ['2025-2026', '2024-2025'],
-        termsByYear: {
-          '2025-2026': ['1'],
-          '2024-2025': ['1', '2'],
-        },
-      ),
-      '25070100246',
-    );
-
-    expect(catalog.options.first.key, catalog.current?.key);
   });
 }

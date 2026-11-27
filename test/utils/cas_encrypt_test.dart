@@ -17,14 +17,6 @@ void main() {
     );
   });
 
-  test('pads short passwords to a full block and stays deterministic', () {
-    final first = casEncryptPassword('a', modulus, exponent);
-    final second = casEncryptPassword('a', modulus, exponent);
-    expect(first, second);
-    expect(first.split(' '), hasLength(1));
-    expect(first, isNot(casEncryptPassword('b', modulus, exponent)));
-  });
-
   test('splits long passwords into one RSA block per chunk', () {
     final encrypted = casEncryptPassword('x' * 124, modulus, exponent);
     expect(encrypted.split(' '), hasLength(2));

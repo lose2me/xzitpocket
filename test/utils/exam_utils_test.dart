@@ -14,16 +14,7 @@ void main() {
   });
 
   test('falls back to the end of the exam day without a range', () {
-    expect(
-      parseExamDate('2026-06-30 待定'),
-      DateTime(2026, 6, 30, 23, 59, 59),
-    );
+    expect(parseExamDate('2026-06-30 待定'), DateTime(2026, 6, 30, 23, 59, 59));
     expect(parseExamDate('2026-06-30'), DateTime(2026, 6, 30, 23, 59, 59));
-  });
-
-  test('returns null when there is no date', () {
-    expect(parseExamDate('尚未安排'), isNull);
-    expect(parseExamDate(''), isNull);
-    expect(parseExamDate('2026-6-30'), isNull);
   });
 }

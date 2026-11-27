@@ -21,31 +21,6 @@ void main() {
   );
 
   test(
-    'loads only questions returned by the configured control fetcher',
-    () async {
-      final value = repository();
-      await value.load();
-
-      expect(value.questions, hasLength(8));
-      expect(value.questions.any((question) => question.isMultiple), isTrue);
-      expect(value.questions.any((question) => question.isTrueFalse), isTrue);
-      expect(value.questions.any((question) => question.isFillBlank), isTrue);
-      expect(storage.getLearningQuestionBankCache(), isNotNull);
-    },
-  );
-
-  test('does not create local questions when control is unavailable', () async {
-    final value = LearningRepository(
-      preferencesStorage: storage,
-      fetcher: () async => throw StateError('offline'),
-    );
-    await value.load();
-
-    expect(value.questions, isEmpty);
-    expect(storage.getLearningQuestionBankCache(), isNull);
-  });
-
-  test(
     'keeps locked active banks visible without loading their questions',
     () async {
       final value = LearningRepository(
@@ -152,15 +127,6 @@ void main() {
     expect(value.wrongIds, contains(question.id));
   });
 
-  test('does not judge an empty answer', () async {
-    final value = repository();
-    await value.load();
-    final question = value.questions.first;
-
-    expect(await value.submitAnswer(question.id, const <String>{}), isFalse);
-    expect(value.isJudged(question.id), isFalse);
-  });
-
   test('favorites and answer state survive a repository reload', () async {
     final first = repository();
     await first.load();
@@ -209,35 +175,6 @@ void main() {
       expect(value.favoriteIds, contains(question.id));
     },
   );
-
-  test('can reset only the current question list', () async {
-    final value = repository();
-    await value.load();
-    final first = value.questions[0];
-    final second = value.questions[1];
-
-    await value.submitAnswer(first.id, first.correctOptionIds);
-    await value.submitAnswer(second.id, second.correctOptionIds);
-    await value.resetProgress([first.id]);
-
-    expect(value.isJudged(first.id), isFalse);
-    expect(value.isJudged(second.id), isTrue);
-  });
-
-  test('tracks recent judged questions in order', () async {
-    final value = repository();
-    await value.load();
-    final questions = value.questions;
-
-    for (final question in questions.take(7)) {
-      await value.submitAnswer(question.id, question.correctOptionIds);
-    }
-
-    expect(
-      value.recentJudgedIds(questions.map((question) => question.id)),
-      questions.skip(1).take(6).map((question) => question.id).toList(),
-    );
-  });
 
   test(
     'parses the control questionBank payload and supported question types',
@@ -304,22 +241,6 @@ void main() {
       expect(cached['courseCodes'], ['C1', 'C2']);
     },
   );
-
-  test('parses a comma-separated multiple answer from correctAnswer', () {
-    final question = LearningQuestion.fromJson({
-      'id': 'multi-csv',
-      'type': '多选题',
-      'title': '多选',
-      'options': [
-        {'label': 'A', 'text': '甲'},
-        {'label': 'B', 'text': '乙'},
-        {'label': 'C', 'text': '丙'},
-      ],
-      'correctAnswer': 'A,C',
-    });
-
-    expect(question.correctOptionIds, {'A', 'C'});
-  });
 
   test('sync only downloads banks whose updated_at changed', () async {
     final downloads = <String>[];

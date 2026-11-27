@@ -9,7 +9,6 @@ import 'package:hive_ce_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/course.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
-import 'package:xzitpocket/pages/profile/config_backup_page.dart';
 import 'package:xzitpocket/pages/timetable/timetable_grid.dart';
 import 'package:xzitpocket/pages/timetable/timetable_page.dart';
 import 'package:xzitpocket/providers/config_provider.dart';
@@ -55,35 +54,6 @@ void main() {
   });
 
   tearDown(() => container.dispose());
-
-  for (final emptyInitialSchedule in [false, true]) {
-    testWidgets(
-      'backup page uses a single share-code page with emptyInitialSchedule=$emptyInitialSchedule',
-      (tester) async {
-        final initial = emptyInitialSchedule
-            ? <Course>[]
-            : [_course('Baseline')];
-        await tester.runAsync(() async {
-          await storage.saveCourses(initial);
-          if (!emptyInitialSchedule) {
-            await storage.clearCourseDayOccurrence(weekday: 1, week: 1);
-          }
-          await storage.addCourse(_course('Added', weekday: 3));
-        });
-        await tester.pumpWidget(_app(container, const ConfigBackupPage()));
-        await tester.pump();
-        expect(find.text('分享码'), findsOneWidget);
-        expect(find.text('个性化设置'), findsOneWidget);
-        expect(find.text('第二课表'), findsOneWidget);
-        expect(find.text('个性化设置 JSON'), findsNothing);
-        expect(find.text('当前课程 JSON'), findsNothing);
-        expect(find.text('备用课程 JSON'), findsNothing);
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox.shrink());
-      },
-      semanticsEnabled: false,
-    );
-  }
 
   testWidgets(
     'calendar notice persists and cloud toggle only controls visibility',

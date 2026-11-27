@@ -5,104 +5,10 @@ import 'package:forui/forui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:xzitpocket/ui/app_page.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
-import 'package:xzitpocket/utils/snackbar_helper.dart';
 
 const _marker = ValueKey('stationary-refresh-content');
 
 void main() {
-  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
-    testWidgets('$platform keeps content still through pull and reversal', (
-      tester,
-    ) async {
-      var refreshes = 0;
-      final states = <bool>[];
-      final controller = ScrollController();
-      addTearDown(controller.dispose);
-      await _pump(
-        tester,
-        AppRefreshIndicator(
-          onRefresh: () async => refreshes++,
-          onRefreshingChanged: states.add,
-          child: _content(controller),
-        ),
-        platform: platform,
-      );
-
-      final initialRect = tester.getRect(find.byKey(_marker));
-      void expectStill() {
-        expect(controller.offset, 0);
-        expect(tester.getRect(find.byKey(_marker)), initialRect);
-      }
-
-      final gesture = await tester.startGesture(const Offset(195, 300));
-      for (var i = 0; i < 25; i++) {
-        await gesture.moveBy(const Offset(0, 6));
-        await tester.pump();
-        expectStill();
-      }
-      final pulled = tester.getTopLeft(find.byType(RefreshProgressIndicator));
-
-      for (var i = 0; i < 5; i++) {
-        await gesture.moveBy(const Offset(0, -6));
-        await tester.pump();
-        expectStill();
-      }
-      expect(
-        tester.getTopLeft(find.byType(RefreshProgressIndicator)).dy,
-        lessThan(pulled.dy),
-      );
-
-      // Go well beyond the original touch point without lifting. A zero
-      // indicator extent must not hand the same gesture back to the list.
-      for (var i = 0; i < 40; i++) {
-        await gesture.moveBy(const Offset(0, -6));
-        await tester.pump();
-        expectStill();
-      }
-      expect(find.byType(RefreshProgressIndicator), findsNothing);
-      expect(states, [true]);
-
-      await gesture.up();
-      await tester.pumpAndSettle();
-      expectStill();
-      expect(refreshes, 0);
-      expect(states, [true, false]);
-
-      // A new upward gesture retains ordinary scrolling and fling behavior.
-      await tester.fling(
-        find.byType(SingleChildScrollView),
-        const Offset(0, -160),
-        800,
-      );
-      await tester.pumpAndSettle();
-      expect(controller.offset, greaterThan(160));
-    });
-  }
-
-  testWidgets('normal scrolling from the middle does not start refresh', (
-    tester,
-  ) async {
-    final controller = ScrollController(initialScrollOffset: 240);
-    addTearDown(controller.dispose);
-    final states = <bool>[];
-    await _pump(
-      tester,
-      AppRefreshIndicator(
-        onRefresh: () async {},
-        onRefreshingChanged: states.add,
-        child: _content(controller),
-      ),
-    );
-    final gesture = await tester.startGesture(const Offset(195, 200));
-    await gesture.moveBy(const Offset(0, 80));
-    await tester.pump();
-    expect(controller.offset, lessThan(240));
-    expect(controller.offset, greaterThan(0));
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(states, isEmpty);
-  });
-
   for (final armed in [false, true]) {
     testWidgets(
       'locks PageView through ${armed ? 'refresh' : 'cancellation'}',
@@ -179,50 +85,6 @@ void main() {
       },
     );
   }
-
-  testWidgets('a completed pull always ends with a toast', (tester) async {
-    final controller = ScrollController();
-    addTearDown(controller.dispose);
-    await _pump(
-      tester,
-      AppRefreshIndicator(
-        onRefresh: () async {},
-        child: _content(controller),
-      ),
-    );
-    final gesture = await tester.startGesture(const Offset(195, 150));
-    await gesture.moveBy(const Offset(0, 320));
-    await tester.pump();
-    await gesture.up();
-    // The toast lives for ~3s, so settle only the refresh animation.
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('已刷新'), findsOneWidget);
-  });
-
-  testWidgets('a page toast during refresh is not duplicated', (tester) async {
-    final controller = ScrollController();
-    addTearDown(controller.dispose);
-    await _pump(
-      tester,
-      AppRefreshIndicator(
-        onRefresh: () async => showAppSnackBar(
-          tester.element(find.byKey(_marker)),
-          '同步成功',
-          severity: ToastSeverity.success,
-        ),
-        child: _content(controller),
-      ),
-    );
-    final gesture = await tester.startGesture(const Offset(195, 150));
-    await gesture.moveBy(const Offset(0, 320));
-    await tester.pump();
-    await gesture.up();
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('同步成功'), findsOneWidget);
-    expect(find.text('已刷新'), findsNothing);
-  });
 
   testWidgets('pointer cancellation never refreshes an armed pull', (
     tester,

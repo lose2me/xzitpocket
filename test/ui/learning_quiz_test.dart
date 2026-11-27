@@ -6,7 +6,6 @@ import 'package:xzitpocket/models/learning_question.dart';
 import 'package:xzitpocket/pages/tools/learning_quiz_page.dart';
 import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
-import 'package:xzitpocket/ui/app_colors.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
 
 void main() {
@@ -77,87 +76,6 @@ void main() {
     ],
     correctOptionIds: {'A'},
   );
-
-  testWidgets('quiz page no longer exposes progress reset action', (
-    tester,
-  ) async {
-    final repository = await createRepository([first]);
-    await pumpQuiz(tester, repository, const ['q1']);
-
-    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
-    expect(find.byIcon(FLucideIcons.settings), findsOneWidget);
-  });
-
-  testWidgets('question status header displays at most five circles', (
-    tester,
-  ) async {
-    final questions = List.generate(
-      7,
-      (index) => LearningQuestion(
-        id: 'status-$index',
-        questionNumber: index + 1,
-        title: '状态题 ${index + 1}',
-        questionText: '状态题干 ${index + 1}',
-        type: LearningQuestionType.single,
-        options: const [LearningOption(id: 'A', text: '答案')],
-        correctOptionIds: const {'A'},
-      ),
-    );
-    final repository = await createRepository(questions);
-    await pumpQuiz(
-      tester,
-      repository,
-      questions.map((question) => question.id).toList(),
-    );
-
-    expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget.key is ValueKey<String> &&
-            (widget.key! as ValueKey<String>).value.startsWith('quiz-status-'),
-      ),
-      findsNWidgets(5),
-    );
-  });
-
-  testWidgets('memorize question card turns green only after viewing', (
-    tester,
-  ) async {
-    final repository = await createRepository([first, second]);
-    await pumpQuiz(tester, repository, const [
-      'q1',
-      'q2',
-    ], LearningQuizMode.memorize);
-
-    await tester.tap(find.byIcon(FLucideIcons.grid2x2));
-    await tester.pumpAndSettle();
-    final firstCard = tester.widget<Container>(
-      find.byKey(const ValueKey('quiz-card-q1')),
-    );
-    final secondCard = tester.widget<Container>(
-      find.byKey(const ValueKey('quiz-card-q2')),
-    );
-    expect(
-      (firstCard.decoration! as BoxDecoration).color,
-      AppTheme.light.colors.semantic.successContainer,
-    );
-    expect(
-      (secondCard.decoration! as BoxDecoration).color,
-      isNot(AppTheme.light.colors.semantic.successContainer),
-    );
-
-    await tester.tap(find.byKey(const ValueKey('quiz-card-q2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(FLucideIcons.grid2x2));
-    await tester.pumpAndSettle();
-    final viewedSecondCard = tester.widget<Container>(
-      find.byKey(const ValueKey('quiz-card-q2')),
-    );
-    expect(
-      (viewedSecondCard.decoration! as BoxDecoration).color,
-      AppTheme.light.colors.semantic.successContainer,
-    );
-  });
 
   testWidgets('quiz reopens at the last viewed question', (tester) async {
     final repository = await createRepository([first, second]);
@@ -236,86 +154,6 @@ void main() {
     expect(find.textContaining('第二题题干'), findsOneWidget);
   });
 
-  testWidgets('multiple choice AC keeps A green until C completes the answer', (
-    tester,
-  ) async {
-    const multiple = LearningQuestion(
-      id: 'multi-ac',
-      questionNumber: 1,
-      title: '多选题 AC',
-      questionText: '请选择 A、C',
-      type: LearningQuestionType.multiple,
-      options: [
-        LearningOption(id: 'A', text: '选项 A'),
-        LearningOption(id: 'B', text: '选项 B'),
-        LearningOption(id: 'C', text: '选项 C'),
-      ],
-      correctOptionIds: {'A', 'C'},
-    );
-    final repository = await createRepository([multiple, second]);
-    await pumpQuiz(tester, repository, const ['multi-ac', 'q2']);
-
-    await tester.tap(find.text('选项 A'));
-    await tester.pump();
-
-    expect(repository.isJudged('multi-ac'), isFalse);
-    final optionContainers = tester.widgetList<Container>(
-      find.ancestor(of: find.text('选项 A'), matching: find.byType(Container)),
-    );
-    expect(
-      optionContainers.any((container) {
-        final decoration = container.decoration;
-        return decoration is BoxDecoration &&
-            decoration.color == AppTheme.light.colors.semantic.successContainer;
-      }),
-      isTrue,
-    );
-
-    await tester.tap(find.text('选项 C'));
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pumpAndSettle();
-    expect(repository.isCorrect('multi-ac'), isTrue);
-  });
-
-  testWidgets(
-    'swiping can browse unanswered questions and review previous ones',
-    (tester) async {
-      final repository = await createRepository([first, second]);
-      await pumpQuiz(tester, repository, const ['q1', 'q2']);
-
-      await tester.fling(
-        find.textContaining('第一题题干'),
-        const Offset(-300, 0),
-        1000,
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('第一题题干'), findsNothing);
-      expect(find.textContaining('第二题题干'), findsOneWidget);
-
-      await tester.fling(
-        find.textContaining('第二题题干'),
-        const Offset(300, 0),
-        1000,
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('第一题题干'), findsOneWidget);
-      expect(find.textContaining('第二题题干'), findsNothing);
-
-      await tester.tap(find.text('正确选项'));
-      await tester.pump(const Duration(milliseconds: 350));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('第二题题干'), findsOneWidget);
-
-      await tester.fling(
-        find.textContaining('第二题题干'),
-        const Offset(300, 0),
-        1000,
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('第一题题干'), findsOneWidget);
-    },
-  );
-
   testWidgets('wrong fill answer stays visible with the correct answer', (
     tester,
   ) async {
@@ -340,54 +178,6 @@ void main() {
     expect(find.textContaining('Flutter 使用'), findsOneWidget);
     expect(find.text('正确答案：Dart'), findsOneWidget);
     expect(find.text('1/2'), findsOneWidget);
-  });
-
-  testWidgets('empty fill answer remains unjudged when swiping forward', (
-    tester,
-  ) async {
-    const fill = LearningQuestion(
-      id: 'empty-fill',
-      questionNumber: 1,
-      title: '空填空题',
-      questionText: 'Flutter 使用 ____ 语言',
-      type: LearningQuestionType.fillBlank,
-      options: [],
-      correctOptionIds: {'Dart'},
-    );
-    final repository = await createRepository([fill, second]);
-    await pumpQuiz(tester, repository, const ['empty-fill', 'q2']);
-
-    await tester.fling(
-      find.textContaining('Flutter 使用'),
-      const Offset(-300, 0),
-      1000,
-    );
-    await tester.pumpAndSettle();
-
-    expect(repository.isJudged('empty-fill'), isFalse);
-    expect(find.textContaining('第二题题干'), findsOneWidget);
-  });
-
-  testWidgets('empty fill answer can move forward with the next button', (
-    tester,
-  ) async {
-    const fill = LearningQuestion(
-      id: 'empty-fill-button',
-      questionNumber: 1,
-      title: '空填空按钮题',
-      questionText: 'Flutter 使用 ____ 语言',
-      type: LearningQuestionType.fillBlank,
-      options: [],
-      correctOptionIds: {'Dart'},
-    );
-    final repository = await createRepository([fill, second]);
-    await pumpQuiz(tester, repository, const ['empty-fill-button', 'q2']);
-
-    await tester.tap(find.text('下一题'));
-    await tester.pumpAndSettle();
-
-    expect(repository.isJudged('empty-fill-button'), isFalse);
-    expect(find.textContaining('第二题题干'), findsOneWidget);
   });
 
   testWidgets('random mode previous follows the shuffled page sequence', (

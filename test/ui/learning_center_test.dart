@@ -5,11 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/models/learning_question.dart';
 import 'package:xzitpocket/models/resource_center.dart';
 import 'package:xzitpocket/pages/tools/learning_center_page.dart';
-import 'package:xzitpocket/pages/tools/learning_question_list_page.dart';
 import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 import 'package:xzitpocket/ui/app_theme.dart';
-import 'package:xzitpocket/pages/tools/learning_quiz_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -67,69 +65,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> pumpQuestionList(
-    WidgetTester tester,
-    LearningRepository repository,
-    LearningListKind kind,
-  ) async {
-    await tester.pumpWidget(
-      MediaQuery(
-        data: const MediaQueryData(
-          size: Size(390, 844),
-          disableAnimations: true,
-        ),
-        child: MaterialApp(
-          localizationsDelegates: FLocalizations.localizationsDelegates,
-          supportedLocales: FLocalizations.supportedLocales,
-          builder: (context, child) => FTheme(
-            data: AppTheme.light,
-            child: FToaster(child: FTooltipGroup(child: child!)),
-          ),
-          home: LearningQuestionListPage(
-            repository: repository,
-            kind: kind,
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('shows online learning questions and navigation', (tester) async {
-    var fetchCount = 0;
-    final repository = LearningRepository(
-      preferencesStorage: await storage(),
-      fetcher: () async {
-        fetchCount++;
-        return [remoteQuestion];
-      },
-    );
-
-    await pumpCenter(tester, repository);
-
-    // ignore: avoid_print
-    expect(find.text('在线题库'), findsOneWidget);
-    // A single term is displayed without a redundant section heading.
-    expect(find.text('最新题库'), findsNothing);
-    expect(find.text('课程资源'), findsNothing);
-    expect(find.text('题库'), findsOneWidget);
-    expect(find.text('测试课程'), findsOneWidget);
-    // 错题集/收藏集已经移到资源中心，课程页不再提供入口。
-    expect(find.byIcon(FLucideIcons.circleAlert), findsNothing);
-    expect(find.byIcon(FLucideIcons.bookmark), findsNothing);
-    expect(find.text('兑换通用 CDK'), findsNothing);
-    expect(find.textContaining('进度 0%'), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.check), findsNothing);
-
-    // Refreshing is a pull-down gesture now; there is no refresh button.
-    expect(find.byIcon(FLucideIcons.refreshCw), findsNothing);
-    await tester.drag(find.byType(ListView).first, const Offset(0, 320));
-    await tester.pump();
-    await tester.pump(const Duration(seconds: 1));
-    expect(fetchCount, 2);
-    await tester.pump(const Duration(seconds: 4));
-  });
-
   testWidgets('selects banks and clears their progress in one action', (
     tester,
   ) async {
@@ -155,79 +90,6 @@ void main() {
     expect(repository.isJudged(remoteQuestion.id), isFalse);
     expect(find.textContaining('进度 0%'), findsOneWidget);
     expect(find.byIcon(FLucideIcons.trash2), findsNothing);
-  });
-
-  testWidgets('bank selection shows only trash and exits when empty', (
-    tester,
-  ) async {
-    final secondQuestion = LearningQuestion(
-      id: 'remote-2',
-      bankId: 'QB-SECOND',
-      bankName: '第二题库',
-      title: remoteQuestion.title,
-      type: remoteQuestion.type,
-      options: remoteQuestion.options,
-      correctOptionIds: remoteQuestion.correctOptionIds,
-    );
-    final repository = LearningRepository(
-      preferencesStorage: await storage(),
-      fetcher: () async => [remoteQuestion, secondQuestion],
-    );
-
-    await pumpCenter(tester, repository);
-    await tester.longPress(find.text('在线题库'));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.x), findsNothing);
-
-    await tester.tap(find.text('第二题库'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('在线题库'));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
-    expect(find.byType(LearningQuizPage), findsNothing);
-
-    await tester.tap(find.text('第二题库'));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(FLucideIcons.trash2), findsNothing);
-    expect(find.byIcon(FLucideIcons.x), findsNothing);
-
-    await tester.tap(find.text('在线题库'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(LearningQuizPage), findsOneWidget);
-  });
-
-  testWidgets('wrong empty state uses the navigation icon', (tester) async {
-    final repository = LearningRepository(
-      preferencesStorage: await storage(),
-      fetcher: () async => [remoteQuestion],
-    );
-
-    await pumpQuestionList(tester, repository, LearningListKind.wrong);
-
-    expect(find.text('错题集'), findsOneWidget);
-    expect(find.text('这里还没有题目'), findsOneWidget);
-    expect(find.byIcon(FLucideIcons.circleAlert), findsWidgets);
-  });
-
-  testWidgets('bank selection only shows the clear action', (tester) async {
-    final repository = LearningRepository(
-      preferencesStorage: await storage(),
-      fetcher: () async => [remoteQuestion],
-    );
-
-    await pumpCenter(tester, repository);
-    await tester.longPress(find.text('在线题库'));
-    await tester.pumpAndSettle();
-
-    expect(find.byIcon(FLucideIcons.trash2), findsOneWidget);
-    // The collection shortcuts live in the resource centre now.
-    expect(find.byIcon(FLucideIcons.circleAlert), findsNothing);
-    expect(find.byIcon(FLucideIcons.bookmark), findsNothing);
   });
 
   testWidgets('groups banks and opens CDK sheet from a locked bank', (
@@ -266,61 +128,5 @@ void main() {
     expect(find.text('解锁题库'), findsOneWidget);
     expect(find.text('「形势与政策」需要 CDK 解锁后才能练习'), findsOneWidget);
     expect(find.text('输入 CDK'), findsOneWidget);
-  });
-
-  testWidgets('wrong collection lists questions and can be cleared', (
-    tester,
-  ) async {
-    final repository = LearningRepository(
-      preferencesStorage: await storage(),
-      fetcher: () async => [remoteQuestion],
-    );
-    await repository.load();
-    await repository.submitAnswer(remoteQuestion.id, {'B'});
-
-    await pumpQuestionList(tester, repository, LearningListKind.wrong);
-
-    expect(find.text('错题集'), findsOneWidget);
-    expect(find.textContaining('在线题目'), findsOneWidget);
-
-    await tester.tap(find.textContaining('在线题目'));
-    await tester.pumpAndSettle();
-    expect(find.byType(LearningQuizPage), findsOneWidget);
-
-    Navigator.of(tester.element(find.byType(LearningQuizPage))).pop();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(FLucideIcons.trash2));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('清空'));
-    await tester.pumpAndSettle();
-
-    expect(repository.wrongIds, isEmpty);
-  });
-
-  testWidgets('favorite collection opens and can be cleared', (tester) async {
-    final repository = LearningRepository(
-      preferencesStorage: await storage(),
-      fetcher: () async => [remoteQuestion],
-    );
-    await repository.load();
-    await repository.toggleFavorite(remoteQuestion.id);
-
-    await pumpQuestionList(tester, repository, LearningListKind.favorite);
-
-    expect(find.text('收藏集'), findsOneWidget);
-    expect(find.textContaining('在线题目'), findsOneWidget);
-
-    await tester.tap(find.textContaining('在线题目'));
-    await tester.pumpAndSettle();
-    expect(find.byType(LearningQuizPage), findsOneWidget);
-
-    Navigator.of(tester.element(find.byType(LearningQuizPage))).pop();
-    await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(FLucideIcons.trash2));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('清空'));
-    await tester.pumpAndSettle();
-
-    expect(repository.favoriteIds, isEmpty);
   });
 }

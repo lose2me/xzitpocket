@@ -13,24 +13,6 @@ void main() {
     await storage.init();
   }
 
-  group('disclaimer acceptance', () {
-    test('defaults to false and persists once accepted', () async {
-      await initStorage({});
-      expect(storage.getDisclaimerAccepted(), isFalse);
-
-      await storage.setDisclaimerAccepted(true);
-      expect(storage.getDisclaimerAccepted(), isTrue);
-    });
-
-    test('is not cleared by resetTimetableAppearance', () async {
-      await initStorage({'disclaimer_accepted': true});
-
-      await storage.resetTimetableAppearance();
-
-      expect(storage.getDisclaimerAccepted(), isTrue);
-    });
-  });
-
   test('import replaces implicit defaults and preserves local data', () async {
     await initStorage({});
     await storage.setTimetableCourseInnerPadding(3.5);

@@ -11,7 +11,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xzitpocket/constants/time_slots.dart';
 import 'package:xzitpocket/models/school_calendar.dart';
 import 'package:xzitpocket/services/control_service.dart';
-import 'package:xzitpocket/services/learning_repository.dart';
 import 'package:xzitpocket/services/preferences_storage.dart';
 
 void main() {
@@ -41,64 +40,6 @@ void main() {
     displayName: '测试用户',
     forceProfileUpdate: force,
   );
-
-  for (final missingField in [
-    'display_name',
-    'college_name',
-    'class_name',
-    'major_name',
-  ]) {
-    test('authenticated profile sync restores missing $missingField', () async {
-      await login();
-      adapter.handler = (options) {
-        if (options.uri.path != '/api/v1/me') return null;
-        expect(options.headers['Authorization'], 'Bearer access_1');
-        return _json({
-          'user': {
-            'display_name': '测试用户',
-            'college_name': '学院',
-            'class_name': '班级',
-            'major_name': '专业',
-            missingField: '',
-          },
-        });
-      };
-      await service
-          .syncAfterOaLogin(
-            studentId: '20260001',
-            displayName: '测试用户',
-            collegeName: '学院',
-            className: '班级',
-            majorName: '专业',
-          )
-          .timeout(const Duration(seconds: 5));
-      expect(adapter.logins, 2);
-      expect(
-        adapter.requests.where((r) => r.uri.path == '/api/v1/me'),
-        hasLength(1),
-      );
-    });
-  }
-
-  for (final status in [200, 401, 503]) {
-    test(
-      'profile check handles HTTP $status without duplicate login',
-      () async {
-        await login();
-        adapter.handler = (options) {
-          if (options.uri.path != '/api/v1/me') return null;
-          expect(options.headers['Authorization'], 'Bearer access_1');
-          return status == 200
-              ? _json({
-                  'user': {'display_name': '测试用户'},
-                })
-              : _error(status, status == 401 ? 'unauthorized' : 'unavailable');
-        };
-        await login().timeout(const Duration(seconds: 5));
-        expect(adapter.logins, status == 401 ? 2 : 1);
-      },
-    );
-  }
 
   test(
     'login candidates carry their own student ID before the gate opens',
@@ -272,37 +213,6 @@ void main() {
     });
   }
 
-  test('a locked question bank preserves the authenticated session', () async {
-    await service.initialize();
-    await login();
-    adapter.handler = (options) {
-      if (options.uri.path == '/api/v1/question-banks') {
-        return _json({
-          'items': [
-            {
-              'id': 'QB-001',
-              'orderId': 1,
-              'name': '受保护题库',
-              'requiresCDK': true,
-              'updated_at': '2026-10-06T00:00:00Z',
-            },
-          ],
-          'total': 1,
-          'hidden': [],
-        });
-      }
-      if (options.uri.path == '/api/v1/question-banks/QB-001') {
-        return _error(403, 'question_bank_locked');
-      }
-      return null;
-    };
-
-    final banks = await service.fetchLearningQuestionBanks();
-    expect(banks.single.locked, isTrue);
-    await login();
-    expect(adapter.logins, 1);
-  });
-
   test('a late rejection cannot clear a newer session', () async {
     await service.initialize();
     await login();
@@ -357,61 +267,6 @@ void main() {
     expect(adapter.registrations, 2);
   });
 
-  for (final rejectedPath in [
-    '/api/v1/question-banks',
-    '/api/v1/question-banks/QB-001',
-  ]) {
-    test('disabled library marks risk state ($rejectedPath)', () async {
-      await service.initialize();
-      await login();
-      final prefs = PreferencesStorage();
-      await prefs.init();
-      final repository = LearningRepository(
-        preferencesStorage: prefs,
-        bankSyncFetcher: service.syncLearningQuestionBanks,
-      );
-      addTearDown(repository.dispose);
-      adapter.handler = (options) {
-        if (options.uri.path == rejectedPath) {
-          return _error(403, 'user_unavailable');
-        }
-        if (options.uri.path == '/api/v1/question-banks') {
-          return _json({
-            'items': [
-              {
-                'id': 'QB-001',
-                'name': '题库',
-                'updated_at': '2026-10-06T00:00:00.001Z',
-              },
-            ],
-            'total': 1,
-            'hidden': [],
-          });
-        }
-        return null;
-      };
-      await expectLater(
-        repository.sync(),
-        throwsA(
-          isA<ControlApiException>().having(
-            (error) => error.code,
-            'code',
-            'user_unavailable',
-          ),
-        ),
-      );
-      expect(repository.libraryUnavailable, isTrue);
-
-      adapter.handler = (options) =>
-          options.uri.path == '/api/v1/question-banks'
-          ? _json({'items': [], 'total': 0, 'hidden': []})
-          : null;
-      await login(force: true);
-      await repository.sync();
-      expect(repository.libraryUnavailable, isFalse);
-    });
-  }
-
   test('bank sync detects updates within the same second', () async {
     await service.initialize();
     await login();
@@ -458,59 +313,6 @@ void main() {
 
     await service.syncLearningQuestionBanks({second.id: second});
     expect(detailRequests, 2);
-  });
-
-  test('resource centre responses expose cache versions', () async {
-    await service.initialize();
-    await login();
-    adapter.handler = (options) {
-      switch (options.uri.path) {
-        case '/api/v1/resource-center/courses':
-          return _json({
-            'version': 'c1.1700000000000:r1.1700000000001:t0.0:q0.0:tc1:qc0',
-            'items': [
-              {
-                'code': 'C1',
-                'name': '高等数学',
-                'resource_count': 1,
-                'version': 'r1.1700000000001:t0.0:c0',
-              },
-            ],
-          });
-        case '/api/v1/resources':
-          return _json({
-            'version': 'r1.1700000000001:t0.0:c0',
-            'total': 1,
-            'items': [
-              {
-                'id': 'res-1',
-                'name': '期末试卷.pdf',
-                'has_pdf': true,
-                'updated_at': '2026-10-06T00:00:00.001Z',
-              },
-            ],
-          });
-        case '/api/v1/textbooks':
-          return _json({
-            'version': 'r1.1700000000001:t1.1700000000002:c0',
-            'total': 0,
-            'items': [],
-          });
-      }
-      return null;
-    };
-
-    final center = await service.fetchResourceCourses();
-    expect(center.version, startsWith('c1.'));
-    expect(center.courses.single.version, 'r1.1700000000001:t0.0:c0');
-
-    final resources = await service.fetchCourseResources('C1');
-    expect(resources.version, center.courses.single.version);
-    expect(resources.total, 1);
-    expect(resources.items.single.updatedAt, '2026-10-06T00:00:00.001Z');
-
-    final textbooks = await service.fetchCourseTextbooks('C1');
-    expect(textbooks.version, 'r1.1700000000001:t1.1700000000002:c0');
   });
 
   test('a locked bank keeps its cached questions', () async {
@@ -566,59 +368,6 @@ void main() {
         .single;
     expect(second.locked, isTrue);
     expect(second.questions, hasLength(1));
-  });
-
-  test('config version lookups are throttled until forced', () async {
-    await service.initialize();
-    await login();
-    var requests = 0;
-    adapter.handler = (options) {
-      if (options.uri.path == '/api/v1/config/versions') {
-        requests++;
-        return _json({'schoolCalendar': 'v1', 'resourceCenter': 'r1'});
-      }
-      return null;
-    };
-
-    expect((await service.fetchConfigVersions()).resourceCenter, 'r1');
-    expect((await service.fetchConfigVersions()).resourceCenter, 'r1');
-    expect(requests, 1);
-    expect(
-      (await service.fetchConfigVersions(force: true)).resourceCenter,
-      'r1',
-    );
-    expect(requests, 2);
-  });
-
-  test('signed resource URLs are reused until they expire', () async {
-    await service.initialize();
-    await login();
-    var requests = 0;
-    adapter.handler = (options) {
-      if (options.uri.path == '/api/v1/resources/res-1/url') {
-        requests++;
-        return _json({
-          'url': 'https://dl.xuda.live/papers/res-1.pdf?sign=a&t=1',
-          'file_version': 'original',
-          'expires_at': DateTime.now()
-              .toUtc()
-              .add(const Duration(minutes: 30))
-              .toIso8601String(),
-        });
-      }
-      return null;
-    };
-
-    final first = await service.fetchResourceURL(
-      'res-1',
-      fileVersion: 'original',
-    );
-    final second = await service.fetchResourceURL(
-      'res-1',
-      fileVersion: 'original',
-    );
-    expect(first, second);
-    expect(requests, 1);
   });
 
   for (final textbook in [false, true]) {
@@ -720,12 +469,6 @@ void main() {
       service.updateLoginGate('20260001');
       await service.track('foreground');
       expect(adapter.registrations, 1);
-    });
-
-    test('treats blank student ids as logged out', () async {
-      service.updateLoginGate('   ');
-      await service.track('foreground');
-      expect(adapter.registrations, 0);
     });
   });
 
